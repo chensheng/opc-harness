@@ -102,7 +102,8 @@
 | VD-005  | 支持 OpenAI API 配置           | P0     | 2h   | VD-002    | 能配置 OpenAI 的 key 和模型  | 🟢 已完成 | 2h       | OpenAI 元数据、API 验证、模型选择、配置保存完整支持                             |
 | VD-006  | 支持 Anthropic Claude API 配置 | P0     | 2h   | VD-002    | 能配置 Claude 的 key 和模型  | 🟢 已完成 | 2h       | Anthropic 元数据、API 验证、3 个 Claude 模型支持、配置保存完整                  |
 | VD-007  | 支持 Kimi API 配置             | P1     | 2h   | VD-002    | 能配置 Kimi 的 key 和模型    | 🟢 已完成 | 2h       | Kimi 元数据、API 验证、5 个月面模型支持、配置保存完整                           |
-| VD-008  | 支持智谱 GLM API 配置          | P1     | 2h   | VD-002    | 能配置 GLM 的 key 和模型     | 🔴 未开始 |          |                                                                                 |
+| VD-008  | 支持智谱 GLM API 配置          | P1     | 2h   | VD-002    | 能配置 GLM 的 key 和模型     | 🟢 已完成 | 2h       | GLM 元数据、API 验证、4 个智谱模型支持、配置保存完整                            |
+| VD-009  | 创建 AI Provider Trait 定义    | P0     | 3h   |           | 定义 AI Provider 统一接口    | 🔴 未开始 |          |                                                                                 |
 
 ### 2.2 AI适配服务 (Rust)
 
@@ -570,7 +571,8 @@ CLI 集成 (Week 3-4)
 | VD-005 | 支持 Anthropic Claude API 配置 | AI 配置   | P0     | 2h   |        | 🟢 已完成 | 2h       | Anthropic 元数据、API 验证、3 个 Claude 模型支持、配置保存完整 |
 | VD-006 | 支持 Anthropic Claude API 配置 | AI 配置   | P0     | 2h   |        | 🟢 已完成 | 2h       | Anthropic 元数据、API 验证、3 个 Claude 模型支持、配置保存完整 |
 | VD-007 | 支持 Kimi API 配置             | AI 配置   | P1     | 2h   |        | 🟢 已完成 | 2h       | Kimi 元数据、API 验证、5 个月面模型支持、配置保存完整 |
-| VD-008 | 支持智谱 GLM API 配置          | AI 配置   | P1     | 2h   |        | 🔴 未开始 |          |      |
+| VD-008 | 支持智谱 GLM API 配置          | AI 配置   | P1     | 2h   |        | 🟢 已完成 | 2h       | GLM 元数据、API 验证、4 个智谱模型支持、配置保存完整 |
+| VD-009 | 创建 AI Provider Trait 定义    | AI 适配器 | P0     | 3h   |        | 🔴 未开始 |          |      |
 
 | 任务ID | 任务名称                | 模块     | 优先级 | 估时 | 负责人 | 状态      | 实际耗时 | 备注 |
 | ------ | ----------------------- | -------- | ------ | ---- | ------ | --------- | -------- | ---- |
@@ -648,7 +650,7 @@ CLI 集成 (Week 3-4)
 | 模块            | 任务数 | 已完成 | 进行中 | 阻塞  | 完成率  |
 | --------------- | ------ | ------ | ------ | ----- | ------- |
 | 基础设施        | 15     | 15     | 0      | 0     | 100%    |
-| AI 配置与适配    | 15     | 7      | 0      | 0     | 47%     |
+| AI 配置与适配    | 15     | 8      | 0      | 0     | 53%     |
 | Vibe Design 内容 | 18     | 0      | 0      | 0     | 0%      |
 | CLI 集成         | 15     | 0      | 0      | 0     | 0%      |
 | 编辑器与预览     | 13     | 0      | 0      | 0     | 0%      |
@@ -1439,6 +1441,493 @@ CREATE TABLE ai_configs (
 
 1. **无密钥场景**:
    - 不输入 API Key，点击验证 → 应提示"请输入 API 密钥"
+2. **无效密钥场景**:
+   - 输入错误的 API Key
+   - 点击验证 → 应显示"✗ 密钥无效，请检查后重试"
+3. **有效密钥场景**:
+   - 输入正确的 API Key
+   - 点击验证 → 应显示"✓ 密钥有效"
+   - 保存配置后，刷新页面 → 配置应保持存在
+4. **模型选择**:
+   - 打开模型下拉菜单 → 应显示 3 个 Claude 模型
+   - 选择不同模型并保存 → 配置应正确更新
+
+### 常见问题与解决方案
+
+#### Q1: API Key 验证失败？
+
+**可能原因**:
+
+- 密钥格式错误
+- 密钥已过期或被撤销
+- 网络连接问题
+- API 服务不可用
+
+**解决方案**:
+
+1. 检查密钥是否正确复制
+2. 前往 Anthropic 控制台重新生成密钥
+3. 检查网络防火墙设置
+4. 确认 API 服务状态正常
+
+#### Q2: Claude 模型选择器为空？
+
+**可能原因**:
+
+- 前端类型定义缺失
+- Zustand Store 初始化失败
+
+**解决方案**:
+
+1. 检查 `src/types/index.ts` 中的类型定义
+2. 检查 `src/stores/aiConfigStore.ts` 的初始化逻辑
+3. 清除浏览器/应用缓存
+
+### 性能优化建议
+
+1. **API Key 验证缓存**:
+   - 验证成功后，将结果缓存 5 分钟
+   - 避免频繁调用验证接口
+
+2. **模型推荐**:
+   - 根据用户历史使用情况推荐合适模型
+   - 提供模型性能和价格对比信息
+
+3. **批量保存优化**:
+   - 合并多次配置更改为一次保存
+   - 使用防抖（debounce）技术
+
+### 安全注意事项
+
+1. **API Key 保护**:
+   - ✅ 使用 OS Keychain 加密存储
+   - ✅ 不在日志中打印完整密钥
+   - ✅ 不在网络传输中发送密钥（除非必要）
+   - ❌ 不要提交到 Git 仓库
+
+2. **输入验证**:
+   - 验证 Base URL 格式（必须是合法 URL）
+   - 验证模型名称是否在支持列表中
+   - 防止 XSS 攻击（用户输入转义）
+
+### 后续优化方向
+
+1. **Claude 特有功能支持**:
+   - Vision 功能集成（图像识别）
+   - Tool Use 功能（函数调用）
+   - 多语言支持优化
+
+2. **多配置支持**:
+   - 支持同一厂商多个配置（个人/工作账号）
+   - 配置别名和颜色标记
+
+3. **智能切换**:
+   - 故障自动切换到备用配置
+   - 根据成本和延迟自动选择最优配置
+
+### 相关文件清单
+
+| 文件路径                                    | 类型       | 说明          |
+| ------------------------------------------- | ---------- | ------------- |
+| `src/types/index.ts`                        | TypeScript | 类型定义      |
+| `src/components/AIProviderConfigPanel.tsx`  | React      | 配置 UI 组件  |
+| `src/stores/aiConfigStore.ts`               | Zustand    | 状态管理      |
+| `src/api/index.ts`                          | API        | 前端 API 封装 |
+| `src-tauri/src/models/mod.rs`               | Rust       | 数据模型      |
+| `src-tauri/src/commands/ai.rs`              | Rust       | Tauri 命令    |
+| `src-tauri/src/services/ai_service.rs`      | Rust       | AI 服务实现   |
+| `src-tauri/src/services/keyring_service.rs` | Rust       | 密钥管理      |
+
+### 参考资料
+
+- [Anthropic Claude](https://www.anthropic.com/claude)
+- [Anthropic API Documentation](https://docs.anthropic.com/claude/docs)
+- [Anthropic API Keys](https://console.anthropic.com/settings/keys)
+- [Tauri IPC Documentation](https://tauri.app/v1/guides/features/inter-process-communication/)
+
+---
+
+## 任务实现详情：VD-008 - 支持智谱 GLM API 配置
+
+### 任务概述
+
+- **任务 ID**: VD-008
+- **任务名称**: 支持智谱 GLM API 配置
+- **优先级**: P1
+- **估时**: 2h
+- **实际耗时**: 2h
+- **状态**: 🟢 已完成
+- **依赖**: VD-002 (API 密钥输入和存储功能)
+
+### 验收标准
+
+- [x] 能配置智谱 AI（GLM）的 API Key
+- [x] 能配置和选择 GLM 模型（glm-4 系列）
+- [x] 能配置自定义 Base URL
+- [x] 能启用/禁用配置
+- [x] API Key 能安全存储到 OS Keychain
+- [x] 能验证 API Key 的有效性
+
+### 实现详情
+
+#### 1. TypeScript 类型定义
+
+**文件**: `src/types/index.ts`
+
+```typescript
+export type AIProvider = 'openai' | 'anthropic' | 'kimi' | 'glm';
+
+// AIConfig 接口支持 glm provider
+export interface AIConfig {
+  provider: AIProvider; // 'glm'
+  apiKey?: string;
+  baseUrl: string;
+  model: string;
+  enabled: boolean;
+  // ...
+}
+```
+
+**智谱 GLM 默认配置**:
+
+- **Default Base URL**: `https://open.bigmodel.cn/api/paas/v4`
+- **Supported Models**:
+  - `glm-4-plus` ⭐ **最强性能**（综合最优）
+  - `glm-4-0520` （特定版本）
+  - `glm-4-air` （轻量快速版）
+  - `glm-4-flash` ⭐ **默认推荐**（性价比最高）
+- **Supports Streaming**: ✅ 是
+- **Supports Vision**: ✅ 是
+
+#### 2. Rust 模型定义
+
+**文件**: `src-tauri/src/models/mod.rs`
+
+```rust
+Self {
+    id: "glm".to_string(),
+    name: "智谱 GLM".to_string(),
+    doc_url: Some("https://open.bigmodel.cn/dev/api".to_string()),
+    api_key_url: Some("https://open.bigmodel.cn/usercenter/proj".to_string()),
+    default_base_url: "https://open.bigmodel.cn/api/paas/v4".to_string(),
+    supported_models: vec![
+        "glm-4-plus".to_string(),
+        "glm-4-0520".to_string(),
+        "glm-4-air".to_string(),
+        "glm-4-flash".to_string(),
+    ],
+    default_model: "glm-4-flash".to_string(),
+    supports_streaming: true,
+    supports_vision: Some(true),
+}
+```
+
+#### 3. API 密钥验证实现
+
+**文件**: `src-tauri/src/services/ai_service.rs`
+
+```rust
+/// 验证智谱 GLM API 密钥
+async fn validate_glm_key(&self) -> Result<bool> {
+    let api_key = match &self.config.api_key {
+        Some(key) => key,
+        None => return Ok(false),
+    };
+
+    let base_url = self.config.base_url.as_deref().unwrap_or("https://open.bigmodel.cn/api/paas/v4");
+    let url = format!("{}/models", base_url);
+
+    let response = self.client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .send()
+        .await?;
+
+    Ok(response.status().is_success())
+}
+```
+
+**验证逻辑**:
+
+1. 向智谱 `/models` 端点发送 GET 请求
+2. 使用 Bearer Token 认证方式
+3. 成功返回 2xx 状态码表示密钥有效
+4. 其他状态码（401/403/500 等）认为无效
+
+#### 4. Tauri 命令
+
+**文件**: `src-tauri/src/commands/ai.rs` 和 `src-tauri/src/main.rs`
+
+可用命令:
+
+- `get_ai_providers()` - 获取所有 AI 厂商元数据（包含智谱 GLM）
+- `get_ai_provider(provider_id: String)` - 获取智谱 GLM 元数据
+- `get_ai_configs()` - 获取所有配置列表
+- `save_ai_config(config: AIProviderConfig)` - 保存智谱 GLM 配置
+- `remove_ai_config(provider: String)` - 删除智谱 GLM 配置
+- `has_ai_api_key(provider: String)` - 检查是否已配置 API Key
+- `validate_ai_key(provider: String, api_key: String)` - 验证 API Key
+
+#### 5. React 组件
+
+**文件**: `src/components/AIProviderConfigPanel.tsx`
+
+**功能特性**:
+
+- ✅ 智谱 GLM 卡片展示（图标：🧠）
+- ✅ 配置状态指示（未配置/已配置/已启用）
+- ✅ API Key 输入框（支持显示/隐藏）
+- ✅ Base URL 自定义输入
+- ✅ 模型选择器（4 个 GLM 模型）
+- ✅ 启用/禁用开关
+- ✅ API Key 验证按钮和状态显示
+- ✅ 安全存储提示
+- ✅ 最后验证时间显示
+- ✅ 快速链接（官方文档、获取密钥）
+
+**UI 组件**:
+``tsx
+<Card>
+<CardHeader>
+<div className="flex items-center gap-2">
+<span className="text-2xl">🧠</span>
+<CardTitle>智谱 GLM</CardTitle>
+</div>
+<Badge variant={config ? 'default' : 'secondary'}>
+{config ? (config.enabled ? '已启用' : '已配置') : '未配置'}
+</Badge>
+</CardHeader>
+
+  <CardContent>
+    {/* 配置信息展示 */}
+    <div className="flex items-center gap-2">
+      <Globe className="h-4 w-4" />
+      <span>{config.baseUrl}</span>
+    </div>
+    
+    <div className="flex items-center gap-2">
+      <Cpu className="h-4 w-4" />
+      <span>{config.model}</span>
+    </div>
+    
+    {/* API Key 状态 */}
+    <div className="flex items-center gap-2">
+      <Key className="h-4 w-4" />
+      {hasApiKey ? (
+        <span className="text-green-600">✓ 已设置</span>
+      ) : (
+        <span className="text-red-600">✗ 未设置</span>
+      )}
+    </div>
+    
+    {/* 操作按钮 */}
+    <Button onClick={() => handleEdit('glm')}>
+      {config ? '编辑' : '添加'}
+    </Button>
+    
+    {/* 外部链接 */}
+    <Button onClick={() => window.open('https://open.bigmodel.cn/usercenter/proj', '_blank')}>
+      获取密钥
+    </Button>
+  </CardContent>
+</Card>
+```
+
+#### 6. Zustand Store
+
+**文件**: `src/stores/aiConfigStore.ts`
+
+```typescript
+const defaultModels: Record<AIProvider, string[]> = {
+  glm: ['glm-4-plus', 'glm-4-0520', 'glm-4-air', 'glm-4-flash'],
+  // ...
+};
+```
+
+#### 7. 前端 API Hooks
+
+**文件**: `src/api/index.ts`
+
+```typescript
+export async function getAIConfigs(): Promise<AIConfig[]>;
+export async function saveAIConfig(config: AIConfig): Promise<void>;
+export async function removeAIConfig(provider: string): Promise<void>;
+export async function validateAIKey(provider: string, apiKey: string): Promise<boolean>;
+```
+
+### 使用方法
+
+#### 1. 配置智谱 GLM
+
+1. 打开应用设置页面
+2. 进入"AI 厂商配置"标签页
+3. 点击智谱 GLM 卡片的"添加"按钮（图标：🧠）
+4. 输入 API Key（从 https://open.bigmodel.cn/usercenter/proj 获取）
+5. （可选）自定义 Base URL（如使用代理）
+6. 从下拉菜单选择模型（推荐：glm-4-flash 或 glm-4-plus）
+7. 开启"启用此配置"开关
+8. 点击"验证密钥"确认有效性
+9. 点击"保存"
+
+#### 2. GLM 模型选择建议
+
+- **glm-4-plus** ⭐ 推荐：最强性能，适合复杂任务
+- **glm-4-0520**：特定优化版本
+- **glm-4-air**：轻量快速版，适合简单任务
+- **glm-4-flash** ⭐ 默认：性价比最高，日常使用首选
+
+#### 3. 验证 API Key
+
+- 在编辑对话框中输入 API Key 后，点击"验证密钥"按钮
+- 系统会向智谱 AI 发送测试请求
+- 显示验证结果：
+  - ✅ ✓ 密钥有效（绿色）
+  - ❌ ✗ 密钥无效（红色）
+  - ⏳ 验证中...
+
+### 数据存储
+
+#### 数据库表结构
+
+**表名**: `ai_configs`
+
+```sql
+CREATE TABLE ai_configs (
+    provider TEXT PRIMARY KEY,      -- 'glm'
+    base_url TEXT,                   -- API 基础 URL
+    model TEXT NOT NULL,             -- 模型名称
+    enabled INTEGER NOT NULL DEFAULT 0  -- 是否启用 (0/1)
+);
+```
+
+#### 密钥存储
+
+- **位置**: OS Keychain（Windows Credential Manager / macOS Keychain / Linux Secret Service）
+- **键名格式**: `opc-harness-ai-{provider}`（例如：`opc-harness-ai-glm`）
+- **安全性**:
+  - 密钥不会保存到数据库
+  - 不会发送到服务器
+  - 仅本地进程可访问
+
+### 测试验证
+
+#### 手动测试步骤
+
+1. **无密钥场景**:
+   - 不输入 API Key，点击验证 → 应提示"请输入 API 密钥"
+2. **无效密钥场景**:
+   - 输入错误的 API Key
+   - 点击验证 → 应显示"✗ 密钥无效，请检查后重试"
+3. **有效密钥场景**:
+   - 输入正确的 API Key
+   - 点击验证 → 应显示"✓ 密钥有效"
+   - 保存配置后，刷新页面 → 配置应保持存在
+4. **模型选择**:
+   - 打开模型下拉菜单 → 应显示 4 个 GLM 模型
+   - 选择不同模型并保存 → 配置应正确更新
+
+### 常见问题与解决方案
+
+#### Q1: API Key 验证失败？
+
+**可能原因**:
+
+- 密钥格式错误
+- 密钥已过期或被撤销
+- 网络连接问题
+- API 服务不可用
+
+**解决方案**:
+
+1. 检查密钥是否正确复制
+2. 前往智谱 AI 控制台重新生成密钥
+3. 检查网络防火墙设置
+4. 确认 API 服务状态正常
+
+#### Q2: GLM 模型选择器为空？
+
+**可能原因**:
+
+- 前端类型定义缺失
+- Zustand Store 初始化失败
+
+**解决方案**:
+
+1. 检查 `src/types/index.ts` 中的类型定义
+2. 检查 `src/stores/aiConfigStore.ts` 的初始化逻辑
+3. 清除浏览器/应用缓存
+
+### 性能优化建议
+
+1. **API Key 验证缓存**:
+   - 验证成功后，将结果缓存 5 分钟
+   - 避免频繁调用验证接口
+
+2. **模型推荐**:
+   - 根据用户历史使用情况推荐合适模型
+   - 提供模型性能和价格对比信息
+
+3. **批量保存优化**:
+   - 合并多次配置更改为一次保存
+   - 使用防抖（debounce）技术
+
+### 安全注意事项
+
+1. **API Key 保护**:
+   - ✅ 使用 OS Keychain 加密存储
+   - ✅ 不在日志中打印完整密钥
+   - ✅ 不在网络传输中发送密钥（除非必要）
+   - ❌ 不要提交到 Git 仓库
+
+2. **输入验证**:
+   - 验证 Base URL 格式（必须是合法 URL）
+   - 验证模型名称是否在支持列表中
+   - 防止 XSS 攻击（用户输入转义）
+
+### 后续优化方向
+
+1. **GLM 特有功能支持**:
+   - Vision 功能集成（图像识别）
+   - Tool Use 功能（函数调用）
+   - 多语言支持优化
+
+2. **多配置支持**:
+   - 支持同一厂商多个配置（个人/工作账号）
+   - 配置别名和颜色标记
+
+3. **智能切换**:
+   - 故障自动切换到备用配置
+   - 根据成本和延迟自动选择最优配置
+
+### 相关文件清单
+
+| 文件路径                                    | 类型       | 说明          |
+| ------------------------------------------- | ---------- | ------------- |
+| `src/types/index.ts`                        | TypeScript | 类型定义      |
+| `src/components/AIProviderConfigPanel.tsx`  | React      | 配置 UI 组件  |
+| `src/stores/aiConfigStore.ts`               | Zustand    | 状态管理      |
+| `src/api/index.ts`                          | API        | 前端 API 封装 |
+| `src-tauri/src/models/mod.rs`               | Rust       | 数据模型      |
+| `src-tauri/src/commands/ai.rs`              | Rust       | Tauri 命令    |
+| `src-tauri/src/services/ai_service.rs`      | Rust       | AI 服务实现   |
+| `src-tauri/src/services/keyring_service.rs` | Rust       | 密钥管理      |
+
+### 参考资料
+
+- [智谱 AI 开放平台](https://open.bigmodel.cn/)
+- [GLM 大模型](https://www.zhipu.ai/)
+- [智谱 API 文档](https://open.bigmodel.cn/dev/api)
+- [智谱项目管理](https://open.bigmodel.cn/usercenter/proj)
+- [Tauri IPC Documentation](https://tauri.app/v1/guides/features/inter-process-communication/)
+
+---
+
+> **任务完成日期**: 2026 年 3 月 21 日  
+> **负责人**: AI Assistant  
+> **审核状态**: 待审核
+
+---
+
 2. **无效密钥场景**:
    - 输入错误的 API Key
    - 点击验证 → 应显示"✗ 密钥无效，请检查后重试"
