@@ -120,7 +120,7 @@ export function usePRDStream(): UsePRDStreamState & UsePRDStreamActions {
     }
 
     // 重置状态
-    resetStream();
+    reset();
     setIsGenerating(true);
     setError(null);
     setProgress(0);
