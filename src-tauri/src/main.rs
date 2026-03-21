@@ -55,6 +55,8 @@ fn main() {
             remove_ai_config,
             validate_ai_key,
             generate_prd,
+            has_ai_api_key,
+            get_ai_key_status,
 
             // Project commands
             create_project,
