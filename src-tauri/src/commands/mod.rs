@@ -135,7 +135,7 @@ pub async fn create_project(name: String, description: Option<String>) -> Result
     
     Ok(Project {
         id,
-        name,
+        name: name.clone(),
         description: description.unwrap_or_default(),
         created_at: now.clone(),
         updated_at: now,

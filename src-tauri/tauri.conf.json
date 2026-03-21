@@ -36,10 +36,7 @@
             "core:default",
             "shell:allow-open",
             "shell:allow-execute",
-            "fs:allow-read",
-            "fs:allow-write",
-            "fs:allow-read-dir",
-            "fs:allow-create-dir",
+            "fs:default",
             "dialog:allow-open",
             "dialog:allow-save",
             "notification:default"
@@ -51,7 +48,6 @@
       "id": "main",
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
-      "menu": false,
       "tooltip": "OPC-HARNESS",
       "title": "OPC-HARNESS"
     }

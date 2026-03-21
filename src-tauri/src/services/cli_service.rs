@@ -66,8 +66,10 @@ impl CLIService {
         let (stderr_tx, stderr_rx) = mpsc::channel(100);
 
         // 启动输出读取任务
-        Self::spawn_output_reader(stdout, stdout_tx);
-        Self::spawn_output_reader(stderr, stderr_tx);
+        let stdout_reader = BufReader::new(stdout);
+        let stderr_reader = BufReader::new(stderr);
+        Self::spawn_output_reader(stdout_reader, stdout_tx);
+        Self::spawn_output_reader(stderr_reader, stderr_tx);
 
         let session = CLISession {
             id: session_id.clone(),

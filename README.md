@@ -56,30 +56,55 @@ opc-harness/
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 安装Rust环境 (首次使用)
+
+**Windows:**
+```powershell
+# 以管理员身份运行 PowerShell
+winget install Rustlang.Rustup
+winget install Microsoft.EdgeWebView2Runtime
+winget install Microsoft.VisualStudio.2022.BuildTools
+
+# 重启终端后验证
+rustc --version  # 应 >= 1.70.0
+cargo --version
+```
+
+> 详细安装说明请参考: [Rust安装与启动指南](docs/Rust安装与启动指南.md)
+
+### 2. 使用一键启动脚本
+
+```powershell
+# 检查环境
+.\scripts\setup-and-run.ps1 -Check
+
+# 启动开发服务器
+.\scripts\setup-and-run.ps1 -Dev
+
+# 构建发布版本
+.\scripts\setup-and-run.ps1 -Build
+```
+
+### 3. 手动启动
 
 ```bash
 # 安装前端依赖
 npm install
 
-# 安装Rust依赖（会自动执行）
-cd src-tauri
-cargo build
-```
-
-### 2. 开发模式运行
-
-```bash
-# 同时启动前端和后端
+# 启动Tauri开发服务器
 npm run tauri:dev
 ```
 
-### 3. 构建发布版本
+### 4. 构建发布版本
 
 ```bash
 # 构建生产版本
 npm run tauri:build
 ```
+
+**构建输出位置:**
+- Windows安装包: `src-tauri/target/release/bundle/msi/`
+- 可执行文件: `src-tauri/target/release/opc-harness.exe`
 
 ## 功能模块
 

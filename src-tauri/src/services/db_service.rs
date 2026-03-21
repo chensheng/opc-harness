@@ -4,7 +4,7 @@
 
 use crate::models::{Project, ProjectStatus};
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::PathBuf;
 
 /// 数据库服务
