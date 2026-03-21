@@ -489,4 +489,51 @@ mod tests {
         ).unwrap();
         assert_eq!(config_count, 4, "Default AI configs should be restored");
     }
+
+    #[test]
+    fn test_initialize_database() {
+        let conn = Connection::open_in_memory().unwrap();
+        
+        // Test full initialization
+        initialize_database(&conn).expect("Failed to initialize database");
+        
+        // Verify tables exist
+        let table_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert!(table_count > 0, "Tables should be created");
+        
+        // Verify default AI configs
+        let config_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM ai_configs",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(config_count, 4, "Should have 4 default AI configs");
+        
+        // Verify default settings
+        let setting_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM settings",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(setting_count, 4, "Should have 4 default settings");
+        
+        // Verify specific settings exist
+        let theme: String = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'theme'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(theme, "system", "Default theme should be 'system'");
+        
+        let language: String = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'language'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(language, "zh-CN", "Default language should be 'zh-CN'");
+    }
 }

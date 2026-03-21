@@ -37,7 +37,8 @@ pub fn init_db(app_dir: PathBuf) -> SqliteResult<Connection> {
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     
     // Enable WAL mode for better concurrency
-    conn.execute("PRAGMA journal_mode = WAL", [])?;
+    // Note: PRAGMA journal_mode returns a result, so we use query_row instead of execute
+    conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
     
     // Initialize database (migrations + default data)
     migrations::initialize_database(&conn)?;
