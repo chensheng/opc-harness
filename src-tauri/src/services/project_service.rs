@@ -1,7 +1,8 @@
 //! Project service
 
-use crate::models::{Project, ProjectStatus};
+use crate::models::{PrdDocument, Project, ProjectStatus};
 use anyhow::{Context, Result};
+use rusqlite::OptionalExtension;
 use std::sync::{Arc, Mutex};
 
 pub struct ProjectService {
@@ -171,6 +172,104 @@ impl ProjectService {
         db.execute("DELETE FROM projects WHERE id = ?1", [id])
             .context("Failed to delete project")?;
         Ok(())
+    }
+
+    // ============================================================
+    // VD-021: PRD Management Methods
+    // ============================================================
+
+    /// Save PRD to database
+    pub fn save_prd(&self, prd: &PrdDocument) -> Result<()> {
+        let db = self.db.lock().unwrap();
+        db.execute(
+            "INSERT OR REPLACE INTO prds (id, project_id, content, version, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![
+                prd.id,
+                prd.project_id,
+                prd.content,
+                prd.version,
+                prd.created_at,
+                prd.updated_at,
+            ],
+        )
+        .context("Failed to save PRD")?;
+        Ok(())
+    }
+
+    /// Get PRD by ID
+    pub fn get_prd(&self, id: &str) -> Result<Option<PrdDocument>> {
+        let db = self.db.lock().unwrap();
+        let mut stmt = db
+            .prepare("SELECT id, project_id, content, version, created_at, updated_at FROM prds WHERE id = ?1")
+            .context("Failed to prepare statement")?;
+
+        let prd = stmt
+            .query_row([id], |row| {
+                Ok(PrdDocument {
+                    id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    content: row.get(2)?,
+                    version: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            })
+            .optional()
+            .context("Failed to query PRD")?;
+
+        Ok(prd)
+    }
+
+    /// Get latest PRD for a project
+    pub fn get_latest_prd(&self, project_id: &str) -> Result<Option<PrdDocument>> {
+        let db = self.db.lock().unwrap();
+        let mut stmt = db
+            .prepare("SELECT id, project_id, content, version, created_at, updated_at FROM prds WHERE project_id = ?1 ORDER BY version DESC LIMIT 1")
+            .context("Failed to prepare statement")?;
+
+        let prd = stmt
+            .query_map([project_id], |row| {
+                Ok(PrdDocument {
+                    id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    content: row.get(2)?,
+                    version: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            })
+            .context("Failed to query PRD")?
+            .next()
+            .transpose()
+            .context("Failed to parse PRD")?;
+
+        Ok(prd)
+    }
+
+    /// Get all PRDs for a project
+    pub fn get_prds_by_project(&self, project_id: &str) -> Result<Vec<PrdDocument>> {
+        let db = self.db.lock().unwrap();
+        let mut stmt = db
+            .prepare("SELECT id, project_id, content, version, created_at, updated_at FROM prds WHERE project_id = ?1 ORDER BY version DESC")
+            .context("Failed to prepare statement")?;
+
+        let prds = stmt
+            .query_map([project_id], |row| {
+                Ok(PrdDocument {
+                    id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    content: row.get(2)?,
+                    version: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            })
+            .context("Failed to query PRDs")?
+            .collect::<Result<Vec<_>, _>>()
+            .context("Failed to collect PRDs")?;
+
+        Ok(prds)
     }
 }
 

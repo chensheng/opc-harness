@@ -101,6 +101,12 @@ fn main() {
             // VD-015 Streaming support
             ai_stream_chat,
 
+            // VD-021 PRD save functionality
+            save_prd,
+            get_prd,
+            get_latest_prd,
+            get_prds_by_project,
+
             // Project commands
             create_project,
             get_projects,

@@ -210,3 +210,55 @@ export async function withErrorHandling<T>(fn: () => Promise<T>, errorMessage: s
     throw new APIError(errorMessage, 'API_ERROR', error);
   }
 }
+
+// ============================================================================
+// VD-021: PRD Save Functionality
+// ============================================================================
+
+/**
+ * PRD Document type
+ */
+export interface PRDDocument {
+  id: string;
+  project_id: string;
+  content: string;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/**
+ * Save PRD to database and local file
+ */
+export async function savePRD(
+  projectId: string,
+  content: string,
+  version?: number
+): Promise<PRDDocument> {
+  return invoke('save_prd', {
+    projectId,
+    content,
+    version,
+  });
+}
+
+/**
+ * Get PRD by ID
+ */
+export async function getPRD(prdId: string): Promise<PRDDocument | null> {
+  return invoke('get_prd', { prdId });
+}
+
+/**
+ * Get latest PRD for a project
+ */
+export async function getLatestPRD(projectId: string): Promise<PRDDocument | null> {
+  return invoke('get_latest_prd', { projectId });
+}
+
+/**
+ * Get all PRDs for a project (all versions)
+ */
+export async function getPRDsByProject(projectId: string): Promise<PRDDocument[]> {
+  return invoke('get_prds_by_project', { projectId });
+}

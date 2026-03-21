@@ -2,18 +2,11 @@ import { useState } from 'react';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { PRDDisplay } from './PRDDisplay';
 import { usePRDStream } from '../hooks/usePRDStream';
-
-interface PRDResult {
-  prd: string;
-  idea: string;
-  generatedAt: string;
-}
+import { savePRD as savePRDApi } from '@/api';
 
 export function IdeaInput() {
   const [idea, setIdea] = useState('');
-  const [prdResult, setPrdResult] = useState<PRDResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   // 使用 PRD 流式生成 hook
   const {
     isGenerating,
@@ -33,26 +26,33 @@ export function IdeaInput() {
       // 使用流式生成
       await streamGeneratePRD(idea);
 
-      // 生成完成后保存结果
-      setPrdResult({
-        prd: '', // prd 由 hook 管理
-        idea,
-        generatedAt: new Date().toISOString(),
-      });
+      // 生成完成后设置状态
     } catch (err) {
       setError(err instanceof Error ? err.message : '生成 PRD 失败');
     }
   };
 
   const handleSave = async () => {
-    if (!prdResult) return;
-    // TODO: 保存到数据库
-    alert('PRD 已保存（功能待实现）');
+    if (!prd || !idea.trim()) return;
+
+    try {
+      // TODO: 需要创建项目后才能保存，这里先使用一个临时项目 ID
+      // VD-021: 实际应该先创建项目，然后关联 PRD
+      const tempProjectId = 'temp-project-' + new Date().toISOString().split('T')[0];
+
+      await savePRDApi(tempProjectId, prd);
+
+      alert('✅ PRD 已成功保存到数据库和本地文件！');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '保存 PRD 失败';
+      console.error('Failed to save PRD:', err);
+      alert(`❌ 保存失败：${errorMessage}`);
+    }
   };
 
   const handleExport = () => {
-    if (!prdResult) return;
-    const blob = new Blob([prdResult.prd], { type: 'text/markdown' });
+    if (!prd) return;
+    const blob = new Blob([prd], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -110,11 +110,12 @@ export function IdeaInput() {
       </div>
 
       {/* PRD 展示区域 */}
-      {prdResult && (
+      {/* 展示 PRD 内容 */}
+      {(isGenerating || prd) && (
         <PRDDisplay
-          prd={prd} // 使用 hook 中的 prd
-          idea={prdResult.idea}
-          generatedAt={prdResult.generatedAt}
+          prd={prd}
+          idea={idea}
+          generatedAt={new Date().toISOString()}
           onSave={handleSave}
           onExport={handleExport}
           isStreaming={isGenerating}

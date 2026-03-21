@@ -2,7 +2,7 @@
 //!
 //! 提供SQLite数据库访问
 
-use crate::models::{Project, ProjectStatus};
+use crate::models::{Project, ProjectStatus, PrdDocument};
 use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::PathBuf;
@@ -225,5 +225,95 @@ impl DBService {
         let mut stmt = self.conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
         let value = stmt.query_row([key], |row| row.get(0)).optional()?;
         Ok(value)
+    }
+
+    // PRD 相关操作
+
+    /// 保存 PRD 到数据库
+    pub fn save_prd(&self, prd: &PrdDocument) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        self.conn.execute(
+            "INSERT OR REPLACE INTO prds (id, project_id, content, version, created_at, updated_at) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                prd.id,
+                prd.project_id,
+                prd.content,
+                prd.version,
+                prd.created_at,
+                now,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// 获取项目的 PRD 列表
+    pub fn get_prds_by_project(&self, project_id: &str) -> Result<Vec<PrdDocument>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, project_id, content, version, created_at, updated_at 
+             FROM prds WHERE project_id = ?1 ORDER BY version DESC"
+        )?;
+
+        let prds = stmt.query_map([project_id], |row| {
+            Ok(PrdDocument {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                content: row.get(2)?,
+                version: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(prds)
+    }
+
+    /// 获取最新版本的 PRD
+    pub fn get_latest_prd(&self, project_id: &str) -> Result<Option<PrdDocument>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, project_id, content, version, created_at, updated_at 
+             FROM prds WHERE project_id = ?1 ORDER BY version DESC LIMIT 1"
+        )?;
+
+        let prd = stmt.query_row([project_id], |row| {
+            Ok(PrdDocument {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                content: row.get(2)?,
+                version: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        }).optional()?;
+
+        Ok(prd)
+    }
+
+    /// 根据 ID 获取 PRD
+    pub fn get_prd(&self, id: &str) -> Result<Option<PrdDocument>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, project_id, content, version, created_at, updated_at 
+             FROM prds WHERE id = ?1"
+        )?;
+
+        let prd = stmt.query_row([id], |row| {
+            Ok(PrdDocument {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                content: row.get(2)?,
+                version: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        }).optional()?;
+
+        Ok(prd)
+    }
+
+    /// 删除 PRD
+    pub fn delete_prd(&self, id: &str) -> Result<()> {
+        self.conn.execute("DELETE FROM prds WHERE id = ?1", [id])?;
+        Ok(())
     }
 }

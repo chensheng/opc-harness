@@ -359,3 +359,105 @@ pub async fn ai_stream_chat(
     services.ai.stream_chat(&provider, messages, callback).await
         .map_err(|e| format!("Stream chat failed: {}", e))
 }
+
+// ============================================================
+// VD-021: PRD 保存功能
+// ============================================================
+
+use crate::models::PrdDocument;
+use std::path::PathBuf;
+
+/// Save PRD to database and local file (VD-021)
+/// 保存 PRD 到数据库和本地文件
+#[tauri::command]
+pub async fn save_prd(
+    services: State<'_, Services>,
+    project_id: String,
+    content: String,
+    version: Option<i32>,
+) -> Result<PrdDocument, String> {
+    // 1. 获取项目信息，验证项目是否存在
+    let project = services.project.get_project(&project_id)
+        .map_err(|e| format!("Failed to get project: {}", e))?;
+    
+    if project.is_none() {
+        return Err(format!("Project not found: {}", project_id));
+    }
+    
+    let project = project.unwrap();
+    
+    // 2. 检查是否已有 PRD，如果有则创建新版本
+    let existing_prd = services.project.get_latest_prd(&project_id)
+        .map_err(|e| format!("Failed to get existing PRD: {}", e))?;
+    
+    let prd = match (existing_prd, version) {
+        (Some(existing), Some(v)) if v == existing.version => {
+            // 更新现有版本
+            let mut updated_prd = existing;
+            updated_prd.content = content;
+            updated_prd.updated_at = chrono::Utc::now().timestamp();
+            updated_prd
+        }
+        (Some(existing), _) => {
+            // 创建新版本
+            existing.new_version(&content)
+        }
+        _ => {
+            // 创建新 PRD
+            PrdDocument::new(&project_id, &content)
+        }
+    };
+    
+    // 3. 保存到数据库
+    services.project.save_prd(&prd)
+        .map_err(|e| format!("Failed to save PRD to database: {}", e))?;
+    
+    // 4. 保存到本地文件
+    if let Some(project_path) = &project.path {
+        let prd_dir = PathBuf::from(project_path).join(".opc-harness");
+        std::fs::create_dir_all(&prd_dir)
+            .map_err(|e| format!("Failed to create PRD directory: {}", e))?;
+        
+        let prd_file_path = prd_dir.join("prd.md");
+        crate::utils::save_to_file(&prd_file_path, &prd.content)
+            .map_err(|e| format!("Failed to save PRD to file: {}", e))?;
+        
+        log::info!("PRD saved to file: {:?}", prd_file_path);
+    }
+    
+    log::info!("PRD saved successfully: id={}, version={}", prd.id, prd.version);
+    Ok(prd)
+}
+
+/// Get PRD by ID (VD-021)
+/// 根据 ID 获取 PRD
+#[tauri::command]
+pub fn get_prd(
+    services: State<'_, Services>,
+    prd_id: String,
+) -> Result<Option<PrdDocument>, String> {
+    services.project.get_prd(&prd_id)
+        .map_err(|e| format!("Failed to get PRD: {}", e))
+}
+
+/// Get latest PRD for project (VD-021)
+/// 获取项目的最新 PRD
+#[tauri::command]
+pub fn get_latest_prd(
+    services: State<'_, Services>,
+    project_id: String,
+) -> Result<Option<PrdDocument>, String> {
+    services.project.get_latest_prd(&project_id)
+        .map_err(|e| format!("Failed to get latest PRD: {}", e))
+}
+
+/// Get all PRDs for project (VD-021)
+/// 获取项目的所有 PRD 历史版本
+#[tauri::command]
+pub fn get_prds_by_project(
+    services: State<'_, Services>,
+    project_id: String,
+) -> Result<Vec<PrdDocument>, String> {
+    services.project.get_prds_by_project(&project_id)
+        .map_err(|e| format!("Failed to get PRDs: {}", e))
+}

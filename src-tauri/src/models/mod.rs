@@ -322,3 +322,54 @@ impl Default for AppSettings {
         }
     }
 }
+
+/// PRD document model
+/// VD-021: PRD 文档数据结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrdDocument {
+    /// PRD 唯一标识
+    pub id: String,
+    
+    /// 关联的项目 ID
+    pub project_id: String,
+    
+    /// PRD 内容（Markdown 格式）
+    pub content: String,
+    
+    /// 版本号
+    pub version: i32,
+    
+    /// 创建时间戳
+    pub created_at: i64,
+    
+    /// 更新时间戳
+    pub updated_at: i64,
+}
+
+impl PrdDocument {
+    /// 创建新的 PRD 文档
+    pub fn new(project_id: &str, content: &str) -> Self {
+        let now = chrono::Utc::now().timestamp();
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            project_id: project_id.to_string(),
+            content: content.to_string(),
+            version: 1,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+    
+    /// 创建新版本
+    pub fn new_version(&self, content: &str) -> Self {
+        let now = chrono::Utc::now().timestamp();
+        Self {
+            id: self.id.clone(),
+            project_id: self.project_id.clone(),
+            content: content.to_string(),
+            version: self.version + 1,
+            created_at: self.created_at,
+            updated_at: now,
+        }
+    }
+}

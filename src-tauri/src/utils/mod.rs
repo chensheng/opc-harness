@@ -43,3 +43,50 @@ pub fn truncate(s: &str, max_len: usize) -> String {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     }
 }
+
+/// Save content to file
+/// VD-021: 保存内容到本地文件
+pub fn save_to_file(path: &PathBuf, content: &str) -> Result<(), std::io::Error> {
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    
+    // Write content to file
+    std::fs::write(path, content)?;
+    
+    log::info!("Saved file: {:?}", path);
+    Ok(())
+}
+
+/// Read content from file
+pub fn read_from_file(path: &PathBuf) -> Result<String, std::io::Error> {
+    let content = std::fs::read_to_string(path)?;
+    Ok(content)
+}
+
+/// Append content to file
+pub fn append_to_file(path: &PathBuf, content: &str) -> Result<(), std::io::Error> {
+    use std::io::Write;
+    
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    
+    // Append content to file
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    
+    file.write_all(content.as_bytes())?;
+    
+    log::info!("Appended to file: {:?}", path);
+    Ok(())
+}
+
+/// Check if file exists
+pub fn file_exists(path: &PathBuf) -> bool {
+    path.exists()
+}
