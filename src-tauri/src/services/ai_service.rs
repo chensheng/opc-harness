@@ -124,14 +124,14 @@ impl AIService {
         }
     }
 
-    /// 验证智谱 GLM API 密钥
-    async fn validate_glm_key(&self) -> Result<bool> {
+    /// 验证 Kimi API 密钥
+    async fn validate_kimi_key(&self) -> Result<bool> {
         let api_key = match &self.config.api_key {
             Some(key) => key,
             None => return Ok(false),
         };
 
-        let base_url = self.config.base_url.as_deref().unwrap_or("https://open.bigmodel.cn/api/paas/v4");
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.moonshot.cn/v1");
         let url = format!("{}/models", base_url);
 
         let response = self.client
@@ -143,14 +143,14 @@ impl AIService {
         Ok(response.status().is_success())
     }
 
-    /// 验证 Kimi API 密钥
-    async fn validate_kimi_key(&self) -> Result<bool> {
+    /// 验证智谱 GLM API 密钥
+    async fn validate_glm_key(&self) -> Result<bool> {
         let api_key = match &self.config.api_key {
             Some(key) => key,
             None => return Ok(false),
         };
 
-        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.moonshot.cn/v1");
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://open.bigmodel.cn/api/paas/v4");
         let url = format!("{}/models", base_url);
 
         let response = self.client
@@ -902,6 +902,223 @@ PRD 应包含以下内容：
         
         self.chat_claude(all_messages).await
     }
+    
+    // ========== GLM (智谱) API 实现 ==========
+    
+    /// GLM 聊天对话 - 智谱 AI API
+    pub async fn chat_glm(&self, messages: Vec<serde_json::Value>) -> Result<String> {
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
+        
+        let base_url = self.config.base_url.clone()
+            .unwrap_or_else(|| "https://open.bigmodel.cn/api/paas/v4".to_string());
+        
+        let model = if self.config.model.is_empty() {
+            "glm-4-flash".to_string()
+        } else {
+            self.config.model.clone()
+        };
+        
+        let url = format!("{}/chat/completions", base_url);
+        
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+            "stream": false
+        });
+        
+        log::info!("Sending GLM chat request to: {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(30))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send request to GLM API")?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("GLM API error: {}", error_text));
+        }
+        
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse GLM API response")?;
+        
+        // 解析响应
+        result["choices"][0]["message"]["content"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("Invalid response format from GLM API"))
+    }
+
+    /// GLM 流式聊天 - SSE
+    pub async fn stream_chat_glm(
+        &self,
+        messages: Vec<serde_json::Value>,
+        callback: Box<dyn Fn(String) + Send + Sync>,
+    ) -> Result<()> {
+        use eventsource_stream::Eventsource;
+        use futures::StreamExt;
+        
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
+        
+        let base_url = self.config.base_url.clone()
+            .unwrap_or_else(|| "https://open.bigmodel.cn/api/paas/v4".to_string());
+        
+        let model = if self.config.model.is_empty() {
+            "glm-4-flash".to_string()
+        } else {
+            self.config.model.clone()
+        };
+        
+        let url = format!("{}/chat/completions", base_url);
+        
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+            "stream": true
+        });
+        
+        log::info!("Sending GLM streaming request to: {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(60))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send streaming request to GLM API")?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("GLM streaming error: {}", error_text));
+        }
+        
+        let mut stream = response.bytes_stream().eventsource();
+        
+        while let Some(event_result) = stream.next().await {
+            match event_result {
+                Ok(event) => {
+                    let data = &event.data;
+                    if data == "[DONE]" {
+                        break;
+                    }
+                    
+                    // 解析 GLM 的 SSE 数据（与 OpenAI 格式相同）
+                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(choices) = value["choices"].as_array() {
+                            if !choices.is_empty() {
+                                if let Some(delta) = choices[0]["delta"]["content"].as_str() {
+                                    callback(delta.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("SSE error: {:?}", e);
+                    break;
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// GLM PRD 生成
+    pub async fn generate_prd_glm(&self, idea: &str) -> Result<String> {
+        let system_prompt = r#"你是一位资深产品经理。请针对用户的产品创意，生成一份完整的产品需求文档（PRD）。
+
+PRD 应包含以下内容：
+1. 产品概述：产品定位、目标用户、核心价值
+2. 功能需求：核心功能列表、功能详细描述
+3. 技术架构：技术选型、系统架构图、关键技术点
+4. 开发计划：分阶段开发计划、时间估算
+5. 风险评估：技术风险、市场风险、应对策略
+
+请使用 Markdown 格式输出，确保结构清晰、内容详实。"#;
+
+        let messages = vec![json!({
+            "role": "system",
+            "content": system_prompt
+        }), json!({
+            "role": "user",
+            "content": format!("请为以下产品创意生成PRD：{}", idea)
+        })];
+        
+        self.chat_glm(messages).await
+    }
+
+    /// GLM 用户画像生成
+    pub async fn generate_personas_glm(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
+        let system_prompt = r#"你是一位用户体验专家。请针对用户的产品创意，创建 3-5 个典型的用户画像（Personas）。
+
+每个画像应包含：
+1. 基本信息：姓名、年龄、职业、收入水平
+2. 痛点分析：当前面临的问题和挑战
+3. 需求描述：对产品或服务的具体期望
+4. 使用场景：在什么情况下会使用这个产品
+5. 行为特征：上网习惯、消费偏好等
+
+请以 JSON 数组格式返回，每个画像包含上述字段。"#;
+
+        let messages = vec![json!({
+            "role": "system",
+            "content": system_prompt
+        }), json!({
+            "role": "user",
+            "content": format!("请为以下产品创意生成用户画像：{}", idea)
+        })];
+        
+        let response = self.chat_glm(messages).await?;
+        
+        // 尝试解析 JSON 响应
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&response) {
+            if json_value.is_array() {
+                return Ok(json_value.as_array().unwrap().clone());
+            }
+        }
+        
+        // 如果无法解析，返回包装后的响应
+        Ok(vec![json!({
+            "name": "典型用户",
+            "description": response
+        })])
+    }
+
+    /// GLM 竞品分析生成
+    pub async fn generate_competitor_analysis_glm(&self, idea: &str) -> Result<String> {
+        let system_prompt = r#"你是一位资深市场分析师。请针对用户的产品创意进行全面的竞品分析。
+
+分析内容应包括：
+1. 直接竞品：功能相似的产品列表及其特点
+2. 间接竞品：解决同类问题的替代方案
+3. 竞争优势：差异化机会和竞争优势
+4. 市场机会：未满足的市场需求和空白点
+5. 进入策略：建议的市场进入策略
+
+请提供详细、可操作的分析报告。"#;
+
+        let messages = vec![json!({
+            "role": "system",
+            "content": system_prompt
+        }), json!({
+            "role": "user",
+            "content": format!("请对以下产品创意进行竞品分析：{}", idea)
+        })];
+        
+        self.chat_glm(messages).await
+    }
 }
 
 // 为 AIService 实现 AIProvider Trait
@@ -932,6 +1149,7 @@ impl AIProvider for AIService {
             "openai" => self.chat_openai(messages).await,
             "anthropic" => self.chat_claude(messages).await,
             "kimi" => self.chat_kimi(messages).await,
+            "glm" => self.chat_glm(messages).await,
             _ => Ok("AI response placeholder".to_string()),
         }
     }
@@ -946,6 +1164,7 @@ impl AIProvider for AIService {
             "openai" => self.stream_chat_openai(messages, callback).await,
             "anthropic" => self.stream_chat_claude(messages, callback).await,
             "kimi" => self.stream_chat_kimi(messages, callback).await,
+            "glm" => self.stream_chat_glm(messages, callback).await,
             _ => {
                 callback("Streaming response placeholder".to_string());
                 Ok(())
@@ -959,6 +1178,7 @@ impl AIProvider for AIService {
             "openai" => self.generate_prd_openai(idea).await,
             "anthropic" => self.generate_prd_claude(idea).await,
             "kimi" => self.generate_prd_kimi(idea).await,
+            "glm" => self.generate_prd_glm(idea).await,
             _ => Ok(format!("# PRD for: {}\n\n(Generated content)", idea)),
         }
     }
@@ -969,6 +1189,7 @@ impl AIProvider for AIService {
             "openai" => self.generate_personas_openai(idea).await,
             "anthropic" => self.generate_personas_claude(idea).await,
             "kimi" => self.generate_personas_kimi(idea).await,
+            "glm" => self.generate_personas_glm(idea).await,
             _ => Ok(vec![]),
         }
     }
@@ -979,6 +1200,7 @@ impl AIProvider for AIService {
             "openai" => self.generate_competitor_analysis_openai(idea).await,
             "anthropic" => self.generate_competitor_analysis_claude(idea).await,
             "kimi" => self.generate_competitor_analysis_kimi(idea).await,
+            "glm" => self.generate_competitor_analysis_glm(idea).await,
             _ => Ok(format!("# Competitor Analysis for: {}\n\n(Generated content)", idea)),
         }
     }
