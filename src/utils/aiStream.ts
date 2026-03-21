@@ -4,7 +4,7 @@
  * 提供与后端 ai_stream_chat 命令的交互接口
  */
 
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import type { ChatMessage, StreamChatRequest } from '@/types';
 
 /**

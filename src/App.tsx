@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Sparkles, Code2, Rocket, Settings, Github, Twitter, Wrench } from 'lucide-react';
 import ToolInstallerGuide from './components/ToolInstallerGuide';
 import { SettingsPage } from './components/SettingsPage';
+import { IdeaInput } from './components/IdeaInput';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'design' | 'coding' | 'marketing' | 'settings'>(
@@ -83,56 +84,26 @@ function App() {
   );
 }
 
-// Vibe Design Panel
+// Vibe Design Panel - 整合所有 Vibe Design 相关组件
 function VibeDesignPanel() {
-  const [idea, setIdea] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleGenerate = async () => {
-    if (!idea.trim()) return;
-    setIsGenerating(true);
-    // TODO: Call Tauri command to generate PRD
-    setTimeout(() => setIsGenerating(false), 2000);
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-        <h2 className="text-2xl font-bold mb-2">💡 输入你的产品想法</h2>
-        <p className="text-slate-600 mb-6">
-          描述你的产品创意，AI将帮你完善产品构思，生成PRD、用户画像和竞品分析
-        </p>
+      {/* VD-016: 想法输入界面 */}
+      <IdeaInput />
 
-        <textarea
-          value={idea}
-          onChange={e => setIdea(e.target.value)}
-          placeholder="我想做一个帮助独立开发者管理项目进度的工具，类似Trello但是更简单，专门为单人项目设计..."
-          className="w-full h-40 p-4 border border-slate-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-slate-500">支持自然语言描述，越详细越好</div>
-          <button
-            onClick={handleGenerate}
-            disabled={!idea.trim() || isGenerating}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Sparkles className="w-5 h-5" />
-            {isGenerating ? 'AI思考中...' : '开始分析'}
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Start Cards */}
+      {/* 快速开始模板 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { title: 'SaaS工具', desc: '订阅制软件服务', icon: '🚀' },
+          { title: 'SaaS 工具', desc: '订阅制软件服务', icon: '🚀' },
           { title: '个人博客', desc: '内容创作平台', icon: '✍️' },
           { title: '电商网站', desc: '在线销售产品', icon: '🛒' },
         ].map(template => (
           <button
             key={template.title}
-            onClick={() => setIdea(`我想做一个${template.desc}...`)}
+            onClick={() => {
+              // TODO: 传递想法到 IdeaInput
+              alert('点击模板，将自动填充想法到上方输入框（功能待实现）');
+            }}
             className="p-6 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all text-left"
           >
             <div className="text-3xl mb-3">{template.icon}</div>
