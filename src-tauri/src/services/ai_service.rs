@@ -53,7 +53,20 @@ impl AIService {
 
     /// 获取支持的模型列表
     pub fn get_models(&self) -> Vec<AIModel> {
-        self.config.models.clone()
+        vec![
+            AIModel {
+                id: "gpt-4o".to_string(),
+                name: "GPT-4o".to_string(),
+                provider: "openai".to_string(),
+                max_tokens: Some(128000),
+            },
+            AIModel {
+                id: "gpt-4o-mini".to_string(),
+                name: "GPT-4o Mini".to_string(),
+                provider: "openai".to_string(),
+                max_tokens: Some(128000),
+            },
+        ]
     }
 
     /// 验证API密钥

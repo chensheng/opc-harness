@@ -55,7 +55,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
             conn.execute_batch(migration)?;
             conn.execute(
                 "INSERT INTO __migrations (version, applied_at) VALUES (?1, ?2)",
-                [version, chrono::Utc::now().timestamp()],
+                [version, chrono::Utc::now().timestamp() as i32],
             )?;
         }
     }

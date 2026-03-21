@@ -1,160 +1,119 @@
-//! CLI工具服务
-//!
-//! 管理AI编码工具CLI的进程和会话
+//! CLI service
 
-use crate::models::{CLISession, CLISessionStatus};
-use anyhow::Result;
+use crate::models::{CLISession, SessionStatus};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use std::sync::Arc;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
 
-/// CLI服务
 pub struct CLIService {
-    sessions: HashMap<String, CLISessionHandle>,
+    sessions: Arc<tokio::sync::Mutex<HashMap<String, CLISessionHandle>>>,
 }
 
-/// CLI会话句柄
-pub struct CLISessionHandle {
-    pub session: CLISession,
-    pub process: Child,
-    pub stdin: tokio::process::ChildStdin,
-    pub stdout_rx: mpsc::Receiver<String>,
-    pub stderr_rx: mpsc::Receiver<String>,
+struct CLISessionHandle {
+    _child: Child,
+    tx: mpsc::Sender<String>,
 }
 
 impl CLIService {
-    /// 创建新的CLI服务
     pub fn new() -> Self {
         Self {
-            sessions: HashMap::new(),
+            sessions: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         }
     }
 
-    /// 创建新的CLI会话
-    pub async fn create_session(
-        &mut self,
-        tool_type: &str,
-        project_path: &str,
-    ) -> Result<String> {
-        let session_id = uuid::Uuid::new_v4().to_string();
+    /// Start a new CLI session
+    pub async fn start_session(
+        &self,
+        tool: String,
+        project_path: String,
+    ) -> Result<CLISession> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().timestamp();
 
-        // 根据工具类型确定命令
-        let command = match tool_type {
+        // Check if tool is installed
+        let tool_cmd = match tool.as_str() {
             "kimi" => "kimi",
             "claude" => "claude",
             "codex" => "codex",
-            _ => return Err(anyhow::anyhow!("Unknown tool type: {}", tool_type)),
+            _ => return Err(anyhow::anyhow!("Unknown tool: {}", tool)),
         };
 
-        // 启动进程
-        let mut cmd = Command::new(command);
-        cmd.current_dir(project_path)
+        // Start the process
+        let mut child = Command::new(tool_cmd)
+            .current_dir(&project_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::piped())
+            .spawn()
+            .context(format!("Failed to start {}", tool))?;
 
-        let mut process = cmd.spawn()?;
+        let (tx, _rx) = mpsc::channel::<String>(100);
 
-        let stdin = process.stdin.take().unwrap();
-        let stdout = process.stdout.take().unwrap();
-        let stderr = process.stderr.take().unwrap();
+        // Handle stdout/stderr
+        if let Some(stdout) = child.stdout.take() {
+            let reader = BufReader::new(stdout);
+            let mut lines = reader.lines();
+            let _tx_clone = tx.clone();
 
-        // 创建输出通道
-        let (stdout_tx, stdout_rx) = mpsc::channel(100);
-        let (stderr_tx, stderr_rx) = mpsc::channel(100);
+            tokio::spawn(async move {
+                while let Ok(Some(line)) = lines.next_line().await {
+                    println!("[stdout] {}", line);
+                }
+            });
+        }
 
-        // 启动输出读取任务
-        let stdout_reader = BufReader::new(stdout);
-        let stderr_reader = BufReader::new(stderr);
-        Self::spawn_output_reader(stdout_reader, stdout_tx);
-        Self::spawn_output_reader(stderr_reader, stderr_tx);
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr);
+            let mut lines = reader.lines();
+            let _tx_clone = tx.clone();
 
-        let session = CLISession {
-            id: session_id.clone(),
-            project_id: "".to_string(), // TODO: 从参数获取
-            tool_type: tool_type.to_string(),
-            working_directory: project_path.to_string(),
-            status: CLISessionStatus::Running,
-            start_time: chrono::Utc::now().to_rfc3339(),
-            end_time: None,
-        };
+            tokio::spawn(async move {
+                while let Ok(Some(line)) = lines.next_line().await {
+                    println!("[stderr] {}", line);
+                }
+            });
+        }
 
-        let handle = CLISessionHandle {
-            session,
-            process,
-            stdin,
-            stdout_rx,
-            stderr_rx,
-        };
+        let handle = CLISessionHandle { _child: child, tx };
+        let mut sessions = self.sessions.lock().await;
+        sessions.insert(id.clone(), handle);
 
-        self.sessions.insert(session_id.clone(), handle);
-
-        Ok(session_id)
+        Ok(CLISession {
+            id,
+            tool,
+            project_path,
+            status: SessionStatus::Running,
+            started_at: now,
+        })
     }
 
-    /// 发送命令到CLI
-    pub async fn send_command(&mut self, session_id: &str, command: &str) -> Result<()> {
-        let handle = self
-            .sessions
-            .get_mut(session_id)
-            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
-
-        let formatted = format!("{}\n", command);
-        handle.stdin.write_all(formatted.as_bytes()).await?;
-        handle.stdin.flush().await?;
-
-        Ok(())
+    /// Send command to session
+    pub async fn send_command(&self, session_id: String, command: String) -> Result<()> {
+        let sessions = self.sessions.lock().await;
+        if let Some(handle) = sessions.get(&session_id) {
+            handle.tx.send(command).await.context("Failed to send command")?;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Session not found: {}", session_id))
+        }
     }
 
-    /// 读取输出
-    pub async fn read_output(&mut self, session_id: &str) -> Result<(Option<String>, Option<String>)> {
-        let handle = self
-            .sessions
-            .get_mut(session_id)
-            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
-
-        let stdout = handle.stdout_rx.try_recv().ok();
-        let stderr = handle.stderr_rx.try_recv().ok();
-
-        Ok((stdout, stderr))
-    }
-
-    /// 停止会话
-    pub async fn stop_session(&mut self, session_id: &str) -> Result<()> {
-        if let Some(mut handle) = self.sessions.remove(session_id) {
-            handle.process.kill().await?;
+    /// Kill session
+    pub async fn kill_session(&self, session_id: String) -> Result<()> {
+        let mut sessions = self.sessions.lock().await;
+        if let Some(mut handle) = sessions.remove(&session_id) {
+            handle._child.kill().await.context("Failed to kill session")?;
         }
         Ok(())
     }
 
-    /// 获取所有会话
-    pub fn get_sessions(&self) -> Vec<&CLISession> {
-        self.sessions.values().map(|h| &h.session).collect()
-    }
-
-    /// 生成输出读取任务
-    fn spawn_output_reader<R: AsyncBufReadExt + Unpin + Send + 'static>(
-        reader: R,
-        tx: mpsc::Sender<String>,
-    ) {
-        tokio::spawn(async move {
-            let mut reader = BufReader::new(reader);
-            let mut line = String::new();
-
-            loop {
-                line.clear();
-                match reader.read_line(&mut line).await {
-                    Ok(0) => break, // EOF
-                    Ok(_) => {
-                        if tx.send(line.trim().to_string()).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        });
+    /// Get all active sessions
+    pub async fn get_active_sessions(&self) -> Vec<String> {
+        let sessions = self.sessions.lock().await;
+        sessions.keys().cloned().collect()
     }
 }
