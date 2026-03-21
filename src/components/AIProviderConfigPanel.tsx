@@ -58,6 +58,7 @@ export function AIProviderConfigPanel() {
   // 验证状态
   const [validating, setValidating] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<Record<string, boolean>>({});
+  const [validationMessage, setValidationMessage] = useState<Record<string, string>>({});
 
   // 显示 API 密钥
   const [showApiKey, setShowApiKey] = useState(false);
@@ -163,20 +164,62 @@ export function AIProviderConfigPanel() {
   };
 
   /**
-   * 验证 API 密钥
+   * 验证 API 密钥 (VD-004)
    */
   const handleValidate = async (providerId: string, apiKey?: string) => {
-    if (!apiKey) return;
+    if (!apiKey) {
+      setValidationMessage(prev => ({ ...prev, [providerId]: '请输入 API 密钥' }));
+      return;
+    }
 
     setValidating(providerId);
     try {
-      const isValid = await invoke<boolean>('validate_ai_key', {
+      const result = await invoke<boolean>('validate_ai_key', {
         provider: providerId,
         api_key: apiKey,
       });
-      setValidationResult(prev => ({ ...prev, [providerId]: isValid }));
+
+      setValidationResult(prev => ({ ...prev, [providerId]: result }));
+
+      if (result) {
+        setValidationMessage(prev => ({ ...prev, [providerId]: '✓ 密钥有效' }));
+
+        // 如果验证成功，可以选择保存配置
+        if (editingConfig) {
+          // 更新验证时间
+          setEditingConfig({
+            ...editingConfig,
+            lastVerifiedAt: Date.now(),
+            isValid: true,
+          });
+        }
+      } else {
+        setValidationMessage(prev => ({
+          ...prev,
+          [providerId]: '✗ 密钥无效，请检查后重试',
+        }));
+
+        if (editingConfig) {
+          setEditingConfig({
+            ...editingConfig,
+            isValid: false,
+          });
+        }
+      }
     } catch (error) {
       console.error('Failed to validate API key:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setValidationMessage(prev => ({
+        ...prev,
+        [providerId]: `✗ 验证失败：${errorMessage}`,
+      }));
+
+      if (editingConfig) {
+        setEditingConfig({
+          ...editingConfig,
+          isValid: false,
+        });
+      }
     } finally {
       setValidating(null);
     }
@@ -487,23 +530,47 @@ export function AIProviderConfigPanel() {
                 )}
 
                 {editingConfig.apiKey && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleValidate(editingConfig.provider, editingConfig.apiKey)}
-                    disabled={validating === editingConfig.provider}
-                  >
-                    {validating === editingConfig.provider ? (
-                      '验证中...'
-                    ) : validationResult[editingConfig.provider] ? (
-                      <span className="text-green-600 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        密钥有效
-                      </span>
-                    ) : (
-                      '验证密钥'
+                  <div className="space-y-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleValidate(editingConfig.provider, editingConfig.apiKey)}
+                      disabled={validating === editingConfig.provider}
+                      className="w-full"
+                    >
+                      {validating === editingConfig.provider ? (
+                        <>
+                          <div className="animate-spin mr-2 h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                          验证中...
+                        </>
+                      ) : validationResult[editingConfig.provider] ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
+                          <span className="text-green-600">✓ 密钥有效</span>
+                        </>
+                      ) : validationMessage[editingConfig.provider] ? (
+                        <>
+                          <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                          <span className="text-red-600">
+                            {validationMessage[editingConfig.provider]}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Key className="h-4 w-4 mr-2" />
+                          验证密钥
+                        </>
+                      )}
+                    </Button>
+
+                    {/* 显示最后验证时间 */}
+                    {editingConfig.lastVerifiedAt && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        最后验证时间：
+                        {new Date(editingConfig.lastVerifiedAt).toLocaleString('zh-CN')}
+                      </p>
                     )}
-                  </Button>
+                  </div>
                 )}
               </div>
 

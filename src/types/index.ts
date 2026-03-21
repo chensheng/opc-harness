@@ -45,6 +45,12 @@ export interface AIConfig {
 
   /** 最后更新时间戳 */
   updatedAt?: number;
+
+  /** API 密钥最后验证时间戳 (VD-004) */
+  lastVerifiedAt?: number;
+
+  /** API 密钥验证状态 (VD-004) */
+  isValid?: boolean;
 }
 
 /**

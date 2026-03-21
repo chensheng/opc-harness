@@ -133,28 +133,66 @@ pub fn has_ai_api_key(services: State<'_, Services>, provider: String) -> Result
         .map_err(|e| format!("Failed to check API key: {}", e))
 }
 
-/// Validate AI API key
+/// Validate AI API key (VD-004)
 #[tauri::command]
 pub async fn validate_ai_key(
     services: State<'_, Services>,
     provider: String,
     api_key: String,
 ) -> Result<bool, String> {
-    // 临时存储密钥进行验证
-    services
-        .keyring
-        .set_ai_api_key(&format!("{}_temp", provider), &api_key)
-        .map_err(|e| format!("Failed to store temporary API key: {}", e))?;
+    use crate::models::AIProviderConfig;
+    use crate::services::ai_service::AIService;
     
-    // TODO: 实际调用 AI provider API 验证密钥有效性
-    // 这里先模拟验证
-    let is_valid = !api_key.is_empty() && api_key.len() > 10;
+    // 先从数据库获取配置信息（同步操作）
+    let config_info = {
+        let db = services.project.get_db();
+        let db = db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+        
+        db.query_row(
+            "SELECT base_url, model FROM ai_configs WHERE provider = ?1",
+            rusqlite::params![&provider],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, String>(1)?,
+                ))
+            }
+        )
+    };
     
-    // 清理临时密钥
-    let _ = services.keyring.delete_ai_api_key(&format!("{}_temp", provider));
+    let (base_url, model) = match config_info {
+        Ok((url, m)) => (url, m),
+        Err(_) => (None, String::new()),
+    };
     
-    log::info!("API key validation for {}: {}", provider, is_valid);
-    Ok(is_valid)
+    // 创建临时的 AI 服务实例进行验证
+    let config = AIProviderConfig {
+        provider: provider.clone(),
+        api_key: Some(api_key.clone()),
+        base_url,
+        model,
+        enabled: false,
+        name: None,
+    };
+    
+    let ai_service = AIService::new(config);
+    
+    // 调用验证方法（异步操作，此时数据库锁已释放）
+    match ai_service.validate_key().await {
+        Ok(is_valid) => {
+            if is_valid {
+                log::info!("API key validation successful for provider: {}", provider);
+                Ok(true)
+            } else {
+                log::warn!("API key validation failed for provider: {}", provider);
+                Ok(false)
+            }
+        }
+        Err(e) => {
+            log::error!("API key validation error for {}: {}", provider, e);
+            Err(format!("验证失败：{}", e))
+        }
+    }
 }
 
 /// Generate PRD
