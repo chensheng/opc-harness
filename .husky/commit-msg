@@ -1,0 +1,11 @@
+# 可以添加 commit message 检查，目前留空或简单检查
+# 示例：检查 commit message 长度
+check_commit_message() {
+    local msg=$(cat "$1")
+    if [ ${#msg} -lt 10 ]; then
+        echo "Error: Commit message too short (min 10 chars)"
+        exit 1
+    fi
+}
+
+check_commit_message "$1"

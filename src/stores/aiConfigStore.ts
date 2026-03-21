@@ -15,15 +15,15 @@ export interface AIConfig {
 interface AIConfigState {
   // AI 配置列表
   configs: Record<AIProvider, AIConfig | null>;
-  
+
   // 当前使用的提供商
   activeProvider: AIProvider | null;
-  
+
   // 配置操作
   setConfig: (provider: AIProvider, config: AIConfig) => void;
   removeConfig: (provider: AIProvider) => void;
   setActiveProvider: (provider: AIProvider | null) => void;
-  
+
   // 模型列表（各提供商支持的模型）
   availableModels: Record<AIProvider, string[]>;
 }
@@ -39,7 +39,7 @@ export const useAIConfigStore = create<AIConfigState>()(
   devtools(
     immer(
       persist(
-        (set) => ({
+        set => ({
           // 初始状态
           configs: {
             openai: null,
@@ -51,33 +51,33 @@ export const useAIConfigStore = create<AIConfigState>()(
           availableModels: defaultModels,
 
           setConfig: (provider, config) =>
-            set((state) => {
+            set(state => {
               state.configs[provider] = config;
               if (config.enabled && !state.activeProvider) {
                 state.activeProvider = provider;
               }
             }),
 
-          removeConfig: (provider) =>
-            set((state) => {
+          removeConfig: provider =>
+            set(state => {
               state.configs[provider] = null;
               if (state.activeProvider === provider) {
                 // 寻找下一个启用的提供商
                 const nextEnabled = (Object.keys(state.configs) as AIProvider[]).find(
-                  (p) => p !== provider && state.configs[p]?.enabled
+                  p => p !== provider && state.configs[p]?.enabled
                 );
                 state.activeProvider = nextEnabled || null;
               }
             }),
 
-          setActiveProvider: (provider) =>
-            set((state) => {
+          setActiveProvider: provider =>
+            set(state => {
               state.activeProvider = provider;
             }),
         }),
         {
           name: 'ai-config-storage',
-          partialize: (state) => ({
+          partialize: state => ({
             configs: state.configs,
             activeProvider: state.activeProvider,
           }),

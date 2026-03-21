@@ -32,49 +32,49 @@ export const useAppStore = create<AppState>()(
   devtools(
     immer(
       persist(
-        (set) => ({
+        set => ({
           // 初始状态
           theme: 'system',
-          setTheme: (theme) =>
-            set((state) => {
+          setTheme: theme =>
+            set(state => {
               state.theme = theme;
             }),
 
           sidebarOpen: true,
           toggleSidebar: () =>
-            set((state) => {
+            set(state => {
               state.sidebarOpen = !state.sidebarOpen;
             }),
-          setSidebarOpen: (open) =>
-            set((state) => {
+          setSidebarOpen: open =>
+            set(state => {
               state.sidebarOpen = open;
             }),
 
           isLoading: false,
-          setLoading: (loading) =>
-            set((state) => {
+          setLoading: loading =>
+            set(state => {
               state.isLoading = loading;
             }),
 
           error: null,
-          setError: (error) =>
-            set((state) => {
+          setError: error =>
+            set(state => {
               state.error = error;
             }),
           clearError: () =>
-            set((state) => {
+            set(state => {
               state.error = null;
             }),
 
           activeModule: 'design',
-          setActiveModule: (module) =>
-            set((state) => {
+          setActiveModule: module =>
+            set(state => {
               state.activeModule = module;
             }),
         }),
         {
           name: 'app-storage',
-          partialize: (state) => ({
+          partialize: state => ({
             theme: state.theme,
             sidebarOpen: state.sidebarOpen,
           }),

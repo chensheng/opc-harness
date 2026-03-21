@@ -15,16 +15,16 @@ export interface Project {
 interface ProjectState {
   // 项目列表
   projects: Project[];
-  
+
   // 当前选中的项目
   currentProject: Project | null;
-  
+
   // 项目操作
   addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   setCurrentProject: (project: Project | null) => void;
-  
+
   // 查询
   getProjectById: (id: string) => Project | undefined;
   getProjectsByStatus: (status: Project['status']) => Project[];
@@ -37,8 +37,8 @@ export const useProjectStore = create<ProjectState>()(
       projects: [],
       currentProject: null,
 
-      addProject: (project) =>
-        set((state) => {
+      addProject: project =>
+        set(state => {
           const now = Date.now();
           const newProject: Project = {
             ...project,
@@ -50,8 +50,8 @@ export const useProjectStore = create<ProjectState>()(
         }),
 
       updateProject: (id, updates) =>
-        set((state) => {
-          const project = state.projects.find((p) => p.id === id);
+        set(state => {
+          const project = state.projects.find(p => p.id === id);
           if (project) {
             Object.assign(project, updates, { updatedAt: Date.now() });
           }
@@ -60,25 +60,25 @@ export const useProjectStore = create<ProjectState>()(
           }
         }),
 
-      deleteProject: (id) =>
-        set((state) => {
-          state.projects = state.projects.filter((p) => p.id !== id);
+      deleteProject: id =>
+        set(state => {
+          state.projects = state.projects.filter(p => p.id !== id);
           if (state.currentProject?.id === id) {
             state.currentProject = null;
           }
         }),
 
-      setCurrentProject: (project) =>
-        set((state) => {
+      setCurrentProject: project =>
+        set(state => {
           state.currentProject = project;
         }),
 
-      getProjectById: (id) => {
-        return get().projects.find((p) => p.id === id);
+      getProjectById: id => {
+        return get().projects.find(p => p.id === id);
       },
 
-      getProjectsByStatus: (status) => {
-        return get().projects.filter((p) => p.status === status);
+      getProjectsByStatus: status => {
+        return get().projects.filter(p => p.status === status);
       },
     })),
     { name: 'ProjectStore' }

@@ -20,13 +20,13 @@ function App() {
               <p className="text-xs text-slate-500">AI驱动的一人公司操作系统</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
               <Settings className="w-5 h-5" />
             </button>
-            <a 
-              href="https://github.com/opc-harness/opc-harness" 
+            <a
+              href="https://github.com/opc-harness/opc-harness"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
@@ -44,7 +44,7 @@ function App() {
             { id: 'design', label: 'Vibe Design', icon: Sparkles, desc: '产品构思' },
             { id: 'coding', label: 'Vibe Coding', icon: Code2, desc: '快速构建' },
             { id: 'marketing', label: 'Vibe Marketing', icon: Rocket, desc: '增长运营' },
-          ].map((tab) => (
+          ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
@@ -93,18 +93,16 @@ function VibeDesignPanel() {
         <p className="text-slate-600 mb-6">
           描述你的产品创意，AI将帮你完善产品构思，生成PRD、用户画像和竞品分析
         </p>
-        
+
         <textarea
           value={idea}
-          onChange={(e) => setIdea(e.target.value)}
+          onChange={e => setIdea(e.target.value)}
           placeholder="我想做一个帮助独立开发者管理项目进度的工具，类似Trello但是更简单，专门为单人项目设计..."
           className="w-full h-40 p-4 border border-slate-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-        
+
         <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-slate-500">
-            支持自然语言描述，越详细越好
-          </div>
+          <div className="text-sm text-slate-500">支持自然语言描述，越详细越好</div>
           <button
             onClick={handleGenerate}
             disabled={!idea.trim() || isGenerating}
@@ -122,7 +120,7 @@ function VibeDesignPanel() {
           { title: 'SaaS工具', desc: '订阅制软件服务', icon: '🚀' },
           { title: '个人博客', desc: '内容创作平台', icon: '✍️' },
           { title: '电商网站', desc: '在线销售产品', icon: '🛒' },
-        ].map((template) => (
+        ].map(template => (
           <button
             key={template.title}
             onClick={() => setIdea(`我想做一个${template.desc}...`)}
@@ -146,8 +144,8 @@ function VibeCodingPanel() {
         <Code2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
         <h2 className="text-2xl font-bold mb-2">Vibe Coding</h2>
         <p className="text-slate-600 max-w-lg mx-auto mb-6">
-          通过AI编码工具（Kimi CLI、Claude Code、Codex）快速构建你的产品原型。
-          先在 Vibe Design 中完成产品构思，然后进入编码阶段。
+          通过AI编码工具（Kimi CLI、Claude Code、Codex）快速构建你的产品原型。 先在 Vibe Design
+          中完成产品构思，然后进入编码阶段。
         </p>
         <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors">
           请先完成 Vibe Design
@@ -168,9 +166,12 @@ function VibeMarketingPanel() {
           AI辅助的增长运营工具，帮你生成发布策略、营销文案，助力产品增长。
         </p>
         <div className="flex items-center justify-center gap-4">
-          <a 
+          <a
             href="#"
-            onClick={(e) => { e.preventDefault(); alert('敬请期待'); }}
+            onClick={e => {
+              e.preventDefault();
+              alert('敬请期待');
+            }}
             className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-blue-600 transition-colors"
           >
             <Twitter className="w-5 h-5" />
