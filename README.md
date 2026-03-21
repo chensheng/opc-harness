@@ -12,67 +12,45 @@ OPC-HARNESS是一款桌面应用，帮助独立创造者通过三大模块实现
 
 ## 技术栈
 
-### 前端
-- **框架**: React 18 + TypeScript 5
-- **样式**: Tailwind CSS 3
-- **状态管理**: Zustand 4
-- **编辑器**: Monaco Editor
-- **构建工具**: Vite 5
-
-### 后端
-- **桌面框架**: Tauri v2 (Rust)
-- **数据库**: SQLite (rusqlite)
-- **密钥存储**: OS Keychain (keyring-rs)
-- **HTTP客户端**: reqwest
-- **进程管理**: tokio
-
-## 项目结构
-
-```
-opc-harness/
-├── src/                          # 前端源码
-│   ├── main.tsx                 # React入口
-│   ├── App.tsx                  # 主应用组件
-│   └── index.css                # 全局样式
-├── src-tauri/                    # Rust后端
-│   ├── src/
-│   │   ├── main.rs              # 程序入口
-│   │   ├── commands/            # Tauri命令
-│   │   ├── models/              # 数据模型
-│   │   └── services/            # 业务服务
-│   ├── Cargo.toml               # Rust依赖
-│   └── tauri.conf.json          # Tauri配置
-├── package.json                  # npm配置
-├── vite.config.ts               # Vite配置
-├── tailwind.config.js           # Tailwind配置
-└── tsconfig.json                # TypeScript配置
-```
-
-## 开发环境要求
-
-- **Node.js**: >= 18.0.0
-- **Rust**: >= 1.70.0
-- **OS**: Windows 10+/macOS 11+/Linux
+| 层级 | 技术 |
+|------|------|
+| 前端 | React 18 + TypeScript 5 + Tailwind CSS 3 |
+| 状态管理 | Zustand 4 |
+| 编辑器 | Monaco Editor |
+| 桌面框架 | Tauri v2 (Rust) |
+| 数据库 | SQLite (rusqlite) |
+| 构建工具 | Vite 5 |
 
 ## 快速开始
 
-### 1. 安装Rust环境 (首次使用)
+### 环境要求
 
-**Windows:**
-```powershell
-# 以管理员身份运行 PowerShell
-winget install Rustlang.Rustup
-winget install Microsoft.EdgeWebView2Runtime
-winget install Microsoft.VisualStudio.2022.BuildTools
+- **Node.js**: >= 18.0.0
+- **Rust**: >= 1.70.0 ([安装指南](docs/Rust安装与启动指南.md))
 
-# 重启终端后验证
-rustc --version  # 应 >= 1.70.0
-cargo --version
+### 启动开发服务器
+
+```bash
+# 1. 安装前端依赖
+npm install
+
+# 2. 启动 Tauri 开发服务器
+npm run tauri:dev
 ```
 
-> 详细安装说明请参考: [Rust安装与启动指南](docs/Rust安装与启动指南.md)
+> 首次编译需要 5-15 分钟，请耐心等待。
 
-### 2. 使用一键启动脚本
+### 构建发布版本
+
+```bash
+npm run tauri:build
+```
+
+构建输出：
+- Windows: `src-tauri/target/release/bundle/msi/`
+- macOS: `src-tauri/target/release/bundle/dmg/`
+
+### 使用 PowerShell 脚本（可选）
 
 ```powershell
 # 检查环境
@@ -85,30 +63,26 @@ cargo --version
 .\scripts\setup-and-run.ps1 -Build
 ```
 
-### 3. 手动启动
+## 项目结构
 
-```bash
-# 安装前端依赖
-npm install
-
-# 启动Tauri开发服务器
-npm run tauri:dev
 ```
-
-### 4. 构建发布版本
-
-```bash
-# 构建生产版本
-npm run tauri:build
+opc-harness/
+├── src/                    # 前端源码 (React + TS)
+│   ├── components/         # 组件
+│   ├── stores/             # Zustand 状态管理
+│   └── ...
+├── src-tauri/              # Rust 后端
+│   ├── src/
+│   │   ├── commands/       # Tauri 命令
+│   │   ├── models/         # 数据模型
+│   │   └── services/       # 业务服务
+│   └── ...
+└── scripts/                # 工具脚本
 ```
-
-**构建输出位置:**
-- Windows安装包: `src-tauri/target/release/bundle/msi/`
-- 可执行文件: `src-tauri/target/release/opc-harness.exe`
 
 ## 功能模块
 
-### Vibe Design (产品构思)
+### Vibe Design
 - [x] AI厂商配置管理（OpenAI/Claude/Kimi/GLM）
 - [x] API密钥安全存储
 - [x] 产品想法输入
@@ -116,15 +90,14 @@ npm run tauri:build
 - [x] 用户画像生成
 - [x] 竞品分析
 
-### Vibe Coding (快速构建)
+### Vibe Coding
 - [x] CLI工具集成（Kimi/Claude/Codex）
 - [x] 终端控制台界面
 - [x] Monaco代码编辑器
 - [x] 文件树浏览
 - [x] 实时预览
-- [x] VS Code集成
 
-### Vibe Marketing (增长运营)
+### Vibe Marketing
 - [x] 发布策略生成
 - [x] 营销文案生成
 - [x] 多平台文案支持
@@ -133,16 +106,14 @@ npm run tauri:build
 
 ### AI厂商API配置
 
-在应用设置中配置以下厂商的API密钥：
+| 厂商 | 密钥获取地址 |
+|------|-------------|
+| OpenAI | https://platform.openai.com/api-keys |
+| Anthropic | https://console.anthropic.com/settings/keys |
+| 月之暗面(Kimi) | https://platform.moonshot.cn/console/api-keys |
+| 智谱AI(GLM) | https://open.bigmodel.cn/usercenter/apikeys |
 
-- **OpenAI**: https://platform.openai.com/api-keys
-- **Anthropic**: https://console.anthropic.com/settings/keys
-- **月之暗面(Kimi)**: https://platform.moonshot.cn/console/api-keys
-- **智谱AI(GLM)**: https://open.bigmodel.cn/usercenter/apikeys
-
-### CLI工具安装
-
-需要安装以下AI编码工具（可选）：
+### CLI工具安装（可选）
 
 ```bash
 # Kimi CLI
@@ -155,17 +126,11 @@ npm install -g @anthropic-ai/claude-code
 npm install -g @openai/codex
 ```
 
-## 开发团队
+## 开发文档
 
-- **Rust后端工程师**: 负责Tauri命令、AI适配器、CLI集成
-- **前端架构工程师**: 基础架构、状态管理、组件设计
-- **前端业务工程师**: UI实现、流程整合、编辑器集成
-- **产品经理**: 需求确认、验收测试、提示词优化
-
-## 开发任务状态
-
-详见 [MVP开发任务拆解](docs/MVP版本开发任务拆解.md)
+- [MVP开发任务拆解](docs/MVP版本开发任务拆解.md)
+- [Rust安装与启动指南](docs/Rust安装与启动指南.md)
 
 ## License
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+MIT License
