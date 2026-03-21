@@ -2,7 +2,6 @@
 
 use crate::models::ToolInfo;
 use crate::services::Services;
-use crate::services::tool_detection::{ToolCategory, ToolDetectionResult};
 use crate::db::{check_health, migrations};
 use tauri::State;
 use serde::Serialize;
@@ -97,6 +96,40 @@ pub fn all_required_tools_installed(services: State<'_, Services>) -> bool {
 #[tauri::command]
 pub fn get_tool_info(services: State<'_, Services>, tool: String) -> Option<ToolInfo> {
     services.tool_detection.get_tool_info(&tool)
+}
+
+/// Detect AI CLI tools (Kimi, Claude, Codex)
+#[tauri::command]
+pub fn detect_ai_cli_tools(services: State<'_, Services>) -> Vec<ToolInfo> {
+    vec![
+        services.tool_detection.get_tool_info("kimi").unwrap_or_else(|| ToolInfo {
+            name: "Kimi CLI".to_string(),
+            installed: false,
+            version: None,
+            path: None,
+        }),
+        services.tool_detection.get_tool_info("claude").unwrap_or_else(|| ToolInfo {
+            name: "Claude Code".to_string(),
+            installed: false,
+            version: None,
+            path: None,
+        }),
+        services.tool_detection.get_tool_info("codex").unwrap_or_else(|| ToolInfo {
+            name: "Codex CLI".to_string(),
+            installed: false,
+            version: None,
+            path: None,
+        }),
+    ]
+}
+
+/// Check if specific AI CLI tool is installed
+#[tauri::command]
+pub fn is_ai_cli_tool_installed(services: State<'_, Services>, tool: String) -> bool {
+    match tool.as_str() {
+        "kimi" | "claude" | "codex" => services.tool_detection.is_installed(&tool),
+        _ => false,
+    }
 }
 
 /// Open directory in VS Code

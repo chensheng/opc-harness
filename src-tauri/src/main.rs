@@ -47,6 +47,8 @@ fn main() {
             get_missing_required_tools,
             all_required_tools_installed,
             get_tool_info,
+            detect_ai_cli_tools,
+            is_ai_cli_tool_installed,
             open_in_vscode,
             select_directory,
             check_db_health,
