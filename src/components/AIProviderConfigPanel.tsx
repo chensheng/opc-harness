@@ -465,7 +465,9 @@ export function AIProviderConfigPanel() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {configs.some(c => c.provider === editingConfig?.provider) ? '编辑' : '添加'}{' '}
+              {editingConfig && configs.some(c => c.provider === editingConfig.provider)
+                ? '编辑'
+                : '添加'}{' '}
               {editingConfig && getProviderIcon(editingConfig.provider)}{' '}
               {editingConfig && providers.find(p => p.id === editingConfig.provider)?.name}
             </DialogTitle>
@@ -474,147 +476,169 @@ export function AIProviderConfigPanel() {
 
           {editingConfig && (
             <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="api-key">
-                  <div className="flex items-center gap-2">
-                    <Key className="h-4 w-4" />
-                    API 密钥
-                  </div>
-                </Label>
+              {/* 检查是否是已存在的配置 */}
+              {(() => {
+                const existingConfig = configs.find(c => c.provider === editingConfig.provider);
 
-                <div className="relative">
-                  <Input
-                    id="api-key"
-                    type={showApiKey ? 'text' : 'password'}
-                    placeholder="sk-..."
-                    value={editingConfig.apiKey || ''}
-                    onChange={e => setEditingConfig({ ...editingConfig, apiKey: e.target.value })}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  >
-                    {showApiKey ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
+                return (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="api-key">
+                        <div className="flex items-center gap-2">
+                          <Key className="h-4 w-4" />
+                          API 密钥
+                        </div>
+                      </Label>
 
-                {/* 安全提示 */}
-                <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <Shield className="h-3 w-3 mt-0.5" />
-                  <p>API 密钥将安全存储在操作系统的密钥管理中，不会保存到数据库或发送到服务器</p>
-                </div>
+                      <div className="relative">
+                        <Input
+                          id="api-key"
+                          type={showApiKey ? 'text' : 'password'}
+                          placeholder="sk-..."
+                          value={editingConfig.apiKey || ''}
+                          onChange={e =>
+                            setEditingConfig({ ...editingConfig, apiKey: e.target.value })
+                          }
+                          className="pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        >
+                          {showApiKey ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
 
-                {/* 密钥状态指示 */}
-                {existingConfig && !editingConfig.apiKey && (
-                  <div className="flex items-center gap-2 text-xs">
-                    {validationResult[editingConfig.provider] ? (
-                      <>
-                        <CheckCircle2 className="h-3 w-3 text-green-600" />
-                        <span className="text-green-600">已存储有效密钥</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="h-3 w-3 text-yellow-600" />
-                        <span className="text-yellow-600">已存储密钥（未验证）</span>
-                      </>
-                    )}
-                  </div>
-                )}
+                      {/* 安全提示 */}
+                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <Shield className="h-3 w-3 mt-0.5" />
+                        <p>
+                          API 密钥将安全存储在操作系统的密钥管理中，不会保存到数据库或发送到服务器
+                        </p>
+                      </div>
 
-                {editingConfig.apiKey && (
-                  <div className="space-y-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleValidate(editingConfig.provider, editingConfig.apiKey)}
-                      disabled={validating === editingConfig.provider}
-                      className="w-full"
-                    >
-                      {validating === editingConfig.provider ? (
-                        <>
-                          <div className="animate-spin mr-2 h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                          验证中...
-                        </>
-                      ) : validationResult[editingConfig.provider] ? (
-                        <>
-                          <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
-                          <span className="text-green-600">✓ 密钥有效</span>
-                        </>
-                      ) : validationMessage[editingConfig.provider] ? (
-                        <>
-                          <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                          <span className="text-red-600">
-                            {validationMessage[editingConfig.provider]}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Key className="h-4 w-4 mr-2" />
-                          验证密钥
-                        </>
+                      {/* 密钥状态指示 */}
+                      {existingConfig && !editingConfig.apiKey && (
+                        <div className="flex items-center gap-2 text-xs">
+                          {validationResult[editingConfig.provider] ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-green-600" />
+                              <span className="text-green-600">已存储有效密钥</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-3 w-3 text-yellow-600" />
+                              <span className="text-yellow-600">已存储密钥（未验证）</span>
+                            </>
+                          )}
+                        </div>
                       )}
-                    </Button>
 
-                    {/* 显示最后验证时间 */}
-                    {editingConfig.lastVerifiedAt && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        最后验证时间：
-                        {new Date(editingConfig.lastVerifiedAt).toLocaleString('zh-CN')}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+                      {editingConfig.apiKey && (
+                        <div className="space-y-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              handleValidate(editingConfig.provider, editingConfig.apiKey)
+                            }
+                            disabled={validating === editingConfig.provider}
+                            className="w-full"
+                          >
+                            {validating === editingConfig.provider ? (
+                              <>
+                                <div className="animate-spin mr-2 h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                                验证中...
+                              </>
+                            ) : validationResult[editingConfig.provider] ? (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 text-green-600 mr-2" />
+                                <span className="text-green-600">✓ 密钥有效</span>
+                              </>
+                            ) : validationMessage[editingConfig.provider] ? (
+                              <>
+                                <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                                <span className="text-red-600">
+                                  {validationMessage[editingConfig.provider]}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <Key className="h-4 w-4 mr-2" />
+                                验证密钥
+                              </>
+                            )}
+                          </Button>
 
-              <div className="grid gap-2">
-                <Label htmlFor="base-url">API 基础 URL</Label>
-                <Input
-                  id="base-url"
-                  placeholder="https://api.example.com/v1"
-                  value={editingConfig.baseUrl}
-                  onChange={e => setEditingConfig({ ...editingConfig, baseUrl: e.target.value })}
-                />
-              </div>
+                          {/* 显示最后验证时间 */}
+                          {editingConfig.lastVerifiedAt && (
+                            <p className="text-xs text-muted-foreground text-center">
+                              最后验证时间：
+                              {new Date(editingConfig.lastVerifiedAt).toLocaleString('zh-CN')}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="model">模型</Label>
-                <Select
-                  value={editingConfig.model}
-                  onValueChange={value => setEditingConfig({ ...editingConfig, model: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers
-                      .find(p => p.id === editingConfig.provider)
-                      ?.supportedModels.map(model => (
-                        <SelectItem key={model} value={model}>
-                          {model}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="base-url">API 基础 URL</Label>
+                      <Input
+                        id="base-url"
+                        placeholder="https://api.example.com/v1"
+                        value={editingConfig.baseUrl}
+                        onChange={e =>
+                          setEditingConfig({ ...editingConfig, baseUrl: e.target.value })
+                        }
+                      />
+                    </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="enabled"
-                  checked={editingConfig.enabled}
-                  onCheckedChange={checked =>
-                    setEditingConfig({ ...editingConfig, enabled: checked })
-                  }
-                />
-                <Label htmlFor="enabled">启用此配置</Label>
-              </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="model">模型</Label>
+                      <Select
+                        value={editingConfig.model}
+                        onValueChange={value =>
+                          setEditingConfig({ ...editingConfig, model: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(() => {
+                            const provider = providers.find(p => p.id === editingConfig.provider);
+                            if (!provider?.supportedModels) return null;
+
+                            return provider.supportedModels.map(model => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ));
+                          })()}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="enabled"
+                        checked={editingConfig.enabled}
+                        onCheckedChange={checked =>
+                          setEditingConfig({ ...editingConfig, enabled: checked })
+                        }
+                      />
+                      <Label htmlFor="enabled">启用此配置</Label>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
