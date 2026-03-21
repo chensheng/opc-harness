@@ -19,6 +19,8 @@ import {
   Lightbulb,
   MessageSquare,
   TrendingUp,
+  Edit2,
+  X,
 } from 'lucide-react';
 import type { UserPersona } from '@/types';
 
@@ -30,6 +32,7 @@ interface UserPersonasProps {
   onExport?: () => void;
   isStreaming?: boolean;
   progress?: number;
+  onPersonasChange?: (personas: UserPersona[]) => void;
 }
 
 export function UserPersonas({
@@ -40,11 +43,14 @@ export function UserPersonas({
   onExport,
   isStreaming = false,
   progress = 0,
+  onPersonasChange,
 }: UserPersonasProps) {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedPersonaIndex, setSelectedPersonaIndex] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<UserPersona | null>(null);
 
   const handleCopy = async () => {
     const text = JSON.stringify(personas, null, 2);
@@ -323,6 +329,16 @@ export function UserPersonas({
             </button>
           )}
           <button
+            onClick={() => {
+              setIsEditing(true);
+              setEditingPersona({ ...personas[selectedPersonaIndex] });
+            }}
+            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="编辑画像"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title={isFullscreen ? '退出全屏' : '全屏'}
@@ -398,6 +414,294 @@ export function UserPersonas({
           </>
         )}
       </div>
+
+      {/* 编辑对话框 */}
+      {isEditing && editingPersona && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* 对话框头部 */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h3 className="text-xl font-bold text-slate-900">编辑用户画像</h3>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* 对话框内容 */}
+            <div className="p-6 space-y-6">
+              {/* 基本信息 */}
+              <section>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-500" />
+                  基本信息
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <InputField
+                    label="姓名"
+                    value={editingPersona.name || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, name: value })}
+                    placeholder="例如：张先生"
+                  />
+                  <InputField
+                    label="年龄"
+                    value={editingPersona.age || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, age: value })}
+                    placeholder="例如：28 岁"
+                  />
+                  <InputField
+                    label="职业"
+                    value={editingPersona.occupation || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, occupation: value })}
+                    placeholder="例如：产品经理"
+                  />
+                  <InputField
+                    label="城市"
+                    value={editingPersona.city || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, city: value })}
+                    placeholder="例如：北京"
+                  />
+                  <InputField
+                    label="收入水平"
+                    value={editingPersona.incomeLevel || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, incomeLevel: value })}
+                    placeholder="例如：月收入 2-3 万"
+                  />
+                  <InputField
+                    label="教育背景"
+                    value={editingPersona.education || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, education: value })}
+                    placeholder="例如：本科，计算机科学"
+                  />
+                </div>
+              </section>
+
+              {/* 个人背景 */}
+              <section>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-purple-500" />
+                  个人背景
+                </h4>
+                <div className="space-y-4">
+                  <TextAreaField
+                    label="工作经历"
+                    value={editingPersona.workExperience || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, workExperience: value })
+                    }
+                    placeholder="描述工作经历和职业发展路径"
+                    rows={3}
+                  />
+                  <TextAreaField
+                    label="技术能力"
+                    value={editingPersona.technicalSkills || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, technicalSkills: value })
+                    }
+                    placeholder="描述技术水平和专业技能"
+                    rows={3}
+                  />
+                  <TextAreaField
+                    label="生活方式"
+                    value={editingPersona.lifestyle || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, lifestyle: value })}
+                    placeholder="描述生活习惯、兴趣爱好等"
+                    rows={3}
+                  />
+                </div>
+              </section>
+
+              {/* 产品相关特征 */}
+              <section>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-amber-500" />
+                  与产品相关的特征
+                </h4>
+                <div className="space-y-4">
+                  <TextAreaField
+                    label="核心需求"
+                    value={editingPersona.coreNeeds || ''}
+                    onChange={value => setEditingPersona({ ...editingPersona, coreNeeds: value })}
+                    placeholder="描述用户的核心痛点和需求"
+                    rows={3}
+                  />
+                  <TextAreaField
+                    label="使用场景"
+                    value={editingPersona.usageScenarios || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, usageScenarios: value })
+                    }
+                    placeholder="描述典型的使用场景"
+                    rows={3}
+                  />
+                  <TextAreaField
+                    label="期望功能"
+                    value={editingPersona.expectedFeatures || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, expectedFeatures: value })
+                    }
+                    placeholder="描述期望的产品功能"
+                    rows={3}
+                  />
+                  <InputField
+                    label="付费意愿"
+                    value={editingPersona.willingnessToPay || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, willingnessToPay: value })
+                    }
+                    placeholder="例如：愿意付费购买高级版"
+                  />
+                </div>
+              </section>
+
+              {/* 行为特征 */}
+              <section>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  行为特征
+                </h4>
+                <div className="space-y-4">
+                  <TextAreaField
+                    label="获取信息渠道"
+                    value={editingPersona.informationChannels || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, informationChannels: value })
+                    }
+                    placeholder="描述用户通常从哪里获取信息"
+                    rows={2}
+                  />
+                  <TextAreaField
+                    label="决策因素"
+                    value={editingPersona.decisionFactors || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, decisionFactors: value })
+                    }
+                    placeholder="描述影响购买决策的关键因素"
+                    rows={2}
+                  />
+                  <InputField
+                    label="使用频率预期"
+                    value={editingPersona.expectedUsageFrequency || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, expectedUsageFrequency: value })
+                    }
+                    placeholder="例如：每天使用，每周几次"
+                  />
+                  <InputField
+                    label="推荐意愿"
+                    value={editingPersona.recommendationWillingness || ''}
+                    onChange={value =>
+                      setEditingPersona({ ...editingPersona, recommendationWillingness: value })
+                    }
+                    placeholder="例如：非常愿意向朋友推荐"
+                  />
+                </div>
+              </section>
+
+              {/* 用户引言 */}
+              <section>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-blue-500" />
+                  用户引言
+                </h4>
+                <TextAreaField
+                  label="代表性引言"
+                  value={editingPersona.quote || ''}
+                  onChange={value => setEditingPersona({ ...editingPersona, quote: value })}
+                  placeholder="用一句原话表达用户的核心诉求"
+                  rows={3}
+                />
+              </section>
+
+              {/* 其他信息 */}
+              <section>
+                <h4 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-yellow-500" />
+                  其他信息
+                </h4>
+                <TextAreaField
+                  label="备注"
+                  value={editingPersona.note || ''}
+                  onChange={value => setEditingPersona({ ...editingPersona, note: value })}
+                  placeholder="其他需要补充的信息"
+                  rows={2}
+                />
+              </section>
+            </div>
+
+            {/* 对话框底部按钮 */}
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3 rounded-b-2xl">
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-6 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const updatedPersonas = [...personas];
+                  updatedPersonas[selectedPersonaIndex] = editingPersona;
+                  onPersonasChange?.(updatedPersonas);
+                  setIsEditing(false);
+                }}
+                className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors"
+              >
+                <Check className="w-4 h-4" />
+                保存修改
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 输入框组件
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
+function InputField({ label, value, onChange, placeholder }: InputFieldProps) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      />
+    </div>
+  );
+}
+
+// 文本域组件
+interface TextAreaFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+}
+
+function TextAreaField({ label, value, onChange, placeholder, rows = 3 }: TextAreaFieldProps) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
+      />
     </div>
   );
 }
