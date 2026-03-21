@@ -56,12 +56,60 @@ impl AIService {
             client: Client::new(),
         }
     }
+}
 
-    /// 获取提供商 ID
-    pub fn provider_id(&self) -> &str {
+// 为 AIService 实现 AIProvider trait
+#[async_trait]
+impl AIProvider for AIService {
+    fn provider_id(&self) -> &str {
         &self.config.provider
     }
+    
+    fn supported_models(&self) -> Vec<&str> {
+        // TODO: 根据 provider 返回不同的模型列表
+        match self.config.provider.as_str() {
+            "openai" => vec!["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+            "anthropic" => vec!["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+            _ => vec![],
+        }
+    }
+    
+    async fn validate_api_key(&self) -> Result<bool> {
+        self.validate_key().await
+    }
+    
+    async fn chat(&self, messages: Vec<serde_json::Value>) -> Result<String> {
+        match self.config.provider.as_str() {
+            "openai" => self.chat_openai(messages).await,
+            _ => self.chat_openai(messages).await, // 默认使用 OpenAI 兼容 API
+        }
+    }
+    
+    async fn stream_chat(
+        &self,
+        messages: Vec<serde_json::Value>,
+        callback: Box<dyn Fn(String) + Send + Sync>,
+    ) -> Result<()> {
+        match self.config.provider.as_str() {
+            "openai" => self.stream_chat_openai(messages, callback).await,
+            _ => self.stream_chat_openai(messages, callback).await,
+        }
+    }
+    
+    async fn generate_prd(&self, idea: &str) -> Result<String> {
+        self.generate_prd(idea).await
+    }
+    
+    async fn generate_personas(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
+        self.generate_personas(idea).await
+    }
+    
+    async fn generate_competitor_analysis(&self, idea: &str) -> Result<String> {
+        self.generate_competitor_analysis(idea).await
+    }
+}
 
+impl AIService {
     /// 验证 API 密钥（通用方法）
     pub async fn validate_key(&self) -> Result<bool> {
         // 根据 provider 调用不同的验证接口
@@ -400,45 +448,128 @@ PRD 应包含以下内容：
         }
     }
 
-    /// 生成 PRD
+    /// 生成 PRD (VD-018)
     pub async fn generate_prd(&self, idea: &str) -> Result<String> {
-        // 使用提示词模板生成 PRD
-        // TODO: 实际调用 AI API 生成内容
-        // 当前返回模板化的提示词，用于后续 AI 调用
+        // 使用提示词模板构造完整的提示词
+        let prompt = generate_prd_prompt(idea, None);
         
-        let _prompt = generate_prd_prompt(idea, None);
+        // 构造消息格式
+        let messages = vec![json!({
+            "role": "user",
+            "content": prompt
+        })];
         
-        // 临时实现：返回一个简单的 PRD 结构
-        Ok(format!(
-            r#"# 产品需求文档
+        // 根据 provider 选择不同的实现
+        match self.config.provider.as_str() {
+            "openai" => {
+                self.generate_prd_openai(messages).await
+            }
+            _ => {
+                // 默认使用 OpenAI 兼容的 API
+                self.generate_prd_generic(messages).await
+            }
+        }
+    }
 
-## 1. 产品概述
-基于以下想法生成：{idea}
+    /// 生成 PRD - OpenAI 实现
+    async fn generate_prd_openai(&self, messages: Vec<serde_json::Value>) -> Result<String> {
+        if self.config.api_key.is_none() {
+            return Err(anyhow::anyhow!("API key is missing"));
+        }
 
-## 2. 目标用户
-- 主要用户群体：需要此解决方案的用户
-- 次要用户群体：相关领域的从业者
+        let api_key = self.config.api_key.as_ref().unwrap();
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+        let url = format!("{}/chat/completions", base_url);
+        let model = &self.config.model;
 
-## 3. 核心功能
-### 3.1 功能一
-描述第一个核心功能
+        // 构造请求体，增加 max_tokens 以支持长输出
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 8192,  // PRD 通常较长
+            "temperature": 0.7,
+            "top_p": 1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+        });
 
-### 3.2 功能二
-描述第二个核心功能
+        log::info!("Sending PRD generation request to {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(120))  // PRD 生成可能需要较长时间
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send PRD generation request")?;
 
-## 4. 技术架构
-- 前端：React + TypeScript
-- 后端：Tauri + Rust
-- 数据库：SQLite
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            log::error!("PRD generation API error: {}", error_text);
+            return Err(anyhow::anyhow!("PRD generation failed: {}", error_text));
+        }
 
-## 5. 开发计划
-- Phase 1: MVP (2-3 周)
-- Phase 2: 功能完善 (4-6 周)
-- Phase 3: 商业化 (8-10 周)
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse PRD generation response")?;
 
----
-*注：完整 PRD 需要调用 AI API 生成*"#
-        ))
+        // 提取回复内容
+        let content = result["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No content in PRD generation response"))?;
+
+        log::info!("PRD generated successfully, length: {} chars", content.len());
+        
+        Ok(content.to_string())
+    }
+
+    /// 生成 PRD - 通用实现（兼容其他 API）
+    async fn generate_prd_generic(&self, messages: Vec<serde_json::Value>) -> Result<String> {
+        if self.config.api_key.is_none() {
+            return Err(anyhow::anyhow!("API key is missing"));
+        }
+
+        let api_key = self.config.api_key.as_ref().unwrap();
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+        let url = format!("{}/chat/completions", base_url);
+        let model = &self.config.model;
+
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 8192,
+            "temperature": 0.7,
+        });
+
+        log::info!("Sending PRD generation request to {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(120))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send PRD generation request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            log::error!("PRD generation API error: {}", error_text);
+            return Err(anyhow::anyhow!("PRD generation failed: {}", error_text));
+        }
+
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse PRD generation response")?;
+
+        let content = result["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No content in PRD generation response"))?;
+
+        log::info!("PRD generated successfully, length: {} chars", content.len());
+        
+        Ok(content.to_string())
     }
 
     /// 生成用户画像
@@ -591,665 +722,16 @@ PRD 应包含以下内容：
 
         Ok(())
     }
+} // End of AIService impl
 
-    /// 生成 PRD（OpenAI 完整实现）
-    pub async fn generate_prd_openai(&self, idea: &str) -> Result<String> {
-        let messages = vec![json!({
-            "role": "system",
-            "content": "你是一位经验丰富的产品经理，擅长将产品想法转化为详细的产品需求文档（PRD）。请按照以下结构输出：\n\n1. 产品概述\n2. 目标用户\n3. 核心功能\n4. 技术架构\n5. 开发计划"
-        }), json!({
-            "role": "user",
-            "content": format!("请将以下产品想法完善为详细的产品需求文档：\n\n{}", idea)
-        })];
-
-        self.chat_openai(messages).await
-    }
-
-    /// 生成用户画像（OpenAI 完整实现）
-    pub async fn generate_personas_openai(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
-        let messages = vec![json!({
-            "role": "system",
-            "content": "你是一位用户研究专家，擅长创建详细的用户画像。请为目标产品创建 3-5 个典型用户画像，每个包含：姓名、年龄、职业、痛点、需求、使用场景。"
-        }), json!({
-            "role": "user",
-            "content": format!("请为以下产品创建用户画像：\n\n{}", idea)
-        })];
-
-        let response = self.chat_openai(messages).await?;
-        
-        // 尝试解析为 JSON 数组
-        if let Ok(personas) = serde_json::from_str::<Vec<serde_json::Value>>(&response) {
-            Ok(personas)
-        } else {
-            // 如果不是 JSON 格式，返回包装后的结果
-            Ok(vec![json!({
-                "description": response,
-                "source": "openai"
-            })])
-        }
-    }
-
-    /// 生成竞品分析（OpenAI 完整实现）
-    pub async fn generate_competitor_analysis_openai(&self, idea: &str) -> Result<String> {
-        let messages = vec![json!({
-            "role": "system",
-            "content": "你是一位战略咨询顾问，擅长竞品分析。请分析目标产品的潜在竞争对手，包括：\n1. 直接竞品\n2. 间接竞品\n3. 竞争优势\n4. 市场机会"
-        }), json!({
-            "role": "user",
-            "content": format!("请对以下产品进行竞品分析：\n\n{}", idea)
-        })];
-
-        self.chat_openai(messages).await
-    }
-    
-    // ========== Claude (Anthropic) API 实现 ==========
-    
-    /// 验证 Claude API 密钥
-    pub async fn validate_claude_key(&self) -> Result<bool> {
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
-        
-        let url = "https://api.anthropic.com/v1/models";
-        
-        let response = self.client
-            .get(url)
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .send()
-            .await
-            .context("Failed to send request to Anthropic API")?;
-        
-        Ok(response.status().is_success())
-    }
-    
-    /// Claude 聊天对话 - Messages API
-    pub async fn chat_claude(&self, messages: Vec<serde_json::Value>) -> Result<String> {
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
-        
-        let base_url = self.config.base_url.clone()
-            .unwrap_or_else(|| "https://api.anthropic.com".to_string());
-        
-        let model = if self.config.model.is_empty() {
-            "claude-3-5-sonnet-20241022".to_string()
-        } else {
-            self.config.model.clone()
-        };
-        
-        let url = format!("{}/v1/messages", base_url);
-        
-        // Claude 的消息格式与 OpenAI 不同
-        let mut system_prompt = String::new();
-        let mut claude_messages = Vec::new();
-        
-        for msg in messages {
-            if let Some(role) = msg.get("role").and_then(|v| v.as_str()) {
-                if role == "system" {
-                    system_prompt = msg.get("content")
-                        .and_then(|c| c.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                } else {
-                    // Claude 只支持 user 和 assistant 角色
-                    let claude_role = if role == "user" { "user" } else { "assistant" };
-                    if let Some(content) = msg.get("content").cloned() {
-                        claude_messages.push(json!({
-                            "role": claude_role,
-                            "content": content
-                        }));
-                    }
-                }
-            }
-        }
-        
-        let body = json!({
-            "model": model,
-            "max_tokens": 4096,
-            "messages": claude_messages,
-            "system": system_prompt
-        });
-        
-        log::info!("Sending Claude request to: {}", url);
-        
-        let response = self.client
-            .post(&url)
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("Content-Type", "application/json")
-            .timeout(Duration::from_secs(30))
-            .json(&body)
-            .send()
-            .await
-            .context("Failed to send request to Claude API")?;
-        
-        if !response.status().is_success() {
-            let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Claude API error: {}", error_text));
-        }
-        
-        let result: serde_json::Value = response.json().await
-            .context("Failed to parse Claude API response")?;
-        
-        log::debug!("Claude API response: {:?}", result);
-        
-        result["content"][0]["text"]
-            .as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| anyhow::anyhow!("No content in Claude response"))
-    }
-    
-    /// Claude 流式聊天 - SSE
-    pub async fn stream_chat_claude(
-        &self,
-        messages: Vec<serde_json::Value>,
-        callback: Box<dyn Fn(String) + Send + Sync>,
-    ) -> Result<()> {
-        use eventsource_stream::Eventsource;
-        use futures::StreamExt;
-        
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
-        
-        let base_url = self.config.base_url.clone()
-            .unwrap_or_else(|| "https://api.anthropic.com".to_string());
-        
-        let model = if self.config.model.is_empty() {
-            "claude-3-5-sonnet-20241022".to_string()
-        } else {
-            self.config.model.clone()
-        };
-        
-        let url = format!("{}/v1/messages", base_url);
-        
-        // 处理消息格式
-        let mut system_prompt = String::new();
-        let mut claude_messages = Vec::new();
-        
-        for msg in messages {
-            if let Some(role) = msg.get("role").and_then(|v| v.as_str()) {
-                if role == "system" {
-                    system_prompt = msg.get("content")
-                        .and_then(|c| c.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                } else {
-                    let claude_role = if role == "user" { "user" } else { "assistant" };
-                    if let Some(content) = msg.get("content").cloned() {
-                        claude_messages.push(json!({
-                            "role": claude_role,
-                            "content": content
-                        }));
-                    }
-                }
-            }
-        }
-        
-        let body = json!({
-            "model": model,
-            "max_tokens": 4096,
-            "messages": claude_messages,
-            "system": system_prompt,
-            "stream": true
-        });
-        
-        log::info!("Sending Claude streaming request to: {}", url);
-        
-        let response = self.client
-            .post(&url)
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("Content-Type", "application/json")
-            .timeout(Duration::from_secs(60))
-            .json(&body)
-            .send()
-            .await
-            .context("Failed to send streaming request to Claude API")?;
-        
-        if !response.status().is_success() {
-            let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Claude streaming error: {}", error_text));
-        }
-        
-        let mut stream = response.bytes_stream().eventsource();
-        
-        while let Some(event_result) = stream.next().await {
-            match event_result {
-                Ok(event) => {
-                    // event.data is already a String, not Option
-                    let data = &event.data;
-                    if data == "[DONE]" {
-                        break;
-                    }
-                    
-                    // 解析 Claude 的 SSE 数据
-                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(data) {
-                        if value["type"] == "content_block_delta" {
-                            if let Some(text) = value["delta"]["text"].as_str() {
-                                callback(text.to_string());
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::error!("SSE error: {:?}", e);
-                    break;
-                }
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Claude PRD 生成
-    pub async fn generate_prd_claude(&self, idea: &str) -> Result<String> {
-        let system_prompt = r#"你是一位专业的产品经理助手。请根据用户的产品创意，生成一份结构化的产品需求文档（PRD）。
-
-PRD 应包含以下内容：
-1. 产品概述：产品定位、目标市场、核心价值主张
-2. 目标用户：主要用户群体、用户画像
-3. 核心功能：功能列表、优先级排序、功能描述
-4. 技术架构：技术栈建议、系统架构图、关键技术选型
-5. 开发计划：MVP 范围、迭代规划、时间估算
-
-请使用清晰的标题和结构化格式。"#;
-
-        let messages = vec![json!({
-            "role": "user",
-            "content": format!("请为以下产品创意生成 PRD：{}", idea)
-        })];
-        
-        // 使用 system prompt 构建消息
-        let all_messages = vec![
-            json!({
-                "role": "system",
-                "content": system_prompt
-            }),
-            messages[0].clone()
-        ];
-        
-        self.chat_claude(all_messages).await
-    }
-    
-    /// Claude 用户画像生成
-    pub async fn generate_personas_claude(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
-        let system_prompt = r#"你是一位专业的用户研究专家。请根据产品创意创建 3-5 个详细的用户画像。
-
-每个画像应包含：
-- 基本信息：姓名、年龄、职业、收入水平
-- 痛点分析：当前面临的问题和挑战
-- 需求描述：对产品的期望和需求
-- 使用场景：典型的使用情境
-- 行为特征：技术熟练度、使用习惯等
-
-请以 JSON 数组格式返回。"#;
-
-        let messages = vec![json!({
-            "role": "user",
-            "content": format!("请为以下产品创意创建用户画像：{}", idea)
-        })];
-        
-        let all_messages = vec![
-            json!({
-                "role": "system",
-                "content": system_prompt
-            }),
-            messages[0].clone()
-        ];
-        
-        let response = self.chat_claude(all_messages).await?;
-        
-        // 尝试解析 JSON
-        if let Ok(value) = serde_json::from_str::<Vec<serde_json::Value>>(&response) {
-            Ok(value)
-        } else {
-            // 如果不是 JSON 格式，包装为单个对象
-            Ok(vec![json!({
-                "name": "典型用户",
-                "description": response
-            })])
-        }
-    }
-    
-    /// Claude 竞品分析生成
-    pub async fn generate_competitor_analysis_claude(&self, idea: &str) -> Result<String> {
-        let system_prompt = r#"你是一位资深市场分析师。请针对用户的产品创意进行全面的竞品分析。
-
-分析内容应包括：
-1. 直接竞品：功能相似的产品列表及其特点
-2. 间接竞品：解决同类问题的替代方案
-3. 竞争优势：差异化机会和竞争优势
-4. 市场机会：未满足的市场需求和空白点
-5. 进入策略：建议的市场进入策略
-
-请提供详细、可操作的分析报告。"#;
-
-        let messages = vec![json!({
-            "role": "user",
-            "content": format!("请对以下产品创意进行竞品分析：{}", idea)
-        })];
-        
-        let all_messages = vec![
-            json!({
-                "role": "system",
-                "content": system_prompt
-            }),
-            messages[0].clone()
-        ];
-        
-        self.chat_claude(all_messages).await
-    }
-    
-    // ========== GLM (智谱) API 实现 ==========
-    
-    /// GLM 聊天对话 - 智谱 AI API
-    pub async fn chat_glm(&self, messages: Vec<serde_json::Value>) -> Result<String> {
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
-        
-        let base_url = self.config.base_url.clone()
-            .unwrap_or_else(|| "https://open.bigmodel.cn/api/paas/v4".to_string());
-        
-        let model = if self.config.model.is_empty() {
-            "glm-4-flash".to_string()
-        } else {
-            self.config.model.clone()
-        };
-        
-        let url = format!("{}/chat/completions", base_url);
-        
-        let body = json!({
-            "model": model,
-            "messages": messages,
-            "max_tokens": 4096,
-            "temperature": 0.7,
-            "stream": false
-        });
-        
-        log::info!("Sending GLM chat request to: {}", url);
-        
-        let response = self.client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Content-Type", "application/json")
-            .timeout(Duration::from_secs(30))
-            .json(&body)
-            .send()
-            .await
-            .context("Failed to send request to GLM API")?;
-        
-        if !response.status().is_success() {
-            let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("GLM API error: {}", error_text));
-        }
-        
-        let result: serde_json::Value = response.json().await
-            .context("Failed to parse GLM API response")?;
-        
-        // 解析响应
-        result["choices"][0]["message"]["content"]
-            .as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| anyhow::anyhow!("Invalid response format from GLM API"))
-    }
-
-    /// GLM 流式聊天 - SSE
-    pub async fn stream_chat_glm(
-        &self,
-        messages: Vec<serde_json::Value>,
-        callback: Box<dyn Fn(String) + Send + Sync>,
-    ) -> Result<()> {
-        use eventsource_stream::Eventsource;
-        use futures::StreamExt;
-        
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
-        
-        let base_url = self.config.base_url.clone()
-            .unwrap_or_else(|| "https://open.bigmodel.cn/api/paas/v4".to_string());
-        
-        let model = if self.config.model.is_empty() {
-            "glm-4-flash".to_string()
-        } else {
-            self.config.model.clone()
-        };
-        
-        let url = format!("{}/chat/completions", base_url);
-        
-        let body = json!({
-            "model": model,
-            "messages": messages,
-            "max_tokens": 4096,
-            "temperature": 0.7,
-            "stream": true
-        });
-        
-        log::info!("Sending GLM streaming request to: {}", url);
-        
-        let response = self.client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Content-Type", "application/json")
-            .timeout(Duration::from_secs(60))
-            .json(&body)
-            .send()
-            .await
-            .context("Failed to send streaming request to GLM API")?;
-        
-        if !response.status().is_success() {
-            let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("GLM streaming error: {}", error_text));
-        }
-        
-        let mut stream = response.bytes_stream().eventsource();
-        
-        while let Some(event_result) = stream.next().await {
-            match event_result {
-                Ok(event) => {
-                    let data = &event.data;
-                    if data == "[DONE]" {
-                        break;
-                    }
-                    
-                    // 解析 GLM 的 SSE 数据（与 OpenAI 格式相同）
-                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(data) {
-                        if let Some(choices) = value["choices"].as_array() {
-                            if !choices.is_empty() {
-                                if let Some(delta) = choices[0]["delta"]["content"].as_str() {
-                                    callback(delta.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::error!("SSE error: {:?}", e);
-                    break;
-                }
-            }
-        }
-        
-        Ok(())
-    }
-
-    /// GLM PRD 生成
-    pub async fn generate_prd_glm(&self, idea: &str) -> Result<String> {
-        let system_prompt = r#"你是一位资深产品经理。请针对用户的产品创意，生成一份完整的产品需求文档（PRD）。
-
-PRD 应包含以下内容：
-1. 产品概述：产品定位、目标用户、核心价值
-2. 功能需求：核心功能列表、功能详细描述
-3. 技术架构：技术选型、系统架构图、关键技术点
-4. 开发计划：分阶段开发计划、时间估算
-5. 风险评估：技术风险、市场风险、应对策略
-
-请使用 Markdown 格式输出，确保结构清晰、内容详实。"#;
-
-        let messages = vec![json!({
-            "role": "system",
-            "content": system_prompt
-        }), json!({
-            "role": "user",
-            "content": format!("请为以下产品创意生成PRD：{}", idea)
-        })];
-        
-        self.chat_glm(messages).await
-    }
-
-    /// GLM 用户画像生成
-    pub async fn generate_personas_glm(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
-        let system_prompt = r#"你是一位用户体验专家。请针对用户的产品创意，创建 3-5 个典型的用户画像（Personas）。
-
-每个画像应包含：
-1. 基本信息：姓名、年龄、职业、收入水平
-2. 痛点分析：当前面临的问题和挑战
-3. 需求描述：对产品或服务的具体期望
-4. 使用场景：在什么情况下会使用这个产品
-5. 行为特征：上网习惯、消费偏好等
-
-请以 JSON 数组格式返回，每个画像包含上述字段。"#;
-
-        let messages = vec![json!({
-            "role": "system",
-            "content": system_prompt
-        }), json!({
-            "role": "user",
-            "content": format!("请为以下产品创意生成用户画像：{}", idea)
-        })];
-        
-        let response = self.chat_glm(messages).await?;
-        
-        // 尝试解析 JSON 响应
-        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&response) {
-            if json_value.is_array() {
-                return Ok(json_value.as_array().unwrap().clone());
-            }
-        }
-        
-        // 如果无法解析，返回包装后的响应
-        Ok(vec![json!({
-            "name": "典型用户",
-            "description": response
-        })])
-    }
-
-    /// GLM 竞品分析生成
-    pub async fn generate_competitor_analysis_glm(&self, idea: &str) -> Result<String> {
-        let system_prompt = r#"你是一位资深市场分析师。请针对用户的产品创意进行全面的竞品分析。
-
-分析内容应包括：
-1. 直接竞品：功能相似的产品列表及其特点
-2. 间接竞品：解决同类问题的替代方案
-3. 竞争优势：差异化机会和竞争优势
-4. 市场机会：未满足的市场需求和空白点
-5. 进入策略：建议的市场进入策略
-
-请提供详细、可操作的分析报告。"#;
-
-        let messages = vec![json!({
-            "role": "system",
-            "content": system_prompt
-        }), json!({
-            "role": "user",
-            "content": format!("请对以下产品创意进行竞品分析：{}", idea)
-        })];
-        
-        self.chat_glm(messages).await
-    }
-}
-
-// 为 AIService 实现 AIProvider Trait
-#[async_trait]
-impl AIProvider for AIService {
-    fn provider_id(&self) -> &str {
-        &self.config.provider
-    }
-    
-    fn supported_models(&self) -> Vec<&str> {
-        // TODO: 根据 provider 返回不同的模型列表
-        match self.config.provider.as_str() {
-            "openai" => vec!["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-            "anthropic" => vec!["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
-            "kimi" => vec!["kimi-k2", "kimi-k2-0711", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
-            "glm" => vec!["glm-4-plus", "glm-4-0520", "glm-4-air", "glm-4-flash"],
-            _ => vec![],
-        }
-    }
-    
-    async fn validate_api_key(&self) -> Result<bool> {
-        self.validate_key().await
-    }
-    
-    async fn chat(&self, messages: Vec<serde_json::Value>) -> Result<String> {
-        // 根据提供商调用具体实现
-        match self.config.provider.as_str() {
-            "openai" => self.chat_openai(messages).await,
-            "anthropic" => self.chat_claude(messages).await,
-            "kimi" => self.chat_kimi(messages).await,
-            "glm" => self.chat_glm(messages).await,
-            _ => Ok("AI response placeholder".to_string()),
-        }
-    }
-    
-    async fn stream_chat(
-        &self,
-        messages: Vec<serde_json::Value>,
-        callback: Box<dyn Fn(String) + Send + Sync>,
-    ) -> Result<()> {
-        // 根据提供商调用具体实现
-        match self.config.provider.as_str() {
-            "openai" => self.stream_chat_openai(messages, callback).await,
-            "anthropic" => self.stream_chat_claude(messages, callback).await,
-            "kimi" => self.stream_chat_kimi(messages, callback).await,
-            "glm" => self.stream_chat_glm(messages, callback).await,
-            _ => {
-                callback("Streaming response placeholder".to_string());
-                Ok(())
-            }
-        }
-    }
-    
-    async fn generate_prd(&self, idea: &str) -> Result<String> {
-        // 根据提供商调用具体实现
-        match self.config.provider.as_str() {
-            "openai" => self.generate_prd_openai(idea).await,
-            "anthropic" => self.generate_prd_claude(idea).await,
-            "kimi" => self.generate_prd_kimi(idea).await,
-            "glm" => self.generate_prd_glm(idea).await,
-            _ => Ok(format!("# PRD for: {}\n\n(Generated content)", idea)),
-        }
-    }
-    
-    async fn generate_personas(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
-        // 根据提供商调用具体实现
-        match self.config.provider.as_str() {
-            "openai" => self.generate_personas_openai(idea).await,
-            "anthropic" => self.generate_personas_claude(idea).await,
-            "kimi" => self.generate_personas_kimi(idea).await,
-            "glm" => self.generate_personas_glm(idea).await,
-            _ => Ok(vec![]),
-        }
-    }
-    
-    async fn generate_competitor_analysis(&self, idea: &str) -> Result<String> {
-        // 根据提供商调用具体实现
-        match self.config.provider.as_str() {
-            "openai" => self.generate_competitor_analysis_openai(idea).await,
-            "anthropic" => self.generate_competitor_analysis_claude(idea).await,
-            "kimi" => self.generate_competitor_analysis_kimi(idea).await,
-            "glm" => self.generate_competitor_analysis_glm(idea).await,
-            _ => Ok(format!("# Competitor Analysis for: {}\n\n(Generated content)", idea)),
-        }
-    }
-}
-
-/// AI服务管理器（基于 Trait 对象）
+// ========== AI Service Manager =========
+/// AI 服务管理器 - 统一管理多个 AI Provider
 pub struct AIServiceManager {
     services: std::collections::HashMap<String, Box<dyn AIProvider + Send + Sync>>,
     default_provider: String,
 }
 
 impl AIServiceManager {
-    /// 创建管理器
     pub fn new() -> Self {
         Self {
             services: std::collections::HashMap::new(),
@@ -1257,40 +739,48 @@ impl AIServiceManager {
         }
     }
 
-    /// 注册服务（接受任何实现 AIProvider Trait 的类型）
+    /// 获取所有已注册的 Provider
+    pub fn registered_providers(&self) -> Vec<String> {
+        self.services.keys().cloned().collect()
+    }
+
+    /// 获取指定 Provider 支持的模型
+    pub fn get_supported_models(&self, provider: &str) -> Vec<&str> {
+        if let Some(service) = self.services.get(provider) {
+            service.supported_models()
+        } else {
+            vec![]
+        }
+    }
+
+    /// 注册 AI Provider
     pub fn register<T: AIProvider + Send + Sync + 'static>(&mut self, provider: String, service: T) {
         self.services.insert(provider, Box::new(service));
     }
 
-    /// 获取服务
-    pub fn get(&self, provider: &str) -> Option<&(dyn AIProvider + Send + Sync)> {
-        self.services.get(provider).map(|s| s.as_ref())
-    }
-
-    /// 获取默认服务
+    /// 获取默认的 AI Provider
     pub fn get_default(&self) -> Option<&(dyn AIProvider + Send + Sync)> {
         self.services.get(&self.default_provider).map(|s| s.as_ref())
     }
 
-    /// 设置默认提供商
+    /// 设置默认 Provider
     pub fn set_default(&mut self, provider: String) {
         self.default_provider = provider;
     }
-    
-    /// 获取所有已注册的提供商 ID
-    pub fn registered_providers(&self) -> Vec<&str> {
-        self.services.keys().map(|s| s.as_str()).collect()
-    }
 
-    /// 根据配置创建并注册 AI 服务
+    /// 从配置注册 Provider
     pub fn register_from_config(&mut self, config: crate::models::AIProviderConfig) -> Result<()> {
-        let provider = config.provider.clone();
+        use crate::services::ai_service::AIService;
+        
+        let provider_id = config.provider.clone();
         let ai_service = AIService::new(config);
-        self.register(provider, ai_service);
+        self.register(provider_id.clone(), ai_service);
+        
+        log::info!("Registered AI provider: {}", provider_id);
         Ok(())
     }
 
-    /// 批量注册多个 AI 服务
+    /// 批量注册
     pub fn register_multiple(&mut self, configs: Vec<crate::models::AIProviderConfig>) -> Result<()> {
         for config in configs {
             self.register_from_config(config)?;
@@ -1298,80 +788,67 @@ impl AIServiceManager {
         Ok(())
     }
 
-    /// 检查某个提供商是否已注册
+    /// 检查是否已注册
     pub fn is_registered(&self, provider: &str) -> bool {
         self.services.contains_key(provider)
     }
 
-    /// 获取支持的模型列表
-    pub fn get_supported_models(&self, provider: &str) -> Vec<&str> {
-        self.get(provider)
-            .map(|s| s.supported_models())
-            .unwrap_or_default()
-    }
-
     /// 验证 API 密钥
     pub async fn validate_api_key(&self, provider: &str) -> Result<bool> {
-        match self.get(provider) {
-            Some(service) => service.validate_api_key().await,
-            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        if let Some(service) = self.services.get(provider) {
+            service.validate_api_key().await
+        } else {
+            Err(anyhow::anyhow!("Provider not found: {}", provider))
         }
     }
 
-    /// 统一聊天接口
-    pub async fn chat(
-        &self,
-        provider: &str,
-        messages: Vec<serde_json::Value>,
-    ) -> Result<String> {
-        match self.get(provider) {
-            Some(service) => service.chat(messages).await,
-            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+    /// 聊天
+    pub async fn chat(&self, provider: &str, messages: Vec<serde_json::Value>) -> Result<String> {
+        if let Some(service) = self.services.get(provider) {
+            service.chat(messages).await
+        } else {
+            Err(anyhow::anyhow!("Provider not found: {}", provider))
         }
     }
 
-    /// 统一流式聊天接口
+    /// 生成 PRD
+    pub async fn generate_prd(&self, provider: &str, idea: &str) -> Result<String> {
+        if let Some(service) = self.services.get(provider) {
+            service.generate_prd(idea).await
+        } else {
+            Err(anyhow::anyhow!("Provider not found: {}", provider))
+        }
+    }
+
+    /// 生成用户画像
+    pub async fn generate_personas(&self, provider: &str, idea: &str) -> Result<Vec<serde_json::Value>> {
+        if let Some(service) = self.services.get(provider) {
+            service.generate_personas(idea).await
+        } else {
+            Err(anyhow::anyhow!("Provider not found: {}", provider))
+        }
+    }
+
+    /// 生成竞品分析
+    pub async fn generate_competitor_analysis(&self, provider: &str, idea: &str) -> Result<String> {
+        if let Some(service) = self.services.get(provider) {
+            service.generate_competitor_analysis(idea).await
+        } else {
+            Err(anyhow::anyhow!("Provider not found: {}", provider))
+        }
+    }
+
+    /// 流式聊天
     pub async fn stream_chat(
         &self,
         provider: &str,
         messages: Vec<serde_json::Value>,
         callback: Box<dyn Fn(String) + Send + Sync>,
     ) -> Result<()> {
-        match self.get(provider) {
-            Some(service) => service.stream_chat(messages, callback).await,
-            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
-        }
-    }
-
-    /// 统一 PRD 生成接口
-    pub async fn generate_prd(&self, provider: &str, idea: &str) -> Result<String> {
-        match self.get(provider) {
-            Some(service) => service.generate_prd(idea).await,
-            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
-        }
-    }
-
-    /// 统一用户画像生成接口
-    pub async fn generate_personas(
-        &self,
-        provider: &str,
-        idea: &str,
-    ) -> Result<Vec<serde_json::Value>> {
-        match self.get(provider) {
-            Some(service) => service.generate_personas(idea).await,
-            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
-        }
-    }
-
-    /// 统一竞品分析生成接口
-    pub async fn generate_competitor_analysis(
-        &self,
-        provider: &str,
-        idea: &str,
-    ) -> Result<String> {
-        match self.get(provider) {
-            Some(service) => service.generate_competitor_analysis(idea).await,
-            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        if let Some(service) = self.services.get(provider) {
+            service.stream_chat(messages, callback).await
+        } else {
+            Err(anyhow::anyhow!("Provider not found: {}", provider))
         }
     }
 }
@@ -1381,3 +858,6 @@ impl Default for AIServiceManager {
         Self::new()
     }
 }
+
+// ========== Claude (Anthropic) API 实现占位 =========
+// TODO: 后续完善 Claude API 支持
