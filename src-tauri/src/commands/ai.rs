@@ -2,6 +2,7 @@
 
 use crate::models::{AIProviderConfig, AIProviderMeta};
 use crate::services::Services;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 /// Get all AI provider metadata (VD-001)
@@ -173,4 +174,40 @@ pub fn get_ai_key_status(services: State<'_, Services>) -> Result<Vec<(String, b
         .keyring
         .get_all_ai_api_keys()
         .map_err(|e| format!("Failed to get AI key status: {}", e))
+}
+
+/// Get detailed API key status for a specific provider (VD-002)
+/// 返回密钥是否已存储以及验证状态
+#[derive(Debug, Clone, Serialize)]
+pub struct ApiKeyStatus {
+    pub has_key: bool,
+    pub is_validated: bool,
+    pub last_verified: Option<i64>,
+}
+
+#[tauri::command]
+pub async fn get_api_key_status(
+    services: State<'_, Services>,
+    provider: String,
+) -> Result<ApiKeyStatus, String> {
+    // 检查是否有密钥
+    let has_key = services
+        .keyring
+        .has_ai_api_key(&provider)
+        .map_err(|e| format!("Failed to check API key status: {}", e))?;
+    
+    // TODO: 从配置中读取最后验证时间
+    // 目前简化处理，如果密钥存在就认为已验证
+    let is_validated = has_key;
+    let last_verified = if has_key { 
+        Some(chrono::Utc::now().timestamp()) 
+    } else { 
+        None 
+    };
+    
+    Ok(ApiKeyStatus {
+        has_key,
+        is_validated,
+        last_verified,
+    })
 }

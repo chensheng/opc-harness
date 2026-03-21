@@ -10,6 +10,9 @@ import {
   Trash2,
   Edit,
   ExternalLink,
+  Eye,
+  EyeOff,
+  Shield,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -55,6 +58,9 @@ export function AIProviderConfigPanel() {
   // 验证状态
   const [validating, setValidating] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<Record<string, boolean>>({});
+
+  // 显示 API 密钥
+  const [showApiKey, setShowApiKey] = useState(false);
 
   /**
    * 加载 AI 厂商元数据和配置
@@ -105,6 +111,9 @@ export function AIProviderConfigPanel() {
     if (!provider) return;
 
     const existingConfig = configs.find(c => c.provider === providerId);
+
+    // 重置显示状态
+    setShowApiKey(false);
 
     if (existingConfig) {
       setEditingConfig(existingConfig);
@@ -399,7 +408,17 @@ export function AIProviderConfigPanel() {
       </Tabs>
 
       {/* 编辑/新增对话框 */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={open => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            // 关闭对话框时重置状态
+            setShowApiKey(false);
+            setEditingConfig(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
@@ -413,14 +432,60 @@ export function AIProviderConfigPanel() {
           {editingConfig && (
             <div className="space-y-4">
               <div className="grid gap-2">
-                <Label htmlFor="api-key">API 密钥</Label>
-                <Input
-                  id="api-key"
-                  type="password"
-                  placeholder="sk-..."
-                  value={editingConfig.apiKey || ''}
-                  onChange={e => setEditingConfig({ ...editingConfig, apiKey: e.target.value })}
-                />
+                <Label htmlFor="api-key">
+                  <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    API 密钥
+                  </div>
+                </Label>
+
+                <div className="relative">
+                  <Input
+                    id="api-key"
+                    type={showApiKey ? 'text' : 'password'}
+                    placeholder="sk-..."
+                    value={editingConfig.apiKey || ''}
+                    onChange={e => setEditingConfig({ ...editingConfig, apiKey: e.target.value })}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* 安全提示 */}
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <Shield className="h-3 w-3 mt-0.5" />
+                  <p>API 密钥将安全存储在操作系统的密钥管理中，不会保存到数据库或发送到服务器</p>
+                </div>
+
+                {/* 密钥状态指示 */}
+                {existingConfig && !editingConfig.apiKey && (
+                  <div className="flex items-center gap-2 text-xs">
+                    {validationResult[editingConfig.provider] ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                        <span className="text-green-600">已存储有效密钥</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3 w-3 text-yellow-600" />
+                        <span className="text-yellow-600">已存储密钥（未验证）</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {editingConfig.apiKey && (
                   <Button
                     size="sm"
@@ -431,7 +496,10 @@ export function AIProviderConfigPanel() {
                     {validating === editingConfig.provider ? (
                       '验证中...'
                     ) : validationResult[editingConfig.provider] ? (
-                      <span className="text-green-600">✓ 密钥有效</span>
+                      <span className="text-green-600 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        密钥有效
+                      </span>
                     ) : (
                       '验证密钥'
                     )}
