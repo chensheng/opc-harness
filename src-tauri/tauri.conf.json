@@ -1,0 +1,76 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "OPC-HARNESS",
+  "version": "0.1.0",
+  "identifier": "com.opc-harness.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "OPC-HARNESS - AI驱动的一人公司操作系统",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 700,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "default",
+          "description": "Default capabilities",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "shell:allow-open",
+            "shell:allow-execute",
+            "fs:allow-read",
+            "fs:allow-write",
+            "fs:allow-read-dir",
+            "fs:allow-create-dir",
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "notification:default"
+          ]
+        }
+      ]
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menu": false,
+      "tooltip": "OPC-HARNESS",
+      "title": "OPC-HARNESS"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "dmg", "appimage", "deb", "rpm"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "Copyright (c) 2026 OPC-HARNESS Contributors",
+    "category": "DeveloperTool",
+    "shortDescription": "AI驱动的一人公司操作系统",
+    "longDescription": "OPC-HARNESS是一款AI驱动的桌面应用，帮助独立创造者通过Vibe Design、Vibe Coding、Vibe Marketing三大模块，实现从想法到产品的全流程闭环。"
+  }
+}
