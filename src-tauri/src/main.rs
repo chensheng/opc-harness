@@ -78,6 +78,8 @@ fn main() {
             set_auto_save,
 
             // AI commands
+            get_ai_providers,
+            get_ai_provider,
             get_ai_configs,
             save_ai_config,
             remove_ai_config,
