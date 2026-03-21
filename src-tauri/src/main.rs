@@ -45,6 +45,9 @@ fn main() {
             open_in_vscode,
             select_directory,
             check_db_health,
+            verify_database,
+            get_db_stats,
+            reset_database,
 
             // AI commands
             get_ai_configs,

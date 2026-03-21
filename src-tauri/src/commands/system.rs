@@ -2,7 +2,7 @@
 
 use crate::models::ToolInfo;
 use crate::services::Services;
-use crate::db::check_health;
+use crate::db::{check_health, migrations};
 use tauri::State;
 use serde::Serialize;
 
@@ -85,4 +85,76 @@ pub fn check_db_health(services: State<'_, Services>) -> Result<DatabaseHealthIn
         journal_mode: health.journal_mode,
         foreign_keys_enabled: health.foreign_keys_enabled,
     })
+}
+
+/// Database verification info (for frontend)
+#[derive(Debug, Clone, Serialize)]
+pub struct DatabaseVerificationInfo {
+    pub is_valid: bool,
+    pub integrity_check: String,
+    pub tables: Vec<String>,
+    pub indexes: Vec<String>,
+    pub foreign_keys_enabled: bool,
+}
+
+/// Verify database integrity
+#[tauri::command]
+pub fn verify_database(services: State<'_, Services>) -> Result<DatabaseVerificationInfo, String> {
+    let db = services.project.get_db();
+    let db = db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    
+    let verification = migrations::verify_database(&db)
+        .map_err(|e| format!("Failed to verify database: {}", e))?;
+    
+    Ok(DatabaseVerificationInfo {
+        is_valid: verification.is_valid,
+        integrity_check: verification.integrity_check,
+        tables: verification.tables,
+        indexes: verification.indexes,
+        foreign_keys_enabled: verification.foreign_keys_enabled,
+    })
+}
+
+/// Database statistics (for frontend)
+#[derive(Debug, Clone, Serialize)]
+pub struct DatabaseStats {
+    pub project_count: i64,
+    pub prd_count: i64,
+    pub persona_count: i64,
+    pub competitor_count: i64,
+    pub cli_session_count: i64,
+    pub enabled_ai_config_count: i64,
+    pub migration_version: i32,
+}
+
+/// Get database statistics
+#[tauri::command]
+pub fn get_db_stats(services: State<'_, Services>) -> Result<DatabaseStats, String> {
+    let db = services.project.get_db();
+    let db = db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    
+    let stats = migrations::get_statistics(&db)
+        .map_err(|e| format!("Failed to get database statistics: {}", e))?;
+    
+    Ok(DatabaseStats {
+        project_count: stats.project_count,
+        prd_count: stats.prd_count,
+        persona_count: stats.persona_count,
+        competitor_count: stats.competitor_count,
+        cli_session_count: stats.cli_session_count,
+        enabled_ai_config_count: stats.enabled_ai_config_count,
+        migration_version: stats.migration_version,
+    })
+}
+
+/// Reset database (clear all data, keep schema)
+#[tauri::command]
+pub fn reset_database(services: State<'_, Services>) -> Result<(), String> {
+    let db = services.project.get_db();
+    let db = db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+    
+    migrations::reset_database(&db)
+        .map_err(|e| format!("Failed to reset database: {}", e))?;
+    
+    Ok(())
 }

@@ -39,8 +39,8 @@ pub fn init_db(app_dir: PathBuf) -> SqliteResult<Connection> {
     // Enable WAL mode for better concurrency
     conn.execute("PRAGMA journal_mode = WAL", [])?;
     
-    // Run migrations
-    migrations::run_migrations(&conn)?;
+    // Initialize database (migrations + default data)
+    migrations::initialize_database(&conn)?;
     
     log::info!("Database initialized at: {:?}", db_path);
     
