@@ -110,6 +110,11 @@ fn main() {
             // VD-022 PRD export functionality
             export_prd_to_markdown,
 
+            // VD-024 User persona generation functionality
+            generate_user_personas,
+            save_user_personas,
+            get_user_personas,
+
             // Project commands
             create_project,
             get_projects,

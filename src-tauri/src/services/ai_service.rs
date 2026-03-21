@@ -3,7 +3,7 @@
 //! 提供统一的 AI 调用接口，支持多家厂商
 
 use crate::models::{AIProviderConfig, AIModel};
-use crate::prompts::generate_prd_prompt;
+use crate::prompts::{generate_prd_prompt, generate_user_persona_prompt};
 use anyhow::{Result, Context};
 use reqwest::Client;
 use serde_json::json;
@@ -572,10 +572,265 @@ PRD 应包含以下内容：
         Ok(content.to_string())
     }
 
-    /// 生成用户画像
+    /// 生成用户画像 (VD-024)
     pub async fn generate_personas(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
-        // TODO: 生成用户画像
-        Ok(vec![])
+        // 使用提示词模板构造完整的提示词
+        let prompt = generate_user_persona_prompt(idea);
+        
+        // 构造消息格式
+        let messages = vec![json!({
+            "role": "user",
+            "content": prompt
+        })];
+        
+        // 根据 provider 选择不同的实现
+        match self.config.provider.as_str() {
+            "openai" => {
+                self.generate_personas_openai(messages).await
+            }
+            "anthropic" => {
+                self.generate_personas_anthropic(messages).await
+            }
+            _ => {
+                // 默认使用 OpenAI 兼容的 API
+                self.generate_personas_generic(messages).await
+            }
+        }
+    }
+
+    /// 生成用户画像 - OpenAI 实现
+    async fn generate_personas_openai(&self, messages: Vec<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
+        if self.config.api_key.is_none() {
+            return Err(anyhow::anyhow!("API key is missing"));
+        }
+
+        let api_key = self.config.api_key.as_ref().unwrap();
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+        let url = format!("{}/chat/completions", base_url);
+        let model = &self.config.model;
+
+        // 构造请求体，增加 max_tokens 以支持长输出
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 8192,  // 用户画像需要详细输出
+            "temperature": 0.7,
+            "top_p": 1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+        });
+
+        log::info!("Sending user persona generation request to {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(120))  // 可能需要较长时间
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send user persona generation request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            log::error!("User persona generation API error: {}", error_text);
+            return Err(anyhow::anyhow!("User persona generation failed: {}", error_text));
+        }
+
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse user persona generation response")?;
+
+        // 提取回复内容
+        let content = result["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No content in user persona generation response"))?;
+
+        log::info!("User personas generated successfully, length: {} chars", content.len());
+        
+        // 尝试从 Markdown 中提取 JSON 部分（如果 AI 返回的是 Markdown 格式）
+        let json_content = Self::extract_json_from_markdown(content);
+        
+        // 尝试解析为 JSON 数组
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&json_content) {
+            if json_value.is_array() {
+                return Ok(json_value.as_array().unwrap().clone());
+            }
+        }
+        
+        // 如果无法解析为数组，将整个响应包装为单个对象
+        Ok(vec![json!({
+            "markdown": content,
+            "note": "Raw markdown output, parsing failed"
+        })])
+    }
+
+    /// 生成用户画像 - Anthropic (Claude) 实现
+    async fn generate_personas_anthropic(&self, messages: Vec<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
+        if self.config.api_key.is_none() {
+            return Err(anyhow::anyhow!("API key is missing"));
+        }
+
+        let api_key = self.config.api_key.as_ref().unwrap();
+        let url = "https://api.anthropic.com/v1/messages";
+        let model = &self.config.model;
+
+        // 提取系统提示和用户消息
+        let system_prompt = messages.iter()
+            .find(|m| m["role"] == "system")
+            .and_then(|m| m["content"].as_str())
+            .unwrap_or("You are a helpful assistant.");
+        
+        let user_message = messages.iter()
+            .find(|m| m["role"] == "user")
+            .and_then(|m| m["content"].as_str())
+            .unwrap_or("");
+
+        let body = json!({
+            "model": model,
+            "max_tokens": 8192,
+            "system": system_prompt,
+            "messages": vec![json!({
+                "role": "user",
+                "content": user_message
+            })]
+        });
+
+        log::info!("Sending user persona generation request to Anthropic");
+        
+        let response = self.client
+            .post(url)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(120))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send user persona generation request to Anthropic")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            log::error!("Anthropic user persona generation API error: {}", error_text);
+            return Err(anyhow::anyhow!("Anthropic user persona generation failed: {}", error_text));
+        }
+
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse Anthropic user persona generation response")?;
+
+        // 提取 Claude 的响应内容
+        let content = result["content"][0]["text"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No content in Anthropic user persona generation response"))?;
+
+        log::info!("User personas generated successfully by Anthropic, length: {} chars", content.len());
+        
+        // 尝试从 Markdown 中提取 JSON 部分
+        let json_content = Self::extract_json_from_markdown(content);
+        
+        // 尝试解析为 JSON 数组
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&json_content) {
+            if json_value.is_array() {
+                return Ok(json_value.as_array().unwrap().clone());
+            }
+        }
+        
+        // 如果无法解析为数组，将整个响应包装为单个对象
+        Ok(vec![json!({
+            "markdown": content,
+            "note": "Raw markdown output from Anthropic, parsing failed"
+        })])
+    }
+
+    /// 生成用户画像 - 通用实现（兼容其他 API）
+    async fn generate_personas_generic(&self, messages: Vec<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
+        if self.config.api_key.is_none() {
+            return Err(anyhow::anyhow!("API key is missing"));
+        }
+
+        let api_key = self.config.api_key.as_ref().unwrap();
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+        let url = format!("{}/chat/completions", base_url);
+        let model = &self.config.model;
+
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 8192,
+            "temperature": 0.7,
+        });
+
+        log::info!("Sending user persona generation request to {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(120))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send user persona generation request")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            log::error!("User persona generation API error: {}", error_text);
+            return Err(anyhow::anyhow!("User persona generation failed: {}", error_text));
+        }
+
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse user persona generation response")?;
+
+        let content = result["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No content in user persona generation response"))?;
+
+        log::info!("User personas generated successfully, length: {} chars", content.len());
+        
+        // 尝试从 Markdown 中提取 JSON 部分
+        let json_content = Self::extract_json_from_markdown(content);
+        
+        // 尝试解析为 JSON 数组
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&json_content) {
+            if json_value.is_array() {
+                return Ok(json_value.as_array().unwrap().clone());
+            }
+        }
+        
+        // 如果无法解析为数组，将整个响应包装为单个对象
+        Ok(vec![json!({
+            "markdown": content,
+            "note": "Raw markdown output, parsing failed"
+        })])
+    }
+
+    /// 从 Markdown 中提取 JSON 内容
+    /// 
+    /// AI 可能会返回 Markdown 格式的代码块，此函数尝试提取其中的 JSON
+    fn extract_json_from_markdown(markdown: &str) -> String {
+        // 尝试匹配 ```json ... ``` 代码块
+        if let Some(start) = markdown.find("```json") {
+            let start = start + 7; // "```json".len()
+            if let Some(end) = markdown[start..].find("```") {
+                return markdown[start..start+end].trim().to_string();
+            }
+        }
+        
+        // 尝试匹配通用的 ``` ... ``` 代码块
+        if let Some(start) = markdown.find("```") {
+            let start = start + 3;
+            // 跳过可能存在的语言标识符
+            let start = markdown[start..].find('\n')
+                .map(|i| start + i + 1)
+                .unwrap_or(start);
+            
+            if let Some(end) = markdown[start..].find("```") {
+                return markdown[start..start+end].trim().to_string();
+            }
+        }
+        
+        // 如果没有找到代码块，返回原始内容
+        markdown.to_string()
     }
 
     /// 生成竞品分析

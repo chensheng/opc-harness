@@ -513,3 +513,162 @@ pub async fn export_prd_to_markdown(
     
     Ok(save_path.to_string_lossy().to_string())
 }
+
+// ============================================================
+// VD-024: 用户画像生成 API
+// ============================================================
+
+/// Generate user personas (VD-024)
+/// 根据产品创意生成用户画像
+#[tauri::command]
+pub async fn generate_user_personas(
+    services: State<'_, Services>,
+    project_id: String,
+    idea: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    use crate::services::ai_service::AIService;
+    
+    // 1. 获取项目信息
+    let project = services.project.get_project(&project_id)
+        .map_err(|e| format!("Failed to get project: {}", e))?;
+    
+    if project.is_none() {
+        return Err(format!("Project not found: {}", project_id));
+    }
+    
+    let project = project.unwrap();
+    
+    // 2. 获取 AI 配置（从数据库和 keyring）
+    let config_info = {
+        let db = services.project.get_db();
+        let db = db.lock().map_err(|e| format!("Failed to lock database: {}", e))?;
+        
+        db.query_row(
+            "SELECT provider, base_url, model FROM ai_configs WHERE enabled = 1 LIMIT 1",
+            [],
+            |row| {
+                let provider: String = row.get(0)?;
+                let base_url: Option<String> = row.get(1)?;
+                let model: String = row.get(2)?;
+                Ok((provider, base_url, model))
+            }
+        ).ok()
+    };
+    
+    let (provider, base_url, model) = config_info.ok_or_else(|| {
+        "No enabled AI provider configured. Please configure at least one AI provider.".to_string()
+    })?;
+    
+    // 3. 从 keyring 获取 API 密钥
+    let api_key = services.keyring.get_ai_api_key(&provider)
+        .map_err(|e| format!("Failed to get API key: {}", e))?
+        .ok_or_else(|| {
+            format!("API key not found for provider: {}. Please configure the API key in settings.", provider)
+        })?;
+    
+    // 4. 创建 AI 服务实例
+    let config = AIProviderConfig {
+        provider,
+        api_key: Some(api_key),
+        base_url,
+        model,
+        enabled: true,
+        name: None,
+    };
+    
+    let ai_service = AIService::new(config);
+    
+    // 5. 调用 AI 生成用户画像
+    let personas = ai_service.generate_personas(&idea).await
+        .map_err(|e| format!("Failed to generate user personas: {}", e))?;
+    
+    log::info!("Generated {} user personas for project: {}", personas.len(), project_id);
+    
+    Ok(personas)
+}
+
+/// Save user personas to project (VD-024)
+/// 保存用户画像到项目
+#[tauri::command]
+pub fn save_user_personas(
+    services: State<'_, Services>,
+    project_id: String,
+    personas: Vec<serde_json::Value>,
+) -> Result<(), String> {
+    use std::path::PathBuf;
+    use serde_json;
+    
+    // 1. 获取项目信息
+    let project = services.project.get_project(&project_id)
+        .map_err(|e| format!("Failed to get project: {}", e))?;
+    
+    if project.is_none() {
+        return Err(format!("Project not found: {}", project_id));
+    }
+    
+    let project = project.unwrap();
+    
+    // 2. 将 personas 转换为 JSON 字符串
+    let json_content = serde_json::to_string_pretty(&personas)
+        .map_err(|e| format!("Failed to serialize personas: {}", e))?;
+    
+    // 3. 保存到项目目录
+    if let Some(project_path) = &project.path {
+        let personas_dir = PathBuf::from(project_path).join(".opc-harness");
+        std::fs::create_dir_all(&personas_dir)
+            .map_err(|e| format!("Failed to create personas directory: {}", e))?;
+        
+        let personas_file_path = personas_dir.join("user_personas.json");
+        crate::utils::save_to_file(&personas_file_path, &json_content)
+            .map_err(|e| format!("Failed to save personas to file: {}", e))?;
+        
+        log::info!("User personas saved to file: {:?}", personas_file_path);
+    }
+    
+    // 4. 同时保存到数据库（可选，如果需要结构化存储）
+    // TODO: 如果需要，可以在数据库中添加 user_personas 表
+    
+    log::info!("User personas saved successfully for project: {}", project_id);
+    Ok(())
+}
+
+/// Get user personas for project (VD-024)
+/// 获取项目的用户画像
+#[tauri::command]
+pub fn get_user_personas(
+    services: State<'_, Services>,
+    project_id: String,
+) -> Result<Option<Vec<serde_json::Value>>, String> {
+    use std::path::PathBuf;
+    use std::fs;
+    
+    // 1. 获取项目信息
+    let project = services.project.get_project(&project_id)
+        .map_err(|e| format!("Failed to get project: {}", e))?;
+    
+    if project.is_none() {
+        return Err(format!("Project not found: {}", project_id));
+    }
+    
+    let project = project.unwrap();
+    
+    // 2. 尝试从文件读取
+    if let Some(project_path) = &project.path {
+        let personas_file_path = PathBuf::from(project_path)
+            .join(".opc-harness")
+            .join("user_personas.json");
+        
+        if personas_file_path.exists() {
+            let content = fs::read_to_string(&personas_file_path)
+                .map_err(|e| format!("Failed to read personas file: {}", e))?;
+            
+            let personas: Vec<serde_json::Value> = serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to parse personas JSON: {}", e))?;
+            
+            return Ok(Some(personas));
+        }
+    }
+    
+    // 3. 如果文件不存在，返回 None
+    Ok(None)
+}
