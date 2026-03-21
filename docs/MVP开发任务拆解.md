@@ -468,7 +468,7 @@ CLI集成 (Week 3-4)
 | INFRA-001 | 初始化Tauri v2 + React项目 | 基础架构 | P0 | 4h | | 🟢 已完成 | 6h | 包含前端React+TS、Tailwind、Rust后端完整结构 |
 | INFRA-002 | 配置TypeScript严格模式 | 基础架构 | P0 | 2h | | 🟢 已完成 | 0.5h | 已启用strict模式及所有严格类型检查选项 |
 | INFRA-003 | 配置Tailwind CSS + shadcn/ui | 基础架构 | P0 | 3h | | 🟢 已完成 | 2h | 已配置完整shadcn/ui系统，包含12个基础组件 |
-| INFRA-004 | 配置Zustand状态管理 | 基础架构 | P0 | 2h | | 🔴 未开始 | | |
+| INFRA-004 | 配置Zustand状态管理 | 基础架构 | P0 | 2h | | 🟢 已完成 | 1h | 已配置3个store，支持Immer和持久化 |
 | INFRA-005 | 配置开发环境(Husky/ESLint/Prettier) | 基础架构 | P1 | 3h | | 🔴 未开始 | | |
 | INFRA-006 | 创建项目目录结构 | 基础架构 | P0 | 2h | | 🔴 未开始 | | |
 | INFRA-007 | 配置Rust项目结构和依赖 | Rust后端 | P0 | 3h | | 🔴 未开始 | | |
