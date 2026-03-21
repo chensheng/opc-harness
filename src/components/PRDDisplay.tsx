@@ -10,6 +10,7 @@ import {
   Maximize2,
   Minimize2,
   Printer,
+  Loader2,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -20,9 +21,19 @@ interface PRDDisplayProps {
   generatedAt?: string;
   onSave?: () => void;
   onExport?: () => void;
+  isStreaming?: boolean;
+  progress?: number;
 }
 
-export function PRDDisplay({ prd, idea, generatedAt, onSave, onExport }: PRDDisplayProps) {
+export function PRDDisplay({
+  prd,
+  idea,
+  generatedAt,
+  onSave,
+  onExport,
+  isStreaming = false,
+  progress = 0,
+}: PRDDisplayProps) {
   const [zoom, setZoom] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -54,8 +65,8 @@ export function PRDDisplay({ prd, idea, generatedAt, onSave, onExport }: PRDDisp
             </style>
           </head>
           <body>
-            ${prd.replace(/\n/g, '<br>').replace(/#/g, (match, offset, string) => {
-              const level = string.trim().indexOf('#');
+            ${prd.replace(/\n/g, '<br>').replace(/#/g, (_, __, str) => {
+              const level = str.trim().indexOf('#');
               return `<h${level}>`.repeat(level === 0 ? 1 : level);
             })}
           </body>
@@ -81,6 +92,13 @@ export function PRDDisplay({ prd, idea, generatedAt, onSave, onExport }: PRDDisp
             <span className="text-sm text-slate-500 truncate max-w-md">
               · {idea.substring(0, 50)}
               {idea.length > 50 ? '...' : ''}
+            </span>
+          )}
+          {/* 流式生成状态指示器 */}
+          {isStreaming && (
+            <span className="flex items-center gap-2 text-sm text-blue-600 ml-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              生成中... {progress}%
             </span>
           )}
         </div>
@@ -158,11 +176,32 @@ export function PRDDisplay({ prd, idea, generatedAt, onSave, onExport }: PRDDisp
 
       {/* PRD 内容 */}
       <div
-        className="prose prose-slate max-w-none transition-all duration-200"
+        className="prose prose-slate max-w-none transition-all duration-200 relative"
         style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
       >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{prd}</ReactMarkdown>
+
+        {/* 流式生成时的光标效果 */}
+        {isStreaming && (
+          <span className="inline-block w-2 h-5 bg-blue-500 animate-pulse ml-1"></span>
+        )}
       </div>
+
+      {/* 进度条 */}
+      {isStreaming && progress > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-slate-600">生成进度</span>
+            <span className="text-sm font-medium text-blue-600">{progress}%</span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-blue-500 to-purple-600 h-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 元信息 */}
       {generatedAt && (

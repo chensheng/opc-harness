@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { PRDDisplay } from './PRDDisplay';
+import { usePRDStream } from '../hooks/usePRDStream';
 
 interface PRDResult {
   prd: string;
@@ -10,62 +11,36 @@ interface PRDResult {
 
 export function IdeaInput() {
   const [idea, setIdea] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [prdResult, setPrdResult] = useState<PRDResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // 使用 PRD 流式生成 hook
+  const {
+    isGenerating,
+    prd,
+    progress,
+    generatePRD: streamGeneratePRD,
+    reset: resetStream,
+  } = usePRDStream();
 
   const handleGeneratePRD = async () => {
     if (!idea.trim()) return;
 
-    setIsGenerating(true);
     setError(null);
+    resetStream();
 
     try {
-      // TODO: 调用 Tauri command 生成 PRD
-      // const result = await invoke('generate_prd', { idea });
+      // 使用流式生成
+      await streamGeneratePRD(idea);
 
-      // 模拟生成
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const mockPRD = `# 产品需求文档 - ${idea.substring(0, 30)}...
-
-## 1. 产品概述
-这是一个基于${idea}的产品，旨在解决用户的核心痛点。
-
-## 2. 目标用户
-- 主要用户群体：需要${idea}的用户
-- 次要用户群体：相关领域的从业者
-
-## 3. 核心功能
-### 3.1 功能一
-描述第一个核心功能
-
-### 3.2 功能二
-描述第二个核心功能
-
-## 4. 技术架构
-- 前端：React + TypeScript
-- 后端：Tauri + Rust
-- 数据库：SQLite
-
-## 5. 开发计划
-- Phase 1: MVP (2-3 周)
-- Phase 2: 功能完善 (4-6 周)
-- Phase 3: 商业化 (8-10 周)
-
-## 6. 风险评估
-- 技术风险：中等
-- 市场风险：低
-- 竞争风险：中等`;
-
+      // 生成完成后保存结果
       setPrdResult({
-        prd: mockPRD,
+        prd: '', // prd 由 hook 管理
         idea,
         generatedAt: new Date().toISOString(),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : '生成 PRD 失败');
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -137,11 +112,13 @@ export function IdeaInput() {
       {/* PRD 展示区域 */}
       {prdResult && (
         <PRDDisplay
-          prd={prdResult.prd}
+          prd={prd} // 使用 hook 中的 prd
           idea={prdResult.idea}
           generatedAt={prdResult.generatedAt}
           onSave={handleSave}
           onExport={handleExport}
+          isStreaming={isGenerating}
+          progress={progress}
         />
       )}
     </div>
