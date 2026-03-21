@@ -13,6 +13,11 @@ impl ProjectService {
         Self { db }
     }
 
+    /// Get database connection (for health checks)
+    pub fn get_db(&self) -> Arc<Mutex<rusqlite::Connection>> {
+        self.db.clone()
+    }
+
     /// Create a new project
     pub fn create_project(
         &self,

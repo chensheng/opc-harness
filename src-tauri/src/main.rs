@@ -44,6 +44,7 @@ fn main() {
             get_tool_status,
             open_in_vscode,
             select_directory,
+            check_db_health,
 
             // AI commands
             get_ai_configs,
