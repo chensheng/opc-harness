@@ -478,7 +478,7 @@ CLI集成 (Week 3-4)
 | INFRA-003 | 配置Tailwind CSS + shadcn/ui        | 基础架构 | P0     | 3h   |        | 🟢 已完成 | 2h       | 已配置完整shadcn/ui系统，包含12个基础组件         |
 | INFRA-004 | 配置Zustand状态管理                 | 基础架构 | P0     | 2h   |        | 🟢 已完成 | 1h       | 已配置3个store，支持Immer和持久化                 |
 | INFRA-005 | 配置开发环境(Husky/ESLint/Prettier) | 基础架构 | P1     | 3h   |        | 🟢 已完成 | 2h       | ESLint v9+Prettier+ Husky配置完成，提交前自动检查 |
-| INFRA-006 | 创建项目目录结构                    | 基础架构 | P0     | 2h   |        | 🔴 未开始 |          |                                                   |
+| INFRA-006 | 创建项目目录结构                    | 基础架构 | P0     | 2h   |        | 🟢 已完成 | 1.5h     | 前后端完整目录结构创建完成，文档已更新            |
 | INFRA-007 | 配置Rust项目结构和依赖              | Rust后端 | P0     | 3h   |        | 🔴 未开始 |          |                                                   |
 | INFRA-008 | 创建基础Tauri Commands结构          | Rust后端 | P0     | 4h   |        | 🔴 未开始 |          |                                                   |
 | INFRA-009 | 集成SQLite数据库(rusqlite)          | Rust后端 | P0     | 4h   |        | 🔴 未开始 |          |                                                   |
