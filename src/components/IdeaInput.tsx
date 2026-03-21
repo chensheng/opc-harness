@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Sparkles, Save, Download, ChevronRight } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Sparkles, ChevronRight } from 'lucide-react';
+import { PRDDisplay } from './PRDDisplay';
 
 interface PRDResult {
   prd: string;
@@ -137,37 +136,13 @@ export function IdeaInput() {
 
       {/* PRD 展示区域 */}
       {prdResult && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 animate-fade-in">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold">生成的产品需求文档</h3>
-            <div className="flex gap-3">
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                保存
-              </button>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                导出 Markdown
-              </button>
-            </div>
-          </div>
-
-          <div className="prose prose-slate max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{prdResult.prd}</ReactMarkdown>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <p className="text-sm text-slate-500">
-              生成时间：{new Date(prdResult.generatedAt).toLocaleString('zh-CN')}
-            </p>
-          </div>
-        </div>
+        <PRDDisplay
+          prd={prdResult.prd}
+          idea={prdResult.idea}
+          generatedAt={prdResult.generatedAt}
+          onSave={handleSave}
+          onExport={handleExport}
+        />
       )}
     </div>
   );
