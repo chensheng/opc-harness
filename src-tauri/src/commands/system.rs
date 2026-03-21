@@ -2,6 +2,7 @@
 
 use crate::models::ToolInfo;
 use crate::services::Services;
+use crate::services::tool_detection::{ToolCategory, ToolDetectionResult};
 use crate::db::{check_health, migrations};
 use tauri::State;
 use serde::Serialize;
@@ -28,6 +29,74 @@ pub fn detect_tools(services: State<'_, Services>) -> Vec<ToolInfo> {
 #[tauri::command]
 pub fn get_tool_status(services: State<'_, Services>, tool: String) -> bool {
     services.tool_detection.is_installed(&tool)
+}
+
+/// Tool info with category (for frontend)
+#[derive(Debug, Clone, Serialize)]
+pub struct ToolInfoWithCategory {
+    pub name: String,
+    pub installed: bool,
+    pub version: Option<String>,
+    pub path: Option<String>,
+    pub category: String,
+    pub is_required: bool,
+    pub description: String,
+}
+
+/// Detect all tools with categories
+#[tauri::command]
+pub fn detect_tools_detailed(services: State<'_, Services>) -> Vec<ToolInfoWithCategory> {
+    services
+        .tool_detection
+        .detect_all_detailed()
+        .into_iter()
+        .map(|r| ToolInfoWithCategory {
+            name: r.tool.name,
+            installed: r.tool.installed,
+            version: r.tool.version,
+            path: r.tool.path,
+            category: format!("{:?}", r.category),
+            is_required: r.is_required,
+            description: r.description,
+        })
+        .collect()
+}
+
+/// Detect required tools
+#[tauri::command]
+pub fn detect_required_tools(services: State<'_, Services>) -> Vec<ToolInfoWithCategory> {
+    services
+        .tool_detection
+        .detect_required_tools()
+        .into_iter()
+        .map(|r| ToolInfoWithCategory {
+            name: r.tool.name,
+            installed: r.tool.installed,
+            version: r.tool.version,
+            path: r.tool.path,
+            category: format!("{:?}", r.category),
+            is_required: r.is_required,
+            description: r.description,
+        })
+        .collect()
+}
+
+/// Get missing required tools
+#[tauri::command]
+pub fn get_missing_required_tools(services: State<'_, Services>) -> Vec<String> {
+    services.tool_detection.detect_missing_required()
+}
+
+/// Check if all required tools are installed
+#[tauri::command]
+pub fn all_required_tools_installed(services: State<'_, Services>) -> bool {
+    services.tool_detection.all_required_installed()
+}
+
+/// Get specific tool info
+#[tauri::command]
+pub fn get_tool_info(services: State<'_, Services>, tool: String) -> Option<ToolInfo> {
+    services.tool_detection.get_tool_info(&tool)
 }
 
 /// Open directory in VS Code
