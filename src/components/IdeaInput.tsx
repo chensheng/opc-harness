@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { PRDDisplay } from './PRDDisplay';
 import { usePRDStream } from '../hooks/usePRDStream';
-import { savePRD as savePRDApi } from '@/api';
+import { savePRD as savePRDApi, exportPRDToMarkdown as exportPRDApi } from '@/api';
 
 export function IdeaInput() {
   const [idea, setIdea] = useState('');
@@ -50,15 +50,26 @@ export function IdeaInput() {
     }
   };
 
-  const handleExport = () => {
-    if (!prd) return;
-    const blob = new Blob([prd], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PRD-${new Date().toISOString().split('T')[0]}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    if (!prd || !idea.trim()) return;
+
+    try {
+      // 生成文件名：使用创意的前 20 个字符作为文件名的一部分
+      const ideaPreview = idea
+        .trim()
+        .slice(0, 20)
+        .replace(/[^\w\u4e00-\u9fa5]/g, '-');
+      const filename = `PRD-${ideaPreview}-${new Date().toISOString().split('T')[0]}.md`;
+
+      // 调用后端 API 导出文件
+      const filePath = await exportPRDApi('temp-project', prd, filename);
+
+      alert(`✅ PRD 已成功导出到：\n${filePath}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '导出 PRD 失败';
+      console.error('Failed to export PRD:', err);
+      alert(`❌ 导出失败：${errorMessage}`);
+    }
   };
 
   return (

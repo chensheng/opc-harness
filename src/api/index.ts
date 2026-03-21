@@ -262,3 +262,21 @@ export async function getLatestPRD(projectId: string): Promise<PRDDocument | nul
 export async function getPRDsByProject(projectId: string): Promise<PRDDocument[]> {
   return invoke('get_prds_by_project', { projectId });
 }
+
+// ============================================================================
+// VD-022: PRD Export Functionality
+// ============================================================================
+
+/**
+ * Export PRD to Markdown file
+ */
+export async function exportPRDToMarkdown(
+  projectId: string,
+  content: string,
+  filename?: string
+): Promise<string> {
+  return withErrorHandling(
+    () => invoke('export_prd_to_markdown', { projectId, content, filename }),
+    '导出 PRD 失败'
+  );
+}

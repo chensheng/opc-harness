@@ -461,3 +461,55 @@ pub fn get_prds_by_project(
     services.project.get_prds_by_project(&project_id)
         .map_err(|e| format!("Failed to get PRDs: {}", e))
 }
+
+// ============================================================
+// VD-022: PRD 导出 Markdown 功能
+// ============================================================
+
+/// Export PRD to Markdown file
+/// 导出 PRD 为 Markdown 文件到本地
+#[tauri::command]
+pub async fn export_prd_to_markdown(
+    services: State<'_, Services>,
+    project_id: String,
+    content: String,
+    filename: Option<String>,
+) -> Result<String, String> {
+    // 1. 获取项目信息，用于生成默认文件名
+    let project = services.project.get_project(&project_id)
+        .map_err(|e| format!("Failed to get project: {}", e))?;
+    
+    if project.is_none() {
+        return Err(format!("Project not found: {}", project_id));
+    }
+    
+    let project = project.unwrap();
+    
+    // 2. 生成文件名
+    let file_name = match filename {
+        Some(name) => name,
+        None => {
+            // 使用项目标题生成文件名，去除特殊字符
+            let title = project.name.trim();
+            let safe_title: String = title.chars()
+                .filter(|c: &char| c.is_alphanumeric() || c.is_whitespace())
+                .collect::<String>()
+                .replace(" ", "-")
+                .to_lowercase();
+            
+            format!("PRD-{}-{}.md", safe_title, chrono::Local::now().format("%Y%m%d"))
+        }
+    };
+
+    // 3. 确定保存路径（用户选择的目录或默认目录）
+    let save_path = services.project.get_default_save_dir()
+        .join(&file_name);
+    
+    // 4. 保存到文件
+    crate::utils::save_to_file(&save_path, &content)
+        .map_err(|e| format!("Failed to save file: {}", e))?;
+    
+    log::info!("Exported PRD to: {:?}", save_path);
+    
+    Ok(save_path.to_string_lossy().to_string())
+}

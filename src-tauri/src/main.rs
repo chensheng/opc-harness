@@ -107,6 +107,9 @@ fn main() {
             get_latest_prd,
             get_prds_by_project,
 
+            // VD-022 PRD export functionality
+            export_prd_to_markdown,
+
             // Project commands
             create_project,
             get_projects,

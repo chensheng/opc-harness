@@ -3,6 +3,7 @@
 use crate::models::{PrdDocument, Project, ProjectStatus};
 use anyhow::{Context, Result};
 use rusqlite::OptionalExtension;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 pub struct ProjectService {
@@ -270,6 +271,19 @@ impl ProjectService {
             .context("Failed to collect PRDs")?;
 
         Ok(prds)
+    }
+
+    // ============================================================
+    // VD-022: PRD Export Methods
+    // ============================================================
+
+    /// Get default save directory for exported files
+    pub fn get_default_save_dir(&self) -> PathBuf {
+        // 使用用户的文档目录作为默认保存路径
+        dirs::document_dir()
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+            .join("opc-harness")
+            .join("exports")
     }
 }
 
