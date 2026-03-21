@@ -328,3 +328,24 @@ pub async fn ai_generate_competitor_analysis(
     services.ai.generate_competitor_analysis(&provider, &idea).await
         .map_err(|e| format!("Competitor analysis failed: {}", e))
 }
+
+/// 流式聊天 - SSE（Server-Sent Events）
+/// 这个命令会持续推送消息片段到前端回调函数
+#[tauri::command]
+pub async fn ai_stream_chat(
+    services: State<'_, Services>,
+    provider: String,
+    messages: Vec<serde_json::Value>,
+    callback: tauri::ipc::Channel<String>,
+) -> Result<(), String> {
+    // 将 callback 包装成 Box<dyn Fn(String) + Send + Sync>
+    let callback = Box::new(move |chunk: String| {
+        // 通过 Channel 发送数据到前端
+        if let Err(e) = callback.send(chunk) {
+            log::error!("Failed to send stream chunk: {}", e);
+        }
+    });
+    
+    services.ai.stream_chat(&provider, messages, callback).await
+        .map_err(|e| format!("Stream chat failed: {}", e))
+}

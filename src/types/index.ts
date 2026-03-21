@@ -90,7 +90,7 @@ export interface AIProviderMeta {
  * AI 厂商配置状态管理接口
  */
 export interface AIConfigState {
-  /** 各厂商的配置（使用 Record 类型支持动态添加） */
+  /** 各厂商的配置（使用 Record 类型支持动态键） */
   configs: Partial<Record<AIProvider, AIConfig>>;
 
   /** 当前激活的厂商 ID */
@@ -99,17 +99,41 @@ export interface AIConfigState {
   /** 可用的模型列表（按厂商分组） */
   availableModels: Record<AIProvider, string[]>;
 
-  /** 设置某个厂商的配置 */
-  setConfig: (provider: AIProvider, config: AIConfig) => void;
+  /** 流式输出回调函数类型 (VD-015) */
+  StreamCallback?: (chunk: string) => void;
+}
 
-  /** 移除某个厂商的配置 */
-  removeConfig: (provider: AIProvider) => void;
+// VD-015 流式输出相关类型
 
-  /** 设置当前使用的厂商 */
-  setActiveProvider: (provider: AIProvider | null) => void;
+/**
+ * 流式聊天请求参数
+ */
+export interface StreamChatRequest {
+  /** AI 厂商标识 */
+  provider: AIProvider;
 
-  /** 验证 API 密钥有效性 */
-  validateApiKey?: (provider: AIProvider) => Promise<boolean>;
+  /** 消息数组 */
+  messages: ChatMessage[];
+
+  /** 流式输出回调函数 */
+  onChunk: (chunk: string) => void;
+
+  /** 完成回调函数 */
+  onComplete?: () => void;
+
+  /** 错误回调函数 */
+  onError?: (error: string) => void;
+}
+
+/**
+ * 聊天消息类型
+ */
+export interface ChatMessage {
+  /** 角色：'user', 'assistant', 'system' */
+  role: string;
+
+  /** 消息内容 */
+  content: string;
 }
 
 // Message types for AI chat

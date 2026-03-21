@@ -96,6 +96,9 @@ fn main() {
             ai_generate_prd,
             ai_generate_personas,
             ai_generate_competitor_analysis,
+            
+            // VD-015 Streaming support
+            ai_stream_chat,
 
             // Project commands
             create_project,
