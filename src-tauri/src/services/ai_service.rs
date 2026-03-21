@@ -99,18 +99,17 @@ impl AIService {
             None => return Ok(false),
         };
 
-        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.anthropic.com");
-        let url = format!("{}/v1/complete", base_url);
-
-        // 使用一个轻量级的请求测试
+        // 使用 Messages API 进行验证（Anthropic 推荐使用）
+        let url = "https://api.anthropic.com/v1/messages";
+        
         let body = json!({
             "model": "claude-3-5-sonnet-20241022",
-            "max_tokens_to_sample": 10,
-            "prompt": "\n\nHuman: test\n\nAssistant:"
+            "max_tokens": 10,
+            "messages": [{"role": "user", "content": "Hi"}]
         });
 
         let response = self.client
-            .post(&url)
+            .post(url)
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
             .header("Content-Type", "application/json")
@@ -118,10 +117,10 @@ impl AIService {
             .send()
             .await?;
 
-        // 401/403 表示密钥无效，其他错误可能是网络问题
+        // 401/403 表示密钥无效
         match response.status().as_u16() {
             401 | 403 => Ok(false),
-            _ => Ok(true), // 其他状态码认为密钥有效（可能是请求格式问题）
+            _ => Ok(true), // 其他状态码认为密钥有效
         }
     }
 
@@ -391,6 +390,303 @@ impl AIService {
 
         self.chat_openai(messages).await
     }
+    
+    // ========== Claude (Anthropic) API 实现 ==========
+    
+    /// 验证 Claude API 密钥
+    pub async fn validate_claude_key(&self) -> Result<bool> {
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
+        
+        let url = "https://api.anthropic.com/v1/models";
+        
+        let response = self.client
+            .get(url)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .send()
+            .await
+            .context("Failed to send request to Anthropic API")?;
+        
+        Ok(response.status().is_success())
+    }
+    
+    /// Claude 聊天对话 - Messages API
+    pub async fn chat_claude(&self, messages: Vec<serde_json::Value>) -> Result<String> {
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
+        
+        let base_url = self.config.base_url.clone()
+            .unwrap_or_else(|| "https://api.anthropic.com".to_string());
+        
+        let model = if self.config.model.is_empty() {
+            "claude-3-5-sonnet-20241022".to_string()
+        } else {
+            self.config.model.clone()
+        };
+        
+        let url = format!("{}/v1/messages", base_url);
+        
+        // Claude 的消息格式与 OpenAI 不同
+        let mut system_prompt = String::new();
+        let mut claude_messages = Vec::new();
+        
+        for msg in messages {
+            if let Some(role) = msg.get("role").and_then(|v| v.as_str()) {
+                if role == "system" {
+                    system_prompt = msg.get("content")
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                } else {
+                    // Claude 只支持 user 和 assistant 角色
+                    let claude_role = if role == "user" { "user" } else { "assistant" };
+                    if let Some(content) = msg.get("content").cloned() {
+                        claude_messages.push(json!({
+                            "role": claude_role,
+                            "content": content
+                        }));
+                    }
+                }
+            }
+        }
+        
+        let body = json!({
+            "model": model,
+            "max_tokens": 4096,
+            "messages": claude_messages,
+            "system": system_prompt
+        });
+        
+        log::info!("Sending Claude request to: {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(30))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send request to Claude API")?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Claude API error: {}", error_text));
+        }
+        
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse Claude API response")?;
+        
+        log::debug!("Claude API response: {:?}", result);
+        
+        result["content"][0]["text"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("No content in Claude response"))
+    }
+    
+    /// Claude 流式聊天 - SSE
+    pub async fn stream_chat_claude(
+        &self,
+        messages: Vec<serde_json::Value>,
+        callback: Box<dyn Fn(String) + Send + Sync>,
+    ) -> Result<()> {
+        use eventsource_stream::Eventsource;
+        use futures::StreamExt;
+        
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key not set"))?;
+        
+        let base_url = self.config.base_url.clone()
+            .unwrap_or_else(|| "https://api.anthropic.com".to_string());
+        
+        let model = if self.config.model.is_empty() {
+            "claude-3-5-sonnet-20241022".to_string()
+        } else {
+            self.config.model.clone()
+        };
+        
+        let url = format!("{}/v1/messages", base_url);
+        
+        // 处理消息格式
+        let mut system_prompt = String::new();
+        let mut claude_messages = Vec::new();
+        
+        for msg in messages {
+            if let Some(role) = msg.get("role").and_then(|v| v.as_str()) {
+                if role == "system" {
+                    system_prompt = msg.get("content")
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                } else {
+                    let claude_role = if role == "user" { "user" } else { "assistant" };
+                    if let Some(content) = msg.get("content").cloned() {
+                        claude_messages.push(json!({
+                            "role": claude_role,
+                            "content": content
+                        }));
+                    }
+                }
+            }
+        }
+        
+        let body = json!({
+            "model": model,
+            "max_tokens": 4096,
+            "messages": claude_messages,
+            "system": system_prompt,
+            "stream": true
+        });
+        
+        log::info!("Sending Claude streaming request to: {}", url);
+        
+        let response = self.client
+            .post(&url)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(60))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send streaming request to Claude API")?;
+        
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("Claude streaming error: {}", error_text));
+        }
+        
+        let mut stream = response.bytes_stream().eventsource();
+        
+        while let Some(event_result) = stream.next().await {
+            match event_result {
+                Ok(event) => {
+                    // event.data is already a String, not Option
+                    let data = &event.data;
+                    if data == "[DONE]" {
+                        break;
+                    }
+                    
+                    // 解析 Claude 的 SSE 数据
+                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(data) {
+                        if value["type"] == "content_block_delta" {
+                            if let Some(text) = value["delta"]["text"].as_str() {
+                                callback(text.to_string());
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("SSE error: {:?}", e);
+                    break;
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Claude PRD 生成
+    pub async fn generate_prd_claude(&self, idea: &str) -> Result<String> {
+        let system_prompt = r#"你是一位专业的产品经理助手。请根据用户的产品创意，生成一份结构化的产品需求文档（PRD）。
+
+PRD 应包含以下内容：
+1. 产品概述：产品定位、目标市场、核心价值主张
+2. 目标用户：主要用户群体、用户画像
+3. 核心功能：功能列表、优先级排序、功能描述
+4. 技术架构：技术栈建议、系统架构图、关键技术选型
+5. 开发计划：MVP 范围、迭代规划、时间估算
+
+请使用清晰的标题和结构化格式。"#;
+
+        let messages = vec![json!({
+            "role": "user",
+            "content": format!("请为以下产品创意生成 PRD：{}", idea)
+        })];
+        
+        // 使用 system prompt 构建消息
+        let all_messages = vec![
+            json!({
+                "role": "system",
+                "content": system_prompt
+            }),
+            messages[0].clone()
+        ];
+        
+        self.chat_claude(all_messages).await
+    }
+    
+    /// Claude 用户画像生成
+    pub async fn generate_personas_claude(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
+        let system_prompt = r#"你是一位专业的用户研究专家。请根据产品创意创建 3-5 个详细的用户画像。
+
+每个画像应包含：
+- 基本信息：姓名、年龄、职业、收入水平
+- 痛点分析：当前面临的问题和挑战
+- 需求描述：对产品的期望和需求
+- 使用场景：典型的使用情境
+- 行为特征：技术熟练度、使用习惯等
+
+请以 JSON 数组格式返回。"#;
+
+        let messages = vec![json!({
+            "role": "user",
+            "content": format!("请为以下产品创意创建用户画像：{}", idea)
+        })];
+        
+        let all_messages = vec![
+            json!({
+                "role": "system",
+                "content": system_prompt
+            }),
+            messages[0].clone()
+        ];
+        
+        let response = self.chat_claude(all_messages).await?;
+        
+        // 尝试解析 JSON
+        if let Ok(value) = serde_json::from_str::<Vec<serde_json::Value>>(&response) {
+            Ok(value)
+        } else {
+            // 如果不是 JSON 格式，包装为单个对象
+            Ok(vec![json!({
+                "name": "典型用户",
+                "description": response
+            })])
+        }
+    }
+    
+    /// Claude 竞品分析生成
+    pub async fn generate_competitor_analysis_claude(&self, idea: &str) -> Result<String> {
+        let system_prompt = r#"你是一位资深市场分析师。请针对用户的产品创意进行全面的竞品分析。
+
+分析内容应包括：
+1. 直接竞品：功能相似的产品列表及其特点
+2. 间接竞品：解决同类问题的替代方案
+3. 竞争优势：差异化机会和竞争优势
+4. 市场机会：未满足的市场需求和空白点
+5. 进入策略：建议的市场进入策略
+
+请提供详细、可操作的分析报告。"#;
+
+        let messages = vec![json!({
+            "role": "user",
+            "content": format!("请对以下产品创意进行竞品分析：{}", idea)
+        })];
+        
+        let all_messages = vec![
+            json!({
+                "role": "system",
+                "content": system_prompt
+            }),
+            messages[0].clone()
+        ];
+        
+        self.chat_claude(all_messages).await
+    }
 }
 
 // 为 AIService 实现 AIProvider Trait
@@ -419,6 +715,7 @@ impl AIProvider for AIService {
         // 根据提供商调用具体实现
         match self.config.provider.as_str() {
             "openai" => self.chat_openai(messages).await,
+            "anthropic" => self.chat_claude(messages).await,
             _ => Ok("AI response placeholder".to_string()),
         }
     }
@@ -431,6 +728,7 @@ impl AIProvider for AIService {
         // 根据提供商调用具体实现
         match self.config.provider.as_str() {
             "openai" => self.stream_chat_openai(messages, callback).await,
+            "anthropic" => self.stream_chat_claude(messages, callback).await,
             _ => {
                 callback("Streaming response placeholder".to_string());
                 Ok(())
@@ -442,6 +740,7 @@ impl AIProvider for AIService {
         // 根据提供商调用具体实现
         match self.config.provider.as_str() {
             "openai" => self.generate_prd_openai(idea).await,
+            "anthropic" => self.generate_prd_claude(idea).await,
             _ => Ok(format!("# PRD for: {}\n\n(Generated content)", idea)),
         }
     }
@@ -450,6 +749,7 @@ impl AIProvider for AIService {
         // 根据提供商调用具体实现
         match self.config.provider.as_str() {
             "openai" => self.generate_personas_openai(idea).await,
+            "anthropic" => self.generate_personas_claude(idea).await,
             _ => Ok(vec![]),
         }
     }
@@ -458,6 +758,7 @@ impl AIProvider for AIService {
         // 根据提供商调用具体实现
         match self.config.provider.as_str() {
             "openai" => self.generate_competitor_analysis_openai(idea).await,
+            "anthropic" => self.generate_competitor_analysis_claude(idea).await,
             _ => Ok(format!("# Competitor Analysis for: {}\n\n(Generated content)", idea)),
         }
     }
