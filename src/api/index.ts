@@ -74,7 +74,7 @@ export interface UpdateProjectInput {
  * Create a new project
  */
 export async function createProject(input: CreateProjectInput): Promise<Project> {
-  return invoke('create_project', input);
+  return invoke('create_project', input as unknown as Record<string, unknown>);
 }
 
 /**

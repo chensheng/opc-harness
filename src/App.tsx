@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Sparkles, Code2, Rocket, Settings, Github, Twitter } from 'lucide-react';
+import { Sparkles, Code2, Rocket, Settings, Github, Twitter, Wrench } from 'lucide-react';
+import ToolInstallerGuide from './components/ToolInstallerGuide';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'design' | 'coding' | 'marketing'>('design');
@@ -138,18 +139,49 @@ function VibeDesignPanel() {
 
 // Vibe Coding Panel
 function VibeCodingPanel() {
+  const [showTools, setShowTools] = useState(false);
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 animate-fade-in">
-      <div className="text-center py-12">
-        <Code2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Vibe Coding</h2>
-        <p className="text-slate-600 max-w-lg mx-auto mb-6">
-          通过AI编码工具（Kimi CLI、Claude Code、Codex）快速构建你的产品原型。 先在 Vibe Design
-          中完成产品构思，然后进入编码阶段。
-        </p>
-        <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors">
-          请先完成 Vibe Design
-        </button>
+    <div className="space-y-6 animate-fade-in">
+      {/* 工具检测开关 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <Wrench className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">开发环境检测</h2>
+              <p className="text-sm text-slate-500">
+                检测本地 AI 编码工具（Kimi CLI、Claude Code、Codex）和其他开发工具
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowTools(!showTools)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            {showTools ? '收起' : '查看工具状态'}
+          </button>
+        </div>
+      </div>
+
+      {/* 工具安装引导 */}
+      {showTools && <ToolInstallerGuide />}
+
+      {/* 编码工作区占位 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div className="text-center py-12">
+          <Code2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Vibe Coding</h2>
+          <p className="text-slate-600 max-w-lg mx-auto mb-6">
+            通过AI编码工具（Kimi CLI、Claude Code、Codex）快速构建你的产品原型。 先在 Vibe Design
+            中完成产品构思，然后进入编码阶段。
+          </p>
+          <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors">
+            请先完成 Vibe Design
+          </button>
+        </div>
       </div>
     </div>
   );
