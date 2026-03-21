@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Sparkles, Code2, Rocket, Settings, Github, Twitter, Wrench } from 'lucide-react';
 import ToolInstallerGuide from './components/ToolInstallerGuide';
+import { SettingsPage } from './components/SettingsPage';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'design' | 'coding' | 'marketing'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'coding' | 'marketing' | 'settings'>(
+    'design'
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -23,7 +26,10 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+            <button
+              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              onClick={() => setActiveTab('settings')}
+            >
               <Settings className="w-5 h-5" />
             </button>
             <a
@@ -45,6 +51,7 @@ function App() {
             { id: 'design', label: 'Vibe Design', icon: Sparkles, desc: '产品构思' },
             { id: 'coding', label: 'Vibe Coding', icon: Code2, desc: '快速构建' },
             { id: 'marketing', label: 'Vibe Marketing', icon: Rocket, desc: '增长运营' },
+            { id: 'settings', label: '系统设置', icon: Settings, desc: '配置管理' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -70,6 +77,7 @@ function App() {
         {activeTab === 'design' && <VibeDesignPanel />}
         {activeTab === 'coding' && <VibeCodingPanel />}
         {activeTab === 'marketing' && <VibeMarketingPanel />}
+        {activeTab === 'settings' && <SettingsPage />}
       </main>
     </div>
   );
