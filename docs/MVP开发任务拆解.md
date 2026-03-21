@@ -501,10 +501,10 @@ CLI 集成 (Week 3-4)
 | VD-003  | 创建 AI 厂商配置界面           | AI 配置   | P0     | 4h   |        | 🟢 已完成 |          |                                                     |
 | VD-004  | 实现 API 密钥验证功能          | AI 配置   | P0     | 4h   |        | 🟢 已完成 |          |                                                     |
 | VD-005  | 支持 OpenAI API 配置           | AI 配置   | P0     | 2h   |        | 🟢 已完成 | 2h       | OpenAI 元数据、API 验证、模型选择、配置保存完整支持 |
-| VD-006  | 支持 Anthropic Claude API 配置 | AI 配置   | P0     | 2h   |        | 🔴 未开始 |          |                                                     |
-| VD-007  | 支持 Kimi API 配置             | AI 配置   | P1     | 2h   |        | 🔴 未开始 |          |                                                     |
-| VD-008  | 支持智谱 GLM API 配置          | AI 配置   | P1     | 2h   |        | 🔴 未开始 |          |                                                     |
-| VD-009  | 创建 AI Provider Trait 定义    | AI 适配器 | P0     | 3h   |        | 🔴 未开始 |          |                                                     |
+| VD-006  | 支持 Anthropic Claude API 配置 | AI 配置   | P0     | 2h   |        | 🟢 已完成 |          |                                                     |
+| VD-007  | 支持 Kimi API 配置             | AI 配置   | P1     | 2h   |        | 🟢 已完成 |          |                                                     |
+| VD-008  | 支持智谱 GLM API 配置          | AI 配置   | P1     | 2h   |        | 🟢 已完成 |          |                                                     |
+| VD-009  | 创建 AI Provider Trait 定义    | AI 适配器 | P0     | 3h   |        | 🟢 已完成 |          |                                                     |
 | VD-010  | 实现 OpenAI 适配器             | AI 适配器 | P0     | 6h   |        | 🔴 未开始 |          |                                                     |
 | VD-011  | 实现 Claude 适配器             | AI 适配器 | P0     | 6h   |        | 🔴 未开始 |          |                                                     |
 | VD-012  | 实现 Kimi 适配器               | AI 适配器 | P1     | 4h   |        | 🔴 未开始 |          |                                                     |
@@ -1689,6 +1689,7 @@ async fn validate_glm_key(&self) -> Result<bool> {
 ``tsx
 <Card>
 <CardHeader>
+
 <div className="flex items-center gap-2">
 <span className="text-2xl">🧠</span>
 <CardTitle>智谱 GLM</CardTitle>
