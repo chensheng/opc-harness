@@ -3,10 +3,11 @@
 //! 提供统一的 AI 调用接口，支持多家厂商
 
 use crate::models::{AIProviderConfig, AIModel};
-use anyhow::Result;
+use anyhow::{Result, Context};
 use reqwest::Client;
 use serde_json::json;
 use async_trait::async_trait;
+use std::time::Duration;
 
 /// AI Provider Trait - 定义所有 AI 厂商的统一接口
 #[async_trait]
@@ -27,7 +28,7 @@ pub trait AIProvider {
     async fn stream_chat(
         &self,
         messages: Vec<serde_json::Value>,
-        callback: impl Fn(String) + Send + Sync,
+        callback: Box<dyn Fn(String) + Send + Sync>,
     ) -> Result<()>;
     
     /// 生成 PRD（产品需求文档）
@@ -172,11 +173,16 @@ impl AIService {
     pub async fn stream_chat(
         &self,
         messages: Vec<serde_json::Value>,
-        callback: impl Fn(String),
+        callback: Box<dyn Fn(String) + Send + Sync>,
     ) -> Result<()> {
-        // TODO: 实现流式输出
-        callback("Streaming response placeholder".to_string());
-        Ok(())
+        // 根据提供商调用具体实现
+        match self.config.provider.as_str() {
+            "openai" => self.stream_chat_openai(messages, callback).await,
+            _ => {
+                callback("Streaming response placeholder".to_string());
+                Ok(())
+            }
+        }
     }
 
     /// 生成 PRD
@@ -215,6 +221,176 @@ impl AIService {
             },
         ]
     }
+
+    /// 发送聊天请求（OpenAI 完整实现）
+    pub async fn chat_openai(&self, messages: Vec<serde_json::Value>) -> Result<String> {
+        if self.config.provider != "openai" {
+            return Err(anyhow::anyhow!("Provider is not OpenAI"));
+        }
+
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key is missing"))?;
+        
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+        let url = format!("{}/chat/completions", base_url);
+        let model = &self.config.model;
+
+        // 构造 OpenAI Chat Completions API 请求
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+        });
+
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(30))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send request to OpenAI API")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("OpenAI API error: {}", error_text));
+        }
+
+        let result: serde_json::Value = response.json().await
+            .context("Failed to parse OpenAI API response")?;
+
+        // 提取回复内容
+        result["choices"][0]["message"]["content"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("No content in OpenAI response"))
+    }
+
+    /// 流式聊天（OpenAI 完整实现）
+    pub async fn stream_chat_openai(
+        &self,
+        messages: Vec<serde_json::Value>,
+        callback: Box<dyn Fn(String) + Send + Sync>,
+    ) -> Result<()> {
+        if self.config.provider != "openai" {
+            return Err(anyhow::anyhow!("Provider is not OpenAI"));
+        }
+
+        let api_key = self.config.api_key.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("API key is missing"))?;
+        
+        let base_url = self.config.base_url.as_deref().unwrap_or("https://api.openai.com/v1");
+        let url = format!("{}/chat/completions", base_url);
+        let model = &self.config.model;
+
+        // 构造流式请求
+        let body = json!({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+            "stream": true,
+        });
+
+        let response = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .timeout(Duration::from_secs(60))
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send streaming request to OpenAI API")?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(anyhow::anyhow!("OpenAI API error: {}", error_text));
+        }
+
+        // 处理 SSE 流
+        use eventsource_stream::Eventsource;
+        use futures::StreamExt;
+
+        let mut stream = response.bytes_stream().eventsource();
+
+        while let Some(event_result) = stream.next().await {
+            match event_result {
+                Ok(event) => {
+                    // Event 是一个包含 event 和 data 字段的结构体
+                    if event.data == "[DONE]" {
+                        break;
+                    }
+
+                    // 解析 SSE 数据
+                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(&event.data) {
+                        if let Some(content) = data["choices"][0]["delta"]["content"].as_str() {
+                            if !content.is_empty() {
+                                callback(content.to_string());
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("SSE error: {:?}", e);
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 生成 PRD（OpenAI 完整实现）
+    pub async fn generate_prd_openai(&self, idea: &str) -> Result<String> {
+        let messages = vec![json!({
+            "role": "system",
+            "content": "你是一位经验丰富的产品经理，擅长将产品想法转化为详细的产品需求文档（PRD）。请按照以下结构输出：\n\n1. 产品概述\n2. 目标用户\n3. 核心功能\n4. 技术架构\n5. 开发计划"
+        }), json!({
+            "role": "user",
+            "content": format!("请将以下产品想法完善为详细的产品需求文档：\n\n{}", idea)
+        })];
+
+        self.chat_openai(messages).await
+    }
+
+    /// 生成用户画像（OpenAI 完整实现）
+    pub async fn generate_personas_openai(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
+        let messages = vec![json!({
+            "role": "system",
+            "content": "你是一位用户研究专家，擅长创建详细的用户画像。请为目标产品创建 3-5 个典型用户画像，每个包含：姓名、年龄、职业、痛点、需求、使用场景。"
+        }), json!({
+            "role": "user",
+            "content": format!("请为以下产品创建用户画像：\n\n{}", idea)
+        })];
+
+        let response = self.chat_openai(messages).await?;
+        
+        // 尝试解析为 JSON 数组
+        if let Ok(personas) = serde_json::from_str::<Vec<serde_json::Value>>(&response) {
+            Ok(personas)
+        } else {
+            // 如果不是 JSON 格式，返回包装后的结果
+            Ok(vec![json!({
+                "description": response,
+                "source": "openai"
+            })])
+        }
+    }
+
+    /// 生成竞品分析（OpenAI 完整实现）
+    pub async fn generate_competitor_analysis_openai(&self, idea: &str) -> Result<String> {
+        let messages = vec![json!({
+            "role": "system",
+            "content": "你是一位战略咨询顾问，擅长竞品分析。请分析目标产品的潜在竞争对手，包括：\n1. 直接竞品\n2. 间接竞品\n3. 竞争优势\n4. 市场机会"
+        }), json!({
+            "role": "user",
+            "content": format!("请对以下产品进行竞品分析：\n\n{}", idea)
+        })];
+
+        self.chat_openai(messages).await
+    }
 }
 
 // 为 AIService 实现 AIProvider Trait
@@ -240,33 +416,50 @@ impl AIProvider for AIService {
     }
     
     async fn chat(&self, messages: Vec<serde_json::Value>) -> Result<String> {
-        // TODO: 根据厂商调用不同 API
-        Ok("AI response placeholder".to_string())
+        // 根据提供商调用具体实现
+        match self.config.provider.as_str() {
+            "openai" => self.chat_openai(messages).await,
+            _ => Ok("AI response placeholder".to_string()),
+        }
     }
     
     async fn stream_chat(
         &self,
         messages: Vec<serde_json::Value>,
-        callback: impl Fn(String) + Send + Sync,
+        callback: Box<dyn Fn(String) + Send + Sync>,
     ) -> Result<()> {
-        // TODO: 实现流式输出
-        callback("Streaming response placeholder".to_string());
-        Ok(())
+        // 根据提供商调用具体实现
+        match self.config.provider.as_str() {
+            "openai" => self.stream_chat_openai(messages, callback).await,
+            _ => {
+                callback("Streaming response placeholder".to_string());
+                Ok(())
+            }
+        }
     }
     
     async fn generate_prd(&self, idea: &str) -> Result<String> {
-        // TODO: 构造 Prompt 并调用 AI
-        Ok(format!("# PRD for: {}\n\n(Generated content)", idea))
+        // 根据提供商调用具体实现
+        match self.config.provider.as_str() {
+            "openai" => self.generate_prd_openai(idea).await,
+            _ => Ok(format!("# PRD for: {}\n\n(Generated content)", idea)),
+        }
     }
     
     async fn generate_personas(&self, idea: &str) -> Result<Vec<serde_json::Value>> {
-        // TODO: 生成用户画像
-        Ok(vec![])
+        // 根据提供商调用具体实现
+        match self.config.provider.as_str() {
+            "openai" => self.generate_personas_openai(idea).await,
+            _ => Ok(vec![]),
+        }
     }
     
     async fn generate_competitor_analysis(&self, idea: &str) -> Result<String> {
-        // TODO: 生成竞品分析
-        Ok(format!("# Competitor Analysis for: {}\n\n(Generated content)", idea))
+        // 根据提供商调用具体实现
+        match self.config.provider.as_str() {
+            "openai" => self.generate_competitor_analysis_openai(idea).await,
+            _ => Ok(format!("# Competitor Analysis for: {}\n\n(Generated content)", idea)),
+        }
     }
 }
 
