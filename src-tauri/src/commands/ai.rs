@@ -1,8 +1,22 @@
 //! AI configuration commands
 
-use crate::models::AIProviderConfig;
+use crate::models::{AIProviderConfig, AIProviderMeta};
 use crate::services::Services;
 use tauri::State;
+
+/// Get all AI provider metadata (VD-001)
+/// 获取所有 AI 厂商的元数据信息，用于 UI 显示
+#[tauri::command]
+pub fn get_ai_providers() -> Vec<AIProviderMeta> {
+    AIProviderMeta::get_all_providers()
+}
+
+/// Get specific AI provider metadata (VD-001)
+/// 获取指定 AI 厂商的元数据信息
+#[tauri::command]
+pub fn get_ai_provider(provider_id: String) -> Option<AIProviderMeta> {
+    AIProviderMeta::get_provider(&provider_id)
+}
 
 /// Get AI configurations
 #[tauri::command]
@@ -27,6 +41,7 @@ pub fn get_ai_configs(services: State<'_, Services>) -> Result<Vec<AIProviderCon
             base_url,
             model,
             enabled: enabled == 1,
+            name: None, // 暂时不支持自定义名称
         })
     }).map_err(|e| e.to_string())?;
     
