@@ -162,6 +162,75 @@ export interface CLIOutput {
   timestamp: number;
 }
 
+// User Persona types (VD-025)
+/**
+ * 用户画像数据结构
+ */
+export interface UserPersona {
+  /** 基本信息 - 姓名 */
+  name?: string;
+
+  /** 基本信息 - 年龄 */
+  age?: string;
+
+  /** 基本信息 - 职业 */
+  occupation?: string;
+
+  /** 基本信息 - 城市 */
+  city?: string;
+
+  /** 基本信息 - 收入水平 */
+  incomeLevel?: string;
+
+  /** 个人背景 - 教育背景 */
+  education?: string;
+
+  /** 个人背景 - 工作经历 */
+  workExperience?: string;
+
+  /** 个人背景 - 技术能力 */
+  technicalSkills?: string;
+
+  /** 个人背景 - 生活方式 */
+  lifestyle?: string;
+
+  /** 与产品相关的特征 - 核心需求 */
+  coreNeeds?: string;
+
+  /** 与产品相关的特征 - 使用场景 */
+  usageScenarios?: string;
+
+  /** 与产品相关的特征 - 期望功能 */
+  expectedFeatures?: string;
+
+  /** 与产品相关的特征 - 付费意愿 */
+  willingnessToPay?: string;
+
+  /** 行为特征 - 获取信息渠道 */
+  informationChannels?: string;
+
+  /** 行为特征 - 决策因素 */
+  decisionFactors?: string;
+
+  /** 行为特征 - 使用频率预期 */
+  expectedUsageFrequency?: string;
+
+  /** 行为特征 - 推荐意愿 */
+  recommendationWillingness?: string;
+
+  /** 用户引言 */
+  quote?: string;
+
+  /** 其他描述信息（用于兼容非结构化数据） */
+  description?: string;
+
+  /** 原始 Markdown 内容（如果解析失败） */
+  markdown?: string;
+
+  /** 备注信息 */
+  note?: string;
+}
+
 // Tool detection types
 export interface ToolInfo {
   name: string;
