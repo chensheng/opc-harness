@@ -49,6 +49,27 @@ fn main() {
             get_db_stats,
             reset_database,
 
+            // Config commands
+            get_settings,
+            save_settings,
+            get_config,
+            set_config,
+            get_config_bool,
+            set_config_bool,
+            get_config_i64,
+            set_config_i64,
+            config_exists,
+            remove_config,
+            get_all_configs,
+            update_configs,
+            reset_configs_to_defaults,
+            get_theme,
+            set_theme,
+            get_language,
+            set_language,
+            get_auto_save,
+            set_auto_save,
+
             // AI commands
             get_ai_configs,
             save_ai_config,

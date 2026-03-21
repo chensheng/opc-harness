@@ -2,6 +2,7 @@
 
 pub mod ai_service;
 pub mod cli_service;
+pub mod config_service;
 pub mod keyring_service;
 pub mod project_service;
 pub mod tool_detection;
@@ -15,6 +16,7 @@ pub struct Services {
     pub cli: Arc<tokio::sync::Mutex<cli_service::CLIService>>,
     pub tool_detection: Arc<tool_detection::ToolDetectionService>,
     pub keyring: Arc<keyring_service::KeyringService>,
+    pub config: Arc<config_service::ConfigService>,
 }
 
 impl Services {
@@ -27,6 +29,7 @@ impl Services {
             cli: Arc::new(tokio::sync::Mutex::new(cli_service::CLIService::new())),
             tool_detection: Arc::new(tool_detection::ToolDetectionService::new()),
             keyring: Arc::new(keyring_service::KeyringService::new("com.opc-harness.app")),
+            config: Arc::new(config_service::ConfigService::new(db.clone())),
         }
     }
 }
