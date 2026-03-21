@@ -87,6 +87,15 @@ fn main() {
             generate_prd,
             has_ai_api_key,
             get_ai_key_status,
+            
+            // VD-014 AI Service Manager commands
+            get_available_providers,
+            get_provider_models,
+            validate_provider_key,
+            ai_chat,
+            ai_generate_prd,
+            ai_generate_personas,
+            ai_generate_competitor_analysis,
 
             // Project commands
             create_project,

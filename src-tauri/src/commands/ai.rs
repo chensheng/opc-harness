@@ -249,3 +249,82 @@ pub async fn get_api_key_status(
         last_verified,
     })
 }
+
+// ==================== VD-014 AI 服务管理器统一入口命令 ====================
+
+/// 获取所有可用的 AI Provider 列表
+#[tauri::command]
+pub fn get_available_providers(services: State<'_, Services>) -> Vec<String> {
+    services.ai.registered_providers()
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
+/// 获取指定 Provider 支持的模型列表
+#[tauri::command]
+pub fn get_provider_models(
+    services: State<'_, Services>,
+    provider: String,
+) -> Result<Vec<String>, String> {
+    let models = services.ai.get_supported_models(&provider)
+        .into_iter()
+        .map(String::from)
+        .collect();
+    
+    Ok(models)
+}
+
+/// 验证指定 Provider 的 API 密钥
+#[tauri::command]
+pub async fn validate_provider_key(
+    services: State<'_, Services>,
+    provider: String,
+) -> Result<bool, String> {
+    services.ai.validate_api_key(&provider).await
+        .map_err(|e| format!("Validation failed: {}", e))
+}
+
+/// 使用指定 Provider 进行聊天
+#[tauri::command]
+pub async fn ai_chat(
+    services: State<'_, Services>,
+    provider: String,
+    messages: Vec<serde_json::Value>,
+) -> Result<String, String> {
+    services.ai.chat(&provider, messages).await
+        .map_err(|e| format!("Chat failed: {}", e))
+}
+
+/// 生成 PRD（产品需求文档）
+#[tauri::command]
+pub async fn ai_generate_prd(
+    services: State<'_, Services>,
+    provider: String,
+    idea: String,
+) -> Result<String, String> {
+    services.ai.generate_prd(&provider, &idea).await
+        .map_err(|e| format!("PRD generation failed: {}", e))
+}
+
+/// 生成用户画像
+#[tauri::command]
+pub async fn ai_generate_personas(
+    services: State<'_, Services>,
+    provider: String,
+    idea: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    services.ai.generate_personas(&provider, &idea).await
+        .map_err(|e| format!("Personas generation failed: {}", e))
+}
+
+/// 生成竞品分析
+#[tauri::command]
+pub async fn ai_generate_competitor_analysis(
+    services: State<'_, Services>,
+    provider: String,
+    idea: String,
+) -> Result<String, String> {
+    services.ai.generate_competitor_analysis(&provider, &idea).await
+        .map_err(|e| format!("Competitor analysis failed: {}", e))
+}

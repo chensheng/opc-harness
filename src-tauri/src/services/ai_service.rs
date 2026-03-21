@@ -1245,4 +1245,103 @@ impl AIServiceManager {
     pub fn registered_providers(&self) -> Vec<&str> {
         self.services.keys().map(|s| s.as_str()).collect()
     }
+
+    /// 根据配置创建并注册 AI 服务
+    pub fn register_from_config(&mut self, config: crate::models::AIProviderConfig) -> Result<()> {
+        let provider = config.provider.clone();
+        let ai_service = AIService::new(config);
+        self.register(provider, ai_service);
+        Ok(())
+    }
+
+    /// 批量注册多个 AI 服务
+    pub fn register_multiple(&mut self, configs: Vec<crate::models::AIProviderConfig>) -> Result<()> {
+        for config in configs {
+            self.register_from_config(config)?;
+        }
+        Ok(())
+    }
+
+    /// 检查某个提供商是否已注册
+    pub fn is_registered(&self, provider: &str) -> bool {
+        self.services.contains_key(provider)
+    }
+
+    /// 获取支持的模型列表
+    pub fn get_supported_models(&self, provider: &str) -> Vec<&str> {
+        self.get(provider)
+            .map(|s| s.supported_models())
+            .unwrap_or_default()
+    }
+
+    /// 验证 API 密钥
+    pub async fn validate_api_key(&self, provider: &str) -> Result<bool> {
+        match self.get(provider) {
+            Some(service) => service.validate_api_key().await,
+            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        }
+    }
+
+    /// 统一聊天接口
+    pub async fn chat(
+        &self,
+        provider: &str,
+        messages: Vec<serde_json::Value>,
+    ) -> Result<String> {
+        match self.get(provider) {
+            Some(service) => service.chat(messages).await,
+            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        }
+    }
+
+    /// 统一流式聊天接口
+    pub async fn stream_chat(
+        &self,
+        provider: &str,
+        messages: Vec<serde_json::Value>,
+        callback: Box<dyn Fn(String) + Send + Sync>,
+    ) -> Result<()> {
+        match self.get(provider) {
+            Some(service) => service.stream_chat(messages, callback).await,
+            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        }
+    }
+
+    /// 统一 PRD 生成接口
+    pub async fn generate_prd(&self, provider: &str, idea: &str) -> Result<String> {
+        match self.get(provider) {
+            Some(service) => service.generate_prd(idea).await,
+            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        }
+    }
+
+    /// 统一用户画像生成接口
+    pub async fn generate_personas(
+        &self,
+        provider: &str,
+        idea: &str,
+    ) -> Result<Vec<serde_json::Value>> {
+        match self.get(provider) {
+            Some(service) => service.generate_personas(idea).await,
+            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        }
+    }
+
+    /// 统一竞品分析生成接口
+    pub async fn generate_competitor_analysis(
+        &self,
+        provider: &str,
+        idea: &str,
+    ) -> Result<String> {
+        match self.get(provider) {
+            Some(service) => service.generate_competitor_analysis(idea).await,
+            None => Err(anyhow::anyhow!("Provider '{}' not found", provider)),
+        }
+    }
+}
+
+impl Default for AIServiceManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
