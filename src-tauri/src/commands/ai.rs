@@ -195,14 +195,24 @@ pub async fn validate_ai_key(
     }
 }
 
-/// Generate PRD
+/// Generate PRD (VD-017)
 #[tauri::command]
 pub async fn generate_prd(
-    _services: State<'_, Services>,
+    services: State<'_, Services>,
     idea: String,
 ) -> Result<String, String> {
-    // TODO: Call AI service to generate PRD
-    Ok(format!("# PRD for: {}\n\n(Generated content)", idea))
+    use crate::services::ai_service::AIService;
+    
+    // 获取默认的 AI Provider
+    let default_provider = "openai"; // TODO: 从配置中读取
+    
+    // 调用 AI 服务生成 PRD
+    let result = services.ai.generate_prd(default_provider, &idea).await;
+    
+    match result {
+        Ok(prd) => Ok(prd),
+        Err(e) => Err(format!("PRD generation failed: {}", e)),
+    }
 }
 
 /// Get all AI provider key status (for UI display)

@@ -6,6 +6,7 @@ mod cli;
 mod commands;
 mod db;
 mod models;
+mod prompts;
 mod services;
 mod utils;
 

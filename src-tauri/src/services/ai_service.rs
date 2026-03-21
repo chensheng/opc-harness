@@ -3,6 +3,7 @@
 //! 提供统一的 AI 调用接口，支持多家厂商
 
 use crate::models::{AIProviderConfig, AIModel};
+use crate::prompts::generate_prd_prompt;
 use anyhow::{Result, Context};
 use reqwest::Client;
 use serde_json::json;
@@ -401,8 +402,43 @@ PRD 应包含以下内容：
 
     /// 生成 PRD
     pub async fn generate_prd(&self, idea: &str) -> Result<String> {
-        // TODO: 构造 Prompt 并调用 AI
-        Ok(format!("# PRD for: {}\n\n(Generated content)", idea))
+        // 使用提示词模板生成 PRD
+        // TODO: 实际调用 AI API 生成内容
+        // 当前返回模板化的提示词，用于后续 AI 调用
+        
+        let _prompt = generate_prd_prompt(idea, None);
+        
+        // 临时实现：返回一个简单的 PRD 结构
+        Ok(format!(
+            r#"# 产品需求文档
+
+## 1. 产品概述
+基于以下想法生成：{idea}
+
+## 2. 目标用户
+- 主要用户群体：需要此解决方案的用户
+- 次要用户群体：相关领域的从业者
+
+## 3. 核心功能
+### 3.1 功能一
+描述第一个核心功能
+
+### 3.2 功能二
+描述第二个核心功能
+
+## 4. 技术架构
+- 前端：React + TypeScript
+- 后端：Tauri + Rust
+- 数据库：SQLite
+
+## 5. 开发计划
+- Phase 1: MVP (2-3 周)
+- Phase 2: 功能完善 (4-6 周)
+- Phase 3: 商业化 (8-10 周)
+
+---
+*注：完整 PRD 需要调用 AI API 生成*"#
+        ))
     }
 
     /// 生成用户画像
