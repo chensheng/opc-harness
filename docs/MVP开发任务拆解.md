@@ -480,7 +480,7 @@ CLI集成 (Week 3-4)
 | INFRA-005 | 配置开发环境(Husky/ESLint/Prettier) | 基础架构 | P1     | 3h   |        | 🟢 已完成 | 2h       | ESLint v9+Prettier+ Husky配置完成，提交前自动检查 |
 | INFRA-006 | 创建项目目录结构                    | 基础架构 | P0     | 2h   |        | 🟢 已完成 | 1.5h     | 前后端完整目录结构创建完成，文档已更新            |
 | INFRA-007 | 配置Rust项目结构和依赖              | Rust后端 | P0     | 3h   |        | 🟢 已完成 | 2.5h     | Cargo.toml配置完整，所有模块已创建，编译通过      |
-| INFRA-008 | 创建基础Tauri Commands结构          | Rust后端 | P0     | 4h   |        | 🔴 未开始 |          |                                                   |
+| INFRA-008 | 创建基础Tauri Commands结构          | Rust后端 | P0     | 4h   |        | 🟢 已完成 | 2h       | 前后端IPC通信正常，所有命令已注册                 |
 | INFRA-009 | 集成SQLite数据库(rusqlite)          | Rust后端 | P0     | 4h   |        | 🔴 未开始 |          |                                                   |
 | INFRA-010 | 创建数据库初始化脚本                | Rust后端 | P0     | 3h   |        | 🔴 未开始 |          |                                                   |
 | INFRA-011 | 集成OS密钥存储(keyring-rs)          | Rust后端 | P0     | 4h   |        | 🔴 未开始 |          |                                                   |
