@@ -122,7 +122,7 @@ OPC-HARNESS - AI驱动的一人公司操作系统
       platform: 'reddit',
       content: `Hi r/SideProject!
 
-I\'ve been working on OPC-HARNESS, an AI-powered operating system for one-person companies.
+I've been working on OPC-HARNESS, an AI-powered operating system for one-person companies.
 
 It helps indie creators go from idea to product in days instead of weeks by integrating:
 - Vibe Design (AI product ideation)
@@ -154,6 +154,7 @@ export function MarketingStrategy() {
         updateProjectProgress(projectId!, 75)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
   const generateMarketingContent = async () => {

@@ -59,6 +59,7 @@ export function CompetitorAnalysis() {
         generateAnalysis()
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
   const generateAnalysis = async () => {

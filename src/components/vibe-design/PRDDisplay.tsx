@@ -50,6 +50,7 @@ export function PRDDisplay() {
         generatePRD()
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
   const generatePRD = async () => {

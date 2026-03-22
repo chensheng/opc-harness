@@ -73,6 +73,7 @@ export function CodingWorkspace() {
       updateProjectStatus(projectId!, 'coding')
       updateProjectProgress(projectId!, 50)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
   useEffect(() => {

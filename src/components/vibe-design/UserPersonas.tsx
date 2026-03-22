@@ -65,6 +65,7 @@ export function UserPersonas() {
         generatePersonas()
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
   const generatePersonas = async () => {

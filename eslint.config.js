@@ -25,6 +25,8 @@ export default tseslint.config(
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // 允许工具函数和组件一起导出
+      'react-refresh/only-export-components': 'off',
     },
   }
 )
