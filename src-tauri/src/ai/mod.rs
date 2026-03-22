@@ -36,6 +36,25 @@ pub struct ChatResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamChunk {
+    pub session_id: String,
+    pub content: String,
+    pub is_complete: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamComplete {
+    pub session_id: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamError {
+    pub session_id: String,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Usage {
     pub prompt_tokens: i32,
     pub completion_tokens: i32,
@@ -123,6 +142,23 @@ impl AIProvider {
         }
     }
 
+    pub async fn stream_chat<F>(
+        &self,
+        request: ChatRequest,
+        mut on_chunk: F,
+    ) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        match self.provider_type {
+            AIProviderType::OpenAI => self.stream_chat_openai(request, on_chunk).await,
+            AIProviderType::Anthropic => self.stream_chat_anthropic(request, on_chunk).await,
+            AIProviderType::Kimi => self.stream_chat_kimi(request, on_chunk).await,
+            AIProviderType::GLM => self.stream_chat_glm(request, on_chunk).await,
+            AIProviderType::MiniMax => self.stream_chat_minimax(request, on_chunk).await,
+        }
+    }
+
     async fn chat_openai(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
         let url = format!("{}/chat/completions", self.get_base_url());
         
@@ -159,6 +195,67 @@ impl AIProvider {
             model: request.model,
             usage: None,
         })
+    }
+
+    async fn stream_chat_openai<F>(
+        &self,
+        request: ChatRequest,
+        mut on_chunk: F,
+    ) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        let url = format!("{}/chat/completions", self.get_base_url());
+        
+        let body = serde_json::json!({
+            "model": request.model,
+            "messages": request.messages,
+            "temperature": request.temperature.unwrap_or(0.7),
+            "max_tokens": request.max_tokens,
+            "stream": true,
+        });
+
+        let response = self.client
+            .post(&url)
+            .header(self.get_auth_header().0, self.get_auth_header().1)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AIError { message: e.to_string() })?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AIError { message: error_text });
+        }
+
+        // 处理流式响应
+        let mut full_content = String::new();
+        let mut stream = response.bytes_stream();
+
+        use futures::StreamExt;
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| AIError { message: e.to_string() })?;
+            
+            // 解析 SSE 数据
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if data.trim() == "[DONE]" {
+                        break;
+                    }
+                    
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(content) = json["choices"][0]["delta"]["content"].as_str() {
+                            full_content.push_str(content);
+                            on_chunk(content.to_string())?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(full_content)
     }
 
     async fn chat_anthropic(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
@@ -200,14 +297,100 @@ impl AIProvider {
         })
     }
 
+    async fn stream_chat_anthropic<F>(
+        &self,
+        request: ChatRequest,
+        mut on_chunk: F,
+    ) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        let url = format!("{}/messages", self.get_base_url());
+        
+        let body = serde_json::json!({
+            "model": request.model,
+            "messages": request.messages,
+            "max_tokens": request.max_tokens.unwrap_or(1024),
+            "temperature": request.temperature.unwrap_or(0.7),
+            "stream": true,
+        });
+
+        let response = self.client
+            .post(&url)
+            .header(self.get_auth_header().0, self.get_auth_header().1)
+            .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AIError { message: e.to_string() })?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AIError { message: error_text });
+        }
+
+        // 处理流式响应
+        let mut full_content = String::new();
+        let mut stream = response.bytes_stream();
+
+        use futures::StreamExt;
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| AIError { message: e.to_string() })?;
+            
+            // 解析 SSE 数据 (Anthropic 格式)
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(event_type) = json["type"].as_str() {
+                            if event_type == "content_block_delta" {
+                                if let Some(content) = json["delta"]["text"].as_str() {
+                                    full_content.push_str(content);
+                                    on_chunk(content.to_string())?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(full_content)
+    }
+
     async fn chat_kimi(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
         // Kimi uses OpenAI-compatible API
         self.chat_openai(request).await
     }
 
+    async fn stream_chat_kimi<F>(
+        &self,
+        request: ChatRequest,
+        on_chunk: F,
+    ) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        // Kimi uses OpenAI-compatible API
+        self.stream_chat_openai(request, on_chunk).await
+    }
+
     async fn chat_glm(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
         // GLM uses OpenAI-compatible API
         self.chat_openai(request).await
+    }
+
+    async fn stream_chat_glm<F>(
+        &self,
+        request: ChatRequest,
+        on_chunk: F,
+    ) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        // GLM uses OpenAI-compatible API
+        self.stream_chat_openai(request, on_chunk).await
     }
 
     async fn chat_minimax(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
@@ -218,4 +401,17 @@ impl AIProvider {
             usage: None,
         })
     }
+
+    async fn stream_chat_minimax<F>(
+        &self,
+        request: ChatRequest,
+        _on_chunk: F,
+    ) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        // MiniMax streaming implementation (placeholder)
+        Ok("MiniMax streaming response placeholder".to_string())
+    }
+
 }

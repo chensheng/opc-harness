@@ -1,10 +1,23 @@
 import { useState } from 'react'
-import { Key, Check, X, Eye, EyeOff, Cpu, ExternalLink } from 'lucide-react'
+import {
+  Key,
+  Check,
+  X,
+  Eye,
+  EyeOff,
+  Cpu,
+  ExternalLink,
+  MessageSquare,
+  Play,
+  Square,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAIConfigStore } from '@/stores'
+import { useAIStream } from '@/hooks/useAIStream'
+import { Textarea } from '@/components/ui/textarea'
 
 export function AIConfig() {
   const { providers, setConfig, removeConfig, getConfig } = useAIConfigStore()
@@ -15,6 +28,19 @@ export function AIConfig() {
   const [validationStatus, setValidationStatus] = useState<
     Record<string, 'success' | 'error' | null>
   >({})
+
+  // 流式测试状态
+  const [testProvider, setTestProvider] = useState<string | null>(null)
+  const [testMessage, setTestMessage] = useState('你好，请介绍一下你自己')
+  const {
+    content: streamContent,
+    isComplete,
+    isLoading: isStreaming,
+    error: streamError,
+    startStream,
+    stopStream,
+    reset: resetStream,
+  } = useAIStream()
 
   const handleKeyChange = (providerId: string, value: string) => {
     setTempKeys(prev => ({ ...prev, [providerId]: value }))
@@ -62,6 +88,32 @@ export function AIConfig() {
     setShowKey(prev => ({ ...prev, [providerId]: !prev[providerId] }))
   }
 
+  const handleTestStream = async (providerId: string) => {
+    if (testProvider === providerId) {
+      // 停止当前测试
+      stopStream()
+      setTestProvider(null)
+    } else {
+      // 开始新测试
+      resetStream()
+      setTestProvider(providerId)
+
+      const config = getConfig(providerId)
+      if (!config) return
+
+      try {
+        await startStream({
+          provider: providerId,
+          model: config.model,
+          apiKey: config.apiKey,
+          messages: [{ role: 'user', content: testMessage }],
+        })
+      } catch (err) {
+        console.error('[AIConfig] Test stream error:', err)
+      }
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -76,6 +128,7 @@ export function AIConfig() {
         {providers.map(provider => {
           const existingConfig = getConfig(provider.id)
           const isConfigured = !!existingConfig
+          const isTesting = testProvider === provider.id
 
           return (
             <Card key={provider.id}>
@@ -116,69 +169,115 @@ export function AIConfig() {
                 {!isConfigured ? (
                   <div className="space-y-3">
                     <label className="text-sm font-medium">API Key</label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          type={showKey[provider.id] ? 'text' : 'password'}
-                          value={tempKeys[provider.id] || ''}
-                          onChange={e => handleKeyChange(provider.id, e.target.value)}
-                          placeholder={`输入 ${provider.name} API Key`}
-                        />
-                        <button
-                          onClick={() => toggleShowKey(provider.id)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showKey[provider.id] ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleValidate(provider.id)}
-                        disabled={!tempKeys[provider.id] || validating[provider.id]}
+                    <div className="relative flex-1">
+                      <Input
+                        type={showKey[provider.id] ? 'text' : 'password'}
+                        value={tempKeys[provider.id] || ''}
+                        onChange={e => handleKeyChange(provider.id, e.target.value)}
+                        placeholder={`输入 ${provider.name} API Key`}
+                      />
+                      <button
+                        onClick={() => toggleShowKey(provider.id)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       >
-                        {validating[provider.id] ? '验证中...' : '验证'}
-                      </Button>
-                      <Button
-                        onClick={() => handleSave(provider.id)}
-                        disabled={validationStatus[provider.id] !== 'success'}
-                      >
-                        保存
-                      </Button>
+                        {showKey[provider.id] ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
-
-                    {validationStatus[provider.id] === 'success' && (
-                      <p className="text-sm text-green-600 flex items-center gap-1">
-                        <Check className="w-4 h-4" />
-                        API Key 验证成功
-                      </p>
-                    )}
-                    {validationStatus[provider.id] === 'error' && (
-                      <p className="text-sm text-red-600 flex items-center gap-1">
-                        <X className="w-4 h-4" />
-                        API Key 验证失败，请检查后重试
-                      </p>
-                    )}
-
-                    <p className="text-xs text-muted-foreground">
-                      你的API Key将被安全存储在系统钥匙串中，不会上传到任何服务器
-                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleValidate(provider.id)}
+                      disabled={!tempKeys[provider.id] || validating[provider.id]}
+                    >
+                      {validating[provider.id] ? '验证中...' : '验证'}
+                    </Button>
+                    <Button
+                      onClick={() => handleSave(provider.id)}
+                      disabled={validationStatus[provider.id] !== 'success'}
+                    >
+                      保存
+                    </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Key className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-mono">
-                        {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
-                      </span>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Key className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-mono">
+                          {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
+                        </span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
+                        <X className="w-4 h-4 mr-2" />
+                        删除
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
-                      <X className="w-4 h-4 mr-2" />
-                      删除
-                    </Button>
+
+                    {/* 流式测试区域 */}
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">流式测试</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Textarea
+                          value={testMessage}
+                          onChange={e => setTestMessage(e.target.value)}
+                          placeholder="输入测试消息..."
+                          disabled={isStreaming}
+                          rows={2}
+                        />
+
+                        <Button
+                          onClick={() => handleTestStream(provider.id)}
+                          disabled={isStreaming && !isTesting}
+                          variant={isTesting ? 'destructive' : 'default'}
+                          size="sm"
+                        >
+                          {isTesting ? (
+                            <>
+                              <Square className="w-4 h-4 mr-2" />
+                              停止
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-2" />
+                              测试流式
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* 流式输出显示 */}
+                      {(isTesting || streamContent) && (
+                        <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
+                          {isStreaming && (
+                            <div className="mb-2 text-xs text-muted-foreground animate-pulse">
+                              AI 正在思考中...
+                            </div>
+                          )}
+                          <div className="text-sm whitespace-pre-wrap">
+                            {streamContent || '等待响应...'}
+                          </div>
+                          {isComplete && (
+                            <Badge className="mt-2 bg-green-500">
+                              <Check className="w-3 h-3 mr-1" />
+                              完成
+                            </Badge>
+                          )}
+                          {streamError && (
+                            <div className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                              <X className="w-4 h-4" />
+                              {streamError}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

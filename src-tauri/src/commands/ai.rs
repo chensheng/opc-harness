@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use tauri::State;
-use crate::ai::{AIProvider, AIProviderType, ChatRequest, ChatResponse};
-use crate::services::AIService;
+use tauri::Emitter;
+use crate::ai::{AIProvider, AIProviderType, ChatRequest, StreamChunk, StreamComplete, StreamError};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidateKeyRequest {
@@ -155,9 +155,74 @@ pub async fn chat(
 #[tauri::command]
 pub async fn stream_chat(
     request: ChatRequestPayload,
-) -> Result<(), String> {
-    // TODO: Implement streaming chat with events
-    Ok(())
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let session_id = Uuid::new_v4().to_string();
+    let provider_type = match request.provider.as_str() {
+        "openai" => AIProviderType::OpenAI,
+        "anthropic" => AIProviderType::Anthropic,
+        "kimi" => AIProviderType::Kimi,
+        "glm" => AIProviderType::GLM,
+        _ => return Err("Unsupported provider".to_string()),
+    };
+
+    let provider = AIProvider::new(provider_type, request.api_key.clone());
+    
+    let messages: Vec<crate::ai::Message> = request.messages
+        .into_iter()
+        .map(|m| crate::ai::Message {
+            role: m.role,
+            content: m.content,
+        })
+        .collect();
+
+    let chat_request = ChatRequest {
+        model: request.model,
+        messages,
+        temperature: request.temperature,
+        max_tokens: request.max_tokens,
+        stream: true,
+    };
+
+    // 创建会话感知的 chunk 处理器
+    let session_id_clone = session_id.clone();
+    let app_clone = app.clone();
+    let chunk_handler = move |chunk: String| -> Result<(), crate::ai::AIError> {
+        let stream_chunk = StreamChunk {
+            session_id: session_id_clone.clone(),
+            content: chunk,
+            is_complete: false,
+        };
+        
+        app_clone.emit("ai-stream-chunk", stream_chunk)
+            .map_err(|e| crate::ai::AIError { message: e.to_string() })?;
+        
+        Ok(())
+    };
+
+    // 执行流式请求
+    match provider.stream_chat(chat_request, chunk_handler).await {
+        Ok(final_content) => {
+            // 发送完成事件
+            let complete_data = StreamComplete {
+                session_id: session_id.clone(),
+                content: final_content.clone(),
+            };
+            let _ = app.emit("ai-stream-complete", complete_data);
+            
+            Ok(final_content)
+        }
+        Err(e) => {
+            // 发送错误事件
+            let error_data = StreamError {
+                session_id: session_id.clone(),
+                error: e.to_string(),
+            };
+            let _ = app.emit("ai-stream-error", error_data);
+            
+            Err(e.to_string())
+        }
+    }
 }
 
 #[tauri::command]

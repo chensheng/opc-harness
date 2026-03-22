@@ -27,6 +27,23 @@ export interface Message {
   content: string
 }
 
+// Streaming Types
+export interface StreamChunk {
+  session_id: string
+  content: string
+  is_complete: boolean
+}
+
+export interface StreamComplete {
+  session_id: string
+  content: string
+}
+
+export interface StreamError {
+  session_id: string
+  error: string
+}
+
 // Project Types
 export interface Project {
   id: string
