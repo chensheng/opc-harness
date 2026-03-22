@@ -1,90 +1,44 @@
-//! CLI Tool integration module
-
-pub mod kimi;
-pub mod claude;
-pub mod codex;
-
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use tokio::process::Child;
 
-/// CLI Tool trait for unified interface
-#[async_trait]
-pub trait CLITool: Send + Sync {
-    /// Tool name
-    fn name(&self) -> &str;
-    
-    /// Check if tool is installed
-    async fn is_installed(&self) -> bool;
-    
-    /// Get tool version
-    async fn version(&self) -> Result<String, CLIError>;
-    
-    /// Start a new session
-    async fn start_session(&self, project_path: String) -> Result<Session, CLIError>;
-    
-    /// Send command to session
-    async fn send_command(&self, session_id: String, command: String) -> Result<(), CLIError>;
-    
-    /// Kill session
-    async fn kill_session(&self, session_id: String) -> Result<(), CLIError>;
-}
-
-/// CLI Session
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Session {
+pub struct CLITool {
     pub id: String,
-    pub tool: String,
-    pub project_path: String,
-    pub status: SessionStatus,
-    pub started_at: i64,
+    pub name: String,
+    pub command: String,
+    pub install_url: String,
+    pub description: String,
+    pub features: Vec<String>,
+    pub protocol: String,
 }
 
-/// Session status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SessionStatus {
-    Running,
-    Stopped,
-    Error,
-}
-
-/// CLI Output
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CLIOutput {
-    pub session_id: String,
-    pub output_type: OutputType,
-    pub content: String,
-    pub timestamp: i64,
-}
-
-/// Output type
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum OutputType {
-    Stdout,
-    Stderr,
-    System,
-}
-
-/// CLI Error
-#[derive(Debug, thiserror::Error)]
-pub enum CLIError {
-    #[error("Tool not installed: {0}")]
-    NotInstalled(String),
-    
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    
-    #[error("Session not found: {0}")]
-    SessionNotFound(String),
-    
-    #[error("Command error: {0}")]
-    CommandError(String),
-}
-
-/// CLI Process handle
-pub struct CLIProcess {
-    pub child: Child,
-    pub session_id: String,
+pub fn get_cli_tools() -> Vec<CLITool> {
+    vec![
+        CLITool {
+            id: "kimi".to_string(),
+            name: "Kimi CLI".to_string(),
+            command: "kimi".to_string(),
+            install_url: "https://www.moonshot.cn/docs/cli".to_string(),
+            description: "月之暗面官方CLI工具，中文支持优秀".to_string(),
+            features: vec!["code_generation".to_string(), "file_edit".to_string(), "shell_command".to_string()],
+            protocol: "stdio".to_string(),
+        },
+        CLITool {
+            id: "claude".to_string(),
+            name: "Claude Code".to_string(),
+            command: "claude".to_string(),
+            install_url: "https://docs.anthropic.com/en/docs/agents-and-tools/claude-code".to_string(),
+            description: "Anthropic官方CLI工具，英文场景强大".to_string(),
+            features: vec!["code_generation".to_string(), "file_edit".to_string(), "shell_command".to_string(), "git_integration".to_string()],
+            protocol: "stdio".to_string(),
+        },
+        CLITool {
+            id: "codex".to_string(),
+            name: "OpenAI Codex CLI".to_string(),
+            command: "codex".to_string(),
+            install_url: "https://github.com/openai/codex".to_string(),
+            description: "OpenAI官方CLI工具，基于GPT-4o".to_string(),
+            features: vec!["code_generation".to_string(), "file_edit".to_string(), "shell_command".to_string(), "mcp_support".to_string()],
+            protocol: "mcp".to_string(),
+        },
+    ]
 }

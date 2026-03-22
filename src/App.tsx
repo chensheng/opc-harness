@@ -1,197 +1,31 @@
-import { useState } from 'react';
-import { Sparkles, Code2, Rocket, Settings, Github, Twitter, Wrench } from 'lucide-react';
-import ToolInstallerGuide from './components/ToolInstallerGuide';
-import { SettingsPage } from './components/SettingsPage';
-import { IdeaInput } from './components/IdeaInput';
+import { Routes, Route } from 'react-router-dom'
+import { AppLayout } from './components/common/AppLayout'
+import { Dashboard } from './components/common/Dashboard'
+import { IdeaInput } from './components/vibe-design/IdeaInput'
+import { PRDDisplay } from './components/vibe-design/PRDDisplay'
+import { UserPersonas } from './components/vibe-design/UserPersonas'
+import { CompetitorAnalysis } from './components/vibe-design/CompetitorAnalysis'
+import { CodingWorkspace } from './components/vibe-coding/CodingWorkspace'
+import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy'
+import { AIConfig } from './components/common/AIConfig'
+import { Settings } from './components/common/Settings'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'design' | 'coding' | 'marketing' | 'settings'>(
-    'design'
-  );
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-              OPC
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                OPC-HARNESS
-              </h1>
-              <p className="text-xs text-slate-500">AI驱动的一人公司操作系统</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-              onClick={() => setActiveTab('settings')}
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <a
-              href="https://github.com/opc-harness/opc-harness"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <Github className="w-5 h-5" />
-            </a>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Navigation */}
-      <nav className="bg-white border-b border-slate-200 px-6">
-        <div className="max-w-7xl mx-auto flex gap-1">
-          {[
-            { id: 'design', label: 'Vibe Design', icon: Sparkles, desc: '产品构思' },
-            { id: 'coding', label: 'Vibe Coding', icon: Code2, desc: '快速构建' },
-            { id: 'marketing', label: 'Vibe Marketing', icon: Rocket, desc: '增长运营' },
-            { id: 'settings', label: '系统设置', icon: Settings, desc: '配置管理' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-              }`}
-            >
-              <tab.icon className="w-5 h-5" />
-              <div className="text-left">
-                <div className="font-medium">{tab.label}</div>
-                <div className="text-xs opacity-70">{tab.desc}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-6">
-        {activeTab === 'design' && <VibeDesignPanel />}
-        {activeTab === 'coding' && <VibeCodingPanel />}
-        {activeTab === 'marketing' && <VibeMarketingPanel />}
-        {activeTab === 'settings' && <SettingsPage />}
-      </main>
-    </div>
-  );
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/idea" element={<IdeaInput />} />
+        <Route path="/prd/:projectId" element={<PRDDisplay />} />
+        <Route path="/personas/:projectId" element={<UserPersonas />} />
+        <Route path="/competitors/:projectId" element={<CompetitorAnalysis />} />
+        <Route path="/coding/:projectId" element={<CodingWorkspace />} />
+        <Route path="/marketing/:projectId" element={<MarketingStrategy />} />
+        <Route path="/ai-config" element={<AIConfig />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </AppLayout>
+  )
 }
 
-// Vibe Design Panel - 整合所有 Vibe Design 相关组件
-function VibeDesignPanel() {
-  return (
-    <div className="space-y-6 animate-fade-in">
-      {/* VD-016: 想法输入界面 */}
-      <IdeaInput />
-
-      {/* 快速开始模板 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { title: 'SaaS 工具', desc: '订阅制软件服务', icon: '🚀' },
-          { title: '个人博客', desc: '内容创作平台', icon: '✍️' },
-          { title: '电商网站', desc: '在线销售产品', icon: '🛒' },
-        ].map(template => (
-          <button
-            key={template.title}
-            onClick={() => {
-              // TODO: 传递想法到 IdeaInput
-              alert('点击模板，将自动填充想法到上方输入框（功能待实现）');
-            }}
-            className="p-6 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all text-left"
-          >
-            <div className="text-3xl mb-3">{template.icon}</div>
-            <h3 className="font-semibold text-slate-900">{template.title}</h3>
-            <p className="text-sm text-slate-500 mt-1">{template.desc}</p>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Vibe Coding Panel
-function VibeCodingPanel() {
-  const [showTools, setShowTools] = useState(false);
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      {/* 工具检测开关 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Wrench className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">开发环境检测</h2>
-              <p className="text-sm text-slate-500">
-                检测本地 AI 编码工具（Kimi CLI、Claude Code、Codex）和其他开发工具
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowTools(!showTools)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-          >
-            {showTools ? '收起' : '查看工具状态'}
-          </button>
-        </div>
-      </div>
-
-      {/* 工具安装引导 */}
-      {showTools && <ToolInstallerGuide />}
-
-      {/* 编码工作区占位 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-        <div className="text-center py-12">
-          <Code2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Vibe Coding</h2>
-          <p className="text-slate-600 max-w-lg mx-auto mb-6">
-            通过AI编码工具（Kimi CLI、Claude Code、Codex）快速构建你的产品原型。 先在 Vibe Design
-            中完成产品构思，然后进入编码阶段。
-          </p>
-          <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200 transition-colors">
-            请先完成 Vibe Design
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Vibe Marketing Panel
-function VibeMarketingPanel() {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 animate-fade-in">
-      <div className="text-center py-12">
-        <Rocket className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Vibe Marketing</h2>
-        <p className="text-slate-600 max-w-lg mx-auto mb-6">
-          AI辅助的增长运营工具，帮你生成发布策略、营销文案，助力产品增长。
-        </p>
-        <div className="flex items-center justify-center gap-4">
-          <a
-            href="#"
-            onClick={e => {
-              e.preventDefault();
-              alert('敬请期待');
-            }}
-            className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-blue-600 transition-colors"
-          >
-            <Twitter className="w-5 h-5" />
-            Twitter
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default App;
+export default App

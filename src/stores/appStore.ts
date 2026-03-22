@@ -1,86 +1,64 @@
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
-
-export type Theme = 'light' | 'dark' | 'system';
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { immer } from 'zustand/middleware/immer'
+import type { AppSettings } from '@/types'
 
 interface AppState {
-  // 主题设置
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-
-  // 侧边栏状态
-  sidebarOpen: boolean;
-  toggleSidebar: () => void;
-  setSidebarOpen: (open: boolean) => void;
-
-  // 全局加载状态
-  isLoading: boolean;
-  setLoading: (loading: boolean) => void;
-
-  // 全局错误信息
-  error: string | null;
-  setError: (error: string | null) => void;
-  clearError: () => void;
-
-  // 当前激活的模块
-  activeModule: 'design' | 'coding' | 'marketing' | 'settings';
-  setActiveModule: (module: AppState['activeModule']) => void;
+  settings: AppSettings
+  isSidebarOpen: boolean
+  activeTab: string
+  isLoading: boolean
+  loadingMessage: string
 }
 
-export const useAppStore = create<AppState>()(
-  devtools(
-    immer(
-      persist(
-        set => ({
-          // 初始状态
-          theme: 'system',
-          setTheme: theme =>
-            set(state => {
-              state.theme = theme;
-            }),
+interface AppActions {
+  setSettings: (settings: Partial<AppSettings>) => void
+  toggleSidebar: () => void
+  setActiveTab: (tab: string) => void
+  setLoading: (isLoading: boolean, message?: string) => void
+}
 
-          sidebarOpen: true,
-          toggleSidebar: () =>
-            set(state => {
-              state.sidebarOpen = !state.sidebarOpen;
-            }),
-          setSidebarOpen: open =>
-            set(state => {
-              state.sidebarOpen = open;
-            }),
+const initialSettings: AppSettings = {
+  theme: 'system',
+  language: 'zh',
+  autoSave: true,
+}
 
-          isLoading: false,
-          setLoading: loading =>
-            set(state => {
-              state.isLoading = loading;
-            }),
+export const useAppStore = create<AppState & AppActions>()(
+  immer(
+    persist(
+      set => ({
+        settings: initialSettings,
+        isSidebarOpen: true,
+        activeTab: 'dashboard',
+        isLoading: false,
+        loadingMessage: '',
 
-          error: null,
-          setError: error =>
-            set(state => {
-              state.error = error;
-            }),
-          clearError: () =>
-            set(state => {
-              state.error = null;
-            }),
-
-          activeModule: 'design',
-          setActiveModule: module =>
-            set(state => {
-              state.activeModule = module;
-            }),
-        }),
-        {
-          name: 'app-storage',
-          partialize: state => ({
-            theme: state.theme,
-            sidebarOpen: state.sidebarOpen,
+        setSettings: settings =>
+          set(state => {
+            Object.assign(state.settings, settings)
           }),
-        }
-      )
-    ),
-    { name: 'AppStore' }
+
+        toggleSidebar: () =>
+          set(state => {
+            state.isSidebarOpen = !state.isSidebarOpen
+          }),
+
+        setActiveTab: tab =>
+          set(state => {
+            state.activeTab = tab
+          }),
+
+        setLoading: (isLoading, message = '') =>
+          set(state => {
+            state.isLoading = isLoading
+            state.loadingMessage = message
+          }),
+      }),
+      {
+        name: 'opc-harness-app',
+        partialize: state => ({ settings: state.settings }),
+      }
+    )
   )
-);
+)

@@ -1,86 +1,130 @@
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
-
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'draft' | 'designing' | 'coding' | 'marketing' | 'completed';
-  createdAt: number;
-  updatedAt: number;
-  path?: string;
-}
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { immer } from 'zustand/middleware/immer'
+import type { Project, PRD, UserPersona, CompetitorAnalysis } from '@/types'
 
 interface ProjectState {
-  // 项目列表
-  projects: Project[];
-
-  // 当前选中的项目
-  currentProject: Project | null;
-
-  // 项目操作
-  addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProject: (id: string, updates: Partial<Project>) => void;
-  deleteProject: (id: string) => void;
-  setCurrentProject: (project: Project | null) => void;
-
-  // 查询
-  getProjectById: (id: string) => Project | undefined;
-  getProjectsByStatus: (status: Project['status']) => Project[];
+  projects: Project[]
+  currentProjectId: string | null
 }
 
-export const useProjectStore = create<ProjectState>()(
-  devtools(
-    immer((set, get) => ({
-      // 初始状态
-      projects: [],
-      currentProject: null,
+interface ProjectActions {
+  createProject: (name: string, description: string, idea?: string) => Project
+  updateProject: (id: string, updates: Partial<Project>) => void
+  deleteProject: (id: string) => void
+  setCurrentProject: (id: string | null) => void
+  getCurrentProject: () => Project | undefined
+  getProjectById: (id: string) => Project | undefined
+  setProjectPRD: (id: string, prd: PRD) => void
+  setProjectPersonas: (id: string, personas: UserPersona[]) => void
+  setProjectCompetitorAnalysis: (id: string, analysis: CompetitorAnalysis) => void
+  updateProjectProgress: (id: string, progress: number) => void
+  updateProjectStatus: (id: string, status: Project['status']) => void
+}
 
-      addProject: project =>
-        set(state => {
-          const now = Date.now();
-          const newProject: Project = {
-            ...project,
+export const useProjectStore = create<ProjectState & ProjectActions>()(
+  immer(
+    persist(
+      (set, get) => ({
+        projects: [],
+        currentProjectId: null,
+
+        createProject: (name, description, idea) => {
+          const project: Project = {
             id: crypto.randomUUID(),
-            createdAt: now,
-            updatedAt: now,
-          };
-          state.projects.push(newProject);
-        }),
-
-      updateProject: (id, updates) =>
-        set(state => {
-          const project = state.projects.find(p => p.id === id);
-          if (project) {
-            Object.assign(project, updates, { updatedAt: Date.now() });
+            name,
+            description,
+            status: 'idea',
+            progress: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            idea,
           }
-          if (state.currentProject?.id === id) {
-            Object.assign(state.currentProject, updates, { updatedAt: Date.now() });
-          }
-        }),
+          set(state => {
+            state.projects.push(project)
+            state.currentProjectId = project.id
+          })
+          return project
+        },
 
-      deleteProject: id =>
-        set(state => {
-          state.projects = state.projects.filter(p => p.id !== id);
-          if (state.currentProject?.id === id) {
-            state.currentProject = null;
-          }
-        }),
+        updateProject: (id, updates) =>
+          set(state => {
+            const project = state.projects.find(p => p.id === id)
+            if (project) {
+              Object.assign(project, updates, { updatedAt: new Date().toISOString() })
+            }
+          }),
 
-      setCurrentProject: project =>
-        set(state => {
-          state.currentProject = project;
-        }),
+        deleteProject: id =>
+          set(state => {
+            state.projects = state.projects.filter(p => p.id !== id)
+            if (state.currentProjectId === id) {
+              state.currentProjectId = null
+            }
+          }),
 
-      getProjectById: id => {
-        return get().projects.find(p => p.id === id);
-      },
+        setCurrentProject: id =>
+          set(state => {
+            state.currentProjectId = id
+          }),
 
-      getProjectsByStatus: status => {
-        return get().projects.filter(p => p.status === status);
-      },
-    })),
-    { name: 'ProjectStore' }
+        getCurrentProject: () => {
+          const { projects, currentProjectId } = get()
+          return projects.find(p => p.id === currentProjectId)
+        },
+
+        getProjectById: id => {
+          return get().projects.find(p => p.id === id)
+        },
+
+        setProjectPRD: (id, prd) =>
+          set(state => {
+            const project = state.projects.find(p => p.id === id)
+            if (project) {
+              project.prd = prd
+              project.updatedAt = new Date().toISOString()
+            }
+          }),
+
+        setProjectPersonas: (id, personas) =>
+          set(state => {
+            const project = state.projects.find(p => p.id === id)
+            if (project) {
+              project.userPersonas = personas
+              project.updatedAt = new Date().toISOString()
+            }
+          }),
+
+        setProjectCompetitorAnalysis: (id, analysis) =>
+          set(state => {
+            const project = state.projects.find(p => p.id === id)
+            if (project) {
+              project.competitorAnalysis = analysis
+              project.updatedAt = new Date().toISOString()
+            }
+          }),
+
+        updateProjectProgress: (id, progress) =>
+          set(state => {
+            const project = state.projects.find(p => p.id === id)
+            if (project) {
+              project.progress = Math.min(100, Math.max(0, progress))
+              project.updatedAt = new Date().toISOString()
+            }
+          }),
+
+        updateProjectStatus: (id, status) =>
+          set(state => {
+            const project = state.projects.find(p => p.id === id)
+            if (project) {
+              project.status = status
+              project.updatedAt = new Date().toISOString()
+            }
+          }),
+      }),
+      {
+        name: 'opc-harness-projects',
+      }
+    )
   )
-);
+)

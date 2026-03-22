@@ -1,35 +1,29 @@
-//! Service layer
+use crate::ai::{AIProvider, AIProviderType};
+use std::collections::HashMap;
 
-pub mod ai_service;
-pub mod cli_service;
-pub mod config_service;
-pub mod keyring_service;
-pub mod project_service;
-pub mod tool_detection;
-
-use std::sync::Arc;
-
-/// Service container
-pub struct Services {
-    pub project: Arc<project_service::ProjectService>,
-    pub ai: Arc<ai_service::AIServiceManager>,
-    pub cli: Arc<tokio::sync::Mutex<cli_service::CLIService>>,
-    pub tool_detection: Arc<tool_detection::ToolDetectionService>,
-    pub keyring: Arc<keyring_service::KeyringService>,
-    pub config: Arc<config_service::ConfigService>,
+pub struct AIService {
+    providers: HashMap<String, AIProvider>,
 }
 
-impl Services {
-    pub fn new(db: rusqlite::Connection) -> Self {
-        let db = Arc::new(std::sync::Mutex::new(db));
-
+impl AIService {
+    pub fn new() -> Self {
         Self {
-            project: Arc::new(project_service::ProjectService::new(db.clone())),
-            ai: Arc::new(ai_service::AIServiceManager::new()),
-            cli: Arc::new(tokio::sync::Mutex::new(cli_service::CLIService::new())),
-            tool_detection: Arc::new(tool_detection::ToolDetectionService::new()),
-            keyring: Arc::new(keyring_service::KeyringService::new("com.opc-harness.app")),
-            config: Arc::new(config_service::ConfigService::new(db.clone())),
+            providers: HashMap::new(),
         }
+    }
+
+    pub fn add_provider(&mut self, name: String, provider_type: AIProviderType, api_key: String) {
+        let provider = AIProvider::new(provider_type, api_key);
+        self.providers.insert(name, provider);
+    }
+
+    pub fn get_provider(&self, name: &str) -> Option<&AIProvider> {
+        self.providers.get(name)
+    }
+}
+
+impl Default for AIService {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -1,13 +1,13 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "OPC-HARNESS",
   "version": "0.1.0",
   "identifier": "com.opc-harness.app",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [
@@ -22,7 +22,7 @@
         "fullscreen": false,
         "decorations": true,
         "transparent": false,
-        "shadow": true
+        "alwaysOnTop": false
       }
     ],
     "security": {
@@ -31,30 +31,33 @@
         {
           "identifier": "default",
           "description": "Default capabilities",
+          "local": true,
           "windows": ["main"],
           "permissions": [
             "core:default",
             "shell:allow-open",
-            "shell:allow-execute",
-            "fs:default",
             "dialog:allow-open",
             "dialog:allow-save",
-            "notification:default"
+            "core:app:allow-app-show",
+            "core:window:allow-create",
+            "core:window:allow-close",
+            "core:window:allow-set-size",
+            "core:window:allow-set-position",
+            "fs:default",
+            "fs:allow-read-text-file",
+            "fs:allow-write-text-file",
+            "fs:allow-read-dir",
+            "fs:allow-copy-file",
+            "fs:allow-create",
+            "fs:allow-remove"
           ]
         }
       ]
-    },
-    "trayIcon": {
-      "id": "main",
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "tooltip": "OPC-HARNESS",
-      "title": "OPC-HARNESS"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["msi", "dmg", "appimage", "deb", "rpm"],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -62,11 +65,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [],
-    "externalBin": [],
-    "copyright": "Copyright (c) 2026 OPC-HARNESS Contributors",
     "category": "DeveloperTool",
     "shortDescription": "AI驱动的一人公司操作系统",
-    "longDescription": "OPC-HARNESS是一款AI驱动的桌面应用，帮助独立创造者通过Vibe Design、Vibe Coding、Vibe Marketing三大模块，实现从想法到产品的全流程闭环。"
+    "longDescription": "OPC-HARNESS 为独立创造者整合产品构思、快速构建、增长运营三大模块，实现从想法到产品的全流程闭环。"
   }
 }

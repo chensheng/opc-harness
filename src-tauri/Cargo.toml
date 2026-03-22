@@ -3,41 +3,31 @@ name = "opc-harness"
 version = "0.1.0"
 description = "AI驱动的一人公司操作系统"
 authors = ["OPC-HARNESS Team"]
-license = "MIT"
-repository = "https://github.com/opc-harness/opc-harness"
 edition = "2021"
-rust-version = "1.70"
 
 [build-dependencies]
-tauri-build = { version = "2.2.0", features = [] }
+tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.5", features = ["tray-icon", "devtools"] }
-tauri-plugin-shell = "2.2"
-tauri-plugin-fs = "2.2"
-tauri-plugin-dialog = "2.2"
-tauri-plugin-notification = "2.2"
+tauri = { version = "2.0.0", features = [] }
+tauri-plugin-shell = "2.0.0"
+tauri-plugin-dialog = "2.0.0"
+tauri-plugin-fs = "2.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-rusqlite = { version = "0.30", features = ["bundled", "chrono"] }
-keyring = { version = "2" }
-reqwest = { version = "0.11", features = ["json", "stream"] }
-futures = "0.3"
-anyhow = "1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
+async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-dirs = "5"
 thiserror = "1"
-async-trait = "0.1"
-directories = "5"
+anyhow = "1"
+futures = "0.3"
 eventsource-stream = "0.2"
-schemars = "0.8"
-which = "6"
-log = "0.4"
-tempfile = "3"
+lazy_static = "1.4"
 
 [features]
-# This feature is used for production builds or when `devPath` points to the filesystem
-# DO NOT REMOVE!!
+default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
