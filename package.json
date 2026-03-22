@@ -13,7 +13,10 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
+    "harness:check": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-check.ps1",
+    "harness:gc": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-gc.ps1",
+    "harness:gc:dry": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-gc.ps1 -DryRun"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
