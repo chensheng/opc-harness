@@ -18,7 +18,10 @@
     "harness:gc": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-gc.ps1",
     "harness:gc:dry": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-gc.ps1 -DryRun",
     "harness:fix": "powershell -ExecutionPolicy Bypass -File .harness/scripts/fix-code-quality.ps1",
-    "harness:fix:dry": "powershell -ExecutionPolicy Bypass -File .harness/scripts/fix-code-quality.ps1 -DryRun"
+    "harness:fix:dry": "powershell -ExecutionPolicy Bypass -File .harness/scripts/fix-code-quality.ps1 -DryRun",
+    "harness:quick": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-quick-verify.ps1",
+    "harness:verify:tauri": "powershell -ExecutionPolicy Bypass -File .harness/scripts/harness-verify-tauri.ps1",
+    "harness:verify:cli": "powershell -ExecutionPolicy Bypass -File .harness/cli-browser-verify/verify_runner.ps1"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
@@ -43,6 +46,7 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.55",

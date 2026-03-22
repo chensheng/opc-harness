@@ -1,0 +1,82 @@
+# 关键路径测试 - CLI Browser 验证任务
+name: "关键路径测试"
+description: "验证核心业务功能"
+url: "http://localhost:1420"
+
+steps:
+  - id: 1
+    action: "navigate"
+    description: "访问 Dashboard"
+    expect: "Dashboard 页面加载，显示概览信息"
+
+  - id: 2
+    action: "navigate"
+    description: "测试 Idea 输入页面"
+    url: "http://localhost:1420/idea"
+    expect: |
+      Idea 输入页面功能完整：
+      - 文本输入框可输入
+      - 占位符或提示文字可见
+      - 操作按钮可用
+
+  - id: 3
+    action: "navigate"
+    description: "测试 PRD 显示页面"
+    url: "http://localhost:1420/prd/test-project"
+    expect: "PRD 页面加载，显示文档内容区域"
+
+  - id: 4
+    action: "navigate"
+    description: "测试用户画像页面"
+    url: "http://localhost:1420/personas/test-project"
+    expect: "User Personas 页面显示用户画像卡片"
+
+  - id: 5
+    action: "navigate"
+    description: "测试竞品分析页面"
+    url: "http://localhost:1420/competitors/test-project"
+    expect: "Competitor Analysis 页面显示对比表格或列表"
+
+  - id: 6
+    action: "navigate"
+    description: "测试 Coding 工作区"
+    url: "http://localhost:1420/coding/test-project"
+    expect: |
+      Coding 工作区完整：
+      - 代码编辑器可见
+      - 文件树或项目结构
+      - 操作按钮（运行、保存等）
+
+  - id: 7
+    action: "navigate"
+    description: "测试营销策略页面"
+    url: "http://localhost:1420/marketing/test-project"
+    expect: "Marketing Strategy 页面显示营销工具"
+
+  - id: 8
+    action: "navigate"
+    description: "测试 AI 配置页面"
+    url: "http://localhost:1420/ai-config"
+    expect: |
+      AI 配置页面显示：
+      - API Key 输入区域（如适用）
+      - 模型选择下拉框
+      - 保存配置按钮
+
+  - id: 9
+    action: "navigate"
+    description: "测试设置页面"
+    url: "http://localhost:1420/settings"
+    expect: "Settings 页面显示应用设置选项"
+
+  - id: 10
+    action: "check_responsive"
+    description: "检查响应式布局"
+    expect: |
+      页面在不同尺寸下正常显示：
+      - 无水平滚动条
+      - 元素不重叠
+      - 文字可读
+
+success_criteria: |
+  80% 以上步骤通过，则认为关键路径测试成功。

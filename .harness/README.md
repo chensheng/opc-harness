@@ -17,9 +17,20 @@ AGENTS.md                          # AI Agent 导航地图（必读）
 │   ├── decision-records/              # 架构决策记录 (ADRs)
 │   ├── execution-logs/                # 执行日志和模板
 │   └── knowledge-base/                # 知识库和最佳实践
+├── cli-browser-verify/                # CLI 浏览器验证
+│   ├── verify_runner.ps1              # 验证运行器
+│   ├── cli_detector.ps1               # CLI 检测
+│   ├── tasks/                         # 验证任务
+│   │   ├── smoke.yaml                 # 冒烟测试
+│   │   └── critical.yaml              # 关键路径测试
+│   ├── quick-verify.txt               # 快速验证指令
+│   ├── README.md                      # 使用说明
+│   └── USAGE.md                       # 详细指南
 └── scripts/                           # 自动化脚本
     ├── harness-check.ps1              # 架构健康检查
-    └── harness-gc.ps1                 # 垃圾回收
+    ├── harness-gc.ps1                 # 垃圾回收
+    ├── harness-quick-verify.ps1       # 快速验证
+    └── harness-verify-tauri.ps1       # Tauri 应用验证
 ```
 
 ## 🚀 快速开始
@@ -27,13 +38,6 @@ AGENTS.md                          # AI Agent 导航地图（必读）
 ### 1. AI Agent 导航
 
 **重要**: AI Agent 在开始工作前必须阅读 [`AGENTS.md`](../AGENTS.md)
-
-该文档包含:
-- 📍 项目结构快速定位
-- 🛠️ 可用工具和命令
-- 🏗️ 架构约束和依赖规则
-- 🔄 反馈回路机制
-- 🗑️ 垃圾回收策略
 
 ### 2. 运行架构健康检查
 
@@ -53,14 +57,41 @@ npm run harness:check
 # 🎉 健康度评分：95/100
 ```
 
-### 3. 执行垃圾回收
+### 3. CLI Browser 验证
+
+利用你当前使用的 AI CLI（Kimi / Claude / OpenCode）内置的浏览器能力进行验证，**无需配置 API Key**。
+
+**最简单的方式 - 直接对话**:
+```
+请帮我验证 http://localhost:1420：
+1. 页面是否正常加载 OPC-HARNESS 标题
+2. 导航菜单是否包含 Dashboard、Idea、Coding
+3. 点击 Idea 是否能进入输入页面
+```
+
+**使用浏览器命令**:
+```
+@browser http://localhost:1420
+请告诉我你看到了什么？
+```
+
+**自动化脚本**:
+```bash
+# 运行 CLI 浏览器验证
+npm run harness:verify:cli
+
+# 指定测试套件
+npm run harness:verify:cli -- -Suite critical
+```
+
+### 4. 执行垃圾回收
 
 ```bash
 # 实际清理（会询问确认）
 npm run harness:gc
 
 # 空运行模式（查看将删除什么）
-npm run harness:gc:dry-run
+npm run harness:gc:dry
 
 # 强制清理（不询问）
 npm run harness:gc -- -Force
@@ -79,17 +110,6 @@ npm run harness:gc -- -Force
 - **执行日志**: 记录关键操作的详细过程
 - **知识库**: 积累最佳实践和经验教训
 
-**使用方法**:
-```markdown
-// 在向 AI 提问时提供上下文
-## 上下文
-参考 ADR-001: 我们启用了 TypeScript 严格模式
-参考最佳实践：TypeScript 空值安全处理规范
-
-## 任务
-实现一个函数，要求符合项目的类型安全标准
-```
-
 #### 2. 架构约束 (Architectural Constraints)
 
 **目的**: 确保 AI 生成的代码符合项目规范
@@ -99,15 +119,6 @@ npm run harness:gc -- -Force
 - 依赖管理规则（禁止循环依赖）
 - 性能限制（响应时间、内存使用）
 - 代码规范（ESLint、Prettier、Rust 风格）
-
-**验证方法**:
-```bash
-# 自动验证所有约束
-npm run harness:check
-
-# 手动查看约束文档
-cat .harness/constraints/architecture-rules.md
-```
 
 #### 3. 反馈回路 (Feedback Loops)
 
@@ -120,25 +131,9 @@ AI 生成代码 → 运行检查 → 发现问题 → 修复 → 再次检查
      └─────────────── 持续集成 ──────────────────┘
 ```
 
-**反馈渠道**:
-1. **即时反馈**: `harness:check` (开发阶段)
-2. **提交前反馈**: lint-staged + Husky (Git提交)
-3. **持续反馈**: CI/CD流水线 (自动化测试)
-
 #### 4. 垃圾回收 (Garbage Collection)
 
 **目的**: 对抗熵增，保持项目整洁
-
-**自动清理**:
-- >30 天未更新的临时文档
-- 未使用的导入和死代码
-- 过时的模拟数据
-- 构建产物
-
-**手动触发**:
-```bash
-npm run harness:gc
-```
 
 ## 💡 实际应用场景
 
@@ -148,10 +143,10 @@ npm run harness:gc
 
 1. **准备上下文**
 ```bash
-# 1. 查看相关 ADR
+# 查看相关 ADR
 cat .harness/context-engineering/decision-records/adr-001-typescript-strict-mode.md
 
-# 2. 查看最佳实践
+# 查看最佳实践
 cat .harness/context-engineering/knowledge-base/best-practices.md
 ```
 
@@ -178,9 +173,11 @@ cat .harness/context-engineering/knowledge-base/best-practices.md
 # 运行健康检查
 npm run harness:check
 
-# 如果有问题，根据提示修复
-npm run lint:fix
-npm run format
+# 启动开发环境
+npm run tauri:dev
+
+# 在 Kimi CLI 中验证界面
+@browser http://localhost:1420
 ```
 
 ### 场景 2: 重构现有代码
@@ -192,53 +189,18 @@ npm run format
 # 创建新的 ADR
 cp .harness/context-engineering/decision-records/adr-template.md \
    .harness/context-engineering/decision-records/adr-xxx-refactoring.md
-   
-# 编辑 ADR 内容，说明重构原因和方案
 ```
 
 2. **执行重构**
 ```bash
 # 重构前先备份
 git checkout -b feature/refactoring-backup
-
-# 运行重构工具（如果有）
-# 或者手动修改代码
 ```
 
 3. **验证重构结果**
 ```bash
 # 确保健康度不下降
 npm run harness:check
-
-# 对比重构前后的指标
-```
-
-### 场景 3: 调试复杂问题
-
-**步骤**:
-
-1. **启用详细日志**
-```typescript
-// 在前端添加调试日志
-console.group('[DEBUG] 问题排查');
-console.log('[STATE]', currentState);
-console.log('[PARAMS], params);
-// ...
-console.groupEnd();
-```
-
-2. **记录执行日志**
-```bash
-# 将日志保存到执行日志目录
-echo "2026-03-22 调试记录" >> .harness/context-engineering/execution-logs/debug-2026-03-22.md
-```
-
-3. **更新知识库**
-```markdown
-# 解决问题后，添加到最佳实践
-## 常见问题：XXX 错误
-**原因**: ...
-**解决方案**: ...
 ```
 
 ## 🔧 高级用法
@@ -251,64 +213,11 @@ echo "2026-03-22 调试记录" >> .harness/context-engineering/execution-logs/de
 # 添加新的检查项
 Write-Host "[7/7] 自定义检查..." -ForegroundColor Yellow
 # 你的检查逻辑
-if (Test-Path "custom-rule") {
-    Write-Host "  ✅ 自定义检查通过" -ForegroundColor Green
-} else {
-    Write-Host "  ❌ 自定义检查失败" -ForegroundColor Red
-    $Score -= 10
-}
 ```
 
 ### 扩展知识库
 
-在 `.harness/context-engineering/knowledge-base/` 添加新文档:
-
-```markdown
-# 新增主题：性能优化技巧
-
-## 背景
-...
-
-## 实践方法
-...
-
-## 效果对比
-...
-```
-
-### 集成到 CI/CD
-
-GitHub Actions 示例:
-
-```yaml
-name: Harness Check
-
-on: [push, pull_request]
-
-jobs:
-  harness:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Harness Check
-        run: npm run harness:check
-      
-      - name: Upload results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: harness-results
-          path: harness-report.json
-```
+在 `.harness/context-engineering/knowledge-base/` 添加新文档。
 
 ## 📊 健康度评分说明
 
@@ -356,9 +265,10 @@ jobs:
 - [AGENTS.md 导航地图](../AGENTS.md)
 - [架构约束规则](./constraints/architecture-rules.md)
 - [最佳实践](./context-engineering/knowledge-base/best-practices.md)
+- [CLI Browser 使用指南](./cli-browser-verify/USAGE.md)
 
 ---
 
 **维护者**: OPC-HARNESS Team  
-**版本**: 1.0.0  
+**版本**: 2.0.0  
 **最后更新**: 2026-03-22

@@ -43,7 +43,18 @@
 └── 📁 .harness/             # Harness Engineering 配置
     ├── constraints/         # 架构约束规则
     ├── context-engineering/ # 上下文工程数据
-    └── scripts/             # 自动化脚本
+    ├── scripts/             # 自动化脚本
+    │   ├── harness-check.ps1         # 架构健康检查
+    │   ├── harness-gc.ps1            # 垃圾回收
+    │   ├── harness-quick-verify.ps1  # 快速验证
+    │   └── harness-verify-tauri.ps1  # Tauri 应用验证
+    └── cli-browser-verify/  # CLI 浏览器验证
+        ├── verify_runner.ps1         # 验证运行器
+        ├── cli_detector.ps1          # CLI 检测
+        ├── tasks/                    # 验证任务
+        │   ├── smoke.yaml            # 冒烟测试
+        │   └── critical.yaml         # 关键路径测试
+        └── quick-verify.txt          # 快速验证指令
 ```
 
 ## 🛠️ 可用工具
@@ -66,10 +77,13 @@ npm run format           # Prettier 格式化
 npm run format:check     # 检查格式规范
 
 # Harness Engineering ⭐️
-npm run harness:check    # 架构健康检查
-npm run harness:gc       # 垃圾回收 (清理过时文档、死代码)
-npm run harness:fix      # 代码质量自动修复 (格式化 + ESLint fix)
-npm run harness:fix:dry  # 预览修复操作但不实际执行
+npm run harness:check          # 架构健康检查
+npm run harness:gc             # 垃圾回收 (清理过时文档、死代码)
+npm run harness:fix            # 代码质量自动修复 (格式化 + ESLint fix)
+npm run harness:fix:dry        # 预览修复操作但不实际执行
+npm run harness:quick          # 快速验证 (类型 + ESLint + Rust 检查)
+npm run harness:verify:tauri   # Tauri 应用验证
+npm run harness:verify:cli     # CLI 浏览器验证
 ```
 
 ### 环境要求
@@ -116,6 +130,40 @@ import { Button } from '../../../components/ui/button';
 - ✅ Prettier 格式规范
 - ✅ Rust 编译检查
 - ✅ 依赖完整性
+
+### CLI Browser 验证
+利用当前 AI CLI（Kimi / Claude / OpenCode）内置的浏览器能力进行验证，**无需配置 API Key**。
+
+**使用方式**:
+
+1. **直接对话（推荐）**:
+```
+请帮我验证 http://localhost:1420：
+1. 页面是否正常加载 OPC-HARNESS 标题
+2. 导航菜单是否包含 Dashboard、Idea、Coding
+3. 点击 Idea 是否能进入输入页面
+```
+
+2. **使用浏览器命令**:
+```
+@browser http://localhost:1420
+请告诉我你看到了什么？
+```
+
+3. **自动化脚本**:
+```bash
+npm run harness:verify:cli
+```
+
+**验证流程**:
+```
+1. 前置健康检查 → harness:check
+2. 执行开发任务 → 代码修改
+3. 启动开发环境 → npm run tauri:dev
+4. CLI 浏览器验证 → 在 Kimi CLI 中直接验证
+5. 后置健康检查 → harness:check
+6. 生成执行报告
+```
 
 ### 错误处理模式
 ```rust
@@ -215,6 +263,12 @@ A:
 2. 在 `src-tauri/src/models/mod.rs` 中添加 Rust 模型
 3. 在 `src-tauri/src/commands/ai.rs` 中实现命令
 4. 更新 `src/components/common/AIConfig.tsx` UI
+
+### Q: 如何验证界面功能？
+A: 使用 CLI Browser 验证：
+1. 启动开发环境：`npm run tauri:dev`
+2. 在 Kimi CLI 中直接请求：`@browser http://localhost:1420`
+3. 或使用指令：`npm run harness:verify:cli`
 
 ## 📖 学习资源
 
