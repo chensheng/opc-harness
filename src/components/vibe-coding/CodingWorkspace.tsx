@@ -1,24 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  Play, 
-  Square, 
-  Send, 
-  FolderTree, 
-  FileCode, 
+import {
+  Play,
+  Square,
+  Send,
+  FolderTree,
+  FileCode,
   ExternalLink,
   RefreshCw,
   ChevronRight,
   ChevronDown,
   File,
-  Folder
+  Folder,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { useProjectStore, useAppStore } from '@/stores'
-import type { FileNode, CLISession } from '@/types'
+import { useProjectStore } from '@/stores'
+import type { FileNode, CLIOutputLine } from '@/types'
 
 // Mock file tree
 const mockFileTree: FileNode[] = [
@@ -57,11 +57,10 @@ export function CodingWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { getProjectById, updateProjectStatus, updateProjectProgress } = useProjectStore()
-  const { setLoading } = useAppStore()
-  
+
   const [fileTree, setFileTree] = useState<FileNode[]>(mockFileTree)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [cliOutput, setCliOutput] = useState<typeof mockCLIOutput>(mockCLIOutput)
+  const [cliOutput, setCliOutput] = useState<CLIOutputLine[]>(mockCLIOutput)
   const [cliInput, setCliInput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [activeTab, setActiveTab] = useState('code')
@@ -100,9 +99,7 @@ export function CodingWorkspace() {
       <div key={node.path} style={{ paddingLeft: depth * 16 }}>
         <button
           onClick={() =>
-            node.type === 'directory'
-              ? toggleFolder(node.path)
-              : setSelectedFile(node.path)
+            node.type === 'directory' ? toggleFolder(node.path) : setSelectedFile(node.path)
           }
           className={`flex items-center gap-1 w-full px-2 py-1 text-sm rounded hover:bg-accent ${
             selectedFile === node.path ? 'bg-accent' : ''
@@ -135,21 +132,25 @@ export function CodingWorkspace() {
 
   const handleSendCommand = () => {
     if (!cliInput.trim()) return
-    
+
     setCliOutput(prev => [
       ...prev,
-      { type: 'input', content: cliInput, timestamp: new Date().toLocaleTimeString() },
+      { type: 'input' as const, content: cliInput, timestamp: new Date().toLocaleTimeString() },
     ])
-    
+
     // Simulate response
     setTimeout(() => {
       setCliOutput(prev => [
         ...prev,
-        { type: 'stdout', content: `Executing: ${cliInput}`, timestamp: new Date().toLocaleTimeString() },
+        {
+          type: 'stdout',
+          content: `Executing: ${cliInput}`,
+          timestamp: new Date().toLocaleTimeString(),
+        },
         { type: 'stdout', content: 'Done!', timestamp: new Date().toLocaleTimeString() },
       ])
     }, 500)
-    
+
     setCliInput('')
   }
 
@@ -158,7 +159,11 @@ export function CodingWorkspace() {
     if (!isRunning) {
       setCliOutput(prev => [
         ...prev,
-        { type: 'stdout', content: '> Starting server...', timestamp: new Date().toLocaleTimeString() },
+        {
+          type: 'stdout',
+          content: '> Starting server...',
+          timestamp: new Date().toLocaleTimeString(),
+        },
       ])
     }
   }
@@ -209,9 +214,7 @@ export function CodingWorkspace() {
             <FolderTree className="w-4 h-4" />
             <span className="text-sm font-medium">文件</span>
           </div>
-          <div className="flex-1 overflow-auto p-2">
-            {renderFileTree(fileTree)}
-          </div>
+          <div className="flex-1 overflow-auto p-2">{renderFileTree(fileTree)}</div>
         </Card>
 
         {/* Editor / Preview */}
@@ -229,13 +232,13 @@ export function CodingWorkspace() {
                 </TabsTrigger>
               </TabsList>
             </div>
-            
+
             <TabsContent value="code" className="flex-1 m-0 p-4 overflow-auto">
               {selectedFile ? (
                 <div className="font-mono text-sm">
                   <div className="text-muted-foreground mb-4">{selectedFile}</div>
                   <pre className="text-muted-foreground">
-{`// Example code for ${selectedFile}
+                    {`// Example code for ${selectedFile}
 import React from 'react'
 
 export function Component() {
@@ -253,13 +256,9 @@ export function Component() {
                 </div>
               )}
             </TabsContent>
-            
+
             <TabsContent value="preview" className="flex-1 m-0 p-0 overflow-hidden">
-              <iframe
-                src="about:blank"
-                className="w-full h-full border-0"
-                title="Preview"
-              />
+              <iframe src="about:blank" className="w-full h-full border-0" title="Preview" />
             </TabsContent>
           </Tabs>
         </Card>
@@ -276,7 +275,7 @@ export function Component() {
               <RefreshCw className="w-3 h-3" />
             </Button>
           </div>
-          
+
           <div className="flex-1 overflow-auto p-3 font-mono text-xs space-y-1">
             {cliOutput.map((line, index) => (
               <div
@@ -285,8 +284,8 @@ export function Component() {
                   line.type === 'stderr'
                     ? 'text-red-400'
                     : line.type === 'input'
-                    ? 'text-blue-400'
-                    : 'text-slate-300'
+                      ? 'text-blue-400'
+                      : 'text-slate-300'
                 }`}
               >
                 <span className="text-slate-600 mr-2">[{line.timestamp}]</span>
@@ -295,7 +294,7 @@ export function Component() {
             ))}
             <div ref={outputEndRef} />
           </div>
-          
+
           <div className="p-3 border-t border-slate-800 flex gap-2">
             <input
               type="text"

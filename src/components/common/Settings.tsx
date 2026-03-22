@@ -1,5 +1,4 @@
 import { Moon, Sun, Monitor, Globe, Save } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useAppStore } from '@/stores'
 
@@ -26,9 +25,7 @@ export function Settings() {
             <button
               onClick={() => setSettings({ theme: 'light' })}
               className={`flex flex-col items-center gap-2 p-4 border rounded-lg transition-colors ${
-                settings.theme === 'light'
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:bg-accent'
+                settings.theme === 'light' ? 'border-primary bg-primary/5' : 'hover:bg-accent'
               }`}
             >
               <Sun className="w-6 h-6" />
@@ -37,9 +34,7 @@ export function Settings() {
             <button
               onClick={() => setSettings({ theme: 'dark' })}
               className={`flex flex-col items-center gap-2 p-4 border rounded-lg transition-colors ${
-                settings.theme === 'dark'
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:bg-accent'
+                settings.theme === 'dark' ? 'border-primary bg-primary/5' : 'hover:bg-accent'
               }`}
             >
               <Moon className="w-6 h-6" />
@@ -48,9 +43,7 @@ export function Settings() {
             <button
               onClick={() => setSettings({ theme: 'system' })}
               className={`flex flex-col items-center gap-2 p-4 border rounded-lg transition-colors ${
-                settings.theme === 'system'
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:bg-accent'
+                settings.theme === 'system' ? 'border-primary bg-primary/5' : 'hover:bg-accent'
               }`}
             >
               <Monitor className="w-6 h-6" />
@@ -73,9 +66,7 @@ export function Settings() {
             <button
               onClick={() => setSettings({ language: 'zh' })}
               className={`flex items-center justify-center gap-2 p-4 border rounded-lg transition-colors ${
-                settings.language === 'zh'
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:bg-accent'
+                settings.language === 'zh' ? 'border-primary bg-primary/5' : 'hover:bg-accent'
               }`}
             >
               <span className="text-lg">🇨🇳</span>
@@ -84,9 +75,7 @@ export function Settings() {
             <button
               onClick={() => setSettings({ language: 'en' })}
               className={`flex items-center justify-center gap-2 p-4 border rounded-lg transition-colors ${
-                settings.language === 'en'
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:bg-accent'
+                settings.language === 'en' ? 'border-primary bg-primary/5' : 'hover:bg-accent'
               }`}
             >
               <span className="text-lg">🇺🇸</span>

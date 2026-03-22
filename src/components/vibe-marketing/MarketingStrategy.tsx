@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  TrendingUp, 
-  Calendar, 
-  MessageSquare, 
-  Share2, 
-  Copy, 
+import {
+  TrendingUp,
+  Calendar,
+  MessageSquare,
+  Share2,
+  Copy,
   Check,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -21,17 +21,58 @@ import type { MarketingStrategy as MarketingStrategyType, MarketingCopy } from '
 function generateMockMarketingStrategy(): MarketingStrategyType {
   return {
     channels: [
-      { name: 'Product Hunt', platform: 'producthunt', priority: 'high', description: '科技产品首发平台，适合获取早期用户' },
-      { name: 'Twitter/X', platform: 'twitter', priority: 'high', description: '开发者社区活跃，适合技术产品推广' },
-      { name: 'Reddit', platform: 'reddit', priority: 'medium', description: '相关subreddit可以精准触达目标用户' },
-      { name: 'Hacker News', platform: 'hackernews', priority: 'medium', description: '技术社区，适合展示产品技术亮点' },
-      { name: 'Indie Hackers', platform: 'indiehackers', priority: 'medium', description: '独立开发者社区，适合分享创业故事' },
+      {
+        name: 'Product Hunt',
+        platform: 'producthunt',
+        priority: 'high',
+        description: '科技产品首发平台，适合获取早期用户',
+      },
+      {
+        name: 'Twitter/X',
+        platform: 'twitter',
+        priority: 'high',
+        description: '开发者社区活跃，适合技术产品推广',
+      },
+      {
+        name: 'Reddit',
+        platform: 'reddit',
+        priority: 'medium',
+        description: '相关subreddit可以精准触达目标用户',
+      },
+      {
+        name: 'Hacker News',
+        platform: 'hackernews',
+        priority: 'medium',
+        description: '技术社区，适合展示产品技术亮点',
+      },
+      {
+        name: 'Indie Hackers',
+        platform: 'indiehackers',
+        priority: 'medium',
+        description: '独立开发者社区，适合分享创业故事',
+      },
     ],
     timeline: [
-      { phase: '预热期', duration: '1周前', activities: ['创建预告页面', '准备宣传素材', '联系早期用户'] },
-      { phase: '发布日', duration: 'Day 0', activities: ['Product Hunt发布', '社交媒体同步', '邮件通知订阅用户'] },
-      { phase: '推广期', duration: '发布后1周', activities: ['回复用户反馈', '收集 testimonials', '持续社交媒体互动'] },
-      { phase: '迭代期', duration: '发布后1月', activities: ['分析用户数据', '优化产品', '规划新功能'] },
+      {
+        phase: '预热期',
+        duration: '1周前',
+        activities: ['创建预告页面', '准备宣传素材', '联系早期用户'],
+      },
+      {
+        phase: '发布日',
+        duration: 'Day 0',
+        activities: ['Product Hunt发布', '社交媒体同步', '邮件通知订阅用户'],
+      },
+      {
+        phase: '推广期',
+        duration: '发布后1周',
+        activities: ['回复用户反馈', '收集 testimonials', '持续社交媒体互动'],
+      },
+      {
+        phase: '迭代期',
+        duration: '发布后1月',
+        activities: ['分析用户数据', '优化产品', '规划新功能'],
+      },
     ],
     keyMessages: [
       '为独立创造者提供一站式解决方案',
@@ -98,7 +139,7 @@ export function MarketingStrategy() {
   const navigate = useNavigate()
   const { getProjectById, updateProjectStatus, updateProjectProgress } = useProjectStore()
   const { setLoading } = useAppStore()
-  
+
   const [strategy, setStrategy] = useState<MarketingStrategyType | null>(null)
   const [copies, setCopies] = useState<MarketingCopy[]>([])
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
@@ -117,10 +158,10 @@ export function MarketingStrategy() {
 
   const generateMarketingContent = async () => {
     setLoading(true, 'AI正在生成营销策略...')
-    
+
     try {
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       setStrategy(generateMockMarketingStrategy())
       setCopies(generateMockMarketingCopies())
     } finally {
@@ -181,22 +222,15 @@ export function MarketingStrategy() {
             </CardHeader>
             <CardContent className="space-y-4">
               {strategy.channels.map((channel, index) => (
-                <div
-                  key={index}
-                  className="flex items-start justify-between p-4 border rounded-lg"
-                >
+                <div key={index} className="flex items-start justify-between p-4 border rounded-lg">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium">{channel.name}</h3>
-                      <Badge
-                        variant={channel.priority === 'high' ? 'default' : 'secondary'}
-                      >
+                      <Badge variant={channel.priority === 'high' ? 'default' : 'secondary'}>
                         {channel.priority === 'high' ? '高优先级' : '中优先级'}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {channel.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">{channel.description}</p>
                   </div>
                 </div>
               ))}
@@ -272,11 +306,7 @@ export function MarketingStrategy() {
                     <Share2 className="w-4 h-4" />
                     {copy.platform}
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopy(copy.content, index)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => handleCopy(copy.content, index)}>
                     {copiedIndex === index ? (
                       <>
                         <Check className="w-4 h-4 mr-2" />

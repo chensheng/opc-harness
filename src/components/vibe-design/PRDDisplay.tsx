@@ -14,12 +14,7 @@ function generateMockPRD(idea: string): PRD {
   return {
     title: idea.slice(0, 30) + (idea.length > 30 ? '...' : ''),
     overview: `这是一个基于用户想法「${idea.slice(0, 50)}...」的产品。该产品旨在解决目标用户的核心痛点，提供简洁高效的解决方案。`,
-    targetUsers: [
-      '独立开发者',
-      '自由职业者',
-      '技术型创业者',
-      '小型团队负责人',
-    ],
+    targetUsers: ['独立开发者', '自由职业者', '技术型创业者', '小型团队负责人'],
     coreFeatures: [
       '直观的用户界面，降低学习成本',
       '核心功能模块化，按需使用',
@@ -37,9 +32,10 @@ function generateMockPRD(idea: string): PRD {
 export function PRDDisplay() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress } = useProjectStore()
+  const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress } =
+    useProjectStore()
   const { setLoading } = useAppStore()
-  
+
   const [prd, setPrd] = useState<PRD | null>(null)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -60,14 +56,14 @@ export function PRDDisplay() {
     if (!project) return
 
     setLoading(true, 'AI正在生成产品需求文档...')
-    
+
     try {
       // Simulate AI processing
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       const generatedPRD = generateMockPRD(project.idea || project.description)
       setPrd(generatedPRD)
-      
+
       if (projectId) {
         setProjectPRD(projectId, generatedPRD)
         updateProjectStatus(projectId, 'design')
@@ -80,9 +76,9 @@ export function PRDDisplay() {
 
   const handleExport = () => {
     if (!prd) return
-    
+
     const content = `# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}\n`
-    
+
     downloadFile(content, `${prd.title}-PRD.md`, 'text/markdown')
   }
 

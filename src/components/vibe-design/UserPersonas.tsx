@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { User, Briefcase, Target, Quote, ArrowRight, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useProjectStore, useAppStore } from '@/stores'
 import type { UserPersona } from '@/types'
@@ -51,7 +51,7 @@ export function UserPersonas() {
   const navigate = useNavigate()
   const { getProjectById, setProjectPersonas } = useProjectStore()
   const { setLoading } = useAppStore()
-  
+
   const [personas, setPersonas] = useState<UserPersona[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -69,13 +69,13 @@ export function UserPersonas() {
 
   const generatePersonas = async () => {
     setLoading(true, 'AI正在生成用户画像...')
-    
+
     try {
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       const generatedPersonas = generateMockPersonas()
       setPersonas(generatedPersonas)
-      
+
       if (projectId) {
         setProjectPersonas(projectId, generatedPersonas)
       }

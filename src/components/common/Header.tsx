@@ -8,12 +8,7 @@ export function Header() {
   return (
     <header className="flex items-center justify-between h-16 px-6 border-b bg-card">
       <div className="flex items-center">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="mr-4"
-        >
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-4">
           <Menu className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-medium">AI驱动的一人公司操作系统</h1>

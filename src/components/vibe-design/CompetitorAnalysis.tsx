@@ -30,7 +30,8 @@ function generateMockCompetitorAnalysis(): CompetitorAnalysis {
         marketShare: '15%',
       },
     ],
-    differentiation: '我们的产品专注于为独立创造者提供一站式解决方案，整合产品构思、快速构建和增长运营三大模块，这是现有竞品所不具备的核心优势。',
+    differentiation:
+      '我们的产品专注于为独立创造者提供一站式解决方案，整合产品构思、快速构建和增长运营三大模块，这是现有竞品所不具备的核心优势。',
     opportunities: [
       '一人公司/独立创造者市场快速增长',
       'AI工具普及降低了技术门槛',
@@ -45,7 +46,7 @@ export function CompetitorAnalysis() {
   const navigate = useNavigate()
   const { getProjectById, setProjectCompetitorAnalysis } = useProjectStore()
   const { setLoading } = useAppStore()
-  
+
   const [analysis, setAnalysis] = useState<CompetitorAnalysis | null>(null)
 
   const project = projectId ? getProjectById(projectId) : undefined
@@ -62,13 +63,13 @@ export function CompetitorAnalysis() {
 
   const generateAnalysis = async () => {
     setLoading(true, 'AI正在分析竞品...')
-    
+
     try {
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       const generatedAnalysis = generateMockCompetitorAnalysis()
       setAnalysis(generatedAnalysis)
-      
+
       if (projectId) {
         setProjectCompetitorAnalysis(projectId, generatedAnalysis)
       }
@@ -165,9 +166,7 @@ export function CompetitorAnalysis() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground leading-relaxed">
-            {analysis.differentiation}
-          </p>
+          <p className="text-muted-foreground leading-relaxed">{analysis.differentiation}</p>
         </CardContent>
       </Card>
 

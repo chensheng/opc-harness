@@ -11,7 +11,7 @@ export function IdeaInput() {
   const navigate = useNavigate()
   const { createProject } = useProjectStore()
   const { setLoading } = useAppStore()
-  
+
   const [projectName, setProjectName] = useState('')
   const [idea, setIdea] = useState('')
 
@@ -19,13 +19,13 @@ export function IdeaInput() {
     if (!projectName.trim() || !idea.trim()) return
 
     setLoading(true, '正在创建项目...')
-    
+
     try {
       const project = createProject(projectName, idea.slice(0, 100), idea)
-      
+
       // Simulate AI processing
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       navigate(`/prd/${project.id}`)
     } finally {
       setLoading(false)
@@ -42,9 +42,7 @@ export function IdeaInput() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">💡 输入你的产品想法</h1>
-        <p className="text-muted-foreground">
-          用自然语言描述你的想法，AI将帮你完善产品构思
-        </p>
+        <p className="text-muted-foreground">用自然语言描述你的想法，AI将帮你完善产品构思</p>
       </div>
 
       <Card>

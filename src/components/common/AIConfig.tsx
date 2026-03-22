@@ -1,14 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { 
-  Key, 
-  Check, 
-  X, 
-  Eye, 
-  EyeOff, 
-  Cpu,
-  ExternalLink
-} from 'lucide-react'
+import { Key, Check, X, Eye, EyeOff, Cpu, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,13 +7,14 @@ import { Badge } from '@/components/ui/badge'
 import { useAIConfigStore } from '@/stores'
 
 export function AIConfig() {
-  const navigate = useNavigate()
-  const { providers, configs, setConfig, removeConfig, getConfig } = useAIConfigStore()
-  
+  const { providers, setConfig, removeConfig, getConfig } = useAIConfigStore()
+
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
   const [tempKeys, setTempKeys] = useState<Record<string, string>>({})
   const [validating, setValidating] = useState<Record<string, boolean>>({})
-  const [validationStatus, setValidationStatus] = useState<Record<string, 'success' | 'error' | null>>({})
+  const [validationStatus, setValidationStatus] = useState<
+    Record<string, 'success' | 'error' | null>
+  >({})
 
   const handleKeyChange = (providerId: string, value: string) => {
     setTempKeys(prev => ({ ...prev, [providerId]: value }))
@@ -34,13 +26,13 @@ export function AIConfig() {
     if (!key) return
 
     setValidating(prev => ({ ...prev, [providerId]: true }))
-    
+
     // Simulate validation
     await new Promise(resolve => setTimeout(resolve, 1000))
-    
+
     // Mock validation - in real app, this would call the backend
     const isValid = key.length > 10
-    
+
     setValidationStatus(prev => ({ ...prev, [providerId]: isValid ? 'success' : 'error' }))
     setValidating(prev => ({ ...prev, [providerId]: false }))
   }
@@ -77,9 +69,7 @@ export function AIConfig() {
           <Cpu className="w-6 h-6" />
           AI 厂商配置
         </h1>
-        <p className="text-muted-foreground">
-          配置你的AI服务提供商，支持多家厂商切换使用
-        </p>
+        <p className="text-muted-foreground">配置你的AI服务提供商，支持多家厂商切换使用</p>
       </div>
 
       <div className="space-y-4">
@@ -97,9 +87,7 @@ export function AIConfig() {
                     </div>
                     <div>
                       <CardTitle className="text-lg">{provider.name}</CardTitle>
-                      <CardDescription>
-                        {provider.models.length} 个模型可用
-                      </CardDescription>
+                      <CardDescription>{provider.models.length} 个模型可用</CardDescription>
                     </div>
                   </div>
                   {isConfigured && (
@@ -110,7 +98,7 @@ export function AIConfig() {
                   )}
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-4">
                 {/* Available Models */}
                 <div>
@@ -161,7 +149,7 @@ export function AIConfig() {
                         保存
                       </Button>
                     </div>
-                    
+
                     {validationStatus[provider.id] === 'success' && (
                       <p className="text-sm text-green-600 flex items-center gap-1">
                         <Check className="w-4 h-4" />
@@ -174,7 +162,7 @@ export function AIConfig() {
                         API Key 验证失败，请检查后重试
                       </p>
                     )}
-                    
+
                     <p className="text-xs text-muted-foreground">
                       你的API Key将被安全存储在系统钥匙串中，不会上传到任何服务器
                     </p>
@@ -187,11 +175,7 @@ export function AIConfig() {
                         {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
                       </span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemove(provider.id)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
                       <X className="w-4 h-4 mr-2" />
                       删除
                     </Button>

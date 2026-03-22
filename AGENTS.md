@@ -68,6 +68,8 @@ npm run format:check     # 检查格式规范
 # Harness Engineering ⭐️
 npm run harness:check    # 架构健康检查
 npm run harness:gc       # 垃圾回收 (清理过时文档、死代码)
+npm run harness:fix      # 代码质量自动修复 (格式化 + ESLint fix)
+npm run harness:fix:dry  # 预览修复操作但不实际执行
 ```
 
 ### 环境要求

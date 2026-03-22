@@ -1,13 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import {
-  Home,
-  Lightbulb,
-  Code,
-  TrendingUp,
-  Settings,
-  Cpu,
-  FolderOpen,
-} from 'lucide-react'
+import { Home, Lightbulb, Code, TrendingUp, Settings, Cpu, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores'
 
@@ -32,9 +24,7 @@ export function Sidebar() {
     >
       <div className="flex items-center h-16 px-4 border-b">
         <FolderOpen className="w-6 h-6 text-primary" />
-        {isSidebarOpen && (
-          <span className="ml-3 font-semibold text-lg">OPC-HARNESS</span>
-        )}
+        {isSidebarOpen && <span className="ml-3 font-semibold text-lg">OPC-HARNESS</span>}
       </div>
 
       <nav className="flex-1 p-4 space-y-2">

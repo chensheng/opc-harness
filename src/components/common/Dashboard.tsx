@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Plus, Folder, TrendingUp, Code, Lightbulb } from 'lucide-react'
+import { Folder, TrendingUp, Code, Lightbulb } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -109,9 +109,7 @@ export function Dashboard() {
                         {statusLabels[project.status]}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {project.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                       <span>创建于 {formatDate(project.createdAt)}</span>
                       <span>进度: {project.progress}%</span>
