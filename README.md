@@ -122,6 +122,7 @@ npm run harness:gc:dry-run
 
 ```
 opc-harness/
+├── AGENTS.md                 # AI Agent 导航地图
 ├── src/                      # 前端代码
 │   ├── components/           # React 组件
 │   │   ├── ui/              # shadcn/ui 组件
@@ -141,7 +142,6 @@ opc-harness/
 │       ├── services/        # 业务逻辑
 │       └── models/          # 数据模型
 ├── .harness/                # Harness Engineering 配置
-│   ├── AGENTS.md            # AI Agent 导航地图
 │   ├── constraints/         # 架构约束
 │   ├── context-engineering/ # 上下文工程
 │   └── scripts/             # 自动化脚本
