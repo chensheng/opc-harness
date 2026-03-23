@@ -2,9 +2,12 @@ import { Moon, Sun, Monitor, Globe, Save } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useAppStore } from '@/stores'
 import { ToolDetector } from './ToolDetector'
+import { GitDetector } from './GitDetector'
 
 export function Settings() {
   const { settings, setSettings } = useAppStore()
+  // 使用当前项目路径 (实际项目中应该从 store 获取)
+  const currentProjectPath = '/tmp/opc-harness-project'
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -15,6 +18,9 @@ export function Settings() {
 
       {/* 工具检测卡片 */}
       <ToolDetector />
+
+      {/* Git 仓库状态检测 */}
+      <GitDetector projectPath={currentProjectPath} />
 
       <Card>
         <CardHeader>

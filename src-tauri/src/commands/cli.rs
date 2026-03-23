@@ -46,6 +46,41 @@ pub struct StopSessionRequest {
     pub session_id: String,
 }
 
+// Git 相关数据结构
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GitStatus {
+    pub is_git_repo: bool,
+    pub git_version: Option<String>,
+    pub branch: Option<String>,
+    pub commit_count: Option<i32>,
+    pub is_dirty: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GitConfig {
+    pub user_name: Option<String>,
+    pub user_email: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InitGitRepoRequest {
+    pub path: String,
+    pub initial_branch: Option<String>, // 默认 "main"
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SetGitConfigRequest {
+    pub path: String,
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetGitConfigRequest {
+    pub path: String,
+    pub key: String,
+}
+
 // Global session manager
 lazy_static::lazy_static! {
     static ref SESSIONS: Arc<Mutex<HashMap<String, CLISession>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -210,6 +245,262 @@ pub async fn detect_tools() -> Result<DetectToolsResponse, String> {
     });
 
     Ok(DetectToolsResponse { tools })
+}
+
+/// 检测 Git 仓库状态
+#[tauri::command]
+pub async fn check_git_status(path: String) -> Result<GitStatus, String> {
+    use std::path::PathBuf;
+    
+    let repo_path = PathBuf::from(&path);
+    
+    // 检查是否是 git 仓库
+    let is_git_repo = Command::new("git")
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+    
+    if !is_git_repo {
+        return Ok(GitStatus {
+            is_git_repo: false,
+            git_version: None,
+            branch: None,
+            commit_count: None,
+            is_dirty: None,
+        });
+    }
+    
+    // 获取 Git 版本
+    let git_version = detect_tool_version("git", vec!["--version"]).await;
+    
+    // 获取当前分支
+    let branch = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            } else {
+                None
+            }
+        });
+    
+    // 获取提交数量
+    let commit_count = Command::new("git")
+        .args(["rev-list", "--count", "HEAD"])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .parse::<i32>()
+                    .ok()
+            } else {
+                None
+            }
+        });
+    
+    // 检查是否有未提交的更改
+    let is_dirty = Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .ok()
+        .map(|output| {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            !stdout.trim().is_empty()
+        });
+    
+    Ok(GitStatus {
+        is_git_repo: true,
+        git_version,
+        branch,
+        commit_count,
+        is_dirty,
+    })
+}
+
+/// 初始化 Git 仓库
+#[tauri::command]
+pub async fn init_git_repo(request: InitGitRepoRequest) -> Result<bool, String> {
+    use std::path::PathBuf;
+    
+    let repo_path = PathBuf::from(&request.path);
+    let initial_branch = request.initial_branch.as_deref().unwrap_or("main");
+    
+    // 创建目录 (如果不存在)
+    tokio::fs::create_dir_all(&repo_path)
+        .await
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
+    
+    // 初始化 git 仓库
+    let output = Command::new("git")
+        .args(["init", "--initial-branch", initial_branch])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run git init: {}", e))?;
+    
+    if !output.status.success() {
+        // 如果 --initial-branch 不支持，回退到传统方式
+        let output_fallback = Command::new("git")
+            .arg("init")
+            .current_dir(&repo_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run git init: {}", e))?;
+        
+        if !output_fallback.status.success() {
+            return Err("Failed to initialize git repository".to_string());
+        }
+    }
+    
+    // 创建初始的 .gitignore 文件
+    let gitignore_path = repo_path.join(".gitignore");
+    if !gitignore_path.exists() {
+        let default_gitignore = "# Dependencies\nnode_modules/\n.pnpm-store/\n\n# Build output\ndist/\nbuild/\nout/\n\n# Environment\n.env\n.env.local\n.env.*.local\n\n# IDE\n.vscode/\n.idea/\n*.swp\n*.swo\n*~\n\n# OS\n.DS_Store\nThumbs.db\n\n# Logs\n*.log\nlogs/\n\n# Testing\ncoverage/\n.nyc_output/\n";
+        tokio::fs::write(&gitignore_path, default_gitignore)
+            .await
+            .map_err(|e| format!("Failed to create .gitignore: {}", e))?;
+    }
+    
+    Ok(true)
+}
+
+/// 设置 Git 配置项
+#[tauri::command]
+pub async fn set_git_config(request: SetGitConfigRequest) -> Result<bool, String> {
+    use std::path::PathBuf;
+    
+    let repo_path = PathBuf::from(&request.path);
+    
+    let output = Command::new("git")
+        .args(["config", &request.key, &request.value])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to set git config: {}", e))?;
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Failed to set git config: {}", stderr));
+    }
+    
+    Ok(true)
+}
+
+/// 获取 Git 配置项
+#[tauri::command]
+pub async fn get_git_config(request: GetGitConfigRequest) -> Result<Option<String>, String> {
+    use std::path::PathBuf;
+    
+    let repo_path = PathBuf::from(&request.path);
+    
+    let output = Command::new("git")
+        .args(["config", &request.key])
+        .current_dir(&repo_path)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to get git config: {}", e))?;
+    
+    if !output.status.success() {
+        // 配置项不存在时返回 None
+        return Ok(None);
+    }
+    
+    let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(Some(value))
+}
+
+/// 获取完整的 Git 配置
+#[tauri::command]
+pub async fn get_all_git_config(path: String) -> Result<GitConfig, String> {
+    use std::path::PathBuf;
+    
+    let repo_path = PathBuf::from(&path);
+    
+    let user_name = get_git_config(GetGitConfigRequest {
+        path: path.clone(),
+        key: "user.name".to_string(),
+    })
+    .await?;
+    
+    let user_email = get_git_config(GetGitConfigRequest {
+        path: path.clone(),
+        key: "user.email".to_string(),
+    })
+    .await?;
+    
+    Ok(GitConfig {
+        user_name,
+        user_email,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_git_status_serialization() {
+        let status = GitStatus {
+            is_git_repo: true,
+            git_version: Some("2.42.0".to_string()),
+            branch: Some("main".to_string()),
+            commit_count: Some(10),
+            is_dirty: Some(false),
+        };
+        
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"isGitRepo\":true"));
+        assert!(json.contains("\"gitVersion\":\"2.42.0\""));
+    }
+    
+    #[test]
+    fn test_git_config_serialization() {
+        let config = GitConfig {
+            user_name: Some("Test User".to_string()),
+            user_email: Some("test@example.com".to_string()),
+        };
+        
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"userName\":\"Test User\""));
+        assert!(json.contains("\"userEmail\":\"test@example.com\""));
+    }
+    
+    #[test]
+    fn test_init_git_repo_request_serialization() {
+        let request = InitGitRepoRequest {
+            path: "/tmp/test".to_string(),
+            initial_branch: Some("develop".to_string()),
+        };
+        
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("\"path\":\"/tmp/test\""));
+        assert!(json.contains("\"initialBranch\":\"develop\""));
+    }
+    
+    #[test]
+    fn test_set_git_config_request_serialization() {
+        let request = SetGitConfigRequest {
+            path: "/tmp/test".to_string(),
+            key: "user.name".to_string(),
+            value: "Test User".to_string(),
+        };
+        
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("\"key\":\"user.name\""));
+    }
 }
 
 #[tauri::command]
