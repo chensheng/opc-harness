@@ -1,0 +1,66 @@
+[1mdiff --git a/package.json b/package.json[m
+[1mindex f1ac76b..79da20e 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -14,14 +14,18 @@[m
+     "lint:fix": "eslint . --fix",[m
+     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",[m
+     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",[m
+[32m+[m[32m    "test": "vitest",[m
+[32m+[m[32m    "test:ui": "vitest --ui",[m
+[32m+[m[32m    "test:run": "vitest run",[m
+[32m+[m[32m    "test:coverage": "vitest run --coverage",[m
+[32m+[m[32m    "test:e2e": "vitest run e2e",[m
+[32m+[m[32m    "test:e2e:auto": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-e2e.ps1",[m
+     "harness:check": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-check.ps1",[m
+     "harness:gc": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-gc.ps1",[m
+[31m-    "harness:gc:dry": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-gc.ps1 -DryRun",[m
+     "harness:fix": "powershell -ExecutionPolicy Bypass -File ./scripts/fix-code-quality.ps1",[m
+[31m-    "harness:fix:dry": "powershell -ExecutionPolicy Bypass -File ./scripts/fix-code-quality.ps1 -DryRun",[m
+     "harness:quick": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-quick-verify.ps1",[m
+[31m-    "harness:verify:tauri": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-verify-tauri.ps1",[m
+[31m-    "harness:verify:cli": "powershell -ExecutionPolicy Bypass -File ./scripts/cli-browser-verify/verify_runner.ps1"[m
+[32m+[m[32m    "harness:doc:check": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-doc-check.ps1",[m
+[32m+[m[32m    "harness:dead:code": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-dead-code.ps1"[m
+   },[m
+   "dependencies": {[m
+     "@monaco-editor/react": "^4.6.0",[m
+[36m@@ -46,36 +50,4 @@[m
+     "tailwind-merge": "^2.2.0",[m
+     "tailwindcss-animate": "^1.0.7",[m
+     "zustand": "^4.5.0"[m
+[31m-  },[m
+[31m-  "devDependencies": {[m
+[31m-    "@playwright/test": "^1.58.2",[m
+[31m-    "@tauri-apps/cli": "^2.10.1",[m
+[31m-    "@types/node": "^20.11.0",[m
+[31m-    "@types/react": "^18.2.55",[m
+[31m-    "@types/react-dom": "^18.2.19",[m
+[31m-    "@typescript-eslint/eslint-plugin": "^7.0.0",[m
+[31m-    "@typescript-eslint/parser": "^7.0.0",[m
+[31m-    "@vitejs/plugin-react": "^4.2.1",[m
+[31m-    "autoprefixer": "^10.4.17",[m
+[31m-    "eslint": "^8.56.0",[m
+[31m-    "eslint-config-prettier": "^9.1.0",[m
+[31m-    "eslint-plugin-react-hooks": "^4.6.0",[m
+[31m-    "eslint-plugin-react-refresh": "^0.4.5",[m
+[31m-    "husky": "^9.0.0",[m
+[31m-    "lint-staged": "^15.2.0",[m
+[31m-    "png-to-ico": "^3.0.1",[m
+[31m-    "postcss": "^8.4.35",[m
+[31m-    "prettier": "^3.2.5",[m
+[31m-    "sharp": "^0.34.5",[m
+[31m-    "tailwindcss": "^3.4.1",[m
+[31m-    "typescript": "^5.3.3",[m
+[31m-    "typescript-eslint": "^8.0.0",[m
+[31m-    "vite": "^5.1.0"[m
+[31m-  },[m
+[31m-  "lint-staged": {[m
+[31m-    "*.{ts,tsx}": [[m
+[31m-      "eslint --fix",[m
+[31m-      "prettier --write"[m
+[31m-    ][m
+[31m-  }[m
+[31m-}[m
+[32m+[m[32m  },[m
+\ No newline at end of file[m

@@ -97,15 +97,35 @@ npm run tauri:build
 ### 快速命令
 
 ```bash
-# 架构健康检查
-npm run harness:check
+# 架构健康检查（主入口）⭐
+npm run harness:check       # 基础检查（TypeScript、ESLint、Prettier、Rust、依赖、目录）
 
-# 垃圾回收（清理临时文件、构建产物等）
-npm run harness:gc
+# 扩展检查（可选）
+npm run harness:check -- -DocCheck    # + 文档一致性检查
+npm run harness:check -- -DeadCode    # + 死代码检测
+npm run harness:check -- -All         # 运行所有检查（推荐提交前使用）
 
-# 空运行模式（预览将删除什么）
-npm run harness:gc:dry-run
+# 测试
+npm run test:unit           # 单元测试 ⭐
+npm run test:e2e            # E2E 测试（智能运行，自动管理服务器）⭐
+
+# 覆盖率报告（按需使用）
+npx vitest run --coverage
+
+# 代码质量
+npm run lint                # ESLint 检查
+npm run lint:fix            # 自动修复
+npm run format              # Prettier 格式化
+npm run format:check        # 检查格式
 ```
+
+### 📚 测试文档
+
+- **[docs/testing/](./docs/testing/)** - 测试体系文档中心
+  - [README.md](./docs/testing/README.md) - 5 分钟快速开始
+  - [E2E-STRATEGY.md](./docs/testing/E2E-STRATEGY.md) - E2E 测试方案说明
+  - [testing-full.md](./docs/testing/testing-full.md) - 完整测试指南
+  - [testing-validation.md](./docs/testing/testing-validation.md) - 安装验证清单
 
 ### AI Agent 工作流程
 
@@ -146,45 +166,3 @@ opc-harness/
 │   ├── context-engineering/ # 上下文工程
 │   └── scripts/             # 自动化脚本
 └── package.json
-```
-
-## 🛣️ 路线图
-
-### MVP (v1.0)
-- [x] 项目基础架构
-- [x] AI厂商配置管理
-- [x] Vibe Design 核心功能
-- [x] Vibe Coding 基础功能
-- [x] Vibe Marketing 基础功能
-- [x] Harness Engineering 体系
-
-### v1.1
-- [ ] 更多 AI厂商支持
-- [ ] 模板市场
-- [ ] 团队协作功能
-
-### v2.0
-- [ ] 本地模型支持 (Ollama)
-- [ ] 插件系统
-- [ ] 移动端应用
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
-
-## 📄 许可证
-
-[MIT](LICENSE)
-
----
-
-<p align="center">
-  Made with ❤️ for indie creators<br/>
-  Powered by <a href="./.harness/README.md">Harness Engineering</a>
-</p>

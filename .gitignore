@@ -48,3 +48,7 @@ src-tauri/WixTools
 tmp
 temp
 *.tmp
+
+# Test Reports
+docs/testing/e2e-reports/
+coverage/

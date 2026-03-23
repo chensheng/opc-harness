@@ -20,6 +20,12 @@
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计
 - [架构约束](#🏗️-架构约束) - 全局依赖规则
 
+#### 🧪 测试体系 ⭐
+- [`docs/testing/`](./docs/testing/) - 测试文档中心
+  - [README.md](./docs/testing/README.md) - 5 分钟快速开始
+  - [testing-full.md](./docs/testing/testing-full.md) - 完整测试指南
+  - [testing-validation.md](./docs/testing/testing-validation.md) - 安装验证清单
+
 #### 📚 知识库 (docs/)
 - [设计文档](./docs/design-docs/) - 技术方案和设计决策
 - [执行计划](./docs/exec-plans/) - 活跃/已完成的执行计划
@@ -31,6 +37,8 @@
 - [Harness 脚本](./scripts/) - 自动化验证脚本
 - [CLI 浏览器验证](./scripts/cli-browser-verify/) - 自动化测试
 - [架构守卫](./.harness/constraints/) - Linter 规则定义
+- [文档一致性检查](./scripts/harness-doc-check.ps1) - 防止注释漂移
+- [死代码检测](./scripts/harness-dead-code.ps1) - 垃圾回收机制
 
 ## 🛠️ 可用工具
 
@@ -51,14 +59,29 @@ npm run lint:fix         # 自动修复 ESLint 问题
 npm run format           # Prettier 格式化
 npm run format:check     # 检查格式规范
 
-# Harness Engineering ⭐️
-npm run harness:check          # 架构健康检查
-npm run harness:gc             # 垃圾回收 (清理过时文档、死代码)
-npm run harness:fix            # 代码质量自动修复 (格式化 + ESLint fix)
-npm run harness:fix:dry        # 预览修复操作但不实际执行
-npm run harness:quick          # 快速验证 (类型 + ESLint + Rust 检查)
-npm run harness:verify:tauri   # Tauri 应用验证
-npm run harness:verify:cli     # CLI 浏览器验证
+# Testing - 测试 ⭐ NEW
+npm run test                    # Vitest 监视模式（开发时用）
+npm run test:run                # 运行所有单元测试
+npm run test:coverage           # 生成覆盖率报告
+npm run test:ui                 # Vitest UI 界面
+npm run test:e2e                # Playwright E2E 测试
+npm run test:e2e:ui             # Playwright UI 模式
+npm run test:e2e:headed         # E2E 有头模式
+npm run test:e2e:report         # 查看 E2E 报告
+npm run test:rust               # Rust 后端测试
+
+# Harness Engineering ⭐
+npm run harness:check           # 架构健康检查
+npm run harness:gc              # 垃圾回收 (清理过时文档、死代码)
+npm run harness:fix             # 代码质量自动修复 (格式化 + ESLint fix)
+npm run harness:fix:dry         # 预览修复操作但不实际执行
+npm run harness:quick           # 快速验证 (类型 + ESLint + Rust 检查)
+npm run harness:verify:tauri    # Tauri 应用验证
+npm run harness:verify:cli      # CLI 浏览器验证
+npm run harness:doc:check       # 文档一致性检查 ⭐ NEW
+npm run harness:dead:code       # 死代码检测 ⭐ NEW
+npm run harness:test            # 单元测试 + E2E ⭐ NEW
+npm run harness:test:full       # 完整测试套件 ⭐ NEW
 ```
 
 ### 环境要求
@@ -111,6 +134,31 @@ import { Button } from '../../../components/ui/button';
 - ✅ Prettier 格式规范
 - ✅ Rust 编译检查
 - ✅ 依赖完整性
+
+### 🧪 完整测试套件 ⭐ NEW
+运行 `npm run harness:test:full` 将执行：
+- ✅ 架构健康检查（6 项）
+- ✅ 单元测试 + 覆盖率报告
+- ✅ E2E 端到端测试（9 个场景）
+- ✅ 文档一致性检查（可选）
+- ✅ 死代码检测（可选）
+
+**测试金字塔**:
+```
+           /\
+          / E2E \       ~10% (用户工作流)
+         /--------\     
+        /Integration\    ~20% (模块间通信)
+       /------------\   
+      /   Unit Tests  \  ~70% (组件、函数、逻辑)
+     /------------------\
+    / Architecture Tests \ (约束验证、依赖检查)
+   /----------------------\
+  /  Documentation Checks  \ (一致性、注释漂移)
+ /--------------------------\
+/    Dead Code Detection     \ (垃圾回收、熵减)
+------------------------------
+```
 
 ### CLI Browser 验证
 利用当前 AI CLI（Kimi / Claude / OpenCode）内置的浏览器能力进行验证，**无需配置 API Key**。

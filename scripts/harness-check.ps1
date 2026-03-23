@@ -5,7 +5,10 @@
 param(
     [switch]$Fix,          # 自动修复问题
     [switch]$Verbose,      # 详细输出
-    [switch]$Json          # JSON 格式输出
+    [switch]$Json,         # JSON 格式输出
+    [switch]$DocCheck,     # 包含文档一致性检查
+    [switch]$DeadCode,     # 包含死代码检测
+    [switch]$All           # 运行所有检查（包括文档和死代码）
 )
 
 $ErrorActionPreference = "Stop"
@@ -129,7 +132,7 @@ if ($packageLockExists -and $nodeModulesExists -and $cargoLockExists) {
 }
 
 # 6. Directory structure check
-Write-Host "[6/6] Directory Structure Check..." -ForegroundColor Yellow
+Write-Host "[6/8] Directory Structure Check..." -ForegroundColor Yellow
 $requiredDirs = @(
     "src/components",
     "src/stores",
@@ -176,6 +179,42 @@ if ($missingDirs.Count -eq 0) {
     }
     $Issues += @{ Type = "Structure"; Severity = "Warning"; Message = "Incomplete directory structure" }
     $Score -= 5
+}
+
+# 7. Documentation consistency check (optional)
+if ($DocCheck -or $All) {
+    Write-Host "[7/8] Documentation Consistency Check..." -ForegroundColor Yellow
+    try {
+        & ./scripts/harness-doc-check.ps1 -Verbose:$Verbose | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  [PASS] Documentation consistency check passed" -ForegroundColor Green
+        } else {
+            Write-Host "  [WARN] Documentation consistency check has warnings" -ForegroundColor Yellow
+            $Issues += @{ Type = "Documentation"; Severity = "Warning"; Message = "Doc inconsistency" }
+            $Score -= 5
+        }
+    } catch {
+        Write-Host "  [WARN] Cannot execute documentation check" -ForegroundColor Yellow
+        $Issues += @{ Type = "Documentation"; Severity = "Warning"; Message = "Check unavailable" }
+    }
+}
+
+# 8. Dead code detection (optional)
+if ($DeadCode -or $All) {
+    Write-Host "[8/8] Dead Code Detection..." -ForegroundColor Yellow
+    try {
+        & ./scripts/harness-dead-code.ps1 -Verbose:$Verbose | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  [PASS] Dead code detection passed" -ForegroundColor Green
+        } else {
+            Write-Host "  [WARN] Dead code detected" -ForegroundColor Yellow
+            $Issues += @{ Type = "DeadCode"; Severity = "Warning"; Message = "Unused code found" }
+            $Score -= 5
+        }
+    } catch {
+        Write-Host "  [WARN] Cannot execute dead code detection" -ForegroundColor Yellow
+        $Issues += @{ Type = "DeadCode"; Severity = "Warning"; Message = "Detection unavailable" }
+    }
 }
 
 # Summary
