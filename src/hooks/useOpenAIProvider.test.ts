@@ -39,7 +39,8 @@ describe('useOpenAIProvider', () => {
       temperature: 0.7,
     }
 
-    let response: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let response: any = null
     await act(async () => {
       response = await result.current.chat(request)
     })

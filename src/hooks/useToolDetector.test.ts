@@ -67,11 +67,9 @@ describe('useToolDetector', () => {
     const { result } = renderHook(() => useToolDetector())
 
     await act(async () => {
-      try {
-        await result.current.detectTools()
-      } catch (error) {
+      await result.current.detectTools().catch(() => {
         // Expected error
-      }
+      })
     })
 
     expect(result.current.tools).toEqual([])
