@@ -1,6 +1,7 @@
 import { Moon, Sun, Monitor, Globe, Save } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useAppStore } from '@/stores'
+import { ToolDetector } from './ToolDetector'
 
 export function Settings() {
   const { settings, setSettings } = useAppStore()
@@ -11,6 +12,9 @@ export function Settings() {
         <h1 className="text-2xl font-bold">⚙️ 设置</h1>
         <p className="text-muted-foreground">自定义你的使用体验</p>
       </div>
+
+      {/* 工具检测卡片 */}
+      <ToolDetector />
 
       <Card>
         <CardHeader>
