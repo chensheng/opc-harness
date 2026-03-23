@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+// import { invoke } from '@tauri-apps/api/core'
 import type {
   AgentConfig,
   AgentMessage,
@@ -11,7 +11,7 @@ import type {
 
 /**
  * Agent 通信和管理 Hook
- * 
+ *
  * 提供与 Agent 守护进程的完整通信能力:
  * - WebSocket 实时连接
  * - Agent 请求/响应
@@ -19,12 +19,12 @@ import type {
  * - 状态管理
  */
 export function useAgent(): UseAgentReturn {
-  const [agents, setAgents] = useState<AgentConfig[]>([])
-  const [messages, setMessages] = useState<AgentMessage[]>([])
-  const [daemonState, setDaemonState] = useState<DaemonState | null>(null)
+  const [_agents] = useState<AgentConfig[]>([])
+  const [_messages] = useState<AgentMessage[]>([])
+  const [_daemonState] = useState<DaemonState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const wsRef = useRef<WebSocket | null>(null)
   const sessionIdRef = useRef<string>('')
 
@@ -32,18 +32,18 @@ export function useAgent(): UseAgentReturn {
   const connectWebSocket = useCallback(async (sessionId: string) => {
     setIsLoading(true)
     setError(null)
-    
+
     try {
       // TODO: 实现真实的 WebSocket 连接
       // 当前使用 Mock 实现
       sessionIdRef.current = sessionId
-      
+
       // 模拟连接成功
       console.log('[useAgent] WebSocket connected:', sessionId)
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to connect WebSocket'
+    } catch (_err) {
+      const errorMsg = 'Failed to connect WebSocket'
       setError(errorMsg)
-      throw err
+      throw new Error(errorMsg)
     } finally {
       setIsLoading(false)
     }
@@ -64,7 +64,7 @@ export function useAgent(): UseAgentReturn {
     async (agentId: string, action: string, payload: unknown): Promise<AgentResponse> => {
       setIsLoading(true)
       setError(null)
-      
+
       try {
         const request: AgentRequest = {
           requestId: crypto.randomUUID(),
@@ -72,10 +72,10 @@ export function useAgent(): UseAgentReturn {
           action,
           payload,
         }
-        
+
         // TODO: 实现真实的 invoke 调用
         // const response = await invoke<AgentResponse>('send_agent_request', { request })
-        
+
         // Mock 响应
         const response: AgentResponse = {
           responseId: crypto.randomUUID(),
@@ -83,10 +83,10 @@ export function useAgent(): UseAgentReturn {
           success: true,
           data: { message: 'Mock response' },
         }
-        
+
         return response
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to send agent request'
+      } catch (_err) {
+        const errorMsg = 'Failed to send agent request'
         setError(errorMsg)
         return {
           responseId: crypto.randomUUID(),
@@ -98,7 +98,7 @@ export function useAgent(): UseAgentReturn {
         setIsLoading(false)
       }
     },
-    [],
+    []
   )
 
   /** 订阅 Agent 消息 */
@@ -114,9 +114,9 @@ export function useAgent(): UseAgentReturn {
   }, [])
 
   return {
-    agents,
-    messages,
-    daemonState,
+    agents: _agents,
+    messages: _messages,
+    daemonState: _daemonState,
     isLoading,
     error,
     connectWebSocket,

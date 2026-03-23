@@ -67,7 +67,7 @@ export function useGit(): UseGitReturn {
         setIsLoading(false)
       }
     },
-    [],
+    []
   )
 
   const setGitConfig = useCallback(
@@ -91,50 +91,44 @@ export function useGit(): UseGitReturn {
         setIsLoading(false)
       }
     },
-    [],
+    []
   )
 
-  const getGitConfig = useCallback(
-    async (path: string, key: string): Promise<string | null> => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const result = await invoke<string | null>('get_git_config', {
-          request: {
-            path,
-            key,
-          },
-        })
-        return result
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to get git config'
-        setError(errorMsg)
-        return null
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [],
-  )
+  const getGitConfig = useCallback(async (path: string, key: string): Promise<string | null> => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const result = await invoke<string | null>('get_git_config', {
+        request: {
+          path,
+          key,
+        },
+      })
+      return result
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to get git config'
+      setError(errorMsg)
+      return null
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
-  const getAllGitConfig = useCallback(
-    async (path: string): Promise<GitConfig> => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const config = await invoke<GitConfig>('get_all_git_config', { path })
-        setGitConfigState(config)
-        return config
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to get all git config'
-        setError(errorMsg)
-        return { userName: null, userEmail: null }
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [],
-  )
+  const getAllGitConfig = useCallback(async (path: string): Promise<GitConfig> => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const config = await invoke<GitConfig>('get_all_git_config', { path })
+      setGitConfigState(config)
+      return config
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to get all git config'
+      setError(errorMsg)
+      return { userName: null, userEmail: null }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   return {
     gitStatus,

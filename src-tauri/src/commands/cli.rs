@@ -1,5 +1,9 @@
+use crate::agent_protocol::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
+use tauri::State;
+
 use std::sync::Arc;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -617,4 +621,130 @@ pub async fn stop_cli_session(request: StopSessionRequest) -> Result<(), String>
     let mut sessions = SESSIONS.lock().await;
     sessions.remove(&request.session_id);
     Ok(())
+}
+
+// ========== Daemon 管理命令 ==========
+
+/// 启动守护进程
+#[tauri::command]
+pub async fn start_daemon(
+    session_id: String,
+    project_path: String,
+    log_level: Option<String>,
+    max_concurrent_agents: Option<usize>,
+) -> Result<DaemonSnapshot, String> {
+    use std::sync::Mutex;
+    
+    // TODO: 使用真实的 DaemonManager 单例
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let mut manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    
+    let config = DaemonConfig {
+        session_id,
+        project_path,
+        log_level: log_level.unwrap_or_else(|| "info".to_string()),
+        max_concurrent_agents: max_concurrent_agents.unwrap_or(5),
+        workspace_dir: std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .to_string_lossy()
+            .to_string(),
+    };
+    
+    manager.start(config)?;
+    
+    Ok(manager.get_snapshot())
+}
+
+/// 停止守护进程
+#[tauri::command]
+pub async fn stop_daemon(graceful: Option<bool>) -> Result<(), String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let mut manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    manager.stop(graceful.unwrap_or(true))
+}
+
+/// 暂停守护进程
+#[tauri::command]
+pub async fn pause_daemon() -> Result<(), String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let mut manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    manager.pause()
+}
+
+/// 恢复守护进程
+#[tauri::command]
+pub async fn resume_daemon() -> Result<(), String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let mut manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    manager.resume()
+}
+
+/// 生成新的 Agent
+#[tauri::command]
+pub async fn spawn_agent(agent_type: String) -> Result<String, String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let mut manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    manager.spawn_agent(&agent_type)
+}
+
+/// 终止指定 Agent
+#[tauri::command]
+pub async fn kill_agent(agent_id: String) -> Result<(), String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let mut manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    manager.kill_agent(&agent_id)
+}
+
+/// 获取守护进程状态
+#[tauri::command]
+pub async fn get_daemon_status() -> Result<DaemonStatus, String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    Ok(manager.get_status())
+}
+
+/// 获取守护进程快照
+#[tauri::command]
+pub async fn get_daemon_snapshot() -> Result<DaemonSnapshot, String> {
+    use std::sync::Mutex;
+    
+    lazy_static::lazy_static! {
+        static ref DAEMON_MANAGER: Mutex<DaemonManager> = Mutex::new(DaemonManager::new());
+    }
+    
+    let manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
+    Ok(manager.get_snapshot())
 }

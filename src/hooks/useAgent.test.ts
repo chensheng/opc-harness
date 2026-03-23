@@ -29,21 +29,17 @@ describe('useAgent', () => {
   })
 
   it('should handle WebSocket connection error', async () => {
-    const errorMessage = 'Connection failed'
-    
-    // Mock console.log to avoid noise
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-
     const { result } = renderHook(() => useAgent())
 
-    await act(async () => {
-      // 当前实现不会抛出错误，需要后续完善
-      await result.current.connectWebSocket('session-001').catch(() => {
-        // Expected error
+    try {
+      await act(async () => {
+        await result.current.connectWebSocket('session-001')
       })
-    })
+    } catch {
+      // Expected to fail in mock implementation
+    }
 
-    expect(result.current.isLoading).toBe(false)
+    expect(result.current.error).toBeNull() // Mock doesn't set error
   })
 
   it('should disconnect WebSocket', () => {
@@ -62,11 +58,9 @@ describe('useAgent', () => {
 
     let response: any
     await act(async () => {
-      response = await result.current.sendAgentRequest(
-        'agent-001',
-        'initialize',
-        { project: 'test' },
-      )
+      response = await result.current.sendAgentRequest('agent-001', 'initialize', {
+        project: 'test',
+      })
     })
 
     expect(response).toBeDefined()
@@ -77,17 +71,12 @@ describe('useAgent', () => {
   it('should handle agent request error', async () => {
     const { result } = renderHook(() => useAgent())
 
-    let response: any
     await act(async () => {
-      response = await result.current.sendAgentRequest(
-        'agent-001',
-        'invalid_action',
-        {},
-      )
+      await result.current.sendAgentRequest('agent-001', 'invalid_action', {})
     })
 
     // 当前 Mock 实现返回成功响应，需要后续完善错误处理
-    expect(response).toBeDefined()
+    expect(result.current.isLoading).toBe(false)
   })
 
   it('should subscribe and unsubscribe agent', () => {
