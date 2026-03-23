@@ -8,6 +8,7 @@ mod db;
 mod models;
 mod services;
 mod utils;
+pub mod agent_protocol;
 
 fn main() {
     tauri::Builder::default()

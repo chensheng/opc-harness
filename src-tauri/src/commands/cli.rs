@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use serde_json;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ToolStatus {
@@ -79,6 +80,81 @@ pub struct SetGitConfigRequest {
 pub struct GetGitConfigRequest {
     pub path: String,
     pub key: String,
+}
+
+// Agent 通信协议数据结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AgentPhase {
+    Initializer,
+    Coding,
+    MRCreation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AgentStatus {
+    Idle,
+    Running,
+    Paused,
+    Completed,
+    Failed(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentConfig {
+    pub agent_id: String,
+    pub agent_type: String, // "initializer" | "coding" | "mr_creation"
+    pub phase: AgentPhase,
+    pub status: AgentStatus,
+    pub project_path: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRequest {
+    pub request_id: String,
+    pub agent_id: String,
+    pub action: String,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentResponse {
+    pub response_id: String,
+    pub request_id: String,
+    pub success: bool,
+    pub data: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentMessage {
+    pub message_id: String,
+    pub timestamp: i64,
+    pub source: String, // "agent" | "daemon" | "frontend"
+    pub message_type: String, // "log" | "status" | "progress" | "error"
+    pub content: String,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonState {
+    pub session_id: String,
+    pub project_id: String,
+    pub current_phase: AgentPhase,
+    pub active_agents: Vec<AgentStatus>,
+    pub completed_issues: Vec<String>,
+    pub pending_issues: Vec<String>,
+    pub log_file: Option<String>,
+    pub last_snapshot: i64,
+    pub cpu_usage: f32,
+    pub memory_usage: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebSocketMessage {
+    #[serde(rename = "type")]
+    pub ws_type: String, // "connect" | "disconnect" | "message" | "heartbeat"
+    pub data: Option<serde_json::Value>,
 }
 
 // Global session manager
