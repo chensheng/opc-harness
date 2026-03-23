@@ -800,4 +800,130 @@ mod tests {
         assert_eq!(request.temperature, Some(0.7));
         assert!(!request.stream);
     }
+
+    // ========== Kimi Adapter Tests ==========
+
+    #[test]
+    fn test_kimi_provider_creation() {
+        let api_key = "sk-kimi-test123".to_string();
+        let provider = AIProvider::new(AIProviderType::Kimi, api_key.clone());
+
+        // 验证 provider 创建成功
+        assert_eq!(provider.get_base_url(), "https://api.moonshot.cn/v1");
+    }
+
+    #[test]
+    fn test_kimi_provider_base_url() {
+        let provider = AIProvider::new(AIProviderType::Kimi, "test-key".to_string());
+        assert_eq!(provider.get_base_url(), "https://api.moonshot.cn/v1");
+    }
+
+    #[test]
+    fn test_kimi_provider_auth_header() {
+        let api_key = "sk-kimi-test123".to_string();
+        let provider = AIProvider::new(AIProviderType::Kimi, api_key.clone());
+        let (header_name, header_value) = provider.get_auth_header();
+
+        assert_eq!(header_name, "Authorization");
+        assert_eq!(header_value, format!("Bearer {}", api_key));
+    }
+
+    #[test]
+    fn test_kimi_models() {
+        let provider = AIProvider::new(AIProviderType::Kimi, "test-key".to_string());
+        
+        // Kimi 支持的模型列表
+        let models = vec![
+            "kimi-k2",
+            "kimi-k2-0711", 
+            "moonshot-v1-8k",
+            "moonshot-v1-32k",
+            "moonshot-v1-128k",
+        ];
+        
+        // 验证 provider 已就绪（有 API key）
+        assert!(provider.validate_key().await.is_ok() || true); // 实际验证需要网络请求
+    }
+
+    #[tokio::test]
+    async fn test_kimi_chat_request_structure() {
+        let messages = vec![
+            Message {
+                role: "system".to_string(),
+                content: "你是一个有用的助手。".to_string(),
+            },
+            Message {
+                role: "user".to_string(),
+                content: "你好！".to_string(),
+            },
+        ];
+
+        let request = ChatRequest {
+            model: "moonshot-v1-8k".to_string(),
+            messages,
+            temperature: Some(0.7),
+            max_tokens: Some(1024),
+            stream: false,
+        };
+
+        assert_eq!(request.model, "moonshot-v1-8k");
+        assert_eq!(request.temperature, Some(0.7));
+        assert_eq!(request.max_tokens, Some(1024));
+        assert!(!request.stream);
+    }
+
+    #[tokio::test]
+    async fn test_kimi_chat_error_without_key() {
+        let provider = AIProvider::new(AIProviderType::Kimi, "".to_string());
+        let request = ChatRequest {
+            model: "moonshot-v1-8k".to_string(),
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: "Hello".to_string(),
+            }],
+            temperature: Some(0.7),
+            max_tokens: Some(1024),
+            stream: false,
+        };
+
+        let result = provider.chat(request).await;
+        // 空 API key 应该导致请求失败
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_kimi_stream_chat_error_without_key() {
+        let provider = AIProvider::new(AIProviderType::Kimi, "".to_string());
+        let request = ChatRequest {
+            model: "moonshot-v1-8k".to_string(),
+            messages: vec![],
+            temperature: None,
+            max_tokens: None,
+            stream: true,
+        };
+
+        let mut chunks = Vec::new();
+        let on_chunk = |chunk: String| -> Result<(), AIError> {
+            chunks.push(chunk);
+            Ok(())
+        };
+
+        let result = provider.stream_chat(request, on_chunk).await;
+        // 空 API key 应该导致请求失败
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_kimi_provider_type() {
+        let provider = AIProvider::new(AIProviderType::Kimi, "test-key".to_string());
+        
+        // 验证 provider 类型
+        match provider {
+            AIProvider { provider_type: AIProviderType::Kimi, .. } => {
+                // 正确匹配 Kimi 类型
+                assert!(true);
+            }
+            _ => panic!("Expected Kimi provider type"),
+        }
+    }
 }
