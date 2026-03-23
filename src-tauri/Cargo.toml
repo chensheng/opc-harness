@@ -27,6 +27,7 @@ anyhow = "1"
 futures = "0.3"
 eventsource-stream = "0.2"
 lazy_static = "1.4"
+log = "0.4"
 
 [features]
 default = ["custom-protocol"]
