@@ -1,45 +1,54 @@
 # Harness Engineering 最佳实践
 
-本文档收录了 OPC-HARNESS 项目开发过程中的最佳实践和经验教训。
+> **基于 OpenAI 官方最佳实践**  
+> 适用范围：OPC-HARNESS 项目全体开发者和 AI Agent  
+> 最后更新：2026-03-23
 
-## 📋 目录
+## 🎯 核心理念
 
-1. [AI Agent 协作](#ai-agent-协作)
-2. [上下文工程](#上下文工程)
-3. [代码质量](#代码质量)
-4. [调试技巧](#调试技巧)
-5. [性能优化](#性能优化)
+**Harness Engineering** 是一套让 AI Agent 更好地协助你开发项目的工程实践体系。
+
+**核心理念**: "人类掌舵，Agent 执行" (Humans steer. Agents execute.)
+
+### 三大支柱
+
+1. **上下文工程 (Context Engineering)** - 帮助 AI 快速理解项目
+2. **架构约束 (Architectural Constraints)** - 确保代码符合规范
+3. **反馈回路 (Feedback Loops)** - 快速发现问题并持续改进
 
 ---
 
-## AI Agent 协作
+## 📖 如何向 AI 提问
 
-### 如何向 AI 提问
+### ✅ 好的提问方式
 
-#### ✅ 好的提问方式
 ```markdown
-**任务**: 实现用户认证功能
+**任务**: 实现用户登录功能
 
 **上下文**:
-- 位置：src-tauri/src/commands/auth.rs
+- 位置：src/components/auth/Login.tsx
 - 已有：数据库连接、User 模型
-- 需要：登录、注册、登出命令
+- 需要：登录、注册、登出组件
 
 **约束**:
 - 使用 bcrypt 加密密码
 - JWT token 有效期 7 天
 - 错误信息使用中文
+- 遵循 src/AGENTS.md 规范
 
-**示例代码风格**:
-参考 src-tauri/src/commands/project.rs 的实现模式
+**参考示例**:
+参考 src/components/common/Settings.tsx 的实现模式
 ```
 
-#### ❌ 避免的提问方式
+### ❌ 避免的提问方式
+
 ```
 帮我写个登录功能
 ```
 
-### AI 生成代码验证流程
+---
+
+## 🧪 AI 生成代码验证流程
 
 ```bash
 # 1. 类型检查
@@ -51,155 +60,27 @@ npm run lint
 # 3. 格式化
 npm run format
 
-# 4. 架构健康检查
+# 4. 架构健康检查（强烈推荐）
 npm run harness:check
 
-# 5. 手动审查关键点
+# 5. 运行单元测试
+npm run test:unit
+
+# 6. 手动审查关键点
 - [ ] 错误处理是否完整
 - [ ] 边界条件是否考虑
 - [ ] 是否符合项目代码风格
 ```
 
-### Prompt 模板
-
-#### 功能开发模板
-```markdown
-## 任务描述
-[清晰描述要实现的功能]
-
-## 技术栈
-- 前端：React + TypeScript
-- 后端：Rust + Tauri
-- 状态管理：Zustand
-
-## 文件位置
-- 组件：src/components/[模块]/[组件名].tsx
-- 命令：src-tauri/src/commands/[模块].rs
-- 类型：src/types/index.ts
-
-## 接口定义
-TypeScript 类型：
-```typescript
-interface DataType {
-  // 定义数据结构
-}
-```
-
-Rust 模型：
-```rust
-pub struct DataModel {
-    // 定义数据结构
-}
-```
-
-## 特殊要求
-- [性能要求]
-- [安全要求]
-- [用户体验要求]
-```
-
-#### Bug 修复模板
-```markdown
-## 问题描述
-[描述遇到的问题]
-
-## 错误信息
-```
-粘贴完整的错误堆栈
-```
-
-## 重现步骤
-1. [第一步]
-2. [第二步]
-3. [结果]
-
-## 已尝试方案
-- [x] 尝试过方案 A
-- [x] 尝试过方案 B
-
-## 环境信息
-- Node.js: v18.x
-- Rust: v1.70+
-- 操作系统：Windows/macOS/Linux
-```
-
 ---
 
-## 上下文工程
-
-### 决策记录 (ADR) 编写指南
-
-每个重要架构决策都应记录 ADR，包含以下要素：
-
-```markdown
-# ADR-XXX: [标题]
-
-**状态**: [提议 | 已采纳 | 废弃]
-**日期**: YYYY-MM-DD
-**作者**: [姓名]
-
-## 背景与问题
-说明为什么需要做这个决策
-
-## 决策内容
-具体决策是什么
-
-## 技术影响
-- 优势
-- 劣势
-- 权衡分析
-
-## 实施策略
-如何落地这个决策
-
-## 最佳实践
-- ✅ 推荐做法
-- ❌ 避免做法
-
-## 验证方法
-如何验证决策是否正确执行
-```
-
-### 执行日志记录
-
-关键操作的执行日志应包含：
-
-```typescript
-// ✅ 完整的日志记录
-console.log('[INFO] 开始处理项目创建请求');
-console.log('[PARAMS] 项目名称:', projectName, '| 描述长度:', description.length);
-
-try {
-  const result = await invoke('create_project', { name, description });
-  console.log('[SUCCESS] 项目创建成功:', result.id);
-  return result;
-} catch (error) {
-  console.error('[ERROR] 项目创建失败:', error);
-  throw error;
-}
-
-// ❌ 避免：信息不足的日志
-console.log('创建项目...');
-const result = await invoke('create_project');
-```
-
-### 知识库维护
-
-定期更新 `.harness/context-engineering/knowledge-base/` 目录：
-
-1. **新增功能后**: 更新相关文档
-2. **解决问题后**: 记录解决方案到 FAQ
-3. **性能优化后**: 更新性能基准数据
-4. **遇到陷阱后**: 添加注意事项
-
----
-
-## 代码质量
+## 📝 代码质量最佳实践
 
 ### TypeScript 空值安全
 
 #### ✅ 推荐模式
-```tsx
+
+```typescript
 // 1. 显式检查后操作
 {(() => {
   const provider = providers.find(p => p.id === config.provider);
@@ -216,12 +97,13 @@ function isDefined<T>(value: T | undefined | null): value is T {
 
 const validItems = items.filter(isDefined);
 
-// 3. 默认值
+// 3. 使用默认值
 const count = items?.length ?? 0;
 ```
 
 #### ❌ 避免模式
-```tsx
+
+```typescript
 // 仅依赖可选链（可能返回 undefined）
 {providers.find(p => p.id === id)?.supportedModels.map(...)}
 
@@ -233,12 +115,13 @@ const count = items?.length ?? 0;
 ### Rust 错误处理
 
 #### ✅ 推荐模式
+
 ```rust
 // 1. 使用 Result 传递错误
 #[tauri::command]
 pub async fn create_project(
     name: String,
-    description: String,
+    description: Option<String>,
 ) -> Result<Project, String> {
     if name.trim().is_empty() {
         return Err("项目名称不能为空".to_string());
@@ -266,8 +149,9 @@ Ok(content)
 ```
 
 #### ❌ 避免模式
+
 ```rust
-// 1.  unwrap() 滥用
+// 1. unwrap() 滥用
 let file = File::open(path).unwrap(); // 可能 panic
 
 // 2. 模糊的错误信息
@@ -277,196 +161,41 @@ Err("Error occurred".to_string()) // 用户不知道如何解决
 let _ = some_operation(); // 错误被丢弃
 ```
 
-### ESLint 规则遵守
+---
 
-#### 常见警告及修复
+## 🏗️ 架构约束遵守
 
-**未使用的变量**
+### 前端数据流规则
+
 ```typescript
-// ❌ 警告
-function processData(data: any, unusedParam: string) {
-  return data.value;
-}
+// ✅ 推荐：单向数据流
+Component → Store → Commands → Services → DB
+     ↑                                       |
+     └─────────── State Update ←─────────────┘
 
-// ✅ 修复
-function processData(data: any, _unusedParam: string) {
-  return data.value;
-}
+// ❌ 禁止：
+- 组件直接调用 invoke() - 必须通过 stores 封装
+- Store 直接操作 DOM
+- 循环依赖：stores → components → stores
 ```
 
-**缺少 await**
-```typescript
-// ❌ 警告
-async function fetchData() {
-  const result = fetchApi(); // Promise 未等待
-  return result;
-}
+### 后端分层规则
 
-// ✅ 修复
-async function fetchData() {
-  const result = await fetchApi();
-  return result;
-}
+```rust
+// ✅ 允许：
+Commands → Services → Models → DB
+                ↑
+            Business Logic
+
+// ❌ 禁止：
+- Commands 包含复杂业务逻辑
+- Services 直接返回前端（必须通过 Commands）
+- 循环依赖：commands ↔ services
 ```
 
 ---
 
-## 调试技巧
-
-### Tauri 命令调试
-
-#### 前端日志
-```typescript
-import { invoke } from '@tauri-apps/api/core';
-
-async function debugCommand() {
-  console.group('[DEBUG] 调用 Tauri 命令');
-  console.log('[REQUEST] command:', 'get_projects');
-  console.log('[REQUEST] params:', { page: 1 });
-  
-  try {
-    const result = await invoke('get_projects', { page: 1 });
-    console.log('[RESPONSE]', result);
-    console.groupEnd();
-  } catch (error) {
-    console.error('[ERROR]', error);
-    console.groupEnd();
-    throw error;
-  }
-}
-```
-
-#### 后端日志
-```rust
-use log::{info, error, debug};
-
-#[tauri::command]
-pub async fn get_projects(page: i32) -> Result<Vec<Project>, String> {
-    debug!("接收请求：page = {}", page);
-    
-    match database.query(page).await {
-        Ok(projects) => {
-            info!("查询成功：返回 {} 条记录", projects.len());
-            Ok(projects)
-        }
-        Err(e) => {
-            error!("查询失败：{}", e);
-            Err(format!("查询失败：{}", e))
-        }
-    }
-}
-```
-
-### 性能问题分析
-
-#### 前端性能
-```typescript
-// 使用 Performance API
-const start = performance.now();
-await heavyComputation();
-const end = performance.now();
-console.log(`耗时：${end - start}ms`);
-```
-
-#### 后端性能
-```rust
-use std::time::Instant;
-
-let start = Instant::now();
-let result = heavy_operation().await;
-let duration = start.elapsed();
-info!("操作耗时：{:?}", duration);
-```
-
----
-
-## 性能优化
-
-### 前端优化
-
-#### 1. 组件懒加载
-```typescript
-// 路由级别代码分割
-const CodingWorkspace = lazy(() => 
-  import('@/components/vibe-coding/CodingWorkspace')
-);
-
-function App() {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
-        <Route path="/coding" element={<CodingWorkspace />} />
-      </Routes>
-    </Suspense>
-  );
-}
-```
-
-#### 2. 列表虚拟化
-```typescript
-// 大列表使用虚拟滚动
-import { useVirtualizer } from '@tanstack/react-virtual';
-
-function VirtualList({ items }) {
-  const parentRef = useRef(null);
-  const virtualizer = useVirtualizer({
-    count: items.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 50,
-  });
-  
-  return (
-    <div ref={parentRef}>
-      {virtualizer.getVirtualItems().map(item => (
-        <div key={item.key} style={{ height: item.size }}>
-          {renderItem(items[item.index])}
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-### 后端优化
-
-#### 1. 数据库查询优化
-```rust
-// 使用索引
-CREATE INDEX idx_project_status ON projects(status);
-
-// 批量查询
-let projects = sqlx::query_as::<_, Project>(
-    "SELECT * FROM projects WHERE status = ? LIMIT ? OFFSET ?"
-)
-.bind(status)
-.bind(limit)
-.bind(offset)
-.fetch_all(&pool)
-.await?;
-```
-
-#### 2. 并发控制
-```rust
-use tokio::sync::Semaphore;
-use std::sync::Arc;
-
-let semaphore = Arc::new(Semaphore::new(10)); // 最多 10 个并发
-
-let mut tasks = vec![];
-for i in 0..100 {
-    let permit = semaphore.clone().acquire_owned().await.unwrap();
-    tasks.push(tokio::spawn(async move {
-        process_item(i).await;
-        drop(permit); // 释放许可
-    }));
-}
-```
-
----
-
-## 检查清单
-
-### 提交前检查清单
+## 📋 提交前检查清单
 
 ```markdown
 ## 代码质量
@@ -481,17 +210,18 @@ for i in 0..100 {
 - [ ] 错误提示友好（中文）
 - [ ] 加载状态正确显示
 
+## 测试覆盖
+- [ ] 新增代码有对应测试
+- [ ] 单元测试覆盖率 >= 70%
+- [ ] E2E 测试通过
+
 ## 文档
-- [ ] 更新了 AGENTS.md（如需要）
-- [ ] 添加了必要的注释
-- [ ] 记录了 ADR（架构变更时）
+- [ ] 更新了必要的注释
+- [ ] 记录了架构决策（如需要）
+- [ ] 更新了最佳实践（如有新经验）
 
-## 性能
+## 性能和安全
 - [ ] 无明显性能问题
-- [ ] 大数据量测试通过
-- [ ] 内存泄漏检查
-
-## 安全
 - [ ] 敏感数据加密存储
 - [ ] API Key 不硬编码
 - [ ] 输入验证完整
@@ -499,6 +229,115 @@ for i in 0..100 {
 
 ---
 
+## 🔧 常见陷阱与解决方案
+
+### 陷阱 1: 在组件中直接调用 Tauri API
+
+```typescript
+// ❌ 错误
+function MyComponent() {
+  const handleSave = async () => {
+    await invoke('save_project', { data });
+  };
+}
+
+// ✅ 正确
+// stores/projectStore.ts
+export const useProjectStore = create((set) => ({
+  saveProject: async (data) => {
+    await invoke('save_project', { data });
+  }
+}));
+
+// components/MyComponent.tsx
+function MyComponent() {
+  const { saveProject } = useProjectStore();
+  const handleSave = () => saveProject(data);
+}
+```
+
+### 陷阱 2: 在 Commands 中包含业务逻辑
+
+```rust
+// ❌ 错误
+#[tauri::command]
+pub fn create_project(name: String) -> Result<Project, String> {
+    // 直接在命令中操作数据库
+    let conn = get_connection()?;
+    let project = Project { name, .. };
+    conn.execute(...)  // 复杂的 SQL 逻辑
+}
+
+// ✅ 正确
+#[tauri::command]
+pub fn create_project(name: String) -> Result<Project, String> {
+    // 仅做参数验证和错误处理
+    services::create_project(name).await
+}
+```
+
+### 陷阱 3: 过度使用 useEffect
+
+```typescript
+// ❌ 错误：不必要的 useEffect
+const [count, setCount] = useState(0);
+useEffect(() => {
+  document.title = `Count: ${count}`;
+}, [count]);
+
+// ✅ 正确：直接在事件处理中更新
+const handleClick = () => {
+  setCount(c => c + 1);
+  document.title = `Count: ${count + 1}`;
+};
+```
+
+---
+
+## 🎓 学习路径
+
+### 新手入门（1 小时）
+1. ✅ 阅读根目录 AGENTS.md - 10 分钟
+2. ✅ 浏览 src/AGENTS.md 或 src-tauri/AGENTS.md - 20 分钟
+3. ✅ 运行 `npm run harness:check` 并理解输出 - 10 分钟
+4. ✅ 阅读本文档 - 20 分钟
+
+### 进阶提升（1 天）
+1. 📖 精读 ARCHITECTURE.md
+2. 📝 学习所有架构决策记录
+3. 🔧 尝试编写自定义检查规则
+4. 📚 贡献新的最佳实践
+
+### 专家级别（1 周）
+1. 🏗️ 深入理解 Harness Engineering 理念
+2. 🤖 优化 AI 协作流程
+3. 📊 建立团队的质量文化
+4. 🌟 向社区分享经验
+
+---
+
+## 🔗 相关资源
+
+### 官方文档
+- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/)
+- [本项目导航地图](../AGENTS.md)
+- [前端开发规范](../src/AGENTS.md)
+- [Rust 后端规范](../src-tauri/AGENTS.md)
+
+### 学习材料
+- [架构决策记录 (ADR) 指南](https://adr.github.io/)
+- [TypeScript 严格模式](https://www.typescriptlang.org/tsconfig#strict)
+- [Rust 编码规范](https://rust-lang.github.io/api-guidelines/)
+
+### 工具链
+- [ESLint - 代码规范检查](https://eslint.org/)
+- [Prettier - 代码格式化](https://prettier.io/)
+- [cargo - Rust 包管理](https://doc.rust-lang.org/cargo/)
+- [Vitest - 单元测试框架](https://vitest.dev/)
+
+---
+
 **维护者**: OPC-HARNESS Team  
-**最后更新**: 2026-03-22  
+**版本**: 2.0.0 (基于 OpenAI Harness Engineering 最佳实践重构)  
+**最后更新**: 2026-03-23  
 **贡献**: 欢迎提交 PR 补充更多最佳实践

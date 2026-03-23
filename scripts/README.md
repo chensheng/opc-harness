@@ -1,218 +1,277 @@
-# Scripts
+# Harness Engineering 使用指南
 
-本目录包含 OPC-HARNESS 项目的开发和工程化脚本。
+> **详细说明**  
+> 最后更新：2026-03-23
 
-## 📁 目录结构
+## 🎯 什么是 Harness Engineering？
 
+Harness Engineering 是一套为 AI Agent 协作优化的工程实践体系，通过构建受控环境让 AI 能够可靠地完成编码任务。
+
+**核心理念**: "人类掌舵，Agent 执行" (Humans steer. Agents execute.)
+
+---
+
+## 📦 Harness 的三大支柱
+
+### 1. 上下文工程 (Context Engineering)
+
+**目的**: 帮助 AI Agent 快速理解项目背景和任务
+
+**组成**:
+- **渐进式披露**: AGENTS.md → 模块规范 → docs/详细设计
+- **决策记录**: 重要架构决策的背景和原因
+- **知识库**: 最佳实践和经验教训
+
+**关键文件**:
 ```
-scripts/
-├── README.md                       # 本文件（使用说明）
-├── harness-check.ps1               # 架构健康检查（主入口）
-├── harness-doc-check.ps1           # 文档一致性检查
-├── harness-dead-code.ps1           # 死代码检测
-├── harness-e2e.ps1                 # E2E 测试运行器
-├── harness-gc.ps1                  # 垃圾回收清理
-├── harness-quick-verify.ps1        # 快速验证
-├── harness-verify-tauri.ps1        # Tauri 环境验证
-├── fix-code-quality.ps1            # 代码质量修复
-├── example-task.ps1                # 任务执行示例
-└── cli-browser-verify/             # CLI 浏览器验证模块
-    ├── README.md                   # CLI Browser 使用文档
-    ├── USAGE.md                    # 详细用法指南
-    ├── cli_detector.ps1            # CLI 检测脚本
-    ├── verify_runner.ps1           # 验证运行器
-    ├── tasks/                      # 验证任务定义
-    │   ├── smoke.yaml              # 冒烟测试
-    │   └── critical.yaml           # 关键路径测试
-    ├── reports/                    # 生成的报告
-    └── screenshots/                # 截图输出
+AGENTS.md                          # 导航地图（必读）
+src/AGENTS.md                      # 前端规范
+src-tauri/AGENTS.md                # Rust 规范
+docs/design-docs/                  # 技术决策
+docs/exec-plans/                   # 执行计划
+docs/references/best-practices.md  # 最佳实践
 ```
 
-**注意**: 所有 Harness Engineering 相关的自动化脚本都集中在 `scripts/` 目录中，便于管理和维护。
+### 2. 架构约束 (Architectural Constraints)
 
-## 📁 脚本列表
+**目的**: 确保 AI生成的代码符合项目规范
 
-### 核心脚本
+**强制执行方式**:
+- ESLint + TypeScript - 前端代码规范
+- cargo clippy - Rust 代码规范
+- 自定义架构规则 - 防止循环依赖
 
-| 脚本 | 用途 | npm 命令 |
-|------|------|----------|
-| `harness-check.ps1` | 架构健康检查（TypeScript、ESLint、Prettier、Rust） | `npm run harness:check` |
-| `harness-gc.ps1` | 垃圾清理（临时文件、构建产物、过期文档） | `npm run harness:gc` |
-| `harness-quick-verify.ps1` | 快速验证（开发环境健康检查） | `npm run harness:quick` |
-| `harness-verify-tauri.ps1` | Tauri 开发环境完整验证 | `npm run harness:verify:tauri` |
-| `fix-code-quality.ps1` | 自动修复代码质量问题 | `npm run harness:fix` |
-| `example-task.ps1` | Harness 任务执行器示例 | - |
+**核心约束**:
+```typescript
+// ✅ 允许的数据流
+Component → Store → Commands → Services → DB
 
-### CLI Browser 验证
-
-CLI Browser 验证脚本位于 [`cli-browser-verify/`](./cli-browser-verify/) 目录，用于利用 AI CLI工具的浏览器能力进行自动化验证。
-
-## 🚀 使用方式
-
-### 架构健康检查（主入口）⭐
-
+// ❌ 禁止的依赖
+Store → Component    // 状态层不可依赖 UI 层
+Services → Commands  // 服务层不可依赖命令层
 ```
+
+### 3. 反馈回路 (Feedback Loops)
+
+**目的**: 快速发现问题并持续改进
+
+**自动化检查**:
+```bash
+# 提交前必跑
+npm run harness:check
+
+# 完整验证（包含文档和死代码）
+npm run harness:check -- -All
+```
+
+**闭环系统**:
+```
+AI生成代码 → 运行检查 → 发现问题 → 修复 → 再次检查
+     ↓                                           ↑
+     └─────────────── 持续集成 ──────────────────┘
+```
+
+---
+
+## 🚀 快速开始
+
+### 1. AI Agent 导航
+
+**重要**: AI Agent 在开始工作前必须阅读 [`AGENTS.md`](../AGENTS.md)
+
+### 2. 运行架构健康检查
+
+```bash
 # 基础检查
 npm run harness:check
 
-# 扩展检查（按需使用）
-npm run harness:check -- -DocCheck    # + 文档一致性检查
-npm run harness:check -- -DeadCode    # + 死代码检测
-npm run harness:check -- -All         # 完整检查（推荐提交前使用）
+# 输出示例:
+# ========================================
+#   OPC-HARNESS 架构健康检查
+# ========================================
+# [1/6] TypeScript 类型检查...
+#   ✅ TypeScript 类型检查通过
+# [2/6] ESLint 代码规范检查...
+#   ✅ ESLint 检查通过
+# ...
+# 🎉 健康度评分：95/100
 ```
 
-**注意**: 以下命令已被整合到 `harness:check` 中，不再作为独立命令存在：
-- ~~`harness:doc:check`~~ → `npm run harness:check -- -DocCheck`
-- ~~`harness:dead:code`~~ → `npm run harness:check -- -DeadCode`
-- ~~`harness:gc`~~、~~`harness:fix`~~、~~`harness:quick`~~、~~`harness:verify:*`~~ 已移除
+### 3. 执行垃圾回收
 
-### 代码质量修复
-
-```
-# 自动修复代码格式和 lint 问题
-npm run harness:fix
-
-# 仅预览将要执行的操作
-npm run harness:fix -- -DryRun
-
-# 跳过类型检查
-npm run harness:fix -- -SkipTypeCheck
-```
-
-### 垃圾清理
-
-```
-# 执行清理（会确认每个文件）
+```bash
+# 实际清理（会询问确认）
 npm run harness:gc
 
-# 强制清理（无需确认）
-npm run harness:gc -- -Force
-
-# 预览模式（不实际删除）
+# 空运行模式（查看将删除什么）
 npm run harness:gc -- -DryRun
+
+# 强制清理（不询问）
+npm run harness:gc -- -Force
 ```
 
-### 快速验证
+---
 
+## 💡 实际应用场景
+
+### 场景 1: AI 辅助开发新功能
+
+**步骤**:
+
+1. **准备上下文**
+```bash
+# 查看最佳实践
+cat docs/references/best-practices.md
+
+# 查看架构规则
+cat docs/references/architecture-rules.json
 ```
-# 快速验证开发环境
-npm run harness:quick
+
+2. **向 AI 提问**
+```markdown
+## 任务：实现用户登录功能
+
+## 上下文
+- 已阅读 AGENTS.md 导航地图
+- 遵循 best-practices.md 中的错误处理规范
+- 参考 architecture-rules.json 中的分层约束
+
+## 约束
+- 前端：src/components/auth/Login.tsx
+- 后端：src-tauri/src/commands/auth.rs
+- 使用 bcrypt 加密
+- JWT token 有效期 7 天
+- 错误信息用中文
+
+请生成代码并说明如何验证
 ```
 
-### Tauri 环境验证
-
-```
-# 完整验证 Tauri 开发环境
-npm run harness:verify:tauri
-```
-
-## 📋 脚本功能详解
-
-### harness-check.ps1
-
-**检查项目：**
-1. TypeScript 类型检查
-2. ESLint 代码质量检查
-3. Prettier 格式化检查
-4. Rust 编译检查
-5. 依赖完整性检查
-6. 目录结构检查
-
-**评分标准：**
-- 90-100: 优秀
-- 70-89: 良好
-- <70: 需要修复
-
-### harness-gc.ps1
-
-**清理内容：**
-1. 临时文件（*.tmp, *.bak, *.log 等）
-2. Node.js 构建产物（dist/, build/ 等）
-3. Rust 构建产物（src-tauri/target/）
-4. 过期文档（>30 天）
-5. 扫描代码注释标记（TODO/FIXME/HACK）
-
-### fix-code-quality.ps1
-
-**修复步骤：**
-1. TypeScript 类型检查
-2. Prettier 格式化
-3. ESLint 自动修复
-
-## 🔧 开发工作流建议
-
-### 日常开发
-```
-# 1. 运行单元测试
-npm run test:unit
-
-# 2. 代码修改完成后运行架构检查
+3. **验证代码**
+```bash
+# 运行健康检查
 npm run harness:check
 
-# 3. 提交前运行完整验证
-npm run test:unit && npm run test:e2e && npm run harness:check -- -All
-```
-
-### 定期维护
-```bash
-# 每周运行一次完整检查（包含文档和死代码）
-npm run harness:check -- -All
-
-# 按需使用 npx 命令
-npx vitest run --coverage   # 生成覆盖率报告
-npx vitest --ui             # 打开 UI 界面
-```
-
-### CI/CD 集成
-```
-# 在 CI 中使用 JSON 输出
-npm run harness:check -- -Json > health-report.json
-
-# 快速验证用于预检
+# 运行单元测试
 npm run test:unit
 ```
 
-## 📝 注意事项
+### 场景 2: 重构现有代码
 
-1. **PowerShell 执行策略**：所有脚本都需要 PowerShell 执行权限
-   ```powershell
-   # 如果遇到执行策略错误，运行：
-   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-   ```
+**步骤**:
 
-2. **跨平台兼容**：当前脚本仅支持 Windows PowerShell，Linux/macOS 版本待开发
+1. **记录决策**
+```bash
+# 创建新的架构决策记录
+cp docs/design-docs/adr-template.md \
+   docs/design-docs/adr-xxx-refactoring.md
+```
 
-3. **依赖要求**：
-   - Node.js >= 18.0.0
-   - Rust >= 1.70.0
-   - PowerShell >= 7.0
+2. **执行重构**
+```bash
+# 重构前先备份
+git checkout -b feature/refactoring-backup
+```
 
-## 🤝 贡献指南
+3. **验证重构结果**
+```bash
+# 确保健康度不下降
+npm run harness:check
+```
 
-添加新脚本时，请遵循以下规范：
+---
 
-1. 使用 `.ps1` 扩展名
-2. 在脚本开头添加 shebang: `#!/usr/bin/env pwsh`
-3. 提供清晰的参数说明和用法注释
-4. 使用统一的色彩方案（Cyan/Yellow/Green/Red）
-5. 在 package.json 中添加对应的 npm 命令
+## 🔧 高级用法
 
-## 📚 相关文档
+### 自定义检查规则
 
-### 核心文档
+编辑 `docs/references/architecture-rules.json`:
 
-- [README.md](../README.md) - 项目主文档
-- [AGENTS.md](../AGENTS.md) - AI Agent 导航地图
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - 架构设计文档
-- [scripts/README.md](./README.md) - Harness 脚本使用说明
+```json
+{
+  "rules": [
+    {
+      "name": "禁止循环依赖",
+      "pattern": "**/*.ts",
+      "constraint": "stores 不能导入 components"
+    }
+  ]
+}
+```
 
-### 测试和 Harness 文档
+### 扩展知识库
 
-- [docs/testing/README.md](./testing/README.md) - 测试体系导航 ⭐
-- [docs/testing/COMMANDS-REFERENCE.md](./testing/COMMANDS-REFERENCE.md) - 完整命令参考
-- [docs/testing/HARNESS-COMMANDS.md](./testing/HARNESS-COMMANDS.md) - Harness 命令精简说明
-- [docs/testing/HARNESS-STRUCTURE.md](./testing/HARNESS-STRUCTURE.md) - 目录结构说明
-- [docs/testing/E2E-STRATEGY.md](./testing/E2E-STRATEGY.md) - E2E 测试方案
-- [docs/references/harness-user-guide.md](../references/harness-user-guide.md) - Harness 用户指南
-- [docs/references/best-practices.md](../references/best-practices.md) - 最佳实践
-- [docs/references/architecture-rules.json](../references/architecture-rules.json) - 架构规则配置
+在 `docs/references/` 添加新文档:
+- 新增功能后：更新相关文档
+- 解决问题后：记录解决方案到 FAQ
+- 性能优化后：更新性能基准数据
+- 遇到陷阱后：添加注意事项
+
+---
+
+## 📊 健康度评分说明
+
+### 评分计算
+
+| 检查项 | 满分 | 扣分标准 |
+|--------|------|---------|
+| TypeScript 类型检查 | 20 | 失败扣 20 分 |
+| ESLint 代码规范 | 15 | 警告扣 5 分，错误扣 15 分 |
+| Prettier 格式化 | 10 | 不通过扣 10 分 |
+| Rust 编译检查 | 25 | 失败扣 25 分 |
+| 单元测试覆盖率 | 20 | < 70% 扣 20 分 |
+| 架构约束 | 10 | 违规扣 10 分 |
+
+### 评分等级
+
+- **90-100**: 优秀 ✨ - 可以安全合并
+- **70-89**: 良好 👍 - 有一些改进空间
+- **<70**: 需要修复 ⚠️ - 不建议合并
+
+---
+
+## 🤝 团队协作建议
+
+### 建立 Harness 文化
+
+- **每次提交前**: 运行 `npm run harness:check`
+- **每周**: 运行 `npm run harness:gc` 清理技术债务
+- **每月**: 回顾 ADRs，更新最佳实践
+
+### 知识传承
+
+- **新人入职**: 先读 AGENTS.md 和最佳实践
+- **重要决策**: 必须写 ADR
+- **解决问题**: 更新到知识库
+
+### 持续改进
+
+- **定期审查**: 检查约束规则是否合理
+- **收集反馈**: 团队成员提出改进建议
+- **迭代更新**: 每季度更新 Harness 体系
+
+---
+
+## 📚 相关资源
+
+### 官方文档
+- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/)
+- [本项目导航地图](../AGENTS.md)
+- [最佳实践](./best-practices.md)
+- [架构设计](../ARCHITECTURE.md)
+
+### 学习材料
+- [架构决策记录 (ADR) 指南](https://adr.github.io/)
+- [TypeScript 严格模式](https://www.typescriptlang.org/tsconfig#strict)
+- [Rust 编码规范](https://rust-lang.github.io/api-guidelines/)
+
+### 工具链
+- [ESLint - 代码规范检查](https://eslint.org/)
+- [Prettier - 代码格式化](https://prettier.io/)
+- [cargo - Rust 包管理](https://doc.rust-lang.org/cargo/)
+- [Vitest - 单元测试框架](https://vitest.dev/)
+
+---
+
+**维护者**: OPC-HARNESS Team  
+**版本**: 2.0.0 (基于 OpenAI Harness Engineering 最佳实践重构)  
+**最后更新**: 2026-03-23

@@ -1,11 +1,9 @@
 # OPC-HARNESS 文档中心
 
-> **最后更新**: 2026-03-23  
-> **文档状态**: ✅ 符合 OpenAI Harness Engineering 最佳实践
+> **基于 OpenAI Harness Engineering 最佳实践**  
+> 最后更新：2026-03-23
 
 ## 📚 文档导航
-
-本目录按照 OpenAI Harness Engineering 最佳实践组织，支持 AI Agent 高效检索和理解项目信息。
 
 ### 核心索引
 
@@ -19,28 +17,19 @@
 
 ### 根目录关键文档
 
-- [`AGENTS.md`](../AGENTS.md) - AI Agent 导航地图（精简版）
+- [`AGENTS.md`](../AGENTS.md) - AI Agent 导航地图（必读）⭐
 - [`ARCHITECTURE.md`](../ARCHITECTURE.md) - 系统架构设计
 - [`src/AGENTS.md`](../src/AGENTS.md) - 前端开发规范
 - [`src-tauri/AGENTS.md`](../src-tauri/AGENTS.md) - Rust 后端规范
 
-### Harness 工具文档 ⭐️ NEW
+### Harness Engineering ⭐
 
 所有 Harness Engineering 的完整文档已迁移到 [`references/`](./references/):
 
-- **快速入门**: [`references/harness-quickstart.md`](./references/harness-quickstart.md) - 30 秒了解 Harness
-- **完整指南**: [`references/harness-user-guide.md`](./references/harness-user-guide.md) - 详细使用手册
-- **最佳实践**: [`references/best-practices.md`](./references/best-practices.md) - 团队协作最佳实践
-- **架构规则**: [`references/architecture-rules.json`](./references/architecture-rules.json) - 前后端约束规则
-
-### Harness 工具目录
-
-- [`.harness/scripts/`](../.harness/scripts/) - 自动化脚本集合
-  - `harness-check.ps1` - 架构健康检查
-  - `harness-gc.ps1` - 垃圾回收
-  - `harness-fix.ps1` - 代码质量修复
-- [`.harness/cli-browser-verify/`](../.harness/cli-browser-verify/) - CLI 浏览器验证
-- [`.harness/constraints/`](../.harness/constraints/) - 架构约束配置 (空目录保留)
+- **快速入门**: [`harness-quickstart.md`](./references/harness-quickstart.md) - 30 秒了解 Harness
+- **完整指南**: [`harness-user-guide.md`](./references/harness-user-guide.md) - 详细使用手册
+- **最佳实践**: [`best-practices.md`](./references/best-practices.md) - 编码最佳实践
+- **架构规则**: [`architecture-rules.json`](./references/architecture-rules.json) - 前后端约束规则
 
 ---
 
@@ -53,7 +42,7 @@ Level 1: AGENTS.md (根目录)     ← 导航地图，< 100 行
     ↓
 Level 2: src/AGENTS.md          ← 模块规范，具体规则
     ↓
-Level 3: design-docs/*.md       ← 详细设计，技术细节
+Level 3: docs/*                 ← 详细设计，技术细节
 ```
 
 **优势**:
@@ -63,11 +52,11 @@ Level 3: design-docs/*.md       ← 详细设计，技术细节
 
 ### 2. 关注点分离 (Separation of Concerns)
 
-- **设计文档** → `design-docs/` (技术方案)
-- **执行计划** → `exec-plans/` (任务追踪)
-- **产品规范** → `product-specs/` (需求说明)
-- **参考资料** → `references/` (外部资源)
-- **自动化工具** → `.harness/` (脚本和配置)
+- **技术方案** → `docs/design-docs/`
+- **执行计划** → `docs/exec-plans/`
+- **产品需求** → `docs/product-specs/`
+- **参考资料** → `docs/references/`
+- **自动生成** → `docs/generated/`
 
 **优势**:
 - 便于 AI 检索特定类型信息
@@ -116,19 +105,6 @@ graph LR
 
 ---
 
-## 📊 文档统计
-
-| 类别 | 文件数 | 最近更新时间 |
-|------|--------|-------------|
-| 设计文档 | 11+ | 2026-03-23 |
-| 执行计划 | 8+ | 2026-03-23 |
-| 产品规范 | 5+ | 2026-03-23 |
-| 参考资料 | 12+ | 2026-03-23 |
-| 生成文档 | 1+ | 2026-03-23 |
-| **总计** | **37+** | - |
-
----
-
 ## 🛠️ 使用指南
 
 ### 对于 AI Agent
@@ -136,15 +112,14 @@ graph LR
 1. **从根目录开始**: 先阅读 [`AGENTS.md`](../AGENTS.md)
 2. **按需深入**: 根据任务类型选择对应目录
 3. **查看索引**: 每个目录的 `index.md` 提供完整导航
-4. **更新进度**: 完成任务后更新 `exec-plans/active/`
+4. **更新进度**: 完成任务后更新 `docs/exec-plans/active/`
 
 ### 对于人类开发者
 
-1. **快速入门**: 查看 [`README.md`](../README.md)
-2. **理解架构**: 阅读 [`ARCHITECTURE.md`](../ARCHITECTURE.md)
-3. **开发规范**: 遵循 `src/AGENTS.md` 或 `src-tauri/AGENTS.md`
-4. **追踪进度**: 查看 `exec-plans/active/`
-5. **运行工具**: 使用 `.harness/scripts/` 中的脚本
+1. **理解架构**: 阅读 [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+2. **遵循规范**: 查看 `src/AGENTS.md` 或 `src-tauri/AGENTS.md`
+3. **运行测试**: 使用 [`docs/testing/README.md`](./testing/README.md)
+4. **追踪进度**: 查看 `docs/exec-plans/active/`
 
 ---
 
@@ -152,7 +127,7 @@ graph LR
 
 ### 设计文档模板
 
-```
+```markdown
 # {标题}
 
 > **状态**: 草案 / 审查中 / 已采纳  
@@ -180,7 +155,7 @@ graph LR
 
 ### 执行计划模板
 
-```
+```markdown
 # 执行计划：{计划名称}
 
 > **优先级**: P0-P3  
@@ -209,14 +184,10 @@ graph LR
 
 基于 OpenAI Harness Engineering 最佳实践，我们持续优化文档结构:
 
-- ✅ **Phase 1**: 文档结构重组 (2026-03-22 完成)
-- ✅ **Phase 2**: docs/与.harness/整合 (2026-03-23 完成)
-- ✅ **Phase 3**: .harness/清理完成 (2026-03-23 完成)
-- 🔄 **Phase 4**: 架构护栏增强 (进行中)
-- 📋 **Phase 5**: 进度追踪系统 (规划中)
-- 📋 **Phase 6**: 反馈回路优化 (规划中)
-
-查看完整规划：[`exec-plans/active/harness-optimization-2026-03.md`](./exec-plans/active/harness-optimization-2026-03.md)
+- ✅ **Phase 1**: 文档结构重组 (已完成)
+- ✅ **Phase 2**: 精简文档内容 (已完成)
+- 🔄 **Phase 3**: 架构护栏增强 (进行中)
+- 📋 **Phase 4**: 反馈回路优化 (规划中)
 
 ---
 
@@ -224,7 +195,7 @@ graph LR
 
 ### Harness 工具脚本
 
-所有自动化脚本位于 [`.harness/scripts/`](../.harness/scripts/):
+所有自动化脚本位于 [`scripts/`](../scripts/):
 
 ```bash
 # 架构健康检查
@@ -235,25 +206,11 @@ npm run harness:gc
 
 # 代码质量修复
 npm run harness:fix
-
-# CLI 浏览器验证
-npm run harness:verify:cli
 ```
 
 ### 架构约束规则
 
 架构规则配置位于 [`references/architecture-rules.json`](./references/architecture-rules.json),定义前后端架构约束规则。
-
-### CLI Browser 验证
-
-CLI 浏览器验证工具位于 [`.harness/cli-browser-verify/`](../.harness/cli-browser-verify/),包含验证任务和脚本。
-
-### 历史文档
-
-以下历史文档归档在 [`exec-plans/completed/`](./exec-plans/completed/):
-- [Harness Index (Legacy)](./exec-plans/completed/harness-index-legacy.md) - 旧版 Harness 索引
-- [Infra-008 Verification Report](./exec-plans/completed/infra-008-verification-report.md) - SQLite 集成验证报告
-- [Task Infra-008](./exec-plans/completed/task-infra-008-sqlite-integration.md) - SQLite 集成任务文档
 
 ---
 
