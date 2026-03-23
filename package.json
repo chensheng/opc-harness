@@ -21,7 +21,6 @@
     "harness:gc": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-gc.ps1",
     "harness:quick": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-quick-verify.ps1",
     "harness:verify:tauri": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-verify-tauri.ps1",
-    "harness:verify:cli": "powershell -ExecutionPolicy Bypass -File ./scripts/cli-browser-verify/verify_runner.ps1",
     "harness:validate:docs": "powershell -ExecutionPolicy Bypass -File ./scripts/validate-doc-structure.ps1"
   },
   "dependencies": {
