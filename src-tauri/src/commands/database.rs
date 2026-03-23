@@ -1,13 +1,17 @@
 use crate::db;
-use crate::models::{Project, AIConfig, CLISession};
-use uuid::Uuid;
+use crate::models::{AIConfig, CLISession, Project};
 use chrono::Utc;
+use uuid::Uuid;
 
 /// 创建新项目
 #[tauri::command]
-pub fn create_project(app_handle: tauri::AppHandle, name: String, description: String) -> Result<String, String> {
+pub fn create_project(
+    app_handle: tauri::AppHandle,
+    name: String,
+    description: String,
+) -> Result<String, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    
+
     let project = Project {
         id: Uuid::new_v4().to_string(),
         name,
@@ -21,7 +25,7 @@ pub fn create_project(app_handle: tauri::AppHandle, name: String, description: S
         user_personas: None,
         competitor_analysis: None,
     };
-    
+
     db::create_project(&conn, &project).map_err(|e| e.to_string())?;
     Ok(project.id)
 }
@@ -35,7 +39,10 @@ pub fn get_all_projects(app_handle: tauri::AppHandle) -> Result<Vec<Project>, St
 
 /// 获取单个项目
 #[tauri::command]
-pub fn get_project_by_id(app_handle: tauri::AppHandle, id: String) -> Result<Option<Project>, String> {
+pub fn get_project_by_id(
+    app_handle: tauri::AppHandle,
+    id: String,
+) -> Result<Option<Project>, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
     db::get_project_by_id(&conn, &id).map_err(|e| e.to_string())
 }
@@ -54,46 +61,112 @@ pub fn delete_project(app_handle: tauri::AppHandle, id: String) -> Result<(), St
     db::delete_project(&conn, &id).map_err(|e| e.to_string())
 }
 
-/// 保存 AI 配置
+/// 保存 AI 配置 (同时保存到数据库和 OS keychain)
 #[tauri::command]
 pub fn save_ai_config(app_handle: tauri::AppHandle, config: AIConfig) -> Result<(), String> {
+    // Validate inputs
+    if config.provider.is_empty() {
+        return Err("Provider name cannot be empty".to_string());
+    }
+
+    if config.model.is_empty() {
+        return Err("Model name cannot be empty".to_string());
+    }
+
+    if config.api_key.is_empty() {
+        return Err("API key cannot be empty".to_string());
+    }
+
+    // Save API key to OS keychain first
+    crate::utils::keychain::save_api_key(&config.provider, &config.api_key)
+        .map_err(|e| format!("Failed to save API key to keychain: {}", e))?;
+
+    // Then save provider and model to database
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    db::save_ai_config(&conn, &config).map_err(|e| e.to_string())
+    let config_for_db = AIConfig::new(config.provider, config.model);
+    db::save_ai_config(&conn, &config_for_db).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
-/// 获取所有 AI 配置
+/// 获取所有 AI 配置 (从数据库获取 provider 和 model，尝试从 keychain 获取 api_key)
 #[tauri::command]
 pub fn get_all_ai_configs(app_handle: tauri::AppHandle) -> Result<Vec<AIConfig>, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    db::get_all_ai_configs(&conn).map_err(|e| e.to_string())
+
+    // Get all configs from database
+    let configs = db::get_all_ai_configs(&conn).map_err(|e| e.to_string())?;
+
+    // Try to retrieve API keys from keychain for each config
+    let mut result = Vec::new();
+    for mut config in configs {
+        if let Ok(api_key) = crate::utils::keychain::get_api_key(&config.provider) {
+            config.api_key = api_key;
+        }
+        result.push(config);
+    }
+
+    Ok(result)
 }
 
-/// 获取单个 AI 配置
+/// 获取单个 AI 配置 (从数据库获取 provider 和 model，从 keychain 获取 api_key)
 #[tauri::command]
-pub fn get_ai_config(app_handle: tauri::AppHandle, provider: String) -> Result<Option<AIConfig>, String> {
+pub fn get_ai_config(
+    app_handle: tauri::AppHandle,
+    provider: String,
+) -> Result<Option<AIConfig>, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    db::get_ai_config(&conn, &provider).map_err(|e| e.to_string())
+
+    // Get provider and model from database
+    match db::get_ai_config(&conn, &provider) {
+        Ok(Some(mut config)) => {
+            // Try to retrieve API key from keychain
+            match crate::utils::keychain::get_api_key(&provider) {
+                Ok(api_key) => {
+                    config.api_key = api_key;
+                    Ok(Some(config))
+                }
+                Err(_) => {
+                    // Key not found in keychain, return config without key
+                    Ok(Some(config))
+                }
+            }
+        }
+        Ok(None) => Ok(None),
+        Err(e) => Err(format!("Failed to get AI config: {}", e)),
+    }
 }
 
-/// 删除 AI 配置
+/// 删除 AI 配置 (同时删除数据库记录和 OS keychain 中的密钥)
 #[tauri::command]
 pub fn delete_ai_config(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
+    // Delete from database
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    db::delete_ai_config(&conn, &provider).map_err(|e| e.to_string())
+    db::delete_ai_config(&conn, &provider).map_err(|e| e.to_string())?;
+
+    // Also delete from OS keychain
+    crate::utils::keychain::delete_api_key(&provider)
+        .map_err(|e| format!("Failed to delete API key from keychain: {}", e))?;
+
+    Ok(())
 }
 
 /// 创建 CLI 会话
 #[tauri::command]
-pub fn create_cli_session_db(app_handle: tauri::AppHandle, tool_type: String, project_path: String) -> Result<String, String> {
+pub fn create_cli_session_db(
+    app_handle: tauri::AppHandle,
+    tool_type: String,
+    project_path: String,
+) -> Result<String, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    
+
     let session = CLISession {
         id: Uuid::new_v4().to_string(),
         tool_type,
         project_path,
         created_at: Utc::now().to_rfc3339(),
     };
-    
+
     db::create_cli_session(&conn, &session).map_err(|e| e.to_string())?;
     Ok(session.id)
 }
@@ -107,7 +180,10 @@ pub fn get_all_cli_sessions(app_handle: tauri::AppHandle) -> Result<Vec<CLISessi
 
 /// 获取单个 CLI 会话
 #[tauri::command]
-pub fn get_cli_session_by_id(app_handle: tauri::AppHandle, id: String) -> Result<Option<CLISession>, String> {
+pub fn get_cli_session_by_id(
+    app_handle: tauri::AppHandle,
+    id: String,
+) -> Result<Option<CLISession>, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
     db::get_cli_session_by_id(&conn, &id).map_err(|e| e.to_string())
 }

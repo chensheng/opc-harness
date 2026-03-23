@@ -25,7 +25,30 @@ pub struct Project {
 pub struct AIConfig {
     pub provider: String,
     pub model: String,
+    // Note: api_key is no longer stored in database
+    // It's stored securely in OS keychain
+    #[serde(skip_serializing, skip_deserializing)]
     pub api_key: String,
+}
+
+impl AIConfig {
+    /// Create a new AIConfig without API key (for DB storage)
+    pub fn new(provider: String, model: String) -> Self {
+        Self {
+            provider,
+            model,
+            api_key: String::new(), // Empty placeholder
+        }
+    }
+
+    /// Create a new AIConfig with API key (for runtime use only)
+    pub fn with_key(provider: String, model: String, api_key: String) -> Self {
+        Self {
+            provider,
+            model,
+            api_key,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

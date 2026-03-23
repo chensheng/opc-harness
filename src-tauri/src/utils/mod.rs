@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub mod keychain;
+
 pub fn generate_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }

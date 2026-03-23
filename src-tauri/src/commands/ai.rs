@@ -1,12 +1,32 @@
+use crate::ai::{
+    AIProvider, AIProviderType, ChatRequest, StreamChunk, StreamComplete, StreamError,
+};
+use crate::utils::keychain;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
-use crate::ai::{AIProvider, AIProviderType, ChatRequest, StreamChunk, StreamComplete, StreamError};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidateKeyRequest {
     pub provider: String,
     pub api_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SaveApiKeyRequest {
+    pub provider: String,
+    pub model: String,
+    pub api_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetApiKeyRequest {
+    pub provider: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeleteApiKeyRequest {
+    pub provider: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -103,9 +123,7 @@ pub struct MarketingCopyResponse {
 }
 
 #[tauri::command]
-pub async fn validate_ai_key(
-    request: ValidateKeyRequest,
-) -> Result<bool, String> {
+pub async fn validate_ai_key(request: ValidateKeyRequest) -> Result<bool, String> {
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -118,10 +136,51 @@ pub async fn validate_ai_key(
     provider.validate_key().await.map_err(|e| e.to_string())
 }
 
+/// Save API key securely to OS keychain
 #[tauri::command]
-pub async fn chat(
-    request: ChatRequestPayload,
-) -> Result<String, String> {
+pub fn save_api_key_to_keychain(request: SaveApiKeyRequest) -> Result<bool, String> {
+    // Validate inputs
+    if request.provider.is_empty() {
+        return Err("Provider name cannot be empty".to_string());
+    }
+
+    if request.model.is_empty() {
+        return Err("Model name cannot be empty".to_string());
+    }
+
+    if request.api_key.is_empty() {
+        return Err("API key cannot be empty".to_string());
+    }
+
+    // Save to OS keychain
+    keychain::save_api_key(&request.provider, &request.api_key)
+        .map_err(|e| format!("Failed to save API key: {}", e))?;
+
+    Ok(true)
+}
+
+/// Retrieve API key from OS keychain
+#[tauri::command]
+pub fn get_api_key_from_keychain(request: GetApiKeyRequest) -> Result<String, String> {
+    keychain::get_api_key(&request.provider)
+        .map_err(|e| format!("Failed to retrieve API key: {}", e))
+}
+
+/// Check if API key exists in OS keychain
+#[tauri::command]
+pub fn has_api_key_in_keychain(provider: String) -> Result<bool, String> {
+    Ok(keychain::has_api_key(&provider))
+}
+
+/// Delete API key from OS keychain
+#[tauri::command]
+pub fn delete_api_key_from_keychain(request: DeleteApiKeyRequest) -> Result<(), String> {
+    keychain::delete_api_key(&request.provider)
+        .map_err(|e| format!("Failed to delete API key: {}", e))
+}
+
+#[tauri::command]
+pub async fn chat(request: ChatRequestPayload) -> Result<String, String> {
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -131,8 +190,9 @@ pub async fn chat(
     };
 
     let provider = AIProvider::new(provider_type, request.api_key);
-    
-    let messages: Vec<crate::ai::Message> = request.messages
+
+    let messages: Vec<crate::ai::Message> = request
+        .messages
         .into_iter()
         .map(|m| crate::ai::Message {
             role: m.role,
@@ -148,7 +208,10 @@ pub async fn chat(
         stream: false,
     };
 
-    let response = provider.chat(chat_request).await.map_err(|e| e.to_string())?;
+    let response = provider
+        .chat(chat_request)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(response.content)
 }
 
@@ -167,8 +230,9 @@ pub async fn stream_chat(
     };
 
     let provider = AIProvider::new(provider_type, request.api_key.clone());
-    
-    let messages: Vec<crate::ai::Message> = request.messages
+
+    let messages: Vec<crate::ai::Message> = request
+        .messages
         .into_iter()
         .map(|m| crate::ai::Message {
             role: m.role,
@@ -193,10 +257,13 @@ pub async fn stream_chat(
             content: chunk,
             is_complete: false,
         };
-        
-        app_clone.emit("ai-stream-chunk", stream_chunk)
-            .map_err(|e| crate::ai::AIError { message: e.to_string() })?;
-        
+
+        app_clone
+            .emit("ai-stream-chunk", stream_chunk)
+            .map_err(|e| crate::ai::AIError {
+                message: e.to_string(),
+            })?;
+
         Ok(())
     };
 
@@ -209,7 +276,7 @@ pub async fn stream_chat(
                 content: final_content.clone(),
             };
             let _ = app.emit("ai-stream-complete", complete_data);
-            
+
             Ok(final_content)
         }
         Err(e) => {
@@ -219,22 +286,23 @@ pub async fn stream_chat(
                 error: e.to_string(),
             };
             let _ = app.emit("ai-stream-error", error_data);
-            
+
             Err(e.to_string())
         }
     }
 }
 
 #[tauri::command]
-pub async fn generate_prd(
-    _request: GeneratePRDRequest,
-) -> Result<PRDResponse, String> {
+pub async fn generate_prd(_request: GeneratePRDRequest) -> Result<PRDResponse, String> {
     // TODO: Implement actual PRD generation
     // For now, return mock data
     Ok(PRDResponse {
         title: "Generated Product".to_string(),
         overview: "This is an AI-generated product overview based on your idea.".to_string(),
-        target_users: vec!["Independent developers".to_string(), "Freelancers".to_string()],
+        target_users: vec![
+            "Independent developers".to_string(),
+            "Freelancers".to_string(),
+        ],
         core_features: vec!["Feature 1".to_string(), "Feature 2".to_string()],
         tech_stack: vec!["React".to_string(), "Node.js".to_string()],
         estimated_effort: "2-4 weeks".to_string(),
@@ -248,19 +316,17 @@ pub async fn generate_user_personas(
     _request: GeneratePRDRequest,
 ) -> Result<Vec<UserPersonaResponse>, String> {
     // TODO: Implement actual persona generation
-    Ok(vec![
-        UserPersonaResponse {
-            id: "1".to_string(),
-            name: "Alex".to_string(),
-            age: "28".to_string(),
-            occupation: "Full-stack Developer".to_string(),
-            background: "Experienced developer working on side projects".to_string(),
-            goals: vec!["Build passive income".to_string()],
-            pain_points: vec!["Limited time".to_string()],
-            behaviors: vec!["Active on Twitter".to_string()],
-            quote: Some("I want to focus on creative work.".to_string()),
-        },
-    ])
+    Ok(vec![UserPersonaResponse {
+        id: "1".to_string(),
+        name: "Alex".to_string(),
+        age: "28".to_string(),
+        occupation: "Full-stack Developer".to_string(),
+        background: "Experienced developer working on side projects".to_string(),
+        goals: vec!["Build passive income".to_string()],
+        pain_points: vec!["Limited time".to_string()],
+        behaviors: vec!["Active on Twitter".to_string()],
+        quote: Some("I want to focus on creative work.".to_string()),
+    }])
 }
 
 #[tauri::command]
@@ -269,14 +335,12 @@ pub async fn generate_competitor_analysis(
 ) -> Result<CompetitorAnalysisResponse, String> {
     // TODO: Implement actual competitor analysis
     Ok(CompetitorAnalysisResponse {
-        competitors: vec![
-            CompetitorResponse {
-                name: "Competitor A".to_string(),
-                strengths: vec!["Brand recognition".to_string()],
-                weaknesses: vec!["High price".to_string()],
-                market_share: Some("35%".to_string()),
-            },
-        ],
+        competitors: vec![CompetitorResponse {
+            name: "Competitor A".to_string(),
+            strengths: vec!["Brand recognition".to_string()],
+            weaknesses: vec!["High price".to_string()],
+            market_share: Some("35%".to_string()),
+        }],
         differentiation: "Our unique value proposition.".to_string(),
         opportunities: vec!["Growing market".to_string()],
     })
@@ -288,21 +352,17 @@ pub async fn generate_marketing_strategy(
 ) -> Result<MarketingStrategyResponse, String> {
     // TODO: Implement actual marketing strategy generation
     Ok(MarketingStrategyResponse {
-        channels: vec![
-            MarketingChannelResponse {
-                name: "Product Hunt".to_string(),
-                platform: "producthunt".to_string(),
-                priority: "high".to_string(),
-                description: "Great for tech product launches".to_string(),
-            },
-        ],
-        timeline: vec![
-            MarketingTimelineItem {
-                phase: "Pre-launch".to_string(),
-                duration: "1 week".to_string(),
-                activities: vec!["Create landing page".to_string()],
-            },
-        ],
+        channels: vec![MarketingChannelResponse {
+            name: "Product Hunt".to_string(),
+            platform: "producthunt".to_string(),
+            priority: "high".to_string(),
+            description: "Great for tech product launches".to_string(),
+        }],
+        timeline: vec![MarketingTimelineItem {
+            phase: "Pre-launch".to_string(),
+            duration: "1 week".to_string(),
+            activities: vec!["Create landing page".to_string()],
+        }],
         key_messages: vec!["Value proposition 1".to_string()],
     })
 }
@@ -312,11 +372,9 @@ pub async fn generate_marketing_copy(
     _request: GeneratePRDRequest,
 ) -> Result<Vec<MarketingCopyResponse>, String> {
     // TODO: Implement actual marketing copy generation
-    Ok(vec![
-        MarketingCopyResponse {
-            platform: "twitter".to_string(),
-            content: "🚀 New product launch!".to_string(),
-            hashtags: Some(vec!["BuildInPublic".to_string()]),
-        },
-    ])
+    Ok(vec![MarketingCopyResponse {
+        platform: "twitter".to_string(),
+        content: "🚀 New product launch!".to_string(),
+        hashtags: Some(vec!["BuildInPublic".to_string()]),
+    }])
 }

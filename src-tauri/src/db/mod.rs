@@ -1,25 +1,28 @@
+use crate::models::{AIConfig, CLISession, Project};
+use chrono::Utc;
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 use tauri::Manager;
-use crate::models::{Project, AIConfig, CLISession};
-use chrono::Utc;
 
 /// 初始化数据库连接和表结构
 pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
-    let app_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
-    
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+
     // Ensure the directory exists
     if let Err(e) = std::fs::create_dir_all(&app_dir) {
         return Err(rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error::new(1),
-            Some(format!("Failed to create app data directory: {}", e))
+            Some(format!("Failed to create app data directory: {}", e)),
         ));
     }
-    
+
     let db_path = app_dir.join("opc-harness.db");
-    
+
     let conn = Connection::open(db_path)?;
-    
+
     // Create projects table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS projects (
@@ -37,17 +40,16 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         )",
         [],
     )?;
-    
+
     // Create ai_configs table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_configs (
             provider TEXT PRIMARY KEY,
-            model TEXT NOT NULL,
-            api_key TEXT NOT NULL
+            model TEXT NOT NULL
         )",
         [],
     )?;
-    
+
     // Create cli_sessions table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS cli_sessions (
@@ -58,13 +60,16 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         )",
         [],
     )?;
-    
+
     Ok(())
 }
 
 /// 获取数据库连接
 pub fn get_connection(app_handle: &tauri::AppHandle) -> Result<Connection> {
-    let app_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let db_path = app_dir.join("opc-harness.db");
     Connection::open(db_path)
 }
@@ -111,7 +116,7 @@ pub fn get_all_projects(conn: &Connection) -> Result<Vec<Project>> {
             competitor_analysis: row.get(10)?,
         })
     })?;
-    
+
     let mut result = Vec::new();
     for project in projects {
         result.push(project?);
@@ -137,7 +142,7 @@ pub fn get_project_by_id(conn: &Connection, id: &str) -> Result<Option<Project>>
             competitor_analysis: row.get(10)?,
         })
     })?;
-    
+
     if let Some(row) = rows.next() {
         return Ok(Some(row?));
     }
@@ -176,27 +181,23 @@ pub fn delete_project(conn: &Connection, id: &str) -> Result<()> {
 
 // ==================== AI Config CRUD ====================
 
-/// 保存 AI 配置
+/// 保存 AI 配置 (仅存储 provider 和 model，不存储 API key)
 pub fn save_ai_config(conn: &Connection, config: &AIConfig) -> Result<()> {
+    // Only store provider and model in database
+    // API key is stored securely in OS keychain
     conn.execute(
-        "INSERT OR REPLACE INTO ai_configs (provider, model, api_key)
-         VALUES (?1, ?2, ?3)",
-        [&config.provider, &config.model, &config.api_key],
+        "INSERT OR REPLACE INTO ai_configs (provider, model)
+         VALUES (?1, ?2)",
+        [&config.provider, &config.model],
     )?;
     Ok(())
 }
 
-/// 获取所有 AI 配置
+/// 获取所有 AI 配置 (不包含 API key)
 pub fn get_all_ai_configs(conn: &Connection) -> Result<Vec<AIConfig>> {
-    let mut stmt = conn.prepare("SELECT * FROM ai_configs")?;
-    let configs = stmt.query_map([], |row| {
-        Ok(AIConfig {
-            provider: row.get(0)?,
-            model: row.get(1)?,
-            api_key: row.get(2)?,
-        })
-    })?;
-    
+    let mut stmt = conn.prepare("SELECT provider, model FROM ai_configs")?;
+    let configs = stmt.query_map([], |row| Ok(AIConfig::new(row.get(0)?, row.get(1)?)))?;
+
     let mut result = Vec::new();
     for config in configs {
         result.push(config?);
@@ -204,17 +205,13 @@ pub fn get_all_ai_configs(conn: &Connection) -> Result<Vec<AIConfig>> {
     Ok(result)
 }
 
-/// 获取单个 AI 配置
+/// 获取单个 AI 配置 (不包含 API key)
 pub fn get_ai_config(conn: &Connection, provider: &str) -> Result<Option<AIConfig>> {
-    let mut stmt = conn.prepare("SELECT * FROM ai_configs WHERE provider = ?1")?;
+    let mut stmt = conn.prepare("SELECT provider, model FROM ai_configs WHERE provider = ?1")?;
     let mut rows = stmt.query_map([provider], |row| {
-        Ok(AIConfig {
-            provider: row.get(0)?,
-            model: row.get(1)?,
-            api_key: row.get(2)?,
-        })
+        Ok(AIConfig::new(row.get(0)?, row.get(1)?))
     })?;
-    
+
     if let Some(row) = rows.next() {
         return Ok(Some(row?));
     }
@@ -234,7 +231,12 @@ pub fn create_cli_session(conn: &Connection, session: &CLISession) -> Result<()>
     conn.execute(
         "INSERT INTO cli_sessions (id, tool_type, project_path, created_at)
          VALUES (?1, ?2, ?3, ?4)",
-        [&session.id, &session.tool_type, &session.project_path, &session.created_at],
+        [
+            &session.id,
+            &session.tool_type,
+            &session.project_path,
+            &session.created_at,
+        ],
     )?;
     Ok(())
 }
@@ -250,7 +252,7 @@ pub fn get_all_cli_sessions(conn: &Connection) -> Result<Vec<CLISession>> {
             created_at: row.get(3)?,
         })
     })?;
-    
+
     let mut result = Vec::new();
     for session in sessions {
         result.push(session?);
@@ -269,7 +271,7 @@ pub fn get_cli_session_by_id(conn: &Connection, id: &str) -> Result<Option<CLISe
             created_at: row.get(3)?,
         })
     })?;
-    
+
     if let Some(row) = rows.next() {
         return Ok(Some(row?));
     }

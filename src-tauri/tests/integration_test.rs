@@ -20,10 +20,10 @@ mod tests {
     #[tokio::test]
     async fn test_system_commands() {
         let app = setup_test_app();
-        
+
         // 调用 get_system_info 命令
         let window = app.get_webview_window("main").unwrap();
-        
+
         // 这里应该使用 invoke 来调用 Rust 命令
         // 但由于是在测试环境中，我们直接验证窗口存在
         assert!(window.is_ok());

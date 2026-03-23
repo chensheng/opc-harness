@@ -1,12 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod commands;
-mod models;
-mod services;
-mod db;
 mod ai;
 mod cli;
+mod commands;
+mod db;
+mod models;
+mod services;
 mod utils;
 
 fn main() {
@@ -34,14 +34,12 @@ fn main() {
             commands::ai::generate_competitor_analysis,
             commands::ai::generate_marketing_strategy,
             commands::ai::generate_marketing_copy,
-            
             // CLI commands
             commands::cli::detect_tools,
             commands::cli::create_cli_session,
             commands::cli::send_cli_prompt,
             commands::cli::read_cli_output,
             commands::cli::stop_cli_session,
-            
             // Database commands
             commands::database::create_project,
             commands::database::get_all_projects,
@@ -56,7 +54,6 @@ fn main() {
             commands::database::get_all_cli_sessions,
             commands::database::get_cli_session_by_id,
             commands::database::delete_cli_session,
-            
             // System commands
             commands::system::get_app_version,
             commands::system::open_external_link,
