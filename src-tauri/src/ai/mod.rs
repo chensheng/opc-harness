@@ -1,6 +1,7 @@
 use log::{debug, error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use tokio::sync::mpsc;
@@ -60,6 +61,37 @@ pub struct Usage {
     pub prompt_tokens: i32,
     pub completion_tokens: i32,
     pub total_tokens: i32,
+}
+
+/// AI 服务配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AIConfig {
+    pub provider: String,
+    pub model: String,
+    pub api_key: String,
+    pub base_url: Option<String>,
+}
+
+impl AIConfig {
+    /// 创建带有 API key 的配置
+    pub fn with_key(provider: String, model: String, api_key: String) -> Self {
+        Self {
+            provider,
+            model,
+            api_key,
+            base_url: None,
+        }
+    }
+
+    /// 创建带有自定义 base_url 的配置
+    pub fn with_base_url(provider: String, model: String, api_key: String, base_url: String) -> Self {
+        Self {
+            provider,
+            model,
+            api_key,
+            base_url: Some(base_url),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -477,6 +509,123 @@ impl AIProvider {
         // MiniMax streaming implementation (placeholder)
         Ok("MiniMax streaming response placeholder".to_string())
     }
+
+    /// 获取提供商 ID
+    pub fn provider_id(&self) -> &str {
+        match self.provider_type {
+            AIProviderType::OpenAI => "openai",
+            AIProviderType::Anthropic => "anthropic",
+            AIProviderType::Kimi => "kimi",
+            AIProviderType::GLM => "glm",
+            AIProviderType::MiniMax => "minimax",
+        }
+    }
+}
+
+/// AI 服务管理器
+/// 
+/// 统一管理多个 AI Provider，提供统一的调用入口
+pub struct AIServiceManager {
+    services: HashMap<String, AIProvider>,
+    default_provider: String,
+}
+
+impl AIServiceManager {
+    /// 创建新的 AI 服务管理器
+    pub fn new() -> Self {
+        Self {
+            services: HashMap::new(),
+            default_provider: "openai".to_string(),
+        }
+    }
+
+    /// 从配置注册 AI 服务
+    pub fn register_from_config(&mut self, config: AIConfig) -> Result<(), AIError> {
+        let provider_type = match config.provider.as_str() {
+            "openai" => AIProviderType::OpenAI,
+            "anthropic" => AIProviderType::Anthropic,
+            "kimi" => AIProviderType::Kimi,
+            "glm" => AIProviderType::GLM,
+            "minimax" => AIProviderType::MiniMax,
+            _ => {
+                return Err(AIError {
+                    message: format!("Unknown provider: {}", config.provider),
+                });
+            }
+        };
+
+        let provider = AIProvider::new(provider_type, config.api_key);
+        self.services.insert(config.provider, provider);
+        Ok(())
+    }
+
+    /// 批量注册多个 AI 服务
+    pub fn register_multiple(&mut self, configs: Vec<AIConfig>) -> Result<(), AIError> {
+        for config in configs {
+            self.register_from_config(config)?;
+        }
+        Ok(())
+    }
+
+    /// 获取指定的 AI 服务
+    pub fn get(&self, provider: &str) -> Option<&AIProvider> {
+        self.services.get(provider)
+    }
+
+    /// 获取可变引用的 AI 服务
+    pub fn get_mut(&mut self, provider: &str) -> Option<&mut AIProvider> {
+        self.services.get_mut(provider)
+    }
+
+    /// 获取默认的 AI 服务
+    pub fn get_default(&self) -> Option<&AIProvider> {
+        self.services.get(&self.default_provider)
+    }
+
+    /// 设置默认提供商
+    pub fn set_default(&mut self, provider: String) {
+        if self.services.contains_key(&provider) {
+            self.default_provider = provider;
+        } else {
+            warn!("Trying to set non-registered provider as default: {}", provider);
+        }
+    }
+
+    /// 获取所有已注册的提供商 ID
+    pub fn registered_providers(&self) -> Vec<&str> {
+        self.services.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// 检查某个提供商是否已注册
+    pub fn is_registered(&self, provider: &str) -> bool {
+        self.services.contains_key(provider)
+    }
+
+    /// 获取已注册的服务数量
+    pub fn count(&self) -> usize {
+        self.services.len()
+    }
+
+    /// 清空所有注册的服务
+    pub fn clear(&mut self) {
+        self.services.clear();
+    }
+
+    /// 移除指定的 AI 服务
+    pub fn remove(&mut self, provider: &str) -> bool {
+        let removed = self.services.remove(provider).is_some();
+        if removed && self.default_provider == provider {
+            // 如果移除的是默认 provider，重新设置默认
+            self.default_provider = self.services.keys().next().cloned().unwrap_or_else(|| "openai".to_string());
+        }
+        removed
+    }
+}
+
+impl Default for AIServiceManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// OpenAI Provider 实现
@@ -801,7 +950,7 @@ mod tests {
         assert!(!request.stream);
     }
 
-    // ========== Kimi Adapter Tests ==========
+    // ========== Kimi Provider Tests ==========
 
     #[test]
     fn test_kimi_provider_creation() {
@@ -842,7 +991,8 @@ mod tests {
         ];
         
         // 验证 provider 已就绪（有 API key）
-        assert!(provider.validate_key().await.is_ok() || true); // 实际验证需要网络请求
+        // 实际验证需要网络请求，这里只检查 provider 类型
+        assert_eq!(provider.get_base_url(), "https://api.moonshot.cn/v1");
     }
 
     #[tokio::test]
@@ -925,5 +1075,118 @@ mod tests {
             }
             _ => panic!("Expected Kimi provider type"),
         }
+    }
+
+    // ========== AI Service Manager Tests ==========
+
+    #[test]
+    fn test_ai_service_manager_creation() {
+        let manager = AIServiceManager::new();
+        assert_eq!(manager.default_provider, "openai");
+        assert!(manager.registered_providers().is_empty());
+    }
+
+    #[test]
+    fn test_ai_service_manager_register_openai() {
+        let mut manager = AIServiceManager::new();
+        let config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-test".to_string());
+        
+        let result = manager.register_from_config(config);
+        assert!(result.is_ok());
+        
+        let providers = manager.registered_providers();
+        assert_eq!(providers.len(), 1);
+        assert!(providers.contains(&"openai"));
+    }
+
+    #[test]
+    fn test_ai_service_manager_register_multiple() {
+        let mut manager = AIServiceManager::new();
+        let configs = vec![
+            AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-openai".to_string()),
+            AIConfig::with_key("kimi".to_string(), "moonshot-v1-8k".to_string(), "sk-kimi".to_string()),
+            AIConfig::with_key("glm".to_string(), "glm-4-plus".to_string(), "sk-glm".to_string()),
+        ];
+        
+        let result = manager.register_multiple(configs);
+        assert!(result.is_ok());
+        
+        let providers = manager.registered_providers();
+        assert_eq!(providers.len(), 3);
+        assert!(providers.contains(&"openai"));
+        assert!(providers.contains(&"kimi"));
+        assert!(providers.contains(&"glm"));
+    }
+
+    #[test]
+    fn test_ai_service_manager_get_service() {
+        let mut manager = AIServiceManager::new();
+        let config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-test".to_string());
+        manager.register_from_config(config).unwrap();
+        
+        let service = manager.get("openai");
+        assert!(service.is_some());
+    }
+
+    #[test]
+    fn test_ai_service_manager_get_default() {
+        let mut manager = AIServiceManager::new();
+        let config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-test".to_string());
+        manager.register_from_config(config).unwrap();
+        
+        let default = manager.get_default();
+        assert!(default.is_some());
+    }
+
+    #[test]
+    fn test_ai_service_manager_set_default() {
+        let mut manager = AIServiceManager::new();
+        let openai_config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-openai".to_string());
+        let kimi_config = AIConfig::with_key("kimi".to_string(), "moonshot-v1-8k".to_string(), "sk-kimi".to_string());
+        
+        manager.register_from_config(openai_config).unwrap();
+        manager.register_from_config(kimi_config).unwrap();
+        
+        manager.set_default("kimi".to_string());
+        assert_eq!(manager.default_provider, "kimi");
+        
+        let default = manager.get_default().unwrap();
+        assert_eq!(default.provider_id(), "kimi");
+    }
+
+    #[test]
+    fn test_ai_service_manager_is_registered() {
+        let mut manager = AIServiceManager::new();
+        let config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-test".to_string());
+        manager.register_from_config(config).unwrap();
+        
+        assert!(manager.is_registered("openai"));
+        assert!(!manager.is_registered("anthropic"));
+    }
+
+    #[test]
+    fn test_ai_service_manager_count() {
+        let mut manager = AIServiceManager::new();
+        assert_eq!(manager.count(), 0);
+        
+        let configs = vec![
+            AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-openai".to_string()),
+            AIConfig::with_key("kimi".to_string(), "moonshot-v1-8k".to_string(), "sk-kimi".to_string()),
+        ];
+        manager.register_multiple(configs).unwrap();
+        
+        assert_eq!(manager.count(), 2);
+    }
+
+    #[test]
+    fn test_ai_service_manager_clear() {
+        let mut manager = AIServiceManager::new();
+        let config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-test".to_string());
+        manager.register_from_config(config).unwrap();
+        
+        assert_eq!(manager.count(), 1);
+        manager.clear();
+        assert_eq!(manager.count(), 0);
+        assert!(manager.registered_providers().is_empty());
     }
 }
