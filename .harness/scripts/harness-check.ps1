@@ -137,7 +137,13 @@ $requiredDirs = @(
     "src/types",
     "src-tauri/src/commands",
     "src-tauri/src/services",
-    ".harness/context-engineering"
+    ".harness/scripts",
+    ".harness/cli-browser-verify"
+)
+
+$optionalDirs = @(
+    ".harness/constraints",           # Optional: Configuration directory (can be empty)
+    ".harness/architecture-guardrails" # Optional: Future feature directory
 )
 
 $missingDirs = @()
@@ -147,8 +153,24 @@ foreach ($dir in $requiredDirs) {
     }
 }
 
+# Check optional directories (don't fail if missing, just warn)
+$missingOptionalDirs = @()
+foreach ($dir in $optionalDirs) {
+    if (-not (Test-Path $dir)) {
+        $missingOptionalDirs += $dir
+    }
+}
+
 if ($missingDirs.Count -eq 0) {
     Write-Host "  [PASS] Directory structure complete" -ForegroundColor Green
+    
+    # Warn about missing optional directories
+    if ($missingOptionalDirs.Count -gt 0) {
+        Write-Host "  [INFO] Optional directories not present:" -ForegroundColor Gray
+        foreach ($dir in $missingOptionalDirs) {
+            Write-Host "    - $dir" -ForegroundColor Gray
+        }
+    }
 } else {
     Write-Host "  [WARN] Missing directories:" -ForegroundColor Yellow
     foreach ($dir in $missingDirs) {

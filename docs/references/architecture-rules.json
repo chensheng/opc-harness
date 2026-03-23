@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OPC-HARNESS Architecture Constraints",
+  "description": "架构约束规则定义，用于 ESLint 和 Clippy 自定义规则",
+  "version": "1.0.0",
+  
+  "frontend": {
+    "description": "前端架构约束 (src/)",
+    "rules": [
+      {
+        "id": "FE-ARCH-001",
+        "name": "no-store-to-component",
+        "severity": "error",
+        "description": "状态管理层不可直接导入 UI 组件",
+        "pattern": {
+          "from": "**/stores/**",
+          "cannotImport": ["**/components/**"]
+        },
+        "fixHint": "Store 层应该保持纯净，仅管理状态。如需使用组件，请通过 Hooks 层中转。"
+      },
+      {
+        "id": "FE-ARCH-002",
+        "name": "no-hooks-to-components",
+        "severity": "error",
+        "description": "Hooks 不可直接导入具体业务组件",
+        "pattern": {
+          "from": "**/hooks/**",
+          "cannotImport": ["**/components/vibe-*/**"]
+        },
+        "fixHint": "Hooks 应该是通用的，不应依赖具体业务组件。考虑将组件逻辑上移到父组件。"
+      },
+      {
+        "id": "FE-ARCH-003",
+        "name": "no-lib-to-stores",
+        "severity": "error",
+        "description": "工具函数层不可依赖状态管理层",
+        "pattern": {
+          "from": "**/lib/**",
+          "cannotImport": ["**/stores/**"]
+        },
+        "fixHint": "工具函数应该是纯函数，不依赖全局状态。考虑通过参数传递所需数据。"
+      },
+      {
+        "id": "FE-ARCH-004",
+        "name": "prefer-path-alias",
+        "severity": "warn",
+        "description": "优先使用路径别名而非深层相对路径",
+        "pattern": {
+          "ifRelativeDepth": ">3",
+          "suggestion": "Use @/ alias instead"
+        },
+        "fixHint": "使用路径别名可以提高可读性：import { X } from '@/path/to/module'"
+      },
+      {
+        "id": "FE-ARCH-005",
+        "name": "no-direct-invoke",
+        "severity": "error",
+        "description": "组件中不可直接调用 Tauri invoke()",
+        "pattern": {
+          "from": "**/components/**/*.tsx",
+          "cannotCall": ["invoke"]
+        },
+        "fixHint": "请通过 stores 或 hooks 封装 Tauri 调用：useProjectStore().saveProject()"
+      }
+    ]
+  },
+  
+  "backend": {
+    "description": "后端架构约束 (src-tauri/)",
+    "rules": [
+      {
+        "id": "BE-ARCH-001",
+        "name": "commands-no-business-logic",
+        "severity": "error",
+        "description": "Tauri Commands 层不可包含复杂业务逻辑",
+        "pattern": {
+          "from": "**/commands/**/*.rs",
+          "maxLinesPerFunction": 30,
+          "cannotCall": ["db::", "ai::"]
+        },
+        "fixHint": "Commands 层仅做参数验证和错误处理，业务逻辑委托给 Services 层。"
+      },
+      {
+        "id": "BE-ARCH-002",
+        "name": "services-no-commands-dependency",
+        "severity": "error",
+        "description": "Services 层不可依赖 Commands 层",
+        "pattern": {
+          "from": "**/services/**/*.rs",
+          "cannotImport": ["crate::commands"]
+        },
+        "fixHint": "依赖方向应该是 Commands → Services，反向依赖会导致循环依赖。"
+      },
+      {
+        "id": "BE-ARCH-003",
+        "name": "db-no-service-dependency",
+        "severity": "error",
+        "description": "Database 层不可依赖 Services 层",
+        "pattern": {
+          "from": "**/db/**/*.rs",
+          "cannotImport": ["crate::services"]
+        },
+        "fixHint": "DB 层仅提供 CRUD 操作，业务逻辑在 Services 层实现。"
+      },
+      {
+        "id": "BE-ARCH-004",
+        "name": "camelcase-serialization",
+        "severity": "error",
+        "description": "所有序列化到前端的结构体必须使用 camelCase",
+        "pattern": {
+          "from": "**/models/**/*.rs",
+          "mustHave": "#[serde(rename_all = \"camelCase\")]"
+        },
+        "fixHint": "添加 #[serde(rename_all = \"camelCase\")] 属性到结构体定义。"
+      },
+      {
+        "id": "BE-ARCH-005",
+        "name": "error-handling-required",
+        "severity": "error",
+        "description": "所有公共函数必须返回 Result 类型",
+        "pattern": {
+          "from": "**/services/**/*.rs",
+          "publicFunctions": {
+            "mustReturn": "Result<_, AppError>"
+          }
+        },
+        "fixHint": "使用 Result<T, AppError> 作为返回类型，提供清晰的错误信息。"
+      }
+    ]
+  },
+  
+  "enforcement": {
+    "eslint": {
+      "plugin": "eslint-plugin-opc-harness",
+      "config": ".eslintrc.cjs",
+      "command": "npm run lint"
+    },
+    "clippy": {
+      "config": "src-tauri/clippy.toml",
+      "command": "cd src-tauri && cargo clippy -- -D warnings"
+    },
+    "autoFix": {
+      "command": "npm run harness:fix",
+      "dryRun": "npm run harness:fix:dry"
+    }
+  }
+}
