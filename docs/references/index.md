@@ -46,7 +46,7 @@
 - [`../../docs/MAINTENANCE.md`](../../docs/MAINTENANCE.md) - 文档维护清单 ⭐
 
 ### 架构约束
-- [`architecture-rules.json`](./architecture-rules.json) - 前后端架构约束规则定义
+- [`architecture-rules.md`](./architecture-rules.md) - 前后端架构约束规则定义 ⭐
 
 ### 测试策略
 - 单元测试：`npm run test:unit` / `cargo test`

@@ -124,17 +124,17 @@ npm run harness:gc -- -Force
 cat docs/references/best-practices.md
 
 # 查看架构规则
-cat docs/references/architecture-rules.json
+cat docs/references/architecture-rules.md
 ```
 
 2. **向 AI 提问**
-```markdown
+```
 ## 任务：实现用户登录功能
 
 ## 上下文
 - 已阅读 AGENTS.md 导航地图
 - 遵循 best-practices.md 中的错误处理规范
-- 参考 architecture-rules.json 中的分层约束
+- 参考 architecture-rules.md 中的分层约束
 
 ## 约束
 - 前端：src/components/auth/Login.tsx
@@ -184,19 +184,7 @@ npm run harness:check
 
 ### 自定义检查规则
 
-编辑 `docs/references/architecture-rules.json`:
-
-```json
-{
-  "rules": [
-    {
-      "name": "禁止循环依赖",
-      "pattern": "**/*.ts",
-      "constraint": "stores 不能导入 components"
-    }
-  ]
-}
-```
+编辑 `docs/references/architecture-rules.md` 添加新规则到相应章节。
 
 ### 扩展知识库
 

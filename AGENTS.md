@@ -20,7 +20,7 @@
 
 #### 2️⃣ 架构与约束
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计
-- [`docs/references/architecture-rules.json`](./docs/references/architecture-rules.json) - 架构约束规则
+- [`docs/references/architecture-rules.md`](./docs/references/architecture-rules.md) - 架构约束规则 ⭐
 
 #### 3️⃣ 测试与验证
 - 单元测试：`npm run test:unit` - 运行所有单元测试 ⭐
@@ -95,7 +95,7 @@ npm run harness:check -- -All
 
 1. **阅读本文件** - 了解项目结构和文档位置
 2. **阅读对应模块的 AGENTS.md** - 前端或后端规范
-3. **遵循架构约束** - 参考 `architecture-rules.json`
+3. **遵循架构约束** - 参考 [`architecture-rules.md`](./architecture-rules.md)
 4. **提交前验证** - 运行 `npm run harness:check`
 
 ### 对于人类开发者
@@ -207,7 +207,7 @@ A:
 A: 参考 [`docs/references/best-practices.md`](./docs/references/best-practices.md) 中的"如何向 AI 提问"章节。
 
 ### Q: 可以自定义规则吗？
-A: 可以！编辑 `docs/references/architecture-rules.json` 添加自定义规则。
+A: 可以！编辑 [`docs/references/architecture-rules.md`](./docs/references/architecture-rules.md) 添加自定义规则。
 
 ---
 
