@@ -9,6 +9,8 @@
 - [`harness-user-guide.md`](./harness-user-guide.md) - Harness 完整使用指南
 - [`harness-quickstart.md`](./harness-quickstart.md) - 30 秒快速入门
 - [`best-practices.md`](./best-practices.md) - 编码最佳实践
+- [`harness-engineering-process.md`](./harness-engineering-process.md) - **标准开发流程规范** 🔥
+- [`architecture-rules.md`](./architecture-rules.md) - **架构约束规则 (含测试约束)** 🔥
 
 ### 技术栈文档
 - [Tauri v2 官方文档](https://v2.tauri.app/)
