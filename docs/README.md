@@ -1,19 +1,40 @@
 # OPC-HARNESS 文档中心
 
 > **基于 OpenAI Harness Engineering 最佳实践**  
-> 最后更新：2026-03-23
+> 最后更新：2026-03-23  
+> **维护负责人**: OPC-HARNESS Team
+
+## 🚀 快速开始
+
+### 首次访问？ ⭐
+- **[5 分钟快速参考](./QUICK-REFERENCE.md)** - 快速了解文档体系
+- **[AGENTS.md](../AGENTS.md)** - AI Agent 导航地图 (必读)
+- **[MAINTENANCE.md](./MAINTENANCE.md)** - 文档维护清单
+
+### 查找文档？
+- 技术方案 → [`design-docs/`](./design-docs/)
+- 执行计划 → [`exec-plans/active/`](./exec-plans/active/)
+- 产品需求 → [`product-specs/`](./product-specs/)
+- 参考资料 → [`references/`](./references/)
+
+### 验证文档？
+```bash
+npm run harness:validate:docs    # 验证文档结构完整性
+```
+
+---
 
 ## 📚 文档导航
 
 ### 核心索引
 
-| 目录 | 用途 | 入口文件 |
-|------|------|---------|
-| [设计文档](./design-docs/) | 技术方案、架构决策 (ADRs) | [`index.md`](./design-docs/index.md) |
-| [执行计划](./exec-plans/) | 活跃/已完成计划、技术债务 | [`index.md`](./exec-plans/index.md) |
-| [产品规范](./product-specs/) | 产品需求文档、功能规格 | [`index.md`](./product-specs/index.md) |
-| [参考资料](./references/) | 外部参考、最佳实践、工具库 | [`index.md`](./references/index.md) |
-| [生成文档](./generated/) | 自动生成的文档 (如数据库 Schema) | - |
+| 目录 | 用途 | 入口文件 | 维护状态 |
+|------|------|---------|---------|
+| [设计文档](./design-docs/) | 技术方案、架构决策 (ADRs) | [`index.md`](./design-docs/index.md) | ✅ 活跃 |
+| [执行计划](./exec-plans/) | 活跃/已完成计划、技术债务 | [`index.md`](./exec-plans/index.md) | ✅ 活跃 |
+| [产品规范](./product-specs/) | 产品需求文档、功能规格 | [`index.md`](./product-specs/index.md) | ✅ 活跃 |
+| [参考资料](./references/) | 外部参考、最佳实践、工具库 | [`index.md`](./references/index.md) | ✅ 活跃 |
+| [生成文档](./generated/) | 自动生成的文档 (如数据库 Schema) | - | 🔄 自动生成 |
 
 ### 根目录关键文档
 
@@ -21,6 +42,7 @@
 - [`ARCHITECTURE.md`](../ARCHITECTURE.md) - 系统架构设计
 - [`src/AGENTS.md`](../src/AGENTS.md) - 前端开发规范
 - [`src-tauri/AGENTS.md`](../src-tauri/AGENTS.md) - Rust 后端规范
+- [`README.md`](../README.md) - 项目概述和快速开始
 
 ### Harness Engineering ⭐
 
@@ -30,6 +52,68 @@
 - **完整指南**: [`harness-user-guide.md`](./references/harness-user-guide.md) - 详细使用手册
 - **最佳实践**: [`best-practices.md`](./references/best-practices.md) - 编码最佳实践
 - **架构规则**: [`architecture-rules.json`](./references/architecture-rules.json) - 前后端约束规则
+
+---
+
+## 🗺️ 文档地图
+
+```
+docs/
+│
+├── README.md ⭐                     # 文档中心导航 (本文件)
+├── MAINTENANCE.md ⭐                # 文档维护清单 (新增)
+│
+├── design-docs/                     # 技术方案和架构决策
+│   ├── index.md                    # 设计文档索引
+│   └── decision-records/           # 架构决策记录 (ADRs)
+│       ├── adr-001-typescript-strict-mode.md
+│       ├── adr-002-zustand-state-management.md
+│       ├── adr-003-tauri-v2-architecture.md
+│       ├── adr-004-sqlite-integration.md
+│       └── adr-005-sse-streaming.md
+│
+├── exec-plans/                      # 执行计划和决策日志
+│   ├── index.md                    # 执行计划索引
+│   ├── MVP版本规划.md
+│   ├── tech-debt-tracker.md        # 技术债务追踪
+│   ├── active/                     # 活跃的执行计划 ⭐
+│   │   ├── harness-optimization-2026-03.md
+│   │   └── documentation-cleanup-2026-03.md (新增)
+│   └── completed/                  # 已完成的执行计划
+│       └── log-template.md
+│
+├── product-specs/                   # 产品需求文档
+│   └── index.md                    # 产品规范索引
+│
+├── references/                      # 参考资料库
+│   ├── index.md                    # 参考资料索引
+│   ├── architecture-rules.json     # 架构规则配置
+│   ├── best-practices.md           # 最佳实践指南
+│   ├── harness-quickstart.md       # Harness 快速入门
+│   ├── harness-user-guide.md       # Harness 完整指南
+│   ├── autonomous-coding-harness.md # Autonomous Coding Harness
+│   ├── symphony.md                 # Symphony 架构设计
+│   ├── 产品设计.md                  # 产品设计文档
+│   └── 架构设计.md                  # 架构设计文档
+│
+└── generated/                       # 自动生成的文档
+    └── database-schema.md          # 数据库 Schema (示例)
+```
+
+### 使用指南
+
+**快速查找**:
+- 找技术方案 → `design-docs/`
+- 找执行计划 → `exec-plans/active/`
+- 找产品需求 → `product-specs/`
+- 找最佳实践 → `references/best-practices.md`
+- 找架构规则 → `references/architecture-rules.json`
+
+**文档维护**:
+- 查看维护清单 → [`MAINTENANCE.md`](./MAINTENANCE.md) ⭐
+- 添加新文档 → 更新对应 `index.md`
+- 清理过时文档 → 运行 `npm run harness:gc`
+- 季度审查 → 参考 MAINTENANCE.md 中的审查清单
 
 ---
 
@@ -80,7 +164,7 @@ Level 3: docs/*                 ← 详细设计，技术细节
 
 ### 创建流程
 
-```mermaid
+```
 graph LR
     A[新需求] --> B{文档类型？}
     B -->|技术方案 | C[design-docs/]
@@ -96,12 +180,39 @@ graph LR
 #### 定期审查
 - **每周**: 更新执行计划进度
 - **每月**: 审查技术债务
-- **每季度**: 清理过时文档 (harness:gc)
+- **每季度**: 清理过时文档 (harness:gc) ⭐
 
 #### 新鲜度保证
 - 所有文档包含"最后更新日期"
 - >90 天未更新的文档自动标记⚠️
 - harness:gc 脚本定期扫描过时内容
+
+#### 文档责任人
+每个目录应有明确的维护责任人:
+
+| 目录 | 责任人 | 审查频率 |
+|------|--------|---------|
+| design-docs/ | 技术负责人 | 季度 |
+| exec-plans/ | 项目负责人 | 月度 |
+| product-specs/ | 产品负责人 | 季度 |
+| references/ | 全体团队 | 季度 |
+
+### 清理策略
+
+**立即删除**:
+- 被替代的过时内容
+- 临时测试文件
+- 重复的草稿
+
+**归档到 completed/**:
+- 已完成的执行计划
+- 历史决策记录
+- 版本发布总结
+
+**保留为最佳实践**:
+- 通用解决方案
+- 架构决策记录
+- 技术难点突破
 
 ---
 
@@ -127,7 +238,7 @@ graph LR
 
 ### 设计文档模板
 
-```markdown
+```
 # {标题}
 
 > **状态**: 草案 / 审查中 / 已采纳  
@@ -155,7 +266,7 @@ graph LR
 
 ### 执行计划模板
 
-```markdown
+```
 # 执行计划：{计划名称}
 
 > **优先级**: P0-P3  

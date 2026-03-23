@@ -23,7 +23,9 @@
 - [`docs/references/architecture-rules.json`](./docs/references/architecture-rules.json) - 架构约束规则
 
 #### 3️⃣ 测试与验证
-- [`docs/testing/README.md`](./docs/testing/README.md) - 测试体系导航 ⭐
+- 单元测试：`npm run test:unit` - 运行所有单元测试 ⭐
+- E2E 测试：`npm run test:e2e` - E2E 测试（智能运行，自动管理服务器）⭐
+- 架构检查：`npm run harness:check` - 架构健康检查
 
 #### 4️⃣ 最佳实践
 - [`docs/references/best-practices.md`](./docs/references/best-practices.md) - 编码最佳实践
@@ -45,6 +47,7 @@ AGENTS.md (导航) → 模块 AGENTS.md (规范) → docs/ (详细设计)
 - 本文件 - 导航地图
 - `docs/design-docs/` - 技术决策记录
 - `docs/exec-plans/` - 执行计划和进度
+- `docs/MAINTENANCE.md` - 文档维护清单 ⭐
 
 ### 2. 架构约束 (Architectural Constraints)
 
@@ -99,7 +102,7 @@ npm run harness:check -- -All
 
 1. **理解架构** - 阅读 [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 2. **遵循规范** - 查看 `src/AGENTS.md` 或 `src-tauri/AGENTS.md`
-3. **运行测试** - 使用 [`docs/testing/README.md`](./docs/testing/README.md)
+3. **运行测试** - 使用 `npm run test:unit` 和 `npm run test:e2e`
 4. **追踪进度** - 查看 `docs/exec-plans/active/`
 
 ---

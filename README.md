@@ -13,7 +13,7 @@ OPC-HARNESS 是一个为独立创造者整合产品构思 (Vibe Design)、快速
 - 竞品分析和差异化建议
 
 ### 💻 Vibe Coding - 快速构建
-- 集成多种 AI编码工具 CLI (Kimi/Claude/Codex)
+- 集成多种 AI 编码工具 CLI (Kimi/Claude/Codex)
 - 代码编辑器和文件管理
 - 实时预览功能
 - 一键部署到 Vercel/Netlify
@@ -100,14 +100,24 @@ npm run tauri:build
   - **harness-e2e.ps1** - E2E 测试运行器
   - **cli-browser-verify/** - CLI 浏览器验证工具
 - **[docs/](./docs/)** - 文档和知识库中心
-  - **[testing/](./docs/testing/)** - 测试体系文档
-    - [README.md](./docs/testing/README.md) - 测试导航
-    - [COMMANDS-REFERENCE.md](./docs/testing/COMMANDS-REFERENCE.md) - 命令参考
-    - [HARNESS-COMMANDS.md](./docs/testing/HARNESS-COMMANDS.md) - Harness 命令说明
-    - [HARNESS-STRUCTURE.md](./docs/testing/HARNESS-STRUCTURE.md) - 目录结构说明
-  - **[references/](./docs/references/)** - 参考资料
+  - **[design-docs/](./docs/design-docs/)** - 技术方案和架构决策
+    - [index.md](./docs/design-docs/index.md) - 设计文档索引
+    - [decision-records/](./docs/design-docs/decision-records/) - 架构决策记录 (ADRs)
+  - **[exec-plans/](./docs/exec-plans/)** - 执行计划和决策日志
+    - [index.md](./docs/exec-plans/index.md) - 执行计划索引
+    - [active/](./docs/exec-plans/active/) - 活跃的执行计划
+    - [completed/](./docs/exec-plans/completed/) - 已完成的执行计划
+    - [tech-debt-tracker.md](./docs/exec-plans/tech-debt-tracker.md) - 技术债务追踪
+  - **[product-specs/](./docs/product-specs/)** - 产品需求文档
+    - [index.md](./docs/product-specs/index.md) - 产品规范索引
+  - **[references/](./docs/references/)** - 参考资料库
+    - [index.md](./docs/references/index.md) - 参考资料索引
     - [architecture-rules.json](./docs/references/architecture-rules.json) - 架构规则配置
-    - [best-practices.md](./docs/references/best-practices.md) - 最佳实践
+    - [best-practices.md](./docs/references/best-practices.md) - 最佳实践指南
+    - [harness-user-guide.md](./docs/references/harness-user-guide.md) - Harness 使用指南
+    - [harness-quickstart.md](./docs/references/harness-quickstart.md) - 快速入门
+  - **[generated/](./docs/generated/)** - 自动生成的文档
+    - [database-schema.md](./docs/generated/database-schema.md) - 数据库 Schema
 
 ### 快速命令
 
@@ -119,6 +129,9 @@ npm run harness:check                    # 基础检查（6 项）
 npm run harness:check -- -DocCheck       # + 文档一致性检查
 npm run harness:check -- -DeadCode       # + 死代码检测
 npm run harness:check -- -All            # 完整检查（推荐提交前使用）⭐
+
+# 文档结构验证（新增）⭐
+npm run harness:validate:docs            # 验证文档结构完整性
 ```
 
 #### 测试套件
@@ -145,6 +158,19 @@ npm run format                           # Prettier 格式化
 npm run format:check                     # 检查格式
 ```
 
+#### 定期维护
+
+```bash
+# 每周运行一次完整检查
+npm run harness:check -- -All
+
+# 按需生成覆盖率报告
+npx vitest run --coverage
+
+# 清理临时文件和构建产物
+npm run harness:gc
+```
+
 ### 🎯 常用工作流
 
 #### 日常开发
@@ -167,37 +193,6 @@ npm run harness:check
 npm run harness:check -- -All && npm run test:unit && npm run test:e2e
 ```
 
-#### 定期维护
-```bash
-# 每周运行一次完整检查
-npm run harness:check -- -All
-
-# 按需生成覆盖率报告
-npx vitest run --coverage
-```
-
-### 📚 测试文档
-
-- **[docs/testing/](./docs/testing/)** - 测试体系文档中心
-  - [README.md](./docs/testing/README.md) - 5 分钟快速开始
-  - [COMMANDS-REFERENCE.md](./docs/testing/COMMANDS-REFERENCE.md) - 完整命令参考
-  - [HARNESS-COMMANDS.md](./docs/testing/HARNESS-COMMANDS.md) - Harness 命令精简说明
-  - [HARNESS-COMMANDS-UPDATE.md](./docs/testing/HARNESS-COMMANDS-UPDATE.md) - 命令更新说明
-  - [HARNESS-STRUCTURE.md](./docs/testing/HARNESS-STRUCTURE.md) - 目录结构说明
-  - [E2E-STRATEGY.md](./docs/testing/E2E-STRATEGY.md) - E2E 测试方案说明
-  - [testing-full.md](./docs/testing/testing-full.md) - 完整测试指南
-  - [testing-validation.md](./docs/testing/testing-validation.md) - 安装验证清单
-  - [RUN-E2E-AUTO.md](./docs/testing/RUN-E2E-AUTO.md) - E2E 自动运行指南
-
-### 📚 Harness Engineering 文档
-
-- **[docs/references/](./docs/references/)** - 参考资料库
-  - [architecture-rules.json](./docs/references/architecture-rules.json) - 架构规则配置
-  - [best-practices.md](./docs/references/best-practices.md) - 最佳实践指南
-  - [harness-user-guide.md](./docs/references/harness-user-guide.md) - Harness 使用指南
-  - [harness-quickstart.md](./docs/references/harness-quickstart.md) - 快速入门
-  - [index.md](./docs/references/index.md) - 文档索引
-
 ### AI Agent 工作流程
 
 1. **阅读导航**: AI Agent 首先阅读 [AGENTS.md](./AGENTS.md) 了解项目结构 ⭐
@@ -210,14 +205,14 @@ npx vitest run --coverage
 
 详细使用指南请参考：
 - [scripts/README.md](./scripts/README.md) - 自动化脚本说明
-- [docs/testing/README.md](./docs/testing/README.md) - 测试体系导航
+- [docs/README.md](./docs/README.md) - 文档中心导航
 - [docs/references/harness-user-guide.md](./docs/references/harness-user-guide.md) - Harness 使用指南
 
 ## 📁 项目结构
 
 ```
 opc-harness/
-├── AGENTS.md                 # AI Agent 导航地图
+├── AGENTS.md                 # AI Agent 导航地图 ⭐
 ├── ARCHITECTURE.md           # 架构设计文档
 ├── IMPLEMENTATION.md         # 实现说明
 ├── src/                      # 前端代码
@@ -245,7 +240,71 @@ opc-harness/
 │   ├── harness-e2e.ps1             # E2E 测试运行器
 │   └── cli-browser-verify/         # CLI 浏览器验证工具
 ├── docs/                    # 文档中心
-│   └── testing/             # 测试体系文档
+│   ├── design-docs/         # 技术方案和架构决策
+│   ├── exec-plans/          # 执行计划和决策日志
+│   ├── product-specs/       # 产品需求文档
+│   ├── references/          # 参考资料库
+│   └── generated/           # 自动生成的文档
 └── package.json
 ```
 
+## 📚 文档体系
+
+本项目遵循 **Harness Engineering 文档架构与维护规范**,采用渐进式披露三层结构:
+
+### Level 1: 导航地图
+- **[AGENTS.md](./AGENTS.md)** - AI Agent 导航地图 (必读) ⭐
+
+### Level 2: 模块规范
+- **[src/AGENTS.md](./src/AGENTS.md)** - 前端开发规范
+- **[src-tauri/AGENTS.md](./src-tauri/AGENTS.md)** - Rust 后端规范
+
+### Level 3: 详细文档
+- **[docs/README.md](./docs/README.md)** - 文档中心导航
+- **[docs/design-docs/](./docs/design-docs/)** - 技术方案和架构决策
+- **[docs/exec-plans/](./docs/exec-plans/)** - 执行计划和决策日志
+- **[docs/product-specs/](./docs/product-specs/)** - 产品需求文档
+- **[docs/references/](./docs/references/)** - 参考资料库
+
+### 文档维护
+- **审查频率**: 每季度全面审查，防止信息过载和技术债务累积
+- **清理策略**: 移除非普适性的任务总结，仅保留可复用的最佳实践
+- **分类管理**: 进行中任务存于 `active/`;完成后提炼通用经验至最佳实践
+
+更多详情参见 [Harness Engineering 文档架构与维护规范](./docs/references/best-practices.md)。
+
+## 🎯 质量门禁标准
+
+| 检查项 | 满分 | 通过标准 |
+|--------|------|---------|
+| TypeScript 类型检查 | 20 | 编译通过 |
+| ESLint 代码规范 | 15 | 无错误 |
+| Prettier 格式化 | 10 | 格式统一 |
+| Rust 编译检查 | 25 | cargo check 通过 |
+| 单元测试覆盖率 | 20 | >= 70% |
+| 架构约束 | 10 | 无违规 |
+
+**评分等级**:
+- **90-100**: 优秀 ✨ - 可以安全合并
+- **70-89**: 良好 👍 - 有一些改进空间
+- **<70**: 需要修复 ⚠️ - 不建议合并
+
+## 🔗 相关资源
+
+### 官方文档
+- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/)
+- [Tauri v2 官方文档](https://v2.tauri.app/)
+- [React 官方文档](https://react.dev/)
+- [TypeScript 手册](https://www.typescriptlang.org/docs/)
+
+### 工具链
+- [ESLint - 代码规范检查](https://eslint.org/)
+- [Prettier - 代码格式化](https://prettier.io/)
+- [cargo - Rust 包管理](https://doc.rust-lang.org/cargo/)
+- [Vitest - 单元测试框架](https://vitest.dev/)
+
+---
+
+**维护者**: OPC-HARNESS Team  
+**版本**: 0.1.0  
+**最后更新**: 2026-03-23

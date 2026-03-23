@@ -43,6 +43,7 @@
 - [`../../src/AGENTS.md`](../../src/AGENTS.md) - 前端开发指南
 - [`../../src-tauri/AGENTS.md`](../../src-tauri/AGENTS.md) - Rust 开发指南
 - [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) - 系统架构设计
+- [`../../docs/MAINTENANCE.md`](../../docs/MAINTENANCE.md) - 文档维护清单 ⭐
 
 ### 架构约束
 - [`architecture-rules.json`](./architecture-rules.json) - 前后端架构约束规则定义
