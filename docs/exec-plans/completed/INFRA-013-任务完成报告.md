@@ -25,7 +25,7 @@
 
 ### 1. Rust 后端实现
 
-**文件**: [`src-tauri/src/agent_protocol.rs`](d:\workspace\opc-harness\src-tauri\src\agent_protocol.rs)
+**文件**: [`src-tauri/src/agent_protocol.rs`](d:/workspace/opc-harness/src-tauri/src/agent_protocol.rs)
 
 #### 核心数据结构
 
@@ -166,7 +166,7 @@ pub struct StdioOutput {
 
 ### 2. 前端 TypeScript 类型定义
 
-**文件**: [`src/types/agent.ts`](d:\workspace\opc-harness\src\types\agent.ts)
+**文件**: [`src/types/agent.ts`](d:/workspace/opc-harness/src/types/agent.ts)
 
 **核心接口**:
 ```typescript
@@ -236,7 +236,7 @@ interface DaemonState {
 
 ### 3. React Hook 封装
 
-**文件**: [`src/hooks/useAgent.ts`](d:\workspace\opc-harness\src\hooks\useAgent.ts)
+**文件**: [`src/hooks/useAgent.ts`](d:/workspace/opc-harness/src/hooks/useAgent.ts)
 
 **接口定义**:
 ```typescript
@@ -266,7 +266,7 @@ interface UseAgentReturn {
 
 ### 4. 单元测试
 
-#### Rust 测试 ([`src-tauri/src/agent_protocol.rs`](d:\workspace\opc-harness\src-tauri\src\agent_protocol.rs))
+#### Rust 测试 ([`src-tauri/src/agent_protocol.rs`](d:/workspace/opc-harness/src-tauri/src/agent_protocol.rs))
 
 **测试覆盖**:
 ```rust
@@ -300,7 +300,7 @@ mod tests {
 
 **测试结果**: ✅ 8/8 通过 (100%)
 
-#### TypeScript 测试 ([`src/hooks/useAgent.test.ts`](d:\workspace\opc-harness\src\hooks\useAgent.test.ts))
+#### TypeScript 测试 ([`src/hooks/useAgent.test.ts`](d:/workspace/opc-harness/src/hooks/useAgent.test.ts))
 
 **测试覆盖**:
 ```typescript
