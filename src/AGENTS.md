@@ -120,8 +120,27 @@ import { Button } from '../../../components/ui/button';
 
 ## 🧪 测试要求
 
+### 运行测试
+
+**单元测试**:
+```bash
+npm run test:unit          # 运行所有单元测试 ⭐
+```
+
+**E2E 测试**:
+```bash
+npm run test:e2e           # E2E 测试（智能运行，自动管理服务器）⭐
+```
+
+**按需使用**:
+```bash
+npx vitest run --coverage  # 生成覆盖率报告
+npx vitest --ui            # UI 界面
+npx vitest                 # 监视模式（开发时用）
+```
+
 ### 组件测试
-```typescript
+``typescript
 // ✅ 推荐：测试用户交互
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './button';
@@ -135,7 +154,7 @@ test('按钮点击触发回调', () => {
 ```
 
 ### Hooks 测试
-```typescript
+``typescript
 // ✅ 推荐：测试 Hooks 逻辑
 import { renderHook, act } from '@testing-library/react';
 import { useCounter } from './useCounter';
@@ -150,7 +169,7 @@ test('计数器增加', () => {
 ## 🚨 常见陷阱
 
 ### 陷阱 1: 在组件中直接调用 Tauri API
-```typescript
+``typescript
 // ❌ 错误
 function MyComponent() {
   const handleSave = async () => {
@@ -174,7 +193,7 @@ function MyComponent() {
 ```
 
 ### 陷阱 2: 过度使用 useEffect
-```typescript
+``typescript
 // ❌ 错误：不必要的 useEffect
 const [count, setCount] = useState(0);
 useEffect(() => {
@@ -189,7 +208,7 @@ const handleClick = () => {
 ```
 
 ### 陷阱 3: 类型滥用 any
-```typescript
+``typescript
 // ❌ 错误
 function processData(data: any) {
   return data.value;

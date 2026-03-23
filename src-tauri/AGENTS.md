@@ -161,8 +161,26 @@ use crate::utils::generate_uuid();
 
 ## 🧪 测试要求
 
+### 运行测试
+
+**单元测试**:
+```bash
+npm run test:unit          # 运行所有单元测试（包含 Rust）⭐
+```
+
+**Rust 测试**:
+```bash
+cd src-tauri && cargo test   # 运行 Rust 测试
+```
+
+**按需使用**:
+```bash
+npx vitest run --coverage  # 生成覆盖率报告
+npx vitest                 # 监视模式
+```
+
 ### 单元测试
-```rust
+```
 // ✅ 推荐：为业务逻辑编写测试
 #[cfg(test)]
 mod tests {
@@ -178,7 +196,7 @@ mod tests {
 ```
 
 ### 集成测试
-```rust
+```
 // ✅ 推荐：测试完整流程
 #[tokio::test]
 async fn test_create_project_flow() {
@@ -191,7 +209,7 @@ async fn test_create_project_flow() {
 ## 🚨 常见陷阱
 
 ### 陷阱 1: 在 Commands 中包含业务逻辑
-```rust
+```
 // ❌ 错误
 #[tauri::command]
 pub fn create_project(name: String) -> Result<Project, String> {
@@ -210,7 +228,7 @@ pub fn create_project(name: String) -> Result<Project, String> {
 ```
 
 ### 陷阱 2: 忽略错误传播
-```rust
+```
 // ❌ 错误：使用 unwrap()
 let project = db::get_project(id).unwrap();
 
@@ -221,7 +239,7 @@ let project = db::get_project(id)
 ```
 
 ### 陷阱 3: 忘记序列化配置
-```rust
+```
 // ❌ 错误：前端收到 snake_case 字段
 #[derive(Serialize)]
 pub struct Project {
@@ -239,7 +257,7 @@ pub struct Project {
 ## 🔧 工具集成
 
 ### Cargo 检查
-```bash
+```
 # 编译检查
 cargo check
 
@@ -251,7 +269,7 @@ cargo clippy -- -D warnings
 ```
 
 ### 格式化配置
-```toml
+```
 # rustfmt.toml
 edition = "2021"
 max_width = 100

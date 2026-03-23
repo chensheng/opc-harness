@@ -176,9 +176,12 @@ npm run harness:check
 
 ## 📚 相关文档
 
-- [Harness Engineering 介绍](../../README.md#harness-engineering)
-- [架构约束规则](../../.harness/constraints/architecture-rules.md)
-- [测试命令参考](./COMMANDS-REFERENCE.md)
+- [docs/testing/README.md](./testing/README.md) - 测试体系导航 ⭐
+- [docs/testing/COMMANDS-REFERENCE.md](./testing/COMMANDS-REFERENCE.md) - 完整命令参考
+- [docs/testing/HARNESS-COMMANDS.md](./testing/HARNESS-COMMANDS.md) - Harness 命令精简说明
+- [docs/testing/HARNESS-STRUCTURE.md](./testing/HARNESS-STRUCTURE.md) - 目录结构说明
+- [docs/references/harness-user-guide.md](./references/harness-user-guide.md) - Harness 用户指南
+- [docs/references/best-practices.md](./references/best-practices.md) - 最佳实践
 
 ---
 

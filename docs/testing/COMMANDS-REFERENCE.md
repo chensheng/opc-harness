@@ -202,10 +202,10 @@ npm run test:e2e
 
 ## 📚 相关文档
 
-- [测试文档中心](./README.md)
-- [E2E 测试自动运行指南](./RUN-E2E-AUTO.md)
-- [E2E 测试方案对比](./E2E-STRATEGY.md)
-- [完整测试指南](./testing-full.md)
+- [docs/testing/README.md](./testing/README.md) - 测试体系导航 ⭐
+- [docs/testing/COMMANDS-REFERENCE.md](./testing/COMMANDS-REFERENCE.md) - 完整命令参考
+- [docs/testing/HARNESS-COMMANDS.md](./testing/HARNESS-COMMANDS.md) - Harness 命令精简说明
+- [docs/references/harness-user-guide.md](./references/harness-user-guide.md) - Harness 用户指南
 
 ---
 
