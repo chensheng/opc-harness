@@ -44,6 +44,21 @@ fn main() {
             commands::cli::read_cli_output,
             commands::cli::stop_cli_session,
             
+            // Database commands
+            commands::database::create_project,
+            commands::database::get_all_projects,
+            commands::database::get_project_by_id,
+            commands::database::update_project,
+            commands::database::delete_project,
+            commands::database::save_ai_config,
+            commands::database::get_all_ai_configs,
+            commands::database::get_ai_config,
+            commands::database::delete_ai_config,
+            commands::database::create_cli_session_db,
+            commands::database::get_all_cli_sessions,
+            commands::database::get_cli_session_by_id,
+            commands::database::delete_cli_session,
+            
             // System commands
             commands::system::get_app_version,
             commands::system::open_external_link,
