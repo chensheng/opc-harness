@@ -56,7 +56,7 @@ $env:HARNESS_CLI_BROWSER="kimi"  # 或 "claude", "opencode"
 
 ## 验证任务示例
 
-在 `.harness/cli-browser-verify/tasks/` 中定义任务：
+在 `scripts/cli-browser-verify/tasks/` 中定义任务：
 
 ```yaml
 name: "冒烟测试"
@@ -70,4 +70,3 @@ steps:
     selector: "nav"
     description: "检查导航菜单"
     expect: "包含 Dashboard、Idea、Coding"
-```

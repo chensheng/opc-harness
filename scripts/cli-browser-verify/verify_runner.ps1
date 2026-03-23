@@ -97,7 +97,7 @@ $TaskContent
 "@
 
 # 保存指令到文件
-$InstructionFile = ".harness/cli-browser-verify/instructions.txt"
+$InstructionFile = "scripts/cli-browser-verify/instructions.txt"
 $Instructions | Out-File -FilePath $InstructionFile -Encoding UTF8
 
 Write-Host "  [PASS] 验证指令已生成" -ForegroundColor $Colors.Success

@@ -80,15 +80,15 @@ npm run tauri:dev
 ### 模板文件位置
 
 验证任务定义在：
-- `.harness/cli-browser-verify/tasks/smoke.yaml` - 冒烟测试
-- `.harness/cli-browser-verify/tasks/critical.yaml` - 关键路径测试
+- `scripts/cli-browser-verify/tasks/smoke.yaml` - 冒烟测试
+- `scripts/cli-browser-verify/tasks/critical.yaml` - 关键路径测试
 
 ### 自定义验证任务
 
 创建新的 YAML 文件：
 
 ```yaml
-# .harness/cli-browser-verify/tasks/my-test.yaml
+# scripts/cli-browser-verify/tasks/my-test.yaml
 name: "我的测试"
 description: "自定义验证任务"
 url: "http://localhost:1420"

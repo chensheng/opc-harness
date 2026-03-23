@@ -21,7 +21,7 @@
     "harness:fix:dry": "powershell -ExecutionPolicy Bypass -File ./scripts/fix-code-quality.ps1 -DryRun",
     "harness:quick": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-quick-verify.ps1",
     "harness:verify:tauri": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-verify-tauri.ps1",
-    "harness:verify:cli": "powershell -ExecutionPolicy Bypass -File ./.harness/cli-browser-verify/verify_runner.ps1"
+    "harness:verify:cli": "powershell -ExecutionPolicy Bypass -File ./scripts/cli-browser-verify/verify_runner.ps1"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",

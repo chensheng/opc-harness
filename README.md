@@ -92,8 +92,7 @@ npm run tauri:build
     - `decision-records/` - 架构决策记录 (ADRs)
     - `execution-logs/` - 执行日志模板
     - `knowledge-base/` - 知识库和最佳实践
-  - **[scripts/](./scripts/)** - 自动化脚本
-  - **[cli-browser-verify/](./.harness/cli-browser-verify/)** - CLI 浏览器验证
+  - **[scripts/](./scripts/)** - 自动化脚本和 CLI 浏览器验证
 
 ### 快速命令
 

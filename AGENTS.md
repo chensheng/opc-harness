@@ -29,7 +29,7 @@
 
 #### 🔧 Harness 工具
 - [Harness 脚本](./scripts/) - 自动化验证脚本
-- [CLI 浏览器验证](./.harness/cli-browser-verify/) - 自动化测试
+- [CLI 浏览器验证](./scripts/cli-browser-verify/) - 自动化测试
 - [架构守卫](./.harness/constraints/) - Linter 规则定义
 
 ## 🛠️ 可用工具

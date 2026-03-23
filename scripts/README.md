@@ -17,7 +17,7 @@
 
 ### CLI Browser 验证
 
-CLI Browser 验证脚本位于 [`.harness/cli-browser-verify/`](../.harness/cli-browser-verify/) 目录，用于利用 AI CLI工具的浏览器能力进行自动化验证。
+CLI Browser 验证脚本位于 [`cli-browser-verify/`](./cli-browser-verify/) 目录，用于利用 AI CLI工具的浏览器能力进行自动化验证。
 
 ## 🚀 使用方式
 
@@ -169,6 +169,6 @@ npm run harness:quick
 
 ## 📚 相关文档
 
-- [CLI Browser 验证](../.harness/cli-browser-verify/README.md)
+- [CLI Browser 验证](./cli-browser-verify/README.md)
 - [项目架构](../ARCHITECTURE.md)
 - [开发指南](../README.md)
