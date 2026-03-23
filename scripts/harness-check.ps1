@@ -88,9 +88,22 @@ try {
 
 # 4. Rust/Cargo compilation check
 Write-Host "[4/6] Rust Compilation Check..." -ForegroundColor Yellow
+$originalLocation = Get-Location
 Set-Location src-tauri
+
+# Check if cargo is available
+$cargoAvailable = $false
 try {
-    $cargoResult = cargo check 2>&1
+    $null = Get-Command cargo -ErrorAction Stop
+    $cargoAvailable = $true
+} catch {
+    # Cargo not found
+}
+
+if ($cargoAvailable) {
+    # Run cargo check, suppress output but capture exit code
+    $null = & cargo check
+    
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  [PASS] Rust compilation check passed" -ForegroundColor Green
     } else {
@@ -98,14 +111,15 @@ try {
         $Issues += @{ Type = "Rust"; Severity = "Error"; Message = "Compilation error" }
         $Score -= 25
         if ($Verbose) {
-            Write-Host $cargoResult -ForegroundColor Gray
+            Write-Host "Run 'cd src-tauri; cargo check' for details" -ForegroundColor Gray
         }
     }
-} catch {
+} else {
     Write-Host "  [WARN] Cannot execute Cargo check (Rust may not be installed)" -ForegroundColor Yellow
     $Issues += @{ Type = "Rust"; Severity = "Warning"; Message = "Rust environment not ready" }
 }
-Set-Location ..
+
+Set-Location $originalLocation
 
 # 5. Dependency integrity check
 Write-Host "[5/6] Dependency Integrity Check..." -ForegroundColor Yellow

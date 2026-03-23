@@ -14,7 +14,7 @@ declare global {
 window.__TAURI__ = {
   invoke: async () => ({}),
   convertFileSrc: (path: string) => `file://${path}`,
-} as any
+} as unknown as typeof window.__TAURI__
 
 // Reset mocks before each test
 beforeEach(() => {

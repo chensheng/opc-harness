@@ -109,7 +109,7 @@ pub async fn create_cli_session(
 
 #[tauri::command]
 pub async fn send_cli_prompt(
-    request: SendPromptRequest,
+    _request: SendPromptRequest,
 ) -> Result<(), String> {
     // TODO: Implement actual CLI communication
     Ok(())
@@ -117,7 +117,7 @@ pub async fn send_cli_prompt(
 
 #[tauri::command]
 pub async fn read_cli_output(
-    session_id: String,
+    _session_id: String,
 ) -> Result<ReadOutputResponse, String> {
     // TODO: Implement actual output reading
     Ok(ReadOutputResponse {

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppVersionResponse {
@@ -17,7 +16,7 @@ pub fn get_app_version(app_handle: tauri::AppHandle) -> AppVersionResponse {
 }
 
 #[tauri::command]
-pub async fn open_external_link(url: String) -> Result<(), String> {
+pub async fn open_external_link(_url: String) -> Result<(), String> {
     // TODO: Implement opening external links
     Ok(())
 }

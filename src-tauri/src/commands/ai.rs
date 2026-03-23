@@ -227,7 +227,7 @@ pub async fn stream_chat(
 
 #[tauri::command]
 pub async fn generate_prd(
-    request: GeneratePRDRequest,
+    _request: GeneratePRDRequest,
 ) -> Result<PRDResponse, String> {
     // TODO: Implement actual PRD generation
     // For now, return mock data
@@ -245,7 +245,7 @@ pub async fn generate_prd(
 
 #[tauri::command]
 pub async fn generate_user_personas(
-    request: GeneratePRDRequest,
+    _request: GeneratePRDRequest,
 ) -> Result<Vec<UserPersonaResponse>, String> {
     // TODO: Implement actual persona generation
     Ok(vec![
@@ -265,7 +265,7 @@ pub async fn generate_user_personas(
 
 #[tauri::command]
 pub async fn generate_competitor_analysis(
-    request: GeneratePRDRequest,
+    _request: GeneratePRDRequest,
 ) -> Result<CompetitorAnalysisResponse, String> {
     // TODO: Implement actual competitor analysis
     Ok(CompetitorAnalysisResponse {
@@ -284,7 +284,7 @@ pub async fn generate_competitor_analysis(
 
 #[tauri::command]
 pub async fn generate_marketing_strategy(
-    request: GeneratePRDRequest,
+    _request: GeneratePRDRequest,
 ) -> Result<MarketingStrategyResponse, String> {
     // TODO: Implement actual marketing strategy generation
     Ok(MarketingStrategyResponse {
@@ -309,7 +309,7 @@ pub async fn generate_marketing_strategy(
 
 #[tauri::command]
 pub async fn generate_marketing_copy(
-    request: GeneratePRDRequest,
+    _request: GeneratePRDRequest,
 ) -> Result<Vec<MarketingCopyResponse>, String> {
     // TODO: Implement actual marketing copy generation
     Ok(vec![

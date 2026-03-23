@@ -6,9 +6,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { mkdirSync, writeFileSync } from 'fs'
+import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { spawn, ChildProcess } from 'child_process'
+import net from 'net'
 
 // 测试配置
 const TEST_CONFIG = {
@@ -30,7 +31,6 @@ let serverStartedByTest = false
  */
 function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const net = require('net')
     const server = net.createServer()
     
     server.once('error', (err: NodeJS.ErrnoException) => {
@@ -63,7 +63,7 @@ async function waitForServer(url: string, timeout: number = 30000): Promise<void
         console.log('✅ Development server is ready!')
         return
       }
-    } catch (error) {
+    } catch {
       // Server not ready yet, wait and retry
     }
     
@@ -78,7 +78,12 @@ async function waitForServer(url: string, timeout: number = 30000): Promise<void
  */
 function generateReport(testName: string, result: 'pass' | 'fail', details: string): void {
   try {
-    if (!mkdirSync) return // Vitest 环境可能不支持文件系统操作
+    // Vitest 环境可能不支持文件系统操作，尝试创建目录
+    try {
+      mkdirSync(REPORT_DIR, { recursive: true })
+    } catch {
+      // 忽略目录创建错误
+    }
     
     const timestamp = new Date().toISOString()
     const reportFile = join(REPORT_DIR, `report-${Date.now()}.html`)

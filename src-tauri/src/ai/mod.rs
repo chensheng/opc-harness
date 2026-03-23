@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -145,7 +144,7 @@ impl AIProvider {
     pub async fn stream_chat<F>(
         &self,
         request: ChatRequest,
-        mut on_chunk: F,
+        on_chunk: F,
     ) -> Result<String, AIError>
     where
         F: FnMut(String) -> Result<(), AIError>,
@@ -404,7 +403,7 @@ impl AIProvider {
 
     async fn stream_chat_minimax<F>(
         &self,
-        request: ChatRequest,
+        _request: ChatRequest,
         _on_chunk: F,
     ) -> Result<String, AIError>
     where

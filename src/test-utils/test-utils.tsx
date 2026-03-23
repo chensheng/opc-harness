@@ -13,10 +13,8 @@ function AllProviders({ children }: { children: ReactNode }) {
 }
 
 // 自定义 render 函数
-const customRender = (
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) => render(ui, { wrapper: AllProviders, ...options })
+const customRender = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  render(ui, { wrapper: AllProviders, ...options })
 
 // 重新导出 testing-library 的所有内容
 export * from '@testing-library/react'

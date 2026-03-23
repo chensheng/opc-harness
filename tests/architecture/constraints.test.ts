@@ -13,7 +13,6 @@ import path from 'path'
 describe('Architecture Constraints', () => {
   const rootDir = path.resolve(__dirname, '../..')
   const srcDir = path.resolve(rootDir, 'src')
-  const tauriDir = path.resolve(rootDir, 'src-tauri')
 
   /**
    * 测试 1: 验证目录结构完整性
