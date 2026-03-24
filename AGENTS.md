@@ -35,6 +35,7 @@ npm run harness:check      # 架构健康检查（目标 100/100）
 **关键文档**:
 - `docs/design-docs/` - 技术决策记录
 - `docs/product-specs/mvp-roadmap.md` - 产品规划和执行进度
+- `docs/exec-plans/active/` - **活跃的执行计划** 🔥
 
 ### 2. 架构约束
 **数据流规则**:
@@ -104,11 +105,24 @@ Level 3: docs/*                 ← 详细设计
 ```
 
 **目录组织**:
-- `docs/design-docs/` - 技术方案
-- `docs/exec-plans/` - 执行计划
-- `docs/product-specs/` - 产品需求
-- `docs/references/` - 参考资料
-- `docs/generated/` - 自动生成
+```
+Level 1: AGENTS.md (本文件)     ← 导航地图
+    ↓
+Level 2: src/AGENTS.md          ← 模块规范
+    ↓
+Level 3: docs/                  ← 详细文档
+    ├── HARNESS_ENGINEERING.md  ← 8 阶段开发流程 🔥
+    ├── exec-plans/             ← 执行计划管理系统 ⭐
+    │   ├── README.md           ← 快速指南
+    │   ├── index.md            ← 使用说明
+    │   ├── templates/          ← 模板文件
+    │   │   ├── execution-plan-template.md
+    │   │   └── task-completion-template.md
+    │   ├── active/             ← 活跃的执行计划
+    │   └── completed/          ← 已完成的执行计划
+    ├── product-specs/          ← 产品规格
+    └── design-docs/            ← 设计文档
+```
 
 ---
 
@@ -128,60 +142,3 @@ npm run test:e2e               # E2E 测试
 # 完整验证（默认，包含文档和死代码检测）
 npm run harness:check
 ```
-
----
-
-## 📊 质量门禁
-
-| 检查项 | 满分 | 通过标准 |
-|--------|------|---------|
-| TypeScript 类型 | 20 | 编译通过 |
-| ESLint 规范 | 15 | 无错误 |
-| Prettier 格式 | 10 | 统一 |
-| Rust 编译 | 25 | cargo check 通过 |
-| **单元测试** 🔥 | 20 | **≥70%** |
-| **E2E 测试** 🔥 | 10 | **100% 通过** |
-
-**评分**: 90-100 优秀 ✨ | 70-89 良好 👍 | <70 需修复 ⚠️
-
----
-
-## 🎓 学习路径
-
-### 新手入门（1 小时）
-1. 阅读本文件（10 分钟）
-2. 精读 [Harness Engineering 流程](./docs/HARNESS_ENGINEERING.md)（20 分钟）
-3. 浏览对应模块 AGENTS.md（20 分钟）
-4. 运行 `npm run harness:check`（10 分钟）
-
-### 进阶实战
-1. 完成一个小功能（遵循 7 阶段）
-2. 编写单元测试 + E2E 测试
-3. 通过 Harness 验证（100/100）
-
----
-
-## ❓ 常见问题
-
-**Q: Harness Engineering 是什么？**  
-A: AI 协作工程实践体系，核心理念"质量内建，非事后检查"。
-
-**Q: 为什么需要 E2E 测试？** 🔥  
-A: 提供端到端验证，防止回归 bug，确保核心流程可用。
-
-**Q: Health Score 如何计算？**  
-A: 基于 6 项核心检查，额外加分：单元测试 (+10)、E2E 测试 (+10)。目标 100/100。
-
-**Q: 测试覆盖率不达标怎么办？**  
-A: 补充边界条件和错误处理测试，达标前禁止合并（TEST-005）。
-
----
-
-**维护者**: OPC-HARNESS Team  
-**版本**: 4.0.0 (精简导航版)  
-**最后更新**: 2026-03-24  
-**变更说明**: 
-- ✅ 精简至<100 行，聚焦导航功能
-- ✅ 移除冗余细节，指向详细文档
-- ✅ 强化智能导航，非百科全书
-- ✅ 保留核心链接和快速参考
