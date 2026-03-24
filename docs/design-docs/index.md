@@ -25,6 +25,7 @@
 - [`frontend-guidelines.md`](./frontend-guidelines.md) - 前端开发规范
 - [`rust-guidelines.md`](./rust-guidelines.md) - Rust 后端规范
 - [`api-design.md`](./api-design.md) - Tauri Commands 设计规范
+- [`architecture-rules.md`](./architecture-rules.md) - 架构约束规则（含测试约束）🔥
 
 ## 🔄 更新记录
 

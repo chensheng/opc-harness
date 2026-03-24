@@ -33,12 +33,12 @@
 |------|------|---------|
 | [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/) | OpenAI 官方最佳实践 | 了解 Harness 理念 |
 | [best-practices.md](./best-practices.md) | 编码最佳实践 🔥 | 日常开发参考 |
-| [architecture-rules.md](./architecture-rules.md) | 架构约束规则 (含测试约束) 🔥 | 代码审查、架构检查 |
+| ~~[architecture-rules.md](./architecture-rules.md)~~ | ❌ 已移至 [`design-docs/architecture-rules.md`](../design-docs/architecture-rules.md) | - |
 | ~~harness-user-guide.md~~ | ❌ 文件不存在 | - |
 | ~~harness-quickstart.md~~ | ❌ 文件不存在 | - |
 | ~~harness-engineering-process.md~~ | ❌ 文件不存在 | - |
 
-**注意**: 部分文档链接已失效，建议补充或删除。
+**注意**: 部分文档链接已失效，建议补充或删除。**architecture-rules.md** 已移至 [`docs/design-docs/`](../design-docs/)。
 
 ### 产品与技术规格
 
@@ -144,7 +144,7 @@
 
 ### 文档更新规范
 
-```markdown
+```
 # 文档标题
 
 > **版本**: v1.0.0
