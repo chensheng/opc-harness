@@ -35,7 +35,6 @@ npm run harness:check      # 架构健康检查（目标 100/100）
 **关键文档**:
 - `docs/design-docs/` - 技术决策记录
 - `docs/exec-plans/active/MVP 版本规划.md` - 执行计划和进度
-- `docs/MAINTENANCE.md` - 文档维护清单
 
 ### 2. 架构约束
 **数据流规则**:

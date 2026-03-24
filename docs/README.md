@@ -7,9 +7,7 @@
 ## 🚀 快速开始
 
 ### 首次访问？ ⭐
-- **[5 分钟快速参考](./QUICK-REFERENCE.md)** - 快速了解文档体系
 - **[AGENTS.md](../AGENTS.md)** - AI Agent 导航地图 (必读)
-- **[MAINTENANCE.md](./MAINTENANCE.md)** - 文档维护清单
 
 ### 查找文档？
 - 技术方案 → [`design-docs/`](./design-docs/)
@@ -61,7 +59,6 @@ npm run harness:validate:docs    # 验证文档结构完整性
 docs/
 │
 ├── README.md ⭐                     # 文档中心导航 (本文件)
-├── MAINTENANCE.md ⭐                # 文档维护清单 (新增)
 │
 ├── design-docs/                     # 技术方案和架构决策
 │   ├── index.md                    # 设计文档索引
@@ -110,10 +107,8 @@ docs/
 - 找架构规则 → `references/architecture-rules.json`
 
 **文档维护**:
-- 查看维护清单 → [`MAINTENANCE.md`](./MAINTENANCE.md) ⭐
 - 添加新文档 → 更新对应 `index.md`
 - 清理过时文档 → 运行 `npm run harness:gc`
-- 季度审查 → 参考 MAINTENANCE.md 中的审查清单
 
 ---
 
