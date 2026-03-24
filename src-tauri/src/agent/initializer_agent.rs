@@ -625,10 +625,219 @@ impl InitializerAgent {
         Ok(result)
     }
 
-    /// 初始化 Git 仓库（占位符，待后续实现）
+    /// 初始化 Git 仓库
+    /// 
+    /// VC-008: 实现 Git 仓库初始化
     pub async fn initialize_git(&self) -> Result<bool, String> {
-        // TODO: 实现 Git 初始化逻辑
-        Err("Not implemented yet".to_string())
+        use std::path::Path;
+        use tokio::process::Command;
+
+        let project_path = &self.config.project_path;
+
+        // 1. 检查项目目录是否存在
+        if !Path::new(project_path).exists() {
+            return Err(format!("项目目录不存在：{}", project_path));
+        }
+
+        // 2. 检查是否已经初始化过 Git 仓库
+        let git_dir = Path::new(project_path).join(".git");
+        if git_dir.exists() {
+            // Git 仓库已存在，跳过初始化
+            log::info!("Git 仓库已存在：{}", project_path);
+            return Ok(true);
+        }
+
+        // 3. 检查 Git 是否已安装
+        let git_check = Command::new("git")
+            .arg("--version")
+            .output()
+            .await;
+
+        if git_check.is_err() {
+            return Err(
+                "Git 未安装。请先安装 Git:\n".to_string()
+                + "- Windows: https://git-scm.com/download/win\n"
+                + "- macOS: brew install git\n"
+                + "- Linux: sudo apt-get install git (Ubuntu/Debian) 或 sudo yum install git (CentOS/RHEL)"
+            );
+        }
+
+        // 4. 初始化 Git 仓库
+        log::info!("正在初始化 Git 仓库：{}", project_path);
+        let init_result = Command::new("git")
+            .current_dir(project_path)
+            .arg("init")
+            .output()
+            .await
+            .map_err(|e| format!("Git 初始化失败：{}", e))?;
+
+        if !init_result.status.success() {
+            let stderr = String::from_utf8_lossy(&init_result.stderr);
+            return Err(format!("Git 初始化失败：{}", stderr));
+        }
+
+        log::info!("Git 仓库初始化成功：{}", project_path);
+
+        // 5. 配置 Git 用户信息（如果全局配置未设置）
+        self.configure_git_user(project_path).await?;
+
+        // 6. 创建初始 .gitignore 文件
+        self.create_gitignore(project_path)?;
+
+        Ok(true)
+    }
+
+    /// 配置 Git 用户信息
+    async fn configure_git_user(&self, project_path: &str) -> Result<(), String> {
+        use tokio::process::Command;
+
+        // 检查是否已配置全局用户名
+        let user_name_check = Command::new("git")
+            .args(["config", "--global", "user.name"])
+            .output()
+            .await;
+
+        let needs_config = match user_name_check {
+            Ok(output) => output.stdout.is_empty(),
+            Err(_) => true,
+        };
+
+        if needs_config {
+            // 使用默认配置（实际项目中应该从用户设置中获取）
+            let default_name = "OPC-HARNESS User";
+            let default_email = "harness@opc.local";
+
+            log::info!("配置 Git 用户信息");
+
+            // 设置用户名
+            Command::new("git")
+                .current_dir(project_path)
+                .args(["config", "user.name", default_name])
+                .output()
+                .await
+                .map_err(|e| format!("设置 Git 用户名失败：{}", e))?;
+
+            // 设置邮箱
+            Command::new("git")
+                .current_dir(project_path)
+                .args(["config", "user.email", default_email])
+                .output()
+                .await
+                .map_err(|e| format!("设置 Git 邮箱失败：{}", e))?;
+
+            log::info!("Git 用户信息配置完成");
+        }
+
+        Ok(())
+    }
+
+    /// 创建 .gitignore 文件
+    fn create_gitignore(&self, project_path: &str) -> Result<(), String> {
+        use std::fs::File;
+        use std::io::Write;
+        use std::path::Path;
+
+        let gitignore_path = Path::new(project_path).join(".gitignore");
+
+        // 如果 .gitignore 已存在，跳过创建
+        if gitignore_path.exists() {
+            return Ok(());
+        }
+
+        // Tauri + React 项目的标准 .gitignore 内容
+        let gitignore_content = r#"# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Rust/Tauri
+/target
+**/target/
+**/dist/
+**/dist-electron/
+src-tauri/target
+src-tauri/**/*.dll
+src-tauri/**/*.pdb
+src-tauri/**/*.exe
+src-tauri/**/*.app
+src-tauri/**/*.deb
+src-tauri/**/*.rpm
+src-tauri/**/*.dmg
+src-tauri/**/*.msi
+src-tauri/**/*.AppImage
+src-tauri/**/*.sig
+src-tauri/**/*.updater.json
+
+# Build outputs
+**/build/
+**/out/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+agent_sessions.db
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS generated files
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE specific (optional)
+.cursor/
+.windsurf/
+"#;
+
+        let mut file = File::create(&gitignore_path)
+            .map_err(|e| format!("创建 .gitignore 失败：{}", e))?;
+
+        file.write_all(gitignore_content.as_bytes())
+            .map_err(|e| format!("写入 .gitignore 失败：{}", e))?;
+
+        log::info!(".gitignore 文件创建完成：{:?}", gitignore_path);
+
+        Ok(())
     }
 
     /// 分解任务为 Issues
@@ -659,15 +868,85 @@ impl InitializerAgent {
         Ok(result)
     }
 
-    /// 执行完整的初始化流程（占位符，待后续实现）
+    /// 执行完整的初始化流程
+    /// 
+    /// VC-008: 实现完整初始化流程
     pub async fn run_initialization(&mut self) -> Result<InitializerResult, String> {
-        // TODO: 实现完整初始化流程
+        log::info!("开始执行 Initializer Agent 初始化流程 - Session: {}", self.session_id);
+
         // 1. 解析 PRD
+        self.status = InitializerStatus::ParsingPRD;
+        log::info!("步骤 1/4: 解析 PRD 文档");
+        
+        let prd_result = match self.parse_prd().await {
+            Ok(result) => result,
+            Err(e) => {
+                self.status = InitializerStatus::Failed(e.clone());
+                return Ok(InitializerResult::failure(format!("PRD 解析失败：{}", e)));
+            }
+        };
+        log::info!("PRD 解析完成：{}", prd_result.product_name);
+
         // 2. 检查环境
-        // 3. 初始化 Git
-        // 4. 分解任务
-        // 5. 触发 CP-002 检查点
-        Err("Not implemented yet".to_string())
+        self.status = InitializerStatus::CheckingEnvironment;
+        log::info!("步骤 2/4: 检查开发环境");
+        
+        let env_check = match self.check_environment().await {
+            Ok(result) => result,
+            Err(e) => {
+                self.status = InitializerStatus::Failed(e.clone());
+                return Ok(InitializerResult::failure(format!("环境检查失败：{}", e)));
+            }
+        };
+
+        if !env_check.passed {
+            self.status = InitializerStatus::Failed("环境检查未通过".to_string());
+            return Ok(InitializerResult::failure(
+                "环境检查未通过，请安装必要的工具链".to_string()
+            ));
+        }
+        log::info!("环境检查通过");
+
+        // 3. 初始化 Git 仓库
+        self.status = InitializerStatus::InitializingGit;
+        log::info!("步骤 3/4: 初始化 Git 仓库");
+        
+        let git_init_result = match self.initialize_git().await {
+            Ok(success) => success,
+            Err(e) => {
+                self.status = InitializerStatus::Failed(e.clone());
+                return Ok(InitializerResult::failure(format!("Git 初始化失败：{}", e)));
+            }
+        };
+        log::info!("Git 仓库初始化完成");
+
+        // 4. 分解任务为 Issues
+        self.status = InitializerStatus::DecomposingTasks;
+        log::info!("步骤 4/4: 分解任务为 Issues");
+        
+        let task_decomposition = match self.decompose_tasks(&prd_result).await {
+            Ok(result) => result,
+            Err(e) => {
+                self.status = InitializerStatus::Failed(e.clone());
+                return Ok(InitializerResult::failure(format!("任务分解失败：{}", e)));
+            }
+        };
+        log::info!("任务分解完成，共 {} 个 Issues", task_decomposition.issues.len());
+
+        // 5. 准备触发 CP-002 检查点（HITL 审查）
+        // TODO: 实现 HITL 检查点逻辑
+        self.status = InitializerStatus::WaitingForHITL;
+        log::info!("等待 HITL 审查...");
+
+        // 6. 完成初始化
+        self.status = InitializerStatus::Completed;
+        log::info!("Initializer Agent 初始化流程完成");
+
+        Ok(InitializerResult::success(
+            prd_result,
+            env_check,
+            task_decomposition,
+        ))
     }
 }
 
