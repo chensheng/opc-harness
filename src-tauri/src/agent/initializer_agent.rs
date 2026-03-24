@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use crate::agent::messages::Issue;
+use crate::agent::prd_parser::{PRDParser, PRDParserConfig};
 
 /// Initializer Agent 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -319,10 +320,55 @@ impl InitializerAgent {
         }
     }
 
-    /// 解析 PRD 文档（占位符，待后续实现）
+    /// 解析 PRD 文档
+    /// 
+    /// VC-006: 实现 PRD 文档解析器
     pub async fn parse_prd(&mut self) -> Result<PRDParseResult, String> {
-        // TODO: 实现 PRD 解析逻辑
-        Err("Not implemented yet".to_string())
+        self.status = InitializerStatus::ParsingPRD;
+        
+        // 1. 获取 PRD 内容
+        let prd_content = self.get_prd_content()?;
+        
+        // 2. 创建 PRD 解析器
+        let parser_config = PRDParserConfig {
+            ai_config: self.config.ai_config.clone(),
+            use_streaming: false,
+        };
+        let parser = PRDParser::new(parser_config);
+        
+        // 3. 执行 PRD 解析
+        let prd_result = parser.parse_prd(&prd_content).await?;
+        
+        // 4. 转换为 PRDParseResult
+        let parse_result = PRDParseResult::new(
+            prd_result.product_name,
+            prd_result.product_description,
+        )
+        .with_target_users(prd_result.target_users)
+        .with_core_features(prd_result.core_features)
+        .with_tech_stack(prd_result.suggested_tech_stack)
+        .with_confidence(prd_result.confidence_score);
+        
+        self.status = InitializerStatus::CheckingEnvironment;
+        
+        Ok(parse_result)
+    }
+
+    /// 获取 PRD 内容（从文件或参数）
+    fn get_prd_content(&self) -> Result<String, String> {
+        // 优先使用传入的 PRD 内容
+        if let Some(content) = &self.config.prd_content {
+            return Ok(content.clone());
+        }
+        
+        // 否则从文件读取
+        if let Some(file_path) = &self.config.prd_file_path {
+            use std::fs;
+            fs::read_to_string(file_path)
+                .map_err(|e| format!("读取 PRD 文件失败：{}", e))
+        } else {
+            Err("未提供 PRD 内容或文件路径".to_string())
+        }
     }
 
     /// 检查环境（占位符，待后续实现）
@@ -337,13 +383,32 @@ impl InitializerAgent {
         Err("Not implemented yet".to_string())
     }
 
-    /// 分解任务为 Issues（占位符，待后续实现）
+    /// 分解任务为 Issues
+    /// 
+    /// VC-006: 基于 PRD 解析结果进行任务分解
     pub async fn decompose_tasks(
         &self,
         prd_result: &PRDParseResult,
     ) -> Result<TaskDecompositionResult, String> {
-        // TODO: 实现任务分解逻辑
-        Err("Not implemented yet".to_string())
+        // 1. 创建 PRD 解析器
+        let parser_config = PRDParserConfig {
+            ai_config: self.config.ai_config.clone(),
+            use_streaming: false,
+        };
+        let parser = PRDParser::new(parser_config);
+        
+        // 2. 调用任务分解
+        let issues = parser.decompose_tasks(
+            &prd_result.product_name,
+            &prd_result.product_description,
+            &prd_result.core_features,
+            &prd_result.suggested_tech_stack,
+        ).await?;
+        
+        // 3. 创建 TaskDecompositionResult
+        let result = TaskDecompositionResult::new(issues);
+        
+        Ok(result)
     }
 
     /// 执行完整的初始化流程（占位符，待后续实现）

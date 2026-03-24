@@ -1,17 +1,17 @@
 //! Agent 协议模块
 //! 
-//! 本模块定义了 Agent 与守护进程、前端之间的通信协议
-//! 支持 Stdio 管道通信和 WebSocket 实时推送
+//! 本模块包含所有 Agent 相关的子模块
 
 pub mod types;
 pub mod messages;
+pub mod prd_parser;  // VC-006: PRD 解析器
 pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
-pub mod agent_manager; // VC-004: Agent Manager
+pub mod agent_manager;
 
 // 重新导出常用类型，方便外部使用
 pub use types::{AgentPhase, AgentStatus, AgentConfig, AgentType};
