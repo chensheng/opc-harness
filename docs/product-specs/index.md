@@ -11,7 +11,7 @@
 | 文档 | 版本 | 状态 | 最后更新 | 位置 |
 |------|------|------|----------|------|
 | [MVP版本规划](./MVP版本规划.md) | v2.10 | 🔄 进行中 | 2026-03-24 | 当前目录 |
-| [产品设计文档](./产品设计.md) | v1.1 | ✅ 已完成 | 2026-03-22 | 当前目录 |
+| [产品设计文档](./product-design.md) | v1.1 | ✅ 已完成 | 2026-03-22 | 当前目录 |
 
 ### MVP 功能模块
 
@@ -37,7 +37,7 @@
 
 **相关文档**: 
 - [`vibe-design-spec.md`](./vibe-design-spec.md) - 详细功能规格
-- [产品设计文档 §6.1](./产品设计.md#6-产品方案) - 产品架构
+- [Product Design Document §6.1](./product-design.md#6-product-solution) - Product Architecture
 
 ### Vibe Coding (自主编码) ⭐
 
@@ -60,7 +60,7 @@
 
 **相关文档**:
 - [`vibe-coding-spec.md`](./vibe-coding-spec.md) - 详细功能规格（待创建）
-- [产品设计文档 §6.2](./产品设计.md#62-vibe-coding-核心机制) - 核心机制
+- [产品设计文档 §6.2](./product-design.md#62-vibe-coding-核心机制) - 核心机制
 - [Symphony 参考文档](../references/symphony.md) - 技术参考
 
 ### Vibe Marketing (增长运营)
@@ -77,7 +77,7 @@
 
 **相关文档**:
 - [`vibe-marketing-spec.md`](./vibe-marketing-spec.md) - 详细功能规格
-- [产品设计文档 §7](./产品设计.md#7-交互设计) - 交互设计
+- [产品设计文档 §7](./product-design.md#7-交互设计) - 交互设计
 
 ## 🛠️ 基础设施
 
@@ -138,7 +138,7 @@
 | 客单价 (ARPU) | 平均每用户收入 | > $20/月 | - | 📊 待统计 |
 | 用户生命周期价值 (LTV) | 用户全生命周期价值 | > $100 | - | 📊 待统计 |
 
-**数据埋点**: 详见 [产品设计文档 §8](./产品设计.md#8-数据埋点)
+**数据埋点**: 详见 [产品设计文档 §8](./product-design.md#8-数据埋点)
 
 ## 🔄 版本历史
 
@@ -192,7 +192,7 @@
 ## 📚 相关资源
 
 ### 内部文档
-- [`产品设计.md`](./产品设计.md) - 完整产品需求和市场定位
+- [`product-design.md`](./product-design.md) - 完整产品需求和市场定位
 - [`MVP版本规划.md`](./MVP版本规划.md) - MVP版本规划和路线图
 - [`../design-docs/system-architecture.md`](../design-docs/system-architecture.md) - 技术架构和系统设计
 - [`../references/symphony.md`](../references/symphony.md) - AI编码代理编排参考
