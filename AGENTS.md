@@ -6,7 +6,7 @@
 
 ---
 
-所有任务的执行必须严格遵循 [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md)。
+AI Agent执行任务的流程必须严格遵循 [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md)。
 
 ## 🎯 快速入口（按优先级）
 
