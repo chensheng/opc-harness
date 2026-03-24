@@ -1,15 +1,11 @@
 #!/usr/bin/env pwsh
 # Harness Engineering 架构健康检查脚本
 # 用法：.\scripts\harness-check.ps1
-# 版本：2.0 (模块化重构版)
+# 版本：2.1 (简化版 - 默认全量检查)
 
 param(
-    [switch]$Fix,          # 自动修复问题
     [switch]$Verbose,      # 详细输出
-    [switch]$Json,         # JSON 格式输出
-    [switch]$NoDocCheck,   # 跳过文档一致性检查（默认执行）
-    [switch]$NoDeadCode,   # 跳过死代码检测（默认执行）
-    [switch]$Quick         # 快速模式（仅核心 8 项检查）
+    [switch]$Json          # JSON 格式输出
 )
 
 # =============================================
@@ -26,6 +22,7 @@ $Script:Config = @{
         TSTests         = 20
         Dependencies    = 5
         Directory       = 5
+        Documentation   = 10
     }
     
     RequiredDirs = @(
@@ -40,6 +37,27 @@ $Script:Config = @{
         "package-lock.json",
         "src-tauri/Cargo.toml",
         "src-tauri/Cargo.lock"
+    )
+    
+    KeyDocuments = @(
+        "AGENTS.md",
+        "README.md",
+        "ARCHITECTURE.md",
+        "src/AGENTS.md",
+        "src-tauri/AGENTS.md",
+        "docs/README.md",
+        "docs/MAINTENANCE.md",
+        "docs/design-docs/index.md",
+        "docs/exec-plans/index.md",
+        "docs/product-specs/index.md",
+        "docs/references/index.md"
+    )
+    
+    IndexFiles = @(
+        "docs/design-docs/index.md",
+        "docs/exec-plans/index.md",
+        "docs/product-specs/index.md",
+        "docs/references/index.md"
     )
     
     Timeouts = @{
@@ -384,7 +402,7 @@ function Invoke-DependencyCheck {
 }
 
 function Invoke-DirectoryCheck {
-    Write-CheckStart -Name "Directory Structure Check" -Index "8/8"
+    Write-CheckStart -Name "Directory Structure Check" -Index "8/9"
     
     $dirIssues = 0
     foreach ($dir in $Script:Config.RequiredDirs) {
@@ -399,6 +417,46 @@ function Invoke-DirectoryCheck {
     } else {
         Write-CheckResult -Status "INFO" -Message "Found $dirIssues directory issue(s)"
         Add-Issue -Type "Directory" -Severity "Warning" -Message "$dirIssues missing dir(s)" -ScorePenalty $Script:Config.ScoreWeights.Directory
+    }
+}
+
+function Invoke-DocumentationCheck {
+    Write-CheckStart -Name "Documentation Structure Check" -Index "9/9"
+    
+    $docIssues = 0
+    
+    # Check key documents exist
+    foreach ($doc in $Script:Config.KeyDocuments) {
+        if (Test-Path $doc) {
+            if ($Verbose) {
+                Write-Host "  ✅ $doc" -ForegroundColor Green
+            }
+        } else {
+            Write-Host "  ❌ $doc (MISSING)" -ForegroundColor Red
+            $docIssues++
+        }
+    }
+    
+    # Check index files have links
+    foreach ($indexFile in $Script:Config.IndexFiles) {
+        if (Test-Path $indexFile) {
+            $content = Get-Content $indexFile -Raw
+            if ($content -match '\[.*\]\(.*\)') {
+                if ($Verbose) {
+                    Write-Host "  ✅ $indexFile (has links)" -ForegroundColor Green
+                }
+            } else {
+                Write-Host "  ⚠️  $indexFile (no links found)" -ForegroundColor Yellow
+                $docIssues++
+            }
+        }
+    }
+    
+    if ($docIssues -eq 0) {
+        Write-CheckResult -Status "PASS" -Message "Documentation structure valid"
+    } else {
+        Write-CheckResult -Status "FAIL" -Message "Found $docIssues documentation issue(s)"
+        Add-Issue -Type "Documentation" -Severity "Error" -Message "$docIssues document issue(s)" -ScorePenalty $Script:Config.ScoreWeights.Documentation
     }
 }
 
@@ -440,11 +498,11 @@ function Show-Summary {
 # =============================================
 
 try {
-    Write-Header -Text "OPC-HARNESS Architecture Health Check v2.0"
+    Write-Header -Text "OPC-HARNESS Architecture Health Check v2.1"
     
     $startTime = Get-Date
     
-    # Execute all checks in order
+    # Execute all checks in order (always run all 9 checks)
     $checks = @(
         { Invoke-TypeScriptCheck },
         { Invoke-ESLintCheck },
@@ -453,13 +511,9 @@ try {
         { Invoke-RustTestsCheck },
         { Invoke-TSTestsCheck },
         { Invoke-DependencyCheck },
-        { Invoke-DirectoryCheck }
+        { Invoke-DirectoryCheck },
+        { Invoke-DocumentationCheck }
     )
-    
-    # If quick mode, only run core checks (first 6)
-    if ($Quick) {
-        $checks = $checks[0..5]
-    }
     
     foreach ($check in $checks) {
         & $check

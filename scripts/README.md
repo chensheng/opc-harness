@@ -56,12 +56,9 @@ Services → Commands  // 服务层不可依赖命令层
 **目的**: 快速发现问题并持续改进
 
 **自动化检查**:
-```bash
-# 提交前必跑
+```
+# 提交前必跑（包含所有检查项）
 npm run harness:check
-
-# 完整验证（包含文档和死代码）
-npm run harness:check -- -All
 ```
 
 **闭环系统**:
@@ -81,7 +78,7 @@ AI生成代码 → 运行检查 → 发现问题 → 修复 → 再次检查
 
 ### 2. 运行架构健康检查
 
-```bash
+```
 # 基础检查
 npm run harness:check
 
@@ -99,7 +96,7 @@ npm run harness:check
 
 ### 3. 执行垃圾回收
 
-```bash
+```
 # 实际清理（会询问确认）
 npm run harness:gc
 
@@ -178,26 +175,6 @@ git checkout -b feature/refactoring-backup
 npm run harness:check
 ```
 
----
-
-## 🔧 高级用法
-
-### 自定义检查规则
-
-编辑 `docs/references/architecture-rules.md` 添加新规则到相应章节。
-
-### 扩展知识库
-
-在 `docs/references/` 添加新文档:
-- 新增功能后：更新相关文档
-- 解决问题后：记录解决方案到 FAQ
-- 性能优化后：更新性能基准数据
-- 遇到陷阱后：添加注意事项
-
----
-
-## 📊 健康度评分说明
-
 ### 评分计算
 
 | 检查项 | 满分 | 扣分标准 |
@@ -206,60 +183,18 @@ npm run harness:check
 | ESLint 代码规范 | 15 | 警告扣 5 分，错误扣 15 分 |
 | Prettier 格式化 | 10 | 不通过扣 10 分 |
 | Rust 编译检查 | 25 | 失败扣 25 分 |
-| 单元测试覆盖率 | 20 | < 70% 扣 20 分 |
-| 架构约束 | 10 | 违规扣 10 分 |
+| Rust 单元测试 | 20 | 失败扣 20 分 |
+| TS 单元测试 | 20 | 失败扣 20 分 |
+| 依赖完整性 | 5 | 缺失扣 5 分 |
+| 目录结构 | 5 | 缺失扣 5 分 |
+| 文档结构验证 | 10 | 缺失/过期扣 10 分 |
+
+**总分**: **110 分**（9 项检查）
 
 ### 评分等级
 
-- **90-100**: 优秀 ✨ - 可以安全合并
+- **90-100**: 优秀 ✨ - 可以安全合并（允许少量非关键问题）
 - **70-89**: 良好 👍 - 有一些改进空间
 - **<70**: 需要修复 ⚠️ - 不建议合并
 
----
-
-## 🤝 团队协作建议
-
-### 建立 Harness 文化
-
-- **每次提交前**: 运行 `npm run harness:check`
-- **每周**: 运行 `npm run harness:gc` 清理技术债务
-- **每月**: 回顾 ADRs，更新最佳实践
-
-### 知识传承
-
-- **新人入职**: 先读 AGENTS.md 和最佳实践
-- **重要决策**: 必须写 ADR
-- **解决问题**: 更新到知识库
-
-### 持续改进
-
-- **定期审查**: 检查约束规则是否合理
-- **收集反馈**: 团队成员提出改进建议
-- **迭代更新**: 每季度更新 Harness 体系
-
----
-
-## 📚 相关资源
-
-### 官方文档
-- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/)
-- [本项目导航地图](../AGENTS.md)
-- [最佳实践](./best-practices.md)
-- [架构设计](../ARCHITECTURE.md)
-
-### 学习材料
-- [架构决策记录 (ADR) 指南](https://adr.github.io/)
-- [TypeScript 严格模式](https://www.typescriptlang.org/tsconfig#strict)
-- [Rust 编码规范](https://rust-lang.github.io/api-guidelines/)
-
-### 工具链
-- [ESLint - 代码规范检查](https://eslint.org/)
-- [Prettier - 代码格式化](https://prettier.io/)
-- [cargo - Rust 包管理](https://doc.rust-lang.org/cargo/)
-- [Vitest - 单元测试框架](https://vitest.dev/)
-
----
-
-**维护者**: OPC-HARNESS Team  
-**版本**: 2.0.0 (基于 OpenAI Harness Engineering 最佳实践重构)  
-**最后更新**: 2026-03-23
+**注意**: 默认执行所有 9 项检查，总分 110 分。如果存在 Error 级别的问题，脚本将返回非零退出码。
