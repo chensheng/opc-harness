@@ -9,6 +9,7 @@ pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
 pub mod daemon;
+pub mod agent_stdio;
 
 // 重新导出常用类型，方便外部使用
 pub use types::{AgentPhase, AgentStatus, AgentConfig, AgentType};
@@ -38,4 +39,8 @@ pub use daemon::{
     DaemonManager, DaemonConfig, DaemonStatus, DaemonSnapshot,
     DaemonCommand, DaemonEvent, AgentProcessInfo, ResourceUsage,
     SystemInfo, ConcurrencyStats,
+};
+pub use agent_stdio::{
+    StdioChannel, StdioChannelManager, StdioChannelConfig, StdioChannelStatus, StdioChannelStats,
+    StdioMessage, StdioMessageType,
 };
