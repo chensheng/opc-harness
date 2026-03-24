@@ -43,6 +43,7 @@ fn main() {
             commands::cli::send_cli_prompt,
             commands::cli::read_cli_output,
             commands::cli::stop_cli_session,
+            commands::cli::check_environment,
             // Database commands
             commands::database::create_project,
             commands::database::get_all_projects,

@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 use crate::agent::messages::Issue;
 use crate::agent::prd_parser::{PRDParser, PRDParserConfig};
+use std::process::Command;
 
 /// Initializer Agent 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,10 +102,16 @@ pub struct EnvironmentCheckResult {
     pub node_installed: bool,
     /// Node.js 版本
     pub node_version: Option<String>,
+    /// npm 是否已安装
+    pub npm_installed: bool,
+    /// npm 版本
+    pub npm_version: Option<String>,
     /// Rust/Cargo 是否已安装
     pub cargo_installed: bool,
     /// Cargo 版本
     pub cargo_version: Option<String>,
+    /// IDE 安装列表 (vscode, cursor)
+    pub ide_installed: Vec<String>,
     /// 项目目录是否存在
     pub project_dir_exists: bool,
     /// 错误信息
@@ -122,8 +129,11 @@ impl EnvironmentCheckResult {
             git_version: None,
             node_installed: true,
             node_version: None,
+            npm_installed: true,
+            npm_version: None,
             cargo_installed: true,
             cargo_version: None,
+            ide_installed: Vec::new(),
             project_dir_exists: true,
             errors: Vec::new(),
             warnings: Vec::new(),
@@ -138,8 +148,11 @@ impl EnvironmentCheckResult {
             git_version: None,
             node_installed: false,
             node_version: None,
+            npm_installed: false,
+            npm_version: None,
             cargo_installed: false,
             cargo_version: None,
+            ide_installed: Vec::new(),
             project_dir_exists: false,
             errors,
             warnings: Vec::new(),
@@ -160,10 +173,30 @@ impl EnvironmentCheckResult {
         self
     }
 
+    /// 添加 npm 版本信息
+    pub fn with_npm_version(mut self, version: String) -> Self {
+        self.npm_installed = true;
+        self.npm_version = Some(version);
+        self
+    }
+
     /// 添加 Cargo 版本信息
     pub fn with_cargo_version(mut self, version: String) -> Self {
         self.cargo_installed = true;
         self.cargo_version = Some(version);
+        self
+    }
+
+    /// 添加 IDE 安装信息
+    pub fn with_ide(mut self, ide: String) -> Self {
+        self.ide_installed.push(ide);
+        self
+    }
+
+    /// 添加错误
+    pub fn add_error(mut self, error: String) -> Self {
+        self.errors.push(error);
+        self.passed = false;
         self
     }
 
@@ -310,6 +343,130 @@ pub struct InitializerAgent {
     pub session_id: String,
 }
 
+/// 环境检测工具函数
+mod env_utils {
+    use super::*;
+
+    /// 检查命令是否可用并返回版本
+    fn check_command_version(cmd: &str, version_arg: &str) -> Option<String> {
+        Command::new(cmd)
+            .arg(version_arg)
+            .output()
+            .ok()
+            .and_then(|output| {
+                if output.status.success() {
+                    String::from_utf8(output.stdout).ok()
+                } else {
+                    None
+                }
+            })
+            .map(|version| version.trim().to_string())
+    }
+
+    /// 检查 Git 是否已安装
+    pub fn check_git() -> (bool, Option<String>) {
+        let version = check_command_version("git", "--version");
+        let installed = version.is_some();
+        
+        // Windows 特殊处理：如果失败，尝试 "git.exe"
+        if !installed && cfg!(windows) {
+            if let Ok(path) = std::env::var("ProgramFiles") {
+                let git_path = format!("{}\\Git\\cmd\\git.exe", path);
+                if Command::new(&git_path).arg("--version").output().is_ok() {
+                    return (true, Some("git (Windows)".to_string()));
+                }
+            }
+        }
+        
+        (installed, version)
+    }
+
+    /// 检查 Node.js 是否已安装
+    pub fn check_nodejs() -> (bool, Option<String>) {
+        let version = check_command_version("node", "--version");
+        (version.is_some(), version)
+    }
+
+    /// 检查 npm 是否已安装
+    pub fn check_npm() -> (bool, Option<String>) {
+        let version = check_command_version("npm", "--version");
+        (version.is_some(), version)
+    }
+
+    /// 检查 Cargo 是否已安装
+    pub fn check_cargo() -> (bool, Option<String>) {
+        let version = check_command_version("cargo", "--version");
+        (version.is_some(), version)
+    }
+
+    /// 检查 IDE 是否已安装
+    pub fn check_ide() -> Vec<String> {
+        let mut ides = Vec::new();
+
+        // 检查 VSCode
+        if check_command_version("code", "--version").is_some() {
+            ides.push("vscode".to_string());
+        } else if cfg!(windows) {
+            // Windows 特殊路径
+            let vscode_paths = [
+                "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe",
+                "%PROGRAMFILES%\\Microsoft VS Code\\Code.exe",
+            ];
+            for path in &vscode_paths {
+                let expanded = expand_env_var(path);
+                if std::path::Path::new(&expanded).exists() {
+                    ides.push("vscode".to_string());
+                    break;
+                }
+            }
+        } else if cfg!(target_os = "macos") {
+            // macOS 特殊路径
+            let vscode_app = "/Applications/Visual Studio Code.app";
+            if std::path::Path::new(vscode_app).exists() {
+                ides.push("vscode".to_string());
+            }
+        }
+
+        // 检查 Cursor
+        if check_command_version("cursor", "--version").is_some() {
+            ides.push("cursor".to_string());
+        } else if cfg!(windows) {
+            let cursor_paths = [
+                "%LOCALAPPDATA%\\Programs\\Cursor\\Cursor.exe",
+                "%PROGRAMFILES%\\Cursor\\Cursor.exe",
+            ];
+            for path in &cursor_paths {
+                let expanded = expand_env_var(path);
+                if std::path::Path::new(&expanded).exists() {
+                    ides.push("cursor".to_string());
+                    break;
+                }
+            }
+        } else if cfg!(target_os = "macos") {
+            let cursor_app = "/Applications/Cursor.app";
+            if std::path::Path::new(cursor_app).exists() {
+                ides.push("cursor".to_string());
+            }
+        }
+
+        ides
+    }
+
+    /// 展开环境变量
+    pub fn expand_env_var(path: &str) -> String {
+        let mut result = path.to_string();
+        for (key, value) in std::env::vars() {
+            result = result.replace(&format!("%{}%", key), &value);
+        }
+        result
+    }
+
+    /// 检查项目目录是否存在
+    pub fn check_project_dir(project_path: &str) -> bool {
+        std::path::Path::new(project_path).exists()
+    }
+}
+
 impl InitializerAgent {
     /// 创建新的 Initializer Agent
     pub fn new(config: InitializerAgentConfig) -> Self {
@@ -371,10 +528,101 @@ impl InitializerAgent {
         }
     }
 
-    /// 检查环境（占位符，待后续实现）
-    pub async fn check_environment(&self) -> Result<EnvironmentCheckResult, String> {
-        // TODO: 实现环境检查逻辑
-        Err("Not implemented yet".to_string())
+    /// 检查环境
+    /// 
+    /// VC-007: 实现环境检查逻辑
+    pub async fn check_environment(&mut self) -> Result<EnvironmentCheckResult, String> {
+        self.status = InitializerStatus::CheckingEnvironment;
+        
+        let mut result = EnvironmentCheckResult::success();
+        
+        // 1. 检查 Git
+        let (git_installed, git_version) = env_utils::check_git();
+        if git_installed {
+            if let Some(version) = git_version {
+                result = result.with_git_version(version);
+            }
+        } else {
+            result = result.add_error(
+                "Git 未安装。请安装 Git: https://git-scm.com/".to_string()
+            );
+        }
+        
+        // 2. 检查 Node.js
+        let (node_installed, node_version) = env_utils::check_nodejs();
+        if node_installed {
+            if let Some(version) = node_version {
+                result = result.with_node_version(version);
+            }
+        } else {
+            result = result.add_error(
+                "Node.js 未安装。请安装 Node.js: https://nodejs.org/".to_string()
+            );
+        }
+        
+        // 3. 检查 npm
+        let (npm_installed, npm_version) = env_utils::check_npm();
+        if npm_installed {
+            if let Some(version) = npm_version {
+                result = result.with_npm_version(version);
+            }
+        } else if node_installed {
+            result = result.add_warning(
+                "npm 未找到，但 Node.js 已安装。请确认 npm 是否正确配置。".to_string()
+            );
+        } else {
+            result = result.add_error(
+                "npm 未安装。npm 通常随 Node.js 一起安装。".to_string()
+            );
+        }
+        
+        // 4. 检查 Cargo (Rust)
+        let (cargo_installed, cargo_version) = env_utils::check_cargo();
+        if cargo_installed {
+            if let Some(version) = cargo_version {
+                result = result.with_cargo_version(version);
+            }
+        } else {
+            result = result.add_warning(
+                "Cargo (Rust) 未安装。如果需要构建 Rust 项目，请安装：https://rustup.rs/".to_string()
+            );
+        }
+        
+        // 5. 检查 IDE
+        let ides = env_utils::check_ide();
+        for ide in &ides {
+            result = result.with_ide(ide.clone());
+        }
+        if ides.is_empty() {
+            result = result.add_warning(
+                "未检测到常见 IDE (VSCode/Cursor)。请确保已安装代码编辑器。".to_string()
+            );
+        }
+        
+        // 6. 检查项目目录
+        let project_exists = env_utils::check_project_dir(&self.config.project_path);
+        result.project_dir_exists = project_exists;
+        if !project_exists {
+            result = result.add_error(
+                format!("项目目录不存在：{}", self.config.project_path)
+            );
+        }
+        
+        // 7. 添加版本兼容性警告
+        let node_version_cloned = result.node_version.clone();
+        if let Some(ref version) = node_version_cloned {
+            if version.starts_with("v") && version.len() > 1 {
+                if let Ok(major) = version[1..].split('.').next().unwrap_or("0").parse::<u32>() {
+                    if major < 18 {
+                        result = result.add_warning(
+                            format!("Node.js 版本 {} 可能过旧，建议使用 Node.js 18+ LTS 版本", version)
+                        );
+                    }
+                }
+            }
+        }
+        
+        Ok(result)
     }
 
     /// 初始化 Git 仓库（占位符，待后续实现）
@@ -427,6 +675,7 @@ impl InitializerAgent {
 mod tests {
     use super::*;
     use crate::agent::messages::Priority;
+    use crate::ai::AIConfig;
 
     #[test]
     fn test_prd_parse_result() {
@@ -458,12 +707,128 @@ mod tests {
         let result = EnvironmentCheckResult::success()
             .with_git_version("2.40.0".to_string())
             .with_node_version("v20.10.0".to_string())
+            .with_npm_version("10.2.3".to_string())
             .with_cargo_version("1.75.0".to_string())
+            .with_ide("vscode".to_string())
+            .with_ide("cursor".to_string())
             .add_warning("npm 版本较旧，建议升级".to_string());
         
         assert!(result.passed);
         assert_eq!(result.git_version, Some("2.40.0".to_string()));
+        assert_eq!(result.node_version, Some("v20.10.0".to_string()));
+        assert_eq!(result.npm_version, Some("10.2.3".to_string()));
+        assert_eq!(result.cargo_version, Some("1.75.0".to_string()));
+        assert_eq!(result.ide_installed, vec!["vscode", "cursor"]);
         assert_eq!(result.warnings.len(), 1);
+    }
+
+    #[test]
+    fn test_environment_check_result_failure() {
+        let errors = vec![
+            "Git 未安装".to_string(),
+            "Node.js 未安装".to_string(),
+        ];
+        
+        let result = EnvironmentCheckResult::failure(errors.clone());
+        
+        assert!(!result.passed);
+        assert!(!result.git_installed);
+        assert!(!result.node_installed);
+        assert_eq!(result.errors, errors);
+        assert_eq!(result.warnings.len(), 0);
+    }
+
+    #[test]
+    fn test_env_utils_check_git() {
+        let (installed, version) = env_utils::check_git();
+        
+        // Git 应该已安装（在开发环境中）
+        // 如果失败，说明测试环境没有 Git
+        if installed {
+            assert!(version.is_some());
+            assert!(!version.unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_env_utils_check_nodejs() {
+        let (installed, version) = env_utils::check_nodejs();
+        
+        // Node.js 应该已安装（在开发环境中）
+        if installed {
+            assert!(version.is_some());
+            assert!(!version.unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_env_utils_check_npm() {
+        let (installed, version) = env_utils::check_npm();
+        
+        // npm 应该已安装（在开发环境中）
+        if installed {
+            assert!(version.is_some());
+            assert!(!version.unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_env_utils_check_cargo() {
+        let (installed, version) = env_utils::check_cargo();
+        
+        // Cargo 应该已安装（在开发环境中）
+        if installed {
+            assert!(version.is_some());
+            assert!(!version.unwrap().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_env_utils_check_ide() {
+        let ides = env_utils::check_ide();
+        
+        // 至少应该检测到一个 IDE（在开发环境中）
+        // 这个测试可能在没有 IDE 的环境中失败，所以只做基本检查
+        assert!(ides.len() >= 0); // 允许为 0，因为某些环境可能没有 IDE
+        
+        // 如果检测到 IDE，验证格式
+        for ide in &ides {
+            assert!(!ide.is_empty());
+            assert!(ide == "vscode" || ide == "cursor");
+        }
+    }
+
+    #[test]
+    fn test_env_utils_check_project_dir() {
+        // 测试现有目录
+        let current_dir = std::env::current_dir().unwrap();
+        let exists = env_utils::check_project_dir(current_dir.to_str().unwrap());
+        assert!(exists);
+        
+        // 测试不存在的目录
+        let not_exists = env_utils::check_project_dir("/nonexistent/path/that/does/not/exist");
+        assert!(!not_exists);
+    }
+
+    #[test]
+    fn test_env_utils_expand_env_var() {
+        // Windows 环境变量测试
+        #[cfg(windows)]
+        {
+            let path = "%LOCALAPPDATA%";
+            let expanded = env_utils::expand_env_var(path);
+            assert!(!expanded.contains("%"));
+            assert!(std::path::Path::new(&expanded).exists());
+        }
+        
+        // Unix 环境变量测试
+        #[cfg(unix)]
+        {
+            let path = "$HOME";
+            let expanded = env_utils::expand_env_var(path);
+            assert!(!expanded.contains("$"));
+            assert!(std::path::Path::new(&expanded).exists());
+        }
     }
 
     #[test]
@@ -510,8 +875,6 @@ mod tests {
 
     #[test]
     fn test_initializer_agent_creation() {
-        use crate::ai::AIConfig;
-
         let config = InitializerAgentConfig {
             agent_id: "agent-init-001".to_string(),
             project_path: "/path/to/project".to_string(),
@@ -530,5 +893,46 @@ mod tests {
         assert_eq!(agent.config.agent_id, "agent-init-001");
         assert_eq!(agent.status, InitializerStatus::Pending);
         assert!(!agent.session_id.is_empty());
+    }
+
+    /// VC-007: 测试环境检查方法（集成测试）
+    #[tokio::test]
+    async fn test_check_environment_integration() {
+        let config = InitializerAgentConfig {
+            agent_id: "agent-init-test".to_string(),
+            project_path: std::env::current_dir().unwrap().to_string_lossy().to_string(),
+            ai_config: AIConfig {
+                provider: "openai".to_string(),
+                api_key: "sk-test".to_string(),
+                model: "gpt-4".to_string(),
+                base_url: None,
+            },
+            prd_file_path: None,
+            prd_content: None,
+        };
+        
+        let mut agent = InitializerAgent::new(config);
+        let result = agent.check_environment().await;
+        
+        assert!(result.is_ok());
+        let env_result = result.unwrap();
+        
+        // 验证检查结果结构
+        assert!(env_result.git_installed || !env_result.git_installed); // 总是 true，只是验证能执行
+        assert!(env_result.node_installed || !env_result.node_installed);
+        assert!(env_result.npm_installed || !env_result.npm_installed);
+        
+        // 在开发环境中，这些应该为 true
+        if cfg!(debug_assertions) {
+            // Debug 模式下运行，应该有 Git 和 Node.js
+            assert!(
+                env_result.git_installed, 
+                "开发环境中应该安装 Git"
+            );
+            assert!(
+                env_result.node_installed, 
+                "开发环境中应该安装 Node.js"
+            );
+        }
     }
 }

@@ -1,4 +1,5 @@
 use crate::agent_protocol::*;
+use crate::agent::initializer_agent::{InitializerAgent, InitializerAgentConfig, EnvironmentCheckResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -750,4 +751,28 @@ pub async fn get_daemon_snapshot() -> Result<DaemonSnapshot, String> {
     
     let manager = DAEMON_MANAGER.lock().map_err(|e| e.to_string())?;
     Ok(manager.get_snapshot())
+}
+
+/// VC-007: 检查开发环境
+#[tauri::command]
+pub async fn check_environment(project_path: String) -> Result<EnvironmentCheckResult, String> {
+    // 创建 Initializer Agent 配置
+    let config = InitializerAgentConfig {
+        agent_id: format!("env-check-{}", Uuid::new_v4()),
+        project_path: project_path.clone(),
+        ai_config: crate::ai::AIConfig {
+            provider: "openai".to_string(),
+            api_key: "placeholder".to_string(), // 环境检查不需要真实的 API key
+            model: "gpt-4".to_string(),
+            base_url: None,
+        },
+        prd_file_path: None,
+        prd_content: None,
+    };
+    
+    // 创建 Agent 并执行环境检查
+    let mut agent = InitializerAgent::new(config);
+    let result = agent.check_environment().await?;
+    
+    Ok(result)
 }
