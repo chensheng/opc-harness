@@ -6,6 +6,8 @@
 
 ---
 
+所有开发任务的执行必须严格遵循 [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md)。
+
 ## 🎯 快速入口（按优先级）
 
 ### ⭐⭐⭐ 必读核心
