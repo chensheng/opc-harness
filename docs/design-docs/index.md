@@ -19,6 +19,7 @@
 - [`core-beliefs.md`](./core-beliefs.md) - 核心设计理念
 - [`system-architecture.md`](./system-architecture.md) - 系统架构设计
 - [`database-schema.md`](./database-schema.md) - 数据库设计
+- [`架构设计.md`](./架构设计.md) - OPC-HARNESS 完整架构设计文档 🔥
 
 ## 📐 技术规范
 
