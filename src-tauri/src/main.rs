@@ -9,6 +9,7 @@ mod models;
 mod quality;
 mod services;
 mod utils;
+pub mod agent;
 pub mod agent_protocol;
 
 fn main() {
