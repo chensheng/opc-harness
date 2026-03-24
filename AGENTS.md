@@ -11,7 +11,7 @@
 ## 🎯 快速入口（按优先级）
 
 ### ⭐⭐⭐ 必读核心
-- [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md) - 7阶段标准开发流程
+- [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md) - 标准开发流程
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
 
@@ -74,26 +74,6 @@ npm run harness:fix            # 自动修复格式问题
 
 ---
 
-## 🚀 7 阶段开发流程 🔥
-
-```mermaid
-graph LR
-A[1.任务选择] --> B[2.架构学习] --> C[3.测试设计] --> D[4.开发实施] --> E[5.质量验证] --> F[6.文档更新] --> G[7.完成交付]
-```
-
-**详细说明**: 详见 **[Harness Engineering 流程](./docs/HARNESS_ENGINEERING.md)**
-
-**快速参考**:
-1. **任务选择**: 查阅 [MVP版本规划](./docs/product-specs/mvp-roadmap.md)，选 P0/P1 🔥
-2. **架构学习**: 阅读 [架构规则](./docs/design-docs/architecture-rules.md) 🔥
-3. **测试设计**: 先写单元测试 + E2E 测试
-4. **开发实施**: Rust 后端 + TS 前端，遵守分层约束
-5. **质量验证**: `npm run harness:check`（目标 100/100）
-6. **文档更新**: 标记任务完成，创建报告
-7. **完成交付**: Git 提交，Health Score ≥90
-
----
-
 ## 📁 文档结构
 
 ```
@@ -111,15 +91,8 @@ Level 1: AGENTS.md (本文件)     ← 导航地图
 Level 2: src/AGENTS.md          ← 模块规范
     ↓
 Level 3: docs/                  ← 详细文档
-    ├── HARNESS_ENGINEERING.md  ← 8 阶段开发流程 🔥
-    ├── exec-plans/             ← 执行计划管理系统 ⭐
-    │   ├── README.md           ← 快速指南
-    │   ├── index.md            ← 使用说明
-    │   ├── templates/          ← 模板文件
-    │   │   ├── execution-plan-template.md
-    │   │   └── task-completion-template.md
-    │   ├── active/             ← 活跃的执行计划
-    │   └── completed/          ← 已完成的执行计划
+    ├── HARNESS_ENGINEERING.md  ← 开发流程 🔥
+    ├── exec-plans/             ← 执行计划
     ├── product-specs/          ← 产品规格
     └── design-docs/            ← 设计文档
 ```
