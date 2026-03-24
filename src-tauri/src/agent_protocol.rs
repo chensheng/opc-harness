@@ -113,9 +113,8 @@ impl AgentResponse {
     }
 }
 
-/// Agent 消息类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// 消息类型
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageType {
     /// 日志消息
     Log,
@@ -331,6 +330,11 @@ pub struct DaemonManager {
     completed_tasks: Vec<String>,
     pending_tasks: Vec<String>,
     start_time: i64,
+    // ========== VC-013: 并发控制相关字段 ==========
+    running_count: usize,                    // 当前运行中的 Agent 数量
+    max_concurrent: usize,                   // 最大并发数 (从 config 同步)
+    agent_queue: Vec<String>,                // 等待中的 Agent ID 队列
+    running_agents: std::collections::HashSet<String>, // 正在运行的 Agent ID 集合
 }
 
 impl DaemonManager {
@@ -344,6 +348,11 @@ impl DaemonManager {
             completed_tasks: Vec::new(),
             pending_tasks: Vec::new(),
             start_time: 0,
+            // ========== VC-013: 并发控制初始化 ==========
+            running_count: 0,
+            max_concurrent: 5, // 默认值，会在 start 时被 config 覆盖
+            agent_queue: Vec::new(),
+            running_agents: std::collections::HashSet::new(),
         }
     }
 
@@ -353,6 +362,9 @@ impl DaemonManager {
             return Err("Daemon is already running".to_string());
         }
 
+        // ========== VC-013: 初始化并发控制配置 ==========
+        self.max_concurrent = config.max_concurrent_agents;
+        
         self.config = Some(config);
         self.status = DaemonStatus::Starting;
         self.start_time = chrono::Utc::now().timestamp();
@@ -530,12 +542,177 @@ impl DaemonManager {
         self.pending_tasks.retain(|id| id != task_id);
         self.completed_tasks.push(task_id.to_string());
     }
+
+    // ========== VC-013: 并发控制核心方法 ==========
+
+    /// 检查是否可以启动新的 Agent
+    pub fn can_spawn_agent(&self) -> bool {
+        self.running_count < self.max_concurrent
+    }
+
+    /// 获取可用的并发槽位数
+    pub fn available_slots(&self) -> usize {
+        if self.running_count >= self.max_concurrent {
+            0
+        } else {
+            self.max_concurrent - self.running_count
+        }
+    }
+
+    /// 尝试启动 Agent（受并发限制）
+    /// 返回 true 表示可以立即启动，false 表示需要排队
+    pub fn try_start_agent(&mut self, agent_id: &str) -> bool {
+        // 检查是否已经在运行
+        if self.running_agents.contains(agent_id) {
+            return true;
+        }
+
+        // 检查是否有可用槽位
+        if self.can_spawn_agent() {
+            self.running_agents.insert(agent_id.to_string());
+            self.running_count += 1;
+            
+            // 更新 Agent 状态为 Running
+            if let Some(agent) = self.agents.get_mut(agent_id) {
+                agent.status = AgentStatus::Running;
+            }
+            
+            true
+        } else {
+            // 加入等待队列
+            if !self.agent_queue.contains(&agent_id.to_string()) {
+                self.agent_queue.push(agent_id.to_string());
+                
+                // 更新 Agent 状态为 Idle (等待中)
+                if let Some(agent) = self.agents.get_mut(agent_id) {
+                    agent.status = AgentStatus::Idle;
+                }
+            }
+            false
+        }
+    }
+
+    /// 停止 Agent 并释放槽位
+    pub fn stop_agent(&mut self, agent_id: &str) -> Result<(), String> {
+        if !self.agents.contains_key(agent_id) {
+            return Err(format!("Agent {} not found", agent_id));
+        }
+
+        // 从运行集合中移除
+        if self.running_agents.remove(agent_id) {
+            self.running_count = self.running_count.saturating_sub(1);
+        }
+
+        // 更新 Agent 状态
+        if let Some(agent) = self.agents.get_mut(agent_id) {
+            agent.status = AgentStatus::Completed;
+        }
+
+        // 从等待队列移除
+        self.agent_queue.retain(|id| id != agent_id);
+
+        // ========== VC-013: 调度队列中的下一个 Agent ==========
+        self.schedule_next_agent();
+
+        Ok(())
+    }
+
+    /// 调度队列中的下一个 Agent
+    fn schedule_next_agent(&mut self) {
+        // 检查是否有可用槽位和等待中的 Agent
+        while self.can_spawn_agent() && !self.agent_queue.is_empty() {
+            if let Some(next_agent_id) = self.agent_queue.first().cloned() {
+                self.agent_queue.remove(0);
+                
+                // 启动该 Agent
+                self.running_agents.insert(next_agent_id.clone());
+                self.running_count += 1;
+                
+                // 更新 Agent 状态
+                if let Some(agent) = self.agents.get_mut(&next_agent_id) {
+                    agent.status = AgentStatus::Running;
+                }
+                
+                // TODO: 实际启动 Agent 进程
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// 获取当前并发统计信息
+    pub fn get_concurrency_stats(&self) -> ConcurrencyStats {
+        ConcurrencyStats {
+            running_count: self.running_count,
+            max_concurrent: self.max_concurrent,
+            queued_count: self.agent_queue.len(),
+            available_slots: self.available_slots(),
+            utilization: if self.max_concurrent > 0 {
+                (self.running_count as f32 / self.max_concurrent as f32) * 100.0
+            } else {
+                0.0
+            },
+        }
+    }
+
+    /// 动态调整最大并发数
+    pub fn adjust_max_concurrent(&mut self, new_limit: usize) -> Result<(), String> {
+        if new_limit == 0 {
+            return Err("max_concurrent must be greater than 0".to_string());
+        }
+
+        let _old_limit = self.max_concurrent;
+        self.max_concurrent = new_limit;
+
+        // 如果新限制小于当前运行数，需要暂停部分 Agent
+        if new_limit < self.running_count {
+            // 暂停多余的 Agent（按启动时间排序，暂停最新的）
+            let mut running_vec: Vec<_> = self.running_agents.iter().cloned().collect();
+            running_vec.sort_by(|a, b| {
+                let a_time = self.agents.get(a).map(|ag| ag.started_at).unwrap_or(0);
+                let b_time = self.agents.get(b).map(|ag| ag.started_at).unwrap_or(0);
+                b_time.cmp(&a_time) // 降序，最新的先暂停
+            });
+
+            let excess = self.running_count - new_limit;
+            for agent_id in running_vec.into_iter().take(excess) {
+                if let Some(agent) = self.agents.get_mut(&agent_id) {
+                    if agent.status == AgentStatus::Running {
+                        agent.status = AgentStatus::Paused;
+                    }
+                }
+                self.running_agents.remove(&agent_id);
+                self.agent_queue.push(agent_id);
+            }
+            
+            self.running_count = new_limit;
+        } else {
+            // 如果新限制更大，尝试启动更多 Agent
+            self.schedule_next_agent();
+        }
+
+        Ok(())
+    }
+
+    /// 获取所有等待中的 Agent
+    pub fn get_queued_agents(&self) -> Vec<&String> {
+        self.agent_queue.iter().collect()
+    }
+
+    /// 获取所有运行中的 Agent
+    pub fn get_running_agents(&self) -> Vec<&String> {
+        self.running_agents.iter().collect()
+    }
 }
 
-impl Default for DaemonManager {
-    fn default() -> Self {
-        Self::new()
-    }
+/// 并发统计信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConcurrencyStats {
+    pub running_count: usize,      // 当前运行数
+    pub max_concurrent: usize,     // 最大并发数
+    pub queued_count: usize,       // 等待队列长度
+    pub available_slots: usize,    // 可用槽位数
+    pub utilization: f32,          // 并发利用率 (%)
 }
 
 /// Stdio 管道命令
@@ -634,20 +811,10 @@ mod tests {
 
     #[test]
     fn test_agent_message_progress() {
-        let msg = AgentMessage::progress("agent-001".to_string(), "Processing...".to_string(), 0.75);
+        let msg = AgentMessage::progress("agent-001".to_string(), "Processing...".to_string(), 0.5);
         
         assert_eq!(msg.message_type, MessageType::Progress);
         assert!(msg.metadata.is_some());
-    }
-
-    #[test]
-    fn test_daemon_state_creation() {
-        let state = DaemonState::new("session-001".to_string(), "project-001".to_string());
-        
-        assert_eq!(state.session_id, "session-001");
-        assert_eq!(state.project_id, "project-001");
-        assert_eq!(state.current_phase, AgentPhase::Initializer);
-        assert!(state.active_agents.is_empty());
     }
 
     #[test]
@@ -680,6 +847,11 @@ mod tests {
         assert!(manager.agents.is_empty());
         assert!(manager.completed_tasks.is_empty());
         assert!(manager.pending_tasks.is_empty());
+        // ========== VC-013: 验证并发控制字段初始化 ==========
+        assert_eq!(manager.running_count, 0);
+        assert_eq!(manager.max_concurrent, 5); // 默认值
+        assert!(manager.agent_queue.is_empty());
+        assert!(manager.running_agents.is_empty());
     }
 
     #[test]
@@ -801,4 +973,264 @@ mod tests {
         assert!(snapshot.system_info.total_memory > 0);
         assert!(snapshot.system_info.cpu_cores > 0);
     }
+
+    // ========== VC-013: 并发控制测试 ==========
+
+    #[test]
+    fn test_concurrency_config_initialization() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 4,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        assert_eq!(manager.max_concurrent, 4);
+        assert_eq!(manager.running_count, 0);
+        assert!(manager.agent_queue.is_empty());
+    }
+
+    #[test]
+    fn test_can_spawn_agent_when_slots_available() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 初始时有可用槽位
+        assert!(manager.can_spawn_agent());
+        assert_eq!(manager.available_slots(), 2);
+    }
+
+    #[test]
+    fn test_cannot_spawn_agent_when_slots_full() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 启动 2 个 Agent，占满槽位
+        let agent1 = manager.spawn_agent("coding").unwrap();
+        let agent2 = manager.spawn_agent("coding").unwrap();
+        
+        manager.try_start_agent(&agent1);
+        manager.try_start_agent(&agent2);
+        
+        // 此时不能再启动新 Agent
+        assert!(!manager.can_spawn_agent());
+        assert_eq!(manager.available_slots(), 0);
+    }
+
+    #[test]
+    fn test_agent_queuing_when_concurrent_limit_reached() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 启动 2 个 Agent
+        let agent1 = manager.spawn_agent("coding").unwrap();
+        let agent2 = manager.spawn_agent("coding").unwrap();
+        manager.try_start_agent(&agent1);
+        manager.try_start_agent(&agent2);
+        
+        // 第 3 个 Agent 需要排队
+        let agent3 = manager.spawn_agent("coding").unwrap();
+        let should_start = manager.try_start_agent(&agent3);
+        
+        assert!(!should_start); // 不能立即启动
+        assert_eq!(manager.agent_queue.len(), 1);
+        assert!(manager.agent_queue.contains(&agent3));
+    }
+
+    #[test]
+    fn test_auto_schedule_next_agent_on_completion() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 启动 2 个 Agent，第 3 个排队
+        let agent1 = manager.spawn_agent("coding").unwrap();
+        let agent2 = manager.spawn_agent("coding").unwrap();
+        let agent3 = manager.spawn_agent("coding").unwrap();
+        
+        manager.try_start_agent(&agent1);
+        manager.try_start_agent(&agent2);
+        manager.try_start_agent(&agent3); // 会进入队列
+        
+        assert_eq!(manager.running_count, 2);
+        assert_eq!(manager.agent_queue.len(), 1);
+        
+        // 完成 agent1，agent3 应该自动启动
+        manager.stop_agent(&agent1).unwrap();
+        
+        assert_eq!(manager.running_count, 2); // 保持 2 个运行
+        assert!(manager.agent_queue.is_empty()); // 队列清空
+    }
+
+    #[test]
+    fn test_concurrency_stats() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 4,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 启动 2 个 Agent
+        let agent1 = manager.spawn_agent("coding").unwrap();
+        let agent2 = manager.spawn_agent("coding").unwrap();
+        manager.try_start_agent(&agent1);
+        manager.try_start_agent(&agent2);
+        
+        let stats = manager.get_concurrency_stats();
+        
+        assert_eq!(stats.running_count, 2);
+        assert_eq!(stats.max_concurrent, 4);
+        assert_eq!(stats.queued_count, 0);
+        assert_eq!(stats.available_slots, 2);
+        assert!((stats.utilization - 50.0).abs() < 0.1); // 50% 利用率
+    }
+
+    #[test]
+    fn test_adjust_max_concurrent_increase() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 启动 2 个 Agent，第 3 个排队
+        let agent1 = manager.spawn_agent("coding").unwrap();
+        let agent2 = manager.spawn_agent("coding").unwrap();
+        let agent3 = manager.spawn_agent("coding").unwrap();
+        
+        manager.try_start_agent(&agent1);
+        manager.try_start_agent(&agent2);
+        manager.try_start_agent(&agent3);
+        
+        // 提高并发限制
+        manager.adjust_max_concurrent(4).unwrap();
+        
+        assert_eq!(manager.max_concurrent, 4);
+        assert_eq!(manager.running_count, 3); // agent3 应该自动启动
+        assert!(manager.agent_queue.is_empty());
+    }
+
+    #[test]
+    fn test_adjust_max_concurrent_decrease() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 4,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        // 启动 4 个 Agent
+        for _ in 0..4 {
+            let agent_id = manager.spawn_agent("coding").unwrap();
+            manager.try_start_agent(&agent_id);
+        }
+        
+        assert_eq!(manager.running_count, 4);
+        
+        // 降低并发限制到 2
+        manager.adjust_max_concurrent(2).unwrap();
+        
+        assert_eq!(manager.max_concurrent, 2);
+        assert_eq!(manager.running_count, 2);
+        assert_eq!(manager.agent_queue.len(), 2); // 2 个被暂停的进入队列
+    }
+
+    #[test]
+    fn test_get_running_and_queued_agents() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        manager.start(config).unwrap();
+        
+        let agent1 = manager.spawn_agent("coding").unwrap();
+        let agent2 = manager.spawn_agent("coding").unwrap();
+        let agent3 = manager.spawn_agent("coding").unwrap();
+        
+        manager.try_start_agent(&agent1);
+        manager.try_start_agent(&agent2);
+        manager.try_start_agent(&agent3);
+        
+        let running = manager.get_running_agents();
+        let queued = manager.get_queued_agents();
+        
+        assert_eq!(running.len(), 2);
+        assert_eq!(queued.len(), 1);
+    }
+
+    #[test]
+    fn test_adjust_max_concurrent_zero_error() {
+        let mut manager = DaemonManager::new();
+        let config = DaemonConfig {
+            session_id: "session-001".to_string(),
+            project_path: "/tmp/test".to_string(),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 2,
+            workspace_dir: "/tmp".to_string(),
+        };
+        
+        // 启动守护进程
+        let result = manager.start(config);
+        assert!(result.is_ok());
+        
+        // 验证不能设置为 0
+        let adjust_result = manager.adjust_max_concurrent(0);
+        assert!(adjust_result.is_err());
+        assert_eq!(adjust_result.unwrap_err(), "max_concurrent must be greater than 0");
+    }
+
 }

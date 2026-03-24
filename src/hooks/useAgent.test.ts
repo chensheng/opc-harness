@@ -56,6 +56,7 @@ describe('useAgent', () => {
   it('should send agent request successfully', async () => {
     const { result } = renderHook(() => useAgent())
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let response: any
     await act(async () => {
       response = await result.current.sendAgentRequest('agent-001', 'initialize', {

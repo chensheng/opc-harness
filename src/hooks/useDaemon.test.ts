@@ -176,7 +176,7 @@ describe('useDaemon', () => {
       await act(async () => {
         await result.current.startDaemon({})
       })
-    } catch (err) {
+    } catch {
       // Expected to fail
     }
 

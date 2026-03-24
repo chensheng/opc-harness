@@ -40,7 +40,7 @@ export function useAgent(): UseAgentReturn {
 
       // 模拟连接成功
       console.log('[useAgent] WebSocket connected:', sessionId)
-    } catch (_err) {
+    } catch {
       const errorMsg = 'Failed to connect WebSocket'
       setError(errorMsg)
       throw new Error(errorMsg)
@@ -85,7 +85,7 @@ export function useAgent(): UseAgentReturn {
         }
 
         return response
-      } catch (_err) {
+      } catch {
         const errorMsg = 'Failed to send agent request'
         setError(errorMsg)
         return {
