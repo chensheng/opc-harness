@@ -1,79 +1,74 @@
-# Harness Engineering 开发流程规范
+# Harness Engineering 开发流程
 
-> **版本**: 1.0.0  
-> **创建日期**: 2026-03-24  
-> **最后更新**: 2026-03-24  
+> **Harness Engineering**: "质量内建，非事后检查"  
 > **适用范围**: OPC-HARNESS 项目所有开发任务  
+> **最后更新**: 2026-03-24  
 > **执行方式**: 强制遵循 ✅
 
 ---
 
-## 📋 概述
+## 🎯 快速入口
 
-本文档定义了 OPC-HARNESS 项目的标准开发流程，基于 **Harness Engineering** 理念，强调质量内建、自动化验证和测试驱动。
-
-### 核心原则
-
-1. **质量内建** - 质量是构建出来的，不是检查出来的
-2. **测试先行** - 先写测试再实现功能 (TDD)
-3. **持续验证** - 每次修改后自动运行检查和测试
-4. **E2E 覆盖** - 核心流程必须有端到端测试验证
-5. **架构约束** - 严格遵守分层架构和依赖规则
-
----
-
-## 🎯 完整开发流程（7 个阶段）
-
+### ⭐⭐⭐ 核心流程
 ```mermaid
-graph TD
-    A[阶段 1: 任务选择] --> B[阶段 2: 架构学习]
-    B --> C[阶段 3: 测试设计]
-    C --> D[阶段 4: 开发实施]
-    D --> E[阶段 5: 质量验证]
-    E --> F[阶段 6: 文档更新]
-    F --> G[阶段 7: 完成交付]
+graph LR
+A[1.任务选择] --> B[2.架构学习] --> C[3.测试设计] --> D[4.开发实施] --> E[5.质量验证] --> F[6.文档更新] --> G[7.完成交付]
+```
+
+### ⭐⭐ 架构约束
+- [前端规则](./references/architecture-rules.md) - FE-ARCH-001 ~ 005
+- [后端规则](./references/architecture-rules.md) - BE-ARCH-001 ~ 005
+- [测试规则](./references/architecture-rules.md) - TEST-001 ~ 005 🔥
+
+### ⭐ 质量门禁
+```bash
+npm run harness:check          # 架构健康检查（目标 100/100）
+npm run test:e2e               # E2E 测试（100% 通过）🔥
 ```
 
 ---
 
-## 📝 阶段 1: 任务选择 (Task Selection)
+## 📋 核心原则
 
-### 输入
-- MVP版本规划文档
-- 产品待办事项列表 (Product Backlog)
+1. **质量内建** - 质量是构建出来的，不是检查出来的
+2. **测试先行** - 先写测试再实现功能 (TDD) 🔥
+3. **持续验证** - 每次修改后自动运行检查和测试
+4. **E2E 覆盖** - 核心流程必须有端到端测试验证 🔥
+5. **架构约束** - 严格遵守分层架构和依赖规则
 
-### 活动
-1. **查阅 MVP 规划**: 查看 [`docs/exec-plans/active/MVP版本规划.md`](./exec-plans/active/MVP版本规划.md)
-2. **选择标准**:
-   - 🔴 **高优先级 (P0/P1)** - 关键路径任务
-   - 🎯 **独立性强** - 不依赖其他未完成的任务
-   - ⏱️ **工作量适中** - 可在合理时间内完成
-   - 💡 **价值明确** - 为后续功能奠定基础
+---
 
-### 输出
-- 明确的任务 ID 和目标
-- 任务验收标准
+## 🚀 7 阶段开发流程
 
-### 示例
-```markdown
-任务选择：VD-010 - 实现 OpenAI 适配器
+### 阶段 1: 任务选择 (5%)
+**查阅**: [`MVP版本规划`](./exec-plans/active/MVP版本规划.md)
+
+**选择标准**:
+- 🔴 P0/P1 高优先级 - 关键路径任务
+- 🎯 独立性强 - 不依赖其他未完成的任务
+- ⏱️ 工作量适中 - 可快速完成并验证
+- 💡 价值明确 - 为后续功能奠定基础
+
+**示例**:
+```
+任务：VC-001 - 定义 Agent 通信协议
 理由:
-1. P0 高优先级 - AI 适配器核心组件
-2. 关键路径 - Vibe Design 和 Vibe Coding 依赖
-3. 技术成熟 - OpenAI API 规范清晰
+1. P0 高优先级 - Vibe Coding 基础架构
+2. 关键路径 - Initializer/Coding Agent 依赖
+3. 技术成熟 - Rust 类型系统支持
 4. 工作量适中 - 可快速完成并验证
 ```
 
 ---
 
-## 📚 阶段 2: 架构学习 (Architecture Study)
+### 阶段 2: 架构学习 (5%)
 
-### 必读文档
-1. [架构约束规则](./references/architecture-rules.md) - FE-ARCH / BE-ARCH / TEST 规则
-2. [前端开发规范](../../src/AGENTS.md) - React/TypeScript 最佳实践
-3. [后端规范](../../src-tauri/AGENTS.md) - Rust 编码规范
+**必读文档**:
+1. [`架构约束规则`](./references/architecture-rules.md) - FE/BE/TEST 规则
+2. [`前端规范`](../../src/AGENTS.md) - React/TypeScript 最佳实践
+3. [`后端规范`](../../src-tauri/AGENTS.md) - Rust 编码规范
 
-### 关键架构约束
+**关键约束**:
 
 #### 前端 (FE-ARCH)
 - FE-ARCH-001: Store 不导入组件
@@ -96,86 +91,48 @@ graph TD
 - TEST-004: E2E 测试必须独立运行
 - TEST-005: 测试覆盖率不达标禁止合并
 
-### 输出
-- 理解相关架构约束
-- 明确技术实现方案
-
 ---
 
-## 🧪 阶段 3: 测试设计 (Test Design)
+### 阶段 3: 测试设计 (10%) 🔥
 
-### 3.1 单元测试设计
+**单元测试设计**:
 
-**TypeScript 测试**:
 ```typescript
-// 文件命名：*.test.ts 或 *.test.tsx
+// TypeScript 测试 (*.test.ts)
 describe('useOpenAIProvider', () => {
   it('should initialize with correct state')
   it('should validate API key successfully')
   it('should handle chat request')
-  it('should handle stream chat with chunks')
-  it('should clear error on successful operation')
 })
 ```
 
-**Rust 测试**:
 ```rust
-// 在模块内使用 #[cfg(test)]
+// Rust 测试 (#[cfg(test)])
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_openai_provider_creation() {
+    fn test_provider_creation() {
         let provider = OpenAIProvider::new("test-key".to_string());
         assert_eq!(provider.api_key(), "test-key");
     }
 }
 ```
 
-### 3.2 E2E 测试设计 🔥
+**E2E 测试设计** 🔥:
 
-**必需场景**:
-1. **应用启动** - 验证 HTTP 200 响应和 HTML 结构
-2. **核心页面导航** - Settings, ToolDetector 等页面切换
-3. **关键配置流程** - API Key 设置和验证
-4. **API 可达性** - Tauri API 和静态资源加载
-
-**E2E 测试要求**:
 ```typescript
 // e2e/app.spec.ts
 describe('OPC-HARNESS Application', () => {
-  // 1. 应用加载
   it('should load the application successfully')
-  
-  // 2. HTML 结构
   it('should have valid HTML structure')
-  
-  // 3. 资源加载
   it('should load required assets')
-  
-  // 4. 响应式设计
   it('should respond on mobile viewport size')
-  
-  // 5. 错误检查
   it('should have no critical console errors')
-  
-  // 6. API 检查
   it('API endpoints should be accessible')
 })
 ```
 
-**服务器管理**:
-- ✅ 自动检测端口占用
-- ✅ 自动启动开发服务器
-- ✅ 等待服务器就绪
-- ✅ 测试结束后优雅关闭
-
-**测试报告**:
-- ✅ 自动生成 HTML 报告
-- ✅ 保存到 `docs/testing/e2e-reports/`
-- ✅ 包含测试结果和时间戳
-
-### 3.3 测试覆盖率目标
-
+**覆盖率目标**:
 ```yaml
 # vite.config.ts
 coverage:
@@ -187,35 +144,13 @@ coverage:
       statements: 70
 ```
 
-### 输出
-- 单元测试用例列表
-- E2E 测试场景设计
-- Mock 数据准备
-
 ---
 
-## 💻 阶段 4: 开发实施 (Development)
+### 阶段 4: 开发实施 (45%)
 
-### 4.1 后端实现 (Rust)
-
-**步骤**:
-1. 创建/修改模块文件 (`src-tauri/src/*/mod.rs`)
-2. 添加必要的依赖 (`Cargo.toml`)
-3. 实现业务逻辑和错误处理
-4. 添加日志记录 (`log::info!`, `log::error!`)
-5. 编写单元测试
-
-**关键要求**:
-- ✅ 完整的类型定义
-- ✅ 错误处理机制 (`Result<T, AppError>`)
-- ✅ 日志记录
-- ✅ 无 `cargo check` 错误
-- ✅ 单元测试覆盖
-
-**示例**:
+**后端实现 (Rust)**:
 ```rust
 // src-tauri/src/ai/mod.rs
-
 pub struct OpenAIProvider {
     api_key: String,
     base_url: String,
@@ -234,42 +169,18 @@ impl OpenAIProvider {
         // ... 实现
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_provider_creation() {
-        let provider = OpenAIProvider::new("test-key".to_string());
-        assert_eq!(provider.api_key(), "test-key");
-    }
-}
 ```
 
-### 4.2 前端实现 (TypeScript/React)
-
-**步骤**:
-1. 创建 Hook (`src/hooks/use*.ts`)
-2. 创建组件 (`src/components/*/*.tsx`)
-3. 使用路径别名 (`@/`)
-4. 编写单元测试
-
 **关键要求**:
-- ✅ TypeScript 类型安全
-- ✅ React Hooks 最佳实践
-- ✅ 遵循架构约束 (FE-ARCH)
-- ✅ 无 `any` 类型（或最小化使用）
+- ✅ 完整的类型定义
+- ✅ 错误处理机制 (`Result<T, AppError>`)
+- ✅ 日志记录
+- ✅ 无 `cargo check` 错误
 - ✅ 单元测试覆盖
 
-**示例**:
+**前端实现 (TypeScript/React)**:
 ```typescript
 // src/hooks/useOpenAIProvider.ts
-
-export interface ChatRequest {
-  model: string
-  messages: Message[]
-  temperature?: number
-}
-
 export function useOpenAIProvider() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -289,142 +200,67 @@ export function useOpenAIProvider() {
 }
 ```
 
-### 4.3 E2E 测试实现 🔥
-
-**步骤**:
-1. 创建 E2E 测试文件 (`e2e/*.spec.ts`)
-2. 实现服务器自动管理
-3. 编写测试用例
-4. 生成测试报告
-
 **关键要求**:
-- ✅ 自动启停开发服务器
-- ✅ 覆盖核心用户流程
-- ✅ 使用 Mock 数据（不依赖真实 API）
-- ✅ 生成 HTML 测试报告
-- ✅ 优雅清理资源
-
-**示例**:
-```typescript
-// e2e/app.spec.ts
-
-beforeAll(async () => {
-  // 自动检测并启动服务器
-  const inUse = await isPortInUse(port)
-  if (!inUse) {
-    devServer = spawn('npm', ['run', 'dev'])
-  }
-})
-
-afterAll(async () => {
-  // 优雅关闭服务器
-  if (serverStartedByTest && devServer) {
-    devServer.kill('SIGTERM')
-  }
-})
-
-describe('Application', () => {
-  it('should load successfully', async () => {
-    const response = await fetch(baseUrl)
-    expect(response.status).toBe(200)
-  })
-})
-```
-
-### 输出
-- Rust 后端代码 + 单元测试
-- TypeScript 前端代码 + 单元测试
-- E2E 测试代码
+- ✅ TypeScript 类型安全
+- ✅ React Hooks 最佳实践
+- ✅ 遵循架构约束 (FE-ARCH)
+- ✅ 无 `any` 类型（或最小化使用）
+- ✅ 单元测试覆盖
 
 ---
 
-## 🔍 阶段 5: 质量验证 (Quality Validation)
+### 阶段 5: 质量验证 (20%)
 
-### 5.1 运行 Harness 健康检查
-
-**核心命令**:
+**运行 Harness 健康检查**:
 ```bash
 npm run harness:check
 ```
 
-**检查项** (6 项):
-1. ✅ TypeScript Type Checking - `tsc --noEmit`
-2. ✅ ESLint Code Quality - `npm run lint`
-3. ✅ Prettier Formatting - `npm run format:check`
-4. ✅ Rust Compilation - `cd src-tauri && cargo check`
-5. ✅ Dependency Integrity - 依赖文件完整性
-6. ✅ Directory Structure - 目录结构检查
+**检查项** (8 项):
+1. ✅ TypeScript Type Checking
+2. ✅ ESLint Code Quality
+3. ✅ Prettier Formatting
+4. ✅ Rust Compilation
+5. ✅ Rust Unit Tests Check
+6. ✅ TypeScript Unit Tests Check
+7. ✅ Dependency Integrity - 依赖文件完整性
+8. ✅ Directory Structure - 目录结构检查
 
 **评分标准**:
 - 🟢 **Excellent**: 100/100 - 所有检查通过
 - 🟡 **Good**: 70-99 分 - 少量警告
 - 🔴 **Needs Fix**: <70 分 - 需要立即修复
 
-### 5.2 运行单元测试
-
-**命令**:
+**运行E2E测试**:
 ```bash
-npm run test:unit              # 运行所有单元测试
+npm run test:e2e               # E2E 测试（100% 通过）🔥
 ```
 
-**要求**:
-- ✅ 所有测试必须通过 (100%)
-- ✅ 覆盖率 ≥70%
-- ✅ 无失败测试
-
-### 5.3 运行 E2E 测试 🔥
-
-**命令**:
-```bash
-npm run test:e2e               # 运行 E2E 测试
-npx vitest run e2e            # 直接运行 Vitest E2E
-```
-
-**要求**:
-- ✅ 所有 E2E 测试用例通过
-- ✅ 核心流程覆盖完整
-- ✅ 测试报告已生成
-
-### 5.4 问题修复循环
-
+**问题修复循环**:
 ```bash
 # 迭代直到 Health Score = 100/100
 while [ $(npm run harness:check | grep "Health Score" | cut -d: -f2 | cut -d/ -f1) -lt 100 ]; do
-  # 自动修复格式问题
-  npm run harness:fix
-  
-  # 手动修复类型错误
-  npx tsc --noEmit
-  
-  # 检查 Rust 编译
-  cd src-tauri && cargo check
+  npm run harness:fix          # 自动修复格式问题
+  npx tsc --noEmit             # 手动修复类型错误
+  cd src-tauri && cargo check  # 检查 Rust 编译
 done
 ```
 
-### 输出
-- Health Score: 100/100
-- 单元测试通过率：100%
-- E2E 测试通过率：100%
-- 测试覆盖率：≥70%
-
 ---
 
-## 📚 阶段 6: 文档更新 (Documentation)
+### 阶段 6: 文档更新 (10%)
 
-### 6.1 更新 MVP 规划
-
-**文件**: [`docs/exec-plans/active/MVP版本规划.md`](./exec-plans/active/MVP版本规划.md)
-
-**操作**:
-```markdown
+**更新 MVP 规划**:
+```
+<!-- docs/exec-plans/active/MVP版本规划.md -->
 <!-- 修改前 -->
-- [ ] VD-010: 实现 OpenAI 适配器
+- [ ] VC-001: 定义 Agent 通信协议和数据结构
 
 <!-- 修改后 -->
-- [x] VD-010: 实现 OpenAI 适配器 ✅ **已完成**
+- [x] VC-001: 定义 Agent 通信协议和数据结构 ✅ **已完成**
 ```
 
-### 6.2 创建任务完成报告
+**创建任务完成报告**:
 
 **模板**: `docs/exec-plans/active/task-completion-{TASK_ID}.md`
 
@@ -437,14 +273,8 @@ done
 6. 💡 经验教训
 7. 📞 下一步行动
 
-**示例文件**:
-- [`task-completion-vd-010.md`](./exec-plans/active/task-completion-vd-010.md)
-- [`task-completion-infra-011.md`](./exec-plans/active/task-completion-infra-011.md)
-
-### 6.3 Harness 合规性声明 🔥
-
-**必需内容**:
-```markdown
+**Harness 合规性声明** 🔥:
+```
 ## Harness Engineering 合规声明
 
 - ✅ TypeScript 编译通过
@@ -452,21 +282,16 @@ done
 - ✅ Prettier 格式化一致
 - ✅ Rust cargo check 通过
 - ✅ 单元测试 100% 通过 (覆盖率≥70%)
-- ✅ E2E 测试 100% 通过 (核心流程覆盖)
+- ✅ E2E 测试 100% 通过 (核心流程覆盖) 🔥
 - ✅ 架构约束无违规
 - ✅ Harness Health Score 100/100
 ```
 
-### 输出
-- MVP 规划已更新
-- 任务完成报告已创建
-- Harness 合规性声明完整
-
 ---
 
-## ✅ 阶段 7: 完成交付 (Delivery)
+### 阶段 7: 完成交付 (5%)
 
-### 交付检查清单
+**交付检查清单**:
 
 **代码质量**:
 - [x] TypeScript 类型检查通过
@@ -492,35 +317,18 @@ done
 - [x] 后端架构约束 (BE-ARCH) 全部满足
 - [x] **测试架构约束 (TEST) 全部满足** 🔥
 
-### Git 提交
-
-**Commit Message 格式**:
-```bash
-feat: 实现 VD-010 OpenAI 适配器
-
-- 添加 OpenAIProvider Rust 实现
-- 创建 useOpenAIProvider Hook
-- 编写单元测试 (Rust 4 个 + TS 5 个)
-- **编写 E2E 测试 (6 个场景)** 🔥
-- 通过 Harness Engineering 验证 (100/100)
-- 测试覆盖率：85%
-
-Closes #VD-010
+**Git 提交**:
 ```
+feat: 实现 VC-001 Agent 通信协议
 
-### 最终验证
+- 扩展 AgentType 枚举，支持 Initializer/Coding/MRCreation
+- 新增 Issue 数据结构，支持优先级/状态/负责人等字段
+- 实现 HITL 检查点协议（CheckpointRequest/Response）
+- 编写单元测试 (Rust 18 个)
+- 通过 Harness Engineering 验证 (100/100)
+- 测试覆盖率：95%
 
-```bash
-# 运行最终检查
-npm run harness:check
-
-# 预期输出:
-# [EXCELLENT] Health Score: 100/100
-# Status: Excellent
-# Issues Found: 0
-# 
-# [SUCCESS] All tests passed (Unit + E2E)
-# [SUCCESS] Coverage: 85% (>70%)
+Closes #VC-001
 ```
 
 ---
@@ -579,20 +387,20 @@ npm run harness:check
 ## 🔗 相关资源
 
 ### 核心文档
-- [MVP版本规划](./exec-plans/active/MVP版本规划.md)
-- [架构约束规则](./references/architecture-rules.md) 🔥
-- [Harness 检查脚本](../../scripts/harness-check.ps1)
-- [E2E 测试脚本](../../scripts/harness-e2e.ps1) 🔥
+- [`MVP版本规划`](./exec-plans/active/MVP版本规划.md)
+- [`架构约束规则`](./references/architecture-rules.md) 🔥
+- [`Harness 检查脚本`](../../scripts/harness-check.ps1)
+- [`E2E 测试脚本`](../../scripts/harness-e2e.ps1) 🔥
 
 ### 示例任务
-- [VD-010 完成报告](./exec-plans/active/task-completion-vd-010.md)
-- [INFRA-011 完成报告](./exec-plans/active/task-completion-infra-011.md)
+- [`VC-001 完成报告`](./exec-plans/completed/VC-001-Agent 通信协议.md)
+- [`VD-010 完成报告`](./exec-plans/active/task-completion-vd-010.md)
+- [`INFRA-011 完成报告`](./exec-plans/active/task-completion-infra-011.md)
 
 ### 工具命令
-```bash
+```
 npm run harness:check      # 架构健康检查
 npm run harness:fix        # 自动修复问题
-npm run test:unit          # 运行单元测试
 npm run test:e2e          # 运行 E2E 测试 🔥
 npm run format             # 格式化代码
 npx tsc --noEmit          # TypeScript 类型检查
@@ -601,7 +409,7 @@ cd src-tauri; cargo check # Rust 编译检查
 
 ---
 
-## 🎓 最佳实践总结
+## 🎓 最佳实践
 
 ### ✅ DO (应该做的)
 1. 开发前阅读架构规则和测试约束
@@ -626,7 +434,7 @@ cd src-tauri; cargo check # Rust 编译检查
 
 ---
 
-## 📈 质量门禁达成情况
+## 📈 质量门禁
 
 | 指标 | 目标 | 实际 | 评级 |
 |------|------|------|------|
@@ -634,8 +442,8 @@ cd src-tauri; cargo check # Rust 编译检查
 | ESLint 检查 | 通过 | ✅ 通过 | ⭐⭐⭐⭐⭐ |
 | Prettier 格式化 | 一致 | ✅ 一致 | ⭐⭐⭐⭐⭐ |
 | Rust cargo check | 通过 | ✅ 通过 | ⭐⭐⭐⭐⭐ |
-| 单元测试覆盖率 | ≥70% | ✅ 85% | ⭐⭐⭐⭐⭐ |
-| **E2E 测试通过** | 100% | ✅ 100% | ⭐⭐⭐⭐⭐ |
+| 单元测试覆盖率 | ≥70% | ✅ 95% | ⭐⭐⭐⭐⭐ |
+| **E2E 测试通过** | 100% | ✅ 100% | ⭐⭐⭐⭐⭐ 🔥 |
 | 架构约束 | 无违规 | ✅ 无违规 | ⭐⭐⭐⭐⭐ |
 | Harness Score | ≥90 | ✅ 100/100 | ⭐⭐⭐⭐⭐ |
 
@@ -650,5 +458,10 @@ cd src-tauri; cargo check # Rust 编译检查
 ---
 
 **维护者**: OPC-HARNESS Team  
-**审查周期**: 季度 ⭐  
-**下次审查日期**: 2026-06-23
+**版本**: 2.0 (精简导航版)  
+**最后更新**: 2026-03-24  
+**变更说明**: 
+- ✅ 精简至<500 行，聚焦核心流程
+- ✅ 与 AGENTS.md 风格保持一致
+- ✅ 强化智能导航，非百科全书
+- ✅ 保留核心链接和快速参考
