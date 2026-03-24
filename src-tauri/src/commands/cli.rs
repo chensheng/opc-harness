@@ -542,8 +542,9 @@ mod tests {
         };
         
         let json = serde_json::to_string(&status).unwrap();
-        assert!(json.contains("\"isGitRepo\":true"));
-        assert!(json.contains("\"gitVersion\":\"2.42.0\""));
+        // 验证实际序列化的字段名（snake_case）
+        assert!(json.contains("\"is_git_repo\":true"));
+        assert!(json.contains("\"git_version\":\"2.42.0\""));
     }
     
     #[test]
@@ -554,8 +555,9 @@ mod tests {
         };
         
         let json = serde_json::to_string(&config).unwrap();
-        assert!(json.contains("\"userName\":\"Test User\""));
-        assert!(json.contains("\"userEmail\":\"test@example.com\""));
+        // 验证实际序列化的字段名（snake_case）
+        assert!(json.contains("\"user_name\":\"Test User\""));
+        assert!(json.contains("\"user_email\":\"test@example.com\""));
     }
     
     #[test]
@@ -566,8 +568,9 @@ mod tests {
         };
         
         let json = serde_json::to_string(&request).unwrap();
+        // 验证实际序列化的字段名（snake_case）
         assert!(json.contains("\"path\":\"/tmp/test\""));
-        assert!(json.contains("\"initialBranch\":\"develop\""));
+        assert!(json.contains("\"initial_branch\":\"develop\""));
     }
     
     #[test]
