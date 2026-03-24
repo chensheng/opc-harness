@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
 # Harness Engineering 架构健康检查脚本
 # 用法：.\scripts\harness-check.ps1
+# 版本：2.0 (模块化重构版)
 
 param(
     [switch]$Fix,          # 自动修复问题
@@ -11,330 +12,477 @@ param(
     [switch]$Quick         # 快速模式（仅核心 8 项检查）
 )
 
-$ErrorActionPreference = "Stop"
-$StartTime = Get-Date
-$Score = 100
-$Issues = @()
+# =============================================
+# 配置区域 - 集中管理所有配置
+# =============================================
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  OPC-HARNESS Architecture Health Check" -ForegroundColor Cyan
-Write-Host ""
-
-# 1. TypeScript type checking
-Write-Host "[1/6] TypeScript Type Checking..." -ForegroundColor Yellow
-try {
-    $tscResult = npx tsc --noEmit 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  [PASS] TypeScript type checking passed" -ForegroundColor Green
-    } else {
-        Write-Host "  [FAIL] TypeScript type checking failed" -ForegroundColor Red
-        $Issues += @{ Type = "TypeScript"; Severity = "Error"; Message = "Type check failed" }
-        $Score -= 20
-        if ($Verbose) {
-            Write-Host $tscResult -ForegroundColor Gray
-        }
+$Script:Config = @{
+    ScoreWeights = @{
+        TypeScript      = 20
+        ESLint          = 15
+        Prettier        = 10
+        Rust            = 25
+        RustTests       = 20
+        TSTests         = 20
+        Dependencies    = 5
+        Directory       = 5
     }
-} catch {
-    Write-Host "  [WARN] Cannot execute TypeScript check" -ForegroundColor Yellow
-    $Issues += @{ Type = "TypeScript"; Severity = "Warning"; Message = "Check tool unavailable" }
-}
-
-# 2. ESLint code quality check
-Write-Host "[2/6] ESLint Code Quality Check..." -ForegroundColor Yellow
-try {
-    $eslintResult = npm run lint 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  [PASS] ESLint check passed" -ForegroundColor Green
-    } else {
-        Write-Host "  [FAIL] ESLint check has warnings/errors" -ForegroundColor Red
-        $Issues += @{ Type = "ESLint"; Severity = "Error"; Message = "Code style violation" }
-        $Score -= 15
-        if ($Verbose -or $Fix) {
-            Write-Host $eslintResult -ForegroundColor Gray
-        }
-        
-        if ($Fix) {
-            Write-Host "  [FIX] Attempting auto-fix..." -ForegroundColor Blue
-            npm run lint:fix | Out-Null
-            Write-Host "  [OK] Auto-fix completed" -ForegroundColor Green
-        }
-    }
-} catch {
-    Write-Host "  [WARN] Cannot execute ESLint check" -ForegroundColor Yellow
-    $Issues += @{ Type = "ESLint"; Severity = "Warning"; Message = "Check tool unavailable" }
-}
-
-# 3. Prettier formatting check
-Write-Host "[3/6] Prettier Formatting Check..." -ForegroundColor Yellow
-try {
-    $prettierResult = npm run format:check 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  [PASS] Prettier formatting passed" -ForegroundColor Green
-    } else {
-        Write-Host "  [FAIL] Prettier formatting failed" -ForegroundColor Red
-        $Issues += @{ Type = "Prettier"; Severity = "Error"; Message = "Code format not standard" }
-        $Score -= 10
-        
-        if ($Fix) {
-            Write-Host "  [FIX] Auto-formatting code..." -ForegroundColor Blue
-            npm run format | Out-Null
-            Write-Host "  [OK] Code formatted" -ForegroundColor Green
-        }
-    }
-} catch {
-    Write-Host "  [WARN] Cannot execute Prettier check" -ForegroundColor Yellow
-    $Issues += @{ Type = "Prettier"; Severity = "Warning"; Message = "Check tool unavailable" }
-}
-
-# 4. Rust/Cargo compilation check
-Write-Host "[4/8] Rust Compilation Check..." -ForegroundColor Yellow
-$originalLocation = Get-Location
-Set-Location src-tauri
-
-# Check if cargo is available
-$cargoAvailable = $false
-try {
-    $null = Get-Command cargo -ErrorAction Stop
-    $cargoAvailable = $true
-} catch {
-    # Cargo not found
-}
-
-if ($cargoAvailable) {
-    # Run cargo check, suppress output but capture exit code
-    $null = & cargo check
     
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  [PASS] Rust compilation check passed" -ForegroundColor Green
-    } else {
-        Write-Host "  [FAIL] Rust compilation check failed" -ForegroundColor Red
-        $Issues += @{ Type = "Rust"; Severity = "Error"; Message = "Compilation error" }
-        $Score -= 25
-        if ($Verbose) {
-            Write-Host "Run 'cd src-tauri; cargo check' for details" -ForegroundColor Gray
-        }
+    RequiredDirs = @(
+        "src",
+        "src-tauri",
+        "scripts",
+        "docs"
+    )
+    
+    RequiredFiles = @(
+        "package.json",
+        "package-lock.json",
+        "src-tauri/Cargo.toml",
+        "src-tauri/Cargo.lock"
+    )
+    
+    Timeouts = @{
+        TSTests = 30  # seconds
     }
-} else {
-    Write-Host "  [WARN] Cannot execute Cargo check (Rust may not be installed)" -ForegroundColor Yellow
-    $Issues += @{ Type = "Rust"; Severity = "Warning"; Message = "Rust environment not ready" }
 }
 
-Set-Location $originalLocation
+$Script:State = @{
+    Score           = 100
+    Issues          = @()
+    OriginalLocation = Get-Location
+    CargoAvailable  = $false
+    NpmAvailable    = $false
+}
 
-# 5. Rust Unit Tests Check
-Write-Host "[5/8] Rust Unit Tests Check..." -ForegroundColor Yellow
+# =============================================
+# 工具函数区域 - 通用辅助函数
+# =============================================
 
-if ($cargoAvailable) {
-    Write-Host "  Running Rust unit tests..." -ForegroundColor Gray
+function Write-Header {
+    param([string]$Text)
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  $Text" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+function Write-CheckStart {
+    param(
+        [string]$Name,
+        [string]$Index
+    )
+    Write-Host "[$Index] $Name..." -ForegroundColor Yellow
+}
+
+function Write-CheckResult {
+    param(
+        [ValidateSet("PASS", "FAIL", "WARN", "FIX")]
+        [string]$Status,
+        [string]$Message
+    )
+    
+    $color = switch ($Status) {
+        "PASS" { "Green" }
+        "FAIL" { "Red" }
+        "WARN" { "Yellow" }
+        "FIX"  { "Blue" }
+    }
+    
+    Write-Host "  [$Status] $Message" -ForegroundColor $color
+}
+
+function Add-Issue {
+    param(
+        [string]$Type,
+        [ValidateSet("Error", "Warning")]
+        [string]$Severity,
+        [string]$Message,
+        [int]$ScorePenalty = 0
+    )
+    
+    $Script:State.Issues += @{
+        Type     = $Type
+        Severity = $Severity
+        Message  = $Message
+    }
+    
+    if ($ScorePenalty -gt 0) {
+        $Script:State.Score -= $ScorePenalty
+    }
+}
+
+function Test-CommandAvailable {
+    param([string]$CommandName)
+    try {
+        $null = Get-Command $CommandName -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# =============================================
+# 检查函数区域 - 各项独立检查逻辑
+# =============================================
+
+function Invoke-TypeScriptCheck {
+    Write-CheckStart -Name "TypeScript Type Checking" -Index "1/8"
     
     try {
-        # Use the dedicated Rust test script
-        $rustTestScript = Join-Path $PSScriptRoot "harness-rust-tests.ps1"
-        
-        if (-not (Test-Path $rustTestScript)) {
-            Write-Host "  [ERROR] Rust test script not found: $rustTestScript" -ForegroundColor Red
-            $Issues += @{ Type = "Rust Tests"; Severity = "Error"; Message = "Test script missing" }
-            $Score -= 20
+        $tscResult = npx tsc --noEmit 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-CheckResult -Status "PASS" -Message "TypeScript type checking passed"
         } else {
-            # Execute the Rust test script and capture output
-            $testOutputFile = [System.IO.Path]::GetTempFileName()
+            Write-CheckResult -Status "FAIL" -Message "TypeScript type checking failed"
+            Add-Issue -Type "TypeScript" -Severity "Error" -Message "Type check failed" -ScorePenalty $Script:Config.ScoreWeights.TypeScript
             
-            & powershell -ExecutionPolicy Bypass -File $rustTestScript -Verbose > $testOutputFile 2>&1
-            $rustTestExitCode = $LASTEXITCODE
-            
-            # Read the output
-            $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8
-            Remove-Item $testOutputFile -Force
-            
-            # Parse results
-            if ($testOutput -match "\[PASS\] All (\d+) Rust tests passed") {
-                $testCount = $matches[1]
-                Write-Host "  [PASS] All $testCount Rust tests passed" -ForegroundColor Green
-                
-                if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
-                }
-            } elseif ($testOutput -match "\[FAIL\].*panic|\[ERROR\]") {
-                Write-Host "  [FAIL] Rust tests encountered an error" -ForegroundColor Red
-                $Issues += @{ Type = "Rust Tests"; Severity = "Error"; Message = "Test execution error" }
-                $Score -= 20
-                
-                if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
-                }
-            } elseif ($testOutput -match "\[FAIL\] Rust tests:.*failed") {
-                Write-Host "  [FAIL] Some Rust tests failed" -ForegroundColor Red
-                $Issues += @{ Type = "Rust Tests"; Severity = "Error"; Message = "Test failures" }
-                $Score -= 20
-                
-                if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
-                }
-            } elseif ($rustTestExitCode -ne 0) {
-                Write-Host "  [ERROR] Rust test execution failed (exit code: $rustTestExitCode)" -ForegroundColor Red
-                $Issues += @{ Type = "Rust Tests"; Severity = "Error"; Message = "Test execution failed" }
-                $Score -= 20
-                
-                if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
-                }
-            } else {
-                Write-Host "  [WARN] Could not parse Rust test results" -ForegroundColor Yellow
-                $Issues += @{ Type = "Rust Tests"; Severity = "Warning"; Message = "Unknown test result" }
-                $Score -= 10
-                
-                if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
-                }
+            if ($Verbose) {
+                Write-Host $tscResult -ForegroundColor Gray
             }
         }
     } catch {
-        Write-Host "  [ERROR] Rust test execution failed: $_" -ForegroundColor Red
-        $Issues += @{ Type = "Rust Tests"; Severity = "Error"; Message = "Test execution exception" }
-        $Score -= 20
+        Write-CheckResult -Status "WARN" -Message "Cannot execute TypeScript check"
+        Add-Issue -Type "TypeScript" -Severity "Warning" -Message "Check tool unavailable"
+    }
+}
+
+function Invoke-ESLintCheck {
+    Write-CheckStart -Name "ESLint Code Quality Check" -Index "2/8"
+    
+    try {
+        $eslintResult = npm run lint 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-CheckResult -Status "PASS" -Message "ESLint check passed"
+        } else {
+            Write-CheckResult -Status "FAIL" -Message "ESLint check has warnings/errors"
+            Add-Issue -Type "ESLint" -Severity "Error" -Message "Code style violation" -ScorePenalty $Script:Config.ScoreWeights.ESLint
+            
+            if ($Verbose -or $Fix) {
+                Write-Host $eslintResult -ForegroundColor Gray
+            }
+            
+            if ($Fix) {
+                Write-CheckResult -Status "FIX" -Message "Attempting auto-fix..."
+                npm run lint:fix | Out-Null
+                Write-CheckResult -Status "OK" -Message "Auto-fix completed"
+            }
+        }
+    } catch {
+        Write-CheckResult -Status "WARN" -Message "Cannot execute ESLint check"
+        Add-Issue -Type "ESLint" -Severity "Warning" -Message "Check tool unavailable"
+    }
+}
+
+function Invoke-PrettierCheck {
+    Write-CheckStart -Name "Prettier Formatting Check" -Index "3/8"
+    
+    try {
+        $prettierResult = npm run format:check 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-CheckResult -Status "PASS" -Message "Prettier formatting passed"
+        } else {
+            Write-CheckResult -Status "FAIL" -Message "Prettier formatting failed"
+            Add-Issue -Type "Prettier" -Severity "Error" -Message "Code format not standard" -ScorePenalty $Script:Config.ScoreWeights.Prettier
+            
+            if ($Fix) {
+                Write-CheckResult -Status "FIX" -Message "Auto-formatting code..."
+                npm run format | Out-Null
+                Write-CheckResult -Status "OK" -Message "Code formatted"
+            }
+        }
+    } catch {
+        Write-CheckResult -Status "WARN" -Message "Cannot execute Prettier check"
+        Add-Issue -Type "Prettier" -Severity "Warning" -Message "Check tool unavailable"
+    }
+}
+
+function Invoke-RustCompilationCheck {
+    Write-CheckStart -Name "Rust Compilation Check" -Index "4/8"
+    
+    # Check if cargo is available
+    $Script:State.CargoAvailable = Test-CommandAvailable -CommandName "cargo"
+    
+    if (-not $Script:State.CargoAvailable) {
+        Write-CheckResult -Status "WARN" -Message "Cannot execute Cargo check (Rust may not be installed)"
+        Add-Issue -Type "Rust" -Severity "Warning" -Message "Rust environment not ready"
+        return
+    }
+    
+    # Run cargo check
+    Set-Location src-tauri
+    try {
+        $null = & cargo check
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-CheckResult -Status "PASS" -Message "Rust compilation check passed"
+        } else {
+            Write-CheckResult -Status "FAIL" -Message "Rust compilation check failed"
+            Add-Issue -Type "Rust" -Severity "Error" -Message "Compilation error" -ScorePenalty $Script:Config.ScoreWeights.Rust
+            
+            if ($Verbose) {
+                Write-Host "Run 'cd src-tauri; cargo check' for details" -ForegroundColor Gray
+            }
+        }
+    } finally {
+        Set-Location $Script:State.OriginalLocation
+    }
+}
+
+function Invoke-RustTestsCheck {
+    Write-CheckStart -Name "Rust Unit Tests Check" -Index "5/8"
+    
+    if (-not $Script:State.CargoAvailable) {
+        Write-CheckResult -Status "WARN" -Message "Cannot execute Rust tests (Cargo not available)"
+        Add-Issue -Type "Rust Tests" -Severity "Warning" -Message "Rust environment not ready"
+        return
+    }
+    
+    Write-Host "  Running Rust unit tests..." -ForegroundColor Gray
+    
+    try {
+        $rustTestScript = Join-Path $PSScriptRoot "harness-rust-tests.ps1"
+        
+        if (-not (Test-Path $rustTestScript)) {
+            Write-CheckResult -Status "FAIL" -Message "Rust test script not found: $rustTestScript"
+            Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test script missing" -ScorePenalty $Script:Config.ScoreWeights.RustTests
+            return
+        }
+        
+        $testOutputFile = [System.IO.Path]::GetTempFileName()
+        & powershell -ExecutionPolicy Bypass -File $rustTestScript -Verbose > $testOutputFile 2>&1
+        $rustTestExitCode = $LASTEXITCODE
+        
+        $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8
+        Remove-Item $testOutputFile -Force
+        
+        # Parse results
+        if ($testOutput -match "\[PASS\] All (\d+) Rust tests passed") {
+            $testCount = $matches[1]
+            Write-CheckResult -Status "PASS" -Message "All $testCount Rust tests passed"
+            
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } elseif ($testOutput -match "\[FAIL\].*panic|\[ERROR\]") {
+            Write-CheckResult -Status "FAIL" -Message "Rust tests encountered an error"
+            Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test execution error" -ScorePenalty $Script:Config.ScoreWeights.RustTests
+            
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } elseif ($testOutput -match "\[FAIL\] Rust tests:.*failed") {
+            Write-CheckResult -Status "FAIL" -Message "Some Rust tests failed"
+            Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.RustTests
+            
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } elseif ($rustTestExitCode -ne 0) {
+            Write-CheckResult -Status "FAIL" -Message "Rust test execution failed (exit code: $rustTestExitCode)"
+            Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.RustTests
+            
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } else {
+            Write-CheckResult -Status "WARN" -Message "Could not parse Rust test results"
+            Add-Issue -Type "Rust Tests" -Severity "Warning" -Message "Unknown test result" -ScorePenalty 10
+            
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        }
+    } catch {
+        Write-CheckResult -Status "FAIL" -Message "Rust test execution failed: $_"
+        Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test execution exception" -ScorePenalty $Script:Config.ScoreWeights.RustTests
         
         if ($Verbose) {
             Write-Host "Exception details: $_" -ForegroundColor Red
         }
     }
-} else {
-    Write-Host "  [WARN] Cannot execute Rust tests (Cargo not available)" -ForegroundColor Yellow
-    $Issues += @{ Type = "Rust Tests"; Severity = "Warning"; Message = "Rust environment not ready" }
 }
 
-# 6. TypeScript Unit Tests Check
-Write-Host "[6/8] TypeScript Unit Tests Check..." -ForegroundColor Yellow
-
-# Check if npm and node_modules are available
-$npmAvailable = $false
-try {
-    $null = Get-Command npm -ErrorAction Stop
-    $npmAvailable = $true
-} catch {
-    # Npm not found
-}
-
-if ($npmAvailable -and (Test-Path "node_modules")) {
-    # Run npm test:unit and capture output with timeout
+function Invoke-TSTestsCheck {
+    Write-CheckStart -Name "TypeScript Unit Tests Check" -Index "6/8"
+    
+    $Script:State.NpmAvailable = Test-CommandAvailable -CommandName "npm"
+    
+    if (-not $Script:State.NpmAvailable -or -not (Test-Path "node_modules")) {
+        Write-CheckResult -Status "WARN" -Message "Cannot execute TS tests (npm/node_modules not available)"
+        Add-Issue -Type "TS Tests" -Severity "Warning" -Message "TS environment not ready"
+        return
+    }
+    
     Write-Host "  Running TypeScript unit tests..." -ForegroundColor Gray
     
     try {
-        # Use timeout to prevent hanging (30 seconds max)
         $testJob = Start-Job -ScriptBlock {
-            Set-Location $using:originalLocation
+            Set-Location $using:Script:State.OriginalLocation
             & npm run test:unit 2>&1
         }
         
-        # Wait for job with timeout
-        $waited = $testJob | Wait-Job -Timeout 30
+        $waited = $testJob | Wait-Job -Timeout $Script:Config.Timeouts.TSTests
         
         if ($waited) {
             $testOutput = Receive-Job $testJob
             Stop-Job $testJob | Remove-Job -Force
             
-            # Parse test results
             if ($testOutput -match "Test Files\s+(\d+) passed") {
                 $testFiles = $matches[1]
-                Write-Host "  [PASS] All TS tests passed ($testFiles files)" -ForegroundColor Green
+                Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
             } elseif ($testOutput -match "FAILURES") {
-                Write-Host "  [FAIL] Some TS tests failed" -ForegroundColor Red
-                $Issues += @{ Type = "TS Tests"; Severity = "Error"; Message = "Test failures" }
-                $Score -= 20
+                Write-CheckResult -Status "FAIL" -Message "Some TS tests failed"
+                Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.TSTests
                 
                 if ($Verbose) {
                     Write-Host $testOutput -ForegroundColor Gray
                 }
             } else {
-                Write-Host "  [WARN] Could not parse TS test results" -ForegroundColor Yellow
-                $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "Unknown result" }
-                $Score -= 10
+                Write-CheckResult -Status "WARN" -Message "Could not parse TS test results"
+                Add-Issue -Type "TS Tests" -Severity "Warning" -Message "Unknown result" -ScorePenalty 10
                 
                 if ($Verbose) {
                     Write-Host $testOutput -ForegroundColor Gray
                 }
             }
         } else {
-            Write-Host "  [ERROR] TS tests timed out (>30s)" -ForegroundColor Red
-            $Issues += @{ Type = "TS Tests"; Severity = "Error"; Message = "Test timeout" }
-            $Score -= 10
+            Write-CheckResult -Status "FAIL" -Message "TS tests timed out (>$($Script:Config.Timeouts.TSTests)s)"
+            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test timeout" -ScorePenalty 10
             
             Stop-Job $testJob | Remove-Job -Force
         }
     } catch {
-        Write-Host "  [ERROR] TS test execution failed: $_" -ForegroundColor Red
-        $Issues += @{ Type = "TS Tests"; Severity = "Error"; Message = "Test execution failed" }
-        $Score -= 20
+        Write-CheckResult -Status "FAIL" -Message "TS test execution failed: $_"
+        Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.TSTests
         
         if ($Verbose) {
             Write-Host "Exception details: $_" -ForegroundColor Red
         }
     }
-} else {
-    Write-Host "  [WARN] Cannot execute TS tests (npm/node_modules not available)" -ForegroundColor Yellow
-    $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "TS environment not ready" }
 }
 
-# 7. Dependency Integrity Check
-Write-Host "[7/8] Dependency Integrity Check..." -ForegroundColor Yellow
-
-$depIssues = 0
-
-# Check package-lock.json exists
-if (-not (Test-Path "package-lock.json")) {
-    Write-Host "  [WARN] package-lock.json missing" -ForegroundColor Yellow
-    $depIssues++
-}
-
-# Check Cargo.lock exists
-if (-not (Test-Path "src-tauri\Cargo.lock")) {
-    Write-Host "  [WARN] Cargo.lock missing" -ForegroundColor Yellow
-    $depIssues++
-}
-
-# Check package.json exists
-if (-not (Test-Path "package.json")) {
-    Write-Host "  [ERROR] package.json missing" -ForegroundColor Red
-    $depIssues++
-}
-
-# Check Cargo.toml exists
-if (-not (Test-Path "src-tauri\Cargo.toml")) {
-    Write-Host "  [ERROR] Cargo.toml missing" -ForegroundColor Red
-    $depIssues++
-}
-
-if ($depIssues -eq 0) {
-    Write-Host "  [PASS] All dependencies present" -ForegroundColor Green
-} else {
-    Write-Host "  [INFO] Found $depIssues dependency issue(s)" -ForegroundColor Yellow
-    $Issues += @{ Type = "Dependencies"; Severity = "Warning"; Message = "$depIssues missing file(s)" }
-    $Score -= 5
-}
-
-# 8. Directory Structure Check
-Write-Host "[8/8] Directory Structure Check..." -ForegroundColor Yellow
-
-$requiredDirs = @(
-    "src",
-    "src-tauri",
-    "scripts",
-    "docs"
-)
-
-$dirIssues = 0
-foreach ($dir in $requiredDirs) {
-    if (-not (Test-Path $dir)) {
-        Write-Host "  [WARN] Required directory missing: $dir" -ForegroundColor Yellow
-        $dirIssues++
+function Invoke-DependencyCheck {
+    Write-CheckStart -Name "Dependency Integrity Check" -Index "7/8"
+    
+    $depIssues = 0
+    
+    foreach ($file in $Script:Config.RequiredFiles) {
+        if (-not (Test-Path $file)) {
+            $severity = if ($file -like "*.json") { "Error" } else { "Warning" }
+            Write-Host "  [$severity] Required file missing: $file" -ForegroundColor $(if ($severity -eq "Error") { "Red" } else { "Yellow" })
+            $depIssues++
+        }
+    }
+    
+    if ($depIssues -eq 0) {
+        Write-CheckResult -Status "PASS" -Message "All dependencies present"
+    } else {
+        Write-CheckResult -Status "INFO" -Message "Found $depIssues dependency issue(s)"
+        Add-Issue -Type "Dependencies" -Severity "Warning" -Message "$depIssues missing file(s)" -ScorePenalty $Script:Config.ScoreWeights.Dependencies
     }
 }
 
-if ($dirIssues -eq 0) {
-    Write-Host "  [PASS] Directory structure valid" -ForegroundColor Green
-} else {
-    Write-Host "  [INFO] Found $dirIssues directory issue(s)" -ForegroundColor Yellow
-    $Issues += @{ Type = "Directory"; Severity = "Warning"; Message = "$dirIssues missing dir(s)" }
-    $Score -= 5
+function Invoke-DirectoryCheck {
+    Write-CheckStart -Name "Directory Structure Check" -Index "8/8"
+    
+    $dirIssues = 0
+    foreach ($dir in $Script:Config.RequiredDirs) {
+        if (-not (Test-Path $dir)) {
+            Write-Host "  [WARN] Required directory missing: $dir" -ForegroundColor Yellow
+            $dirIssues++
+        }
+    }
+    
+    if ($dirIssues -eq 0) {
+        Write-CheckResult -Status "PASS" -Message "Directory structure valid"
+    } else {
+        Write-CheckResult -Status "INFO" -Message "Found $dirIssues directory issue(s)"
+        Add-Issue -Type "Directory" -Severity "Warning" -Message "$dirIssues missing dir(s)" -ScorePenalty $Script:Config.ScoreWeights.Directory
+    }
 }
 
-Set-Location $originalLocation
+# =============================================
+# 结果汇总区域 - 输出最终报告
+# =============================================
+
+function Show-Summary {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  Health Check Summary" -ForegroundColor Cyan
+    Write-Host ""
+    
+    $finalScore = $Script:State.Score
+    $scoreColor = if ($finalScore -ge 80) { "Green" } elseif ($finalScore -ge 60) { "Yellow" } else { "Red" }
+    
+    Write-Host "  Overall Score: $finalScore / 100" -ForegroundColor $scoreColor
+    Write-Host "  Total Issues: $($Script:State.Issues.Count)" -ForegroundColor $(if ($Script:State.Issues.Count -gt 0) { "Yellow" } else { "Green" })
+    Write-Host ""
+    
+    if ($Script:State.Issues.Count -gt 0) {
+        Write-Host "  Issues Breakdown:" -ForegroundColor Yellow
+        foreach ($issue in $Script:State.Issues) {
+            $severityColor = if ($issue.Severity -eq "Error") { "Red" } else { "Yellow" }
+            Write-Host "    - [$($issue.Severity)] $($issue.Type): $($issue.Message)" -ForegroundColor $severityColor
+        }
+        Write-Host ""
+    }
+    
+    $endTime = Get-Date
+    $duration = $endTime - $StartTime
+    Write-Host "  Duration: $($duration.Minutes)m$($duration.Seconds)s" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+}
+
+# =============================================
+# 主执行流程
+# =============================================
+
+try {
+    Write-Header -Text "OPC-HARNESS Architecture Health Check v2.0"
+    
+    $startTime = Get-Date
+    
+    # Execute all checks in order
+    $checks = @(
+        { Invoke-TypeScriptCheck },
+        { Invoke-ESLintCheck },
+        { Invoke-PrettierCheck },
+        { Invoke-RustCompilationCheck },
+        { Invoke-RustTestsCheck },
+        { Invoke-TSTestsCheck },
+        { Invoke-DependencyCheck },
+        { Invoke-DirectoryCheck }
+    )
+    
+    # If quick mode, only run core checks (first 6)
+    if ($Quick) {
+        $checks = $checks[0..5]
+    }
+    
+    foreach ($check in $checks) {
+        & $check
+    }
+    
+    # Show summary
+    Show-Summary
+    
+    # Exit with appropriate code
+    if ($Script:State.Issues.Where({ $_.Severity -eq "Error" }).Count -gt 0) {
+        exit 1
+    }
+    
+} catch {
+    Write-Host "[FATAL] Unexpected error: $_" -ForegroundColor Red
+    if ($Verbose) {
+        throw
+    } else {
+        exit 2
+    }
+} finally {
+    # Cleanup: restore original location
+    if ($Script:State.OriginalLocation) {
+        Set-Location $Script:State.OriginalLocation
+    }
+}
