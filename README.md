@@ -92,8 +92,3 @@ npm run tauri:build
 ### 核心组件
 
 - **[AGENTS.md](./AGENTS.md)** - AI Agent 导航地图（必读）⭐
-- **[scripts/](./scripts/)** - Harness Engineering 自动化脚本
-  - **harness-check.ps1** - 架构健康检查
-  - **harness-doc-check.ps1** - 文档一致性检查
-  - **harness-dead-code.ps1** - 死代码检测
-  - **harness-e2e.ps1** - E2E 测试运行器
