@@ -18,8 +18,7 @@
     "test:e2e": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-e2e.ps1",
     "harness:check": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-check.ps1",
     "harness:fix": "powershell -ExecutionPolicy Bypass -File ./scripts/fix-code-quality.ps1",
-    "harness:gc": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-gc.ps1",
-    "harness:verify:tauri": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-verify-tauri.ps1"
+    "harness:gc": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-gc.ps1"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
@@ -71,3 +70,4 @@
     "typescript-eslint": "^8.0.0",
     "vite": "^5.1.0"
   },
+}
