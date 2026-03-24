@@ -15,6 +15,16 @@ pub enum AgentPhase {
     MRCreation,
 }
 
+impl std::fmt::Display for AgentPhase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentPhase::Initializer => write!(f, "initializer"),
+            AgentPhase::Coding => write!(f, "coding"),
+            AgentPhase::MRCreation => write!(f, "mr_creation"),
+        }
+    }
+}
+
 /// Agent 运行状态
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AgentStatus {
@@ -28,6 +38,18 @@ pub enum AgentStatus {
     Completed,
     /// 任务失败，包含错误信息
     Failed(String),
+}
+
+impl std::fmt::Display for AgentStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentStatus::Idle => write!(f, "idle"),
+            AgentStatus::Running => write!(f, "running"),
+            AgentStatus::Paused => write!(f, "paused"),
+            AgentStatus::Completed => write!(f, "completed"),
+            AgentStatus::Failed(msg) => write!(f, "failed:{}", msg),
+        }
+    }
 }
 
 /// Agent 类型枚举

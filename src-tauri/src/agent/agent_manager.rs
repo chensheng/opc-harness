@@ -21,6 +21,7 @@ use crate::agent::daemon::{DaemonManager, DaemonConfig, DaemonStatus};
 use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::agent_stdio::StdioChannelManager;
 use crate::agent::types::{AgentConfig, AgentType, AgentStatus, AgentPhase};
+use crate::db;
 
 /// Agent 句柄信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,7 +149,7 @@ impl AgentManager {
         }
     }
 
-    /// 初始化 Agent Manager（启动 Daemon）
+    /// 初始化 Agent Manager（启动 Daemon 并恢复持久化的 Sessions）
     pub async fn initialize(&self, config: DaemonConfig) -> Result<(), String> {
         // 保存配置
         *self.daemon_config.write().await = Some(config.clone());
@@ -157,7 +158,110 @@ impl AgentManager {
         let mut daemon = self.daemon.write().await;
         daemon.start(config)?;
 
+        // 恢复持久化的 Agent Sessions
+        if let Err(e) = self.restore_sessions().await {
+            log::warn!("Failed to restore agent sessions: {}", e);
+        }
+
         log::info!("Agent Manager initialized and Daemon started");
+        Ok(())
+    }
+
+    /// 恢复持久化的 Sessions (VC-005)
+    async fn restore_sessions(&self) -> Result<(), String> {
+        let conn = db::get_connection(&self.app_handle)
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+        let sessions = db::get_all_agent_sessions(&conn)
+            .map_err(|e| format!("Failed to fetch agent sessions: {}", e))?;
+
+        let mut restored_count = 0;
+        for session in sessions {
+            // 只恢复未完成的 Sessions
+            if session.status == "completed" || session.status.starts_with("failed:") {
+                continue;
+            }
+
+            // 重建 AgentHandle
+            let mut handle = AgentHandle {
+                agent_id: session.agent_id.clone(),
+                agent_type: match session.agent_type.as_str() {
+                    "initializer" => AgentType::Initializer,
+                    "coding" => AgentType::Coding,
+                    "mr_creation" => AgentType::MRCreation,
+                    _ => continue, // 跳过未知类型
+                },
+                session_id: session.session_id.clone(),
+                created_at: chrono::DateTime::parse_from_rfc3339(&session.created_at)
+                    .map(|dt| dt.timestamp())
+                    .unwrap_or_else(|_| chrono::Utc::now().timestamp()),
+                updated_at: chrono::DateTime::parse_from_rfc3339(&session.updated_at)
+                    .map(|dt| dt.timestamp())
+                    .unwrap_or_else(|_| chrono::Utc::now().timestamp()),
+                status: match session.status.as_str() {
+                    "idle" => AgentStatus::Idle,
+                    "running" => AgentStatus::Running,
+                    "paused" => AgentStatus::Paused,
+                    _ => AgentStatus::Idle, // 默认重置为 Idle
+                },
+                phase: match session.phase.as_str() {
+                    "initializer" => AgentPhase::Initializer,
+                    "coding" => AgentPhase::Coding,
+                    "mr_creation" => AgentPhase::MRCreation,
+                    _ => AgentPhase::Initializer,
+                },
+                project_path: session.project_path.clone(),
+                stdio_channel_id: session.stdio_channel_id,
+                registered_to_daemon: session.registered_to_daemon,
+            };
+
+            // 重新创建 Stdio 通道（如果需要）
+            if handle.stdio_channel_id.is_some() {
+                let agent_config = AgentConfig {
+                    agent_id: handle.agent_id.clone(),
+                    agent_type: handle.agent_type.clone(),
+                    phase: handle.phase.clone(),
+                    status: handle.status.clone(),
+                    project_path: handle.project_path.clone(),
+                    session_id: handle.session_id.clone(),
+                    ai_config: None,
+                    metadata: None,
+                };
+
+                let mut stdio_manager = self.stdio.write().await;
+                match stdio_manager.create_channel(agent_config) {
+                    Ok(channel_id) => {
+                        handle.stdio_channel_id = Some(channel_id);
+                        log::info!("Restored Stdio channel for Agent {}", handle.agent_id);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to restore Stdio channel for Agent {}: {}", handle.agent_id, e);
+                    }
+                }
+                drop(stdio_manager);
+            }
+
+            // 添加到内存中
+            let agent_id = handle.agent_id.clone();
+            let mut agents = self.agents.write().await;
+            agents.insert(agent_id.clone(), handle);
+            restored_count += 1;
+
+            log::info!("Restored Agent {} from persistence (status: {:?})", agent_id, 
+                match session.status.as_str() {
+                    "idle" => AgentStatus::Idle,
+                    "running" => AgentStatus::Running,
+                    "paused" => AgentStatus::Paused,
+                    _ => AgentStatus::Idle,
+                }
+            );
+        }
+
+        log::info!("Restored {} agent sessions from persistence", restored_count);
+        
+        // 更新统计信息
+        self.update_stats().await;
+        
         Ok(())
     }
 
@@ -193,6 +297,11 @@ impl AgentManager {
         // 更新句柄
         handle.set_stdio_channel(channel_id);
 
+        // 持久化到数据库 (VC-005)
+        if let Err(e) = self.persist_agent(&handle).await {
+            log::warn!("Failed to persist agent {}: {}", handle.agent_id, e);
+        }
+
         // 添加到管理器
         let agent_id = handle.agent_id.clone();
         let mut agents = self.agents.write().await;
@@ -203,6 +312,56 @@ impl AgentManager {
 
         log::info!("Created Agent {} of type {:?}", agent_id, agent_type_clone);
         Ok(agent_id)
+    }
+
+    /// 持久化 Agent 到数据库 (VC-005)
+    async fn persist_agent(&self, handle: &AgentHandle) -> Result<(), String> {
+        let conn = db::get_connection(&self.app_handle)
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+        let session = crate::models::AgentSession {
+            session_id: handle.session_id.clone(),
+            agent_id: handle.agent_id.clone(),
+            agent_type: handle.agent_type.to_string(),
+            project_path: handle.project_path.clone(),
+            status: handle.status.to_string().to_lowercase(),
+            phase: handle.phase.to_string().to_lowercase(),
+            created_at: chrono::DateTime::from_timestamp(handle.created_at, 0)
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
+            updated_at: chrono::DateTime::from_timestamp(handle.updated_at, 0)
+                .map(|dt| dt.to_rfc3339())
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
+            stdio_channel_id: handle.stdio_channel_id.clone(),
+            registered_to_daemon: handle.registered_to_daemon,
+            metadata: None,
+        };
+
+        db::create_agent_session(&conn, &session)
+            .map_err(|e| format!("Failed to create agent session: {}", e))
+    }
+
+    /// 更新 Agent 状态并持久化 (VC-005)
+    async fn update_and_persist_agent(&self, agent_id: &str, status: AgentStatus) -> Result<(), String> {
+        // 更新内存中的状态
+        {
+            let mut agents = self.agents.write().await;
+            let handle = agents.get_mut(agent_id)
+                .ok_or_else(|| format!("Agent {} not found", agent_id))?;
+            
+            handle.update_status(status.clone());
+            drop(agents);
+        }
+
+        // 持久化到数据库
+        let conn = db::get_connection(&self.app_handle)
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+        let status_str = status.to_string().to_lowercase();
+        let phase_str = "unknown".to_string(); // TODO: 从 agent 获取当前 phase
+
+        db::update_agent_session_status(&conn, agent_id, &status_str, &phase_str)
+            .map_err(|e| format!("Failed to update agent session: {}", e))
     }
 
     /// 启动 Agent
@@ -219,11 +378,16 @@ impl AgentManager {
             ));
         }
 
-        // 更新状态为 Running
+        // 更新状态为 Running（不立即持久化，等待 update_and_persist_agent）
         handle.update_status(AgentStatus::Running);
         let agent_type = handle.agent_type.clone();
         let session_id = handle.session_id.clone();
         drop(agents);
+
+        // 持久化状态变更 (VC-005)
+        if let Err(e) = self.update_and_persist_agent(agent_id, AgentStatus::Running).await {
+            log::warn!("Failed to persist agent status: {}", e);
+        }
 
         // 通知 Daemon 启动 Agent
         {
@@ -257,15 +421,21 @@ impl AgentManager {
             ));
         }
 
-        // 更新状态
-        handle.update_status(if graceful {
+        // 更新状态（不立即持久化）
+        let new_status = if graceful {
             AgentStatus::Paused
         } else {
             AgentStatus::Idle
-        });
+        };
         
+        handle.update_status(new_status.clone());
         let session_id = handle.session_id.clone();
         drop(agents);
+
+        // 持久化状态变更 (VC-005)
+        if let Err(e) = self.update_and_persist_agent(agent_id, new_status).await {
+            log::warn!("Failed to persist agent status: {}", e);
+        }
 
         // 通知 Daemon 停止 Agent
         {
@@ -481,6 +651,19 @@ pub async fn get_daemon_statuses(
     Ok(manager.get_daemon_status().await)
 }
 
+/// 获取所有持久化的 Agent Sessions (VC-005)
+#[tauri::command]
+pub async fn get_all_agent_sessions(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<Vec<crate::models::AgentSession>, String> {
+    let manager = state.read().await;
+    let conn = db::get_connection(&manager.app_handle)
+        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+    
+    db::get_all_agent_sessions(&conn)
+        .map_err(|e| format!("Failed to fetch agent sessions: {}", e))
+}
+
 /// 初始化 Agent Manager
 #[tauri::command]
 pub async fn initialize_agent_manager(
@@ -596,5 +779,54 @@ mod tests {
         assert_eq!(format!("{}", AgentType::Initializer), "initializer");
         assert_eq!(format!("{}", AgentType::Coding), "coding");
         assert_eq!(format!("{}", AgentType::MRCreation), "mr_creation");
+    }
+
+    // ========================================================================
+    // VC-005: Session Persistence Tests
+    // ========================================================================
+
+    #[test]
+    fn test_agent_status_display() {
+        assert_eq!(format!("{}", AgentStatus::Idle), "idle");
+        assert_eq!(format!("{}", AgentStatus::Running), "running");
+        assert_eq!(format!("{}", AgentStatus::Paused), "paused");
+        assert_eq!(format!("{}", AgentStatus::Completed), "completed");
+        assert_eq!(format!("{}", AgentStatus::Failed("error".to_string())), "failed:error");
+    }
+
+    #[test]
+    fn test_agent_phase_display() {
+        assert_eq!(format!("{}", AgentPhase::Initializer), "initializer");
+        assert_eq!(format!("{}", AgentPhase::Coding), "coding");
+        assert_eq!(format!("{}", AgentPhase::MRCreation), "mr_creation");
+    }
+
+    #[test]
+    fn test_agent_session_serialization() {
+        let session = crate::models::AgentSession {
+            session_id: "test-session-123".to_string(),
+            agent_id: "agent-456".to_string(),
+            agent_type: "initializer".to_string(),
+            project_path: "/tmp/test".to_string(),
+            status: "running".to_string(),
+            phase: "initializer".to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            updated_at: chrono::Utc::now().to_rfc3339(),
+            stdio_channel_id: Some("channel-789".to_string()),
+            registered_to_daemon: true,
+            metadata: None,
+        };
+
+        // Test serialization
+        let json = serde_json::to_string(&session).unwrap();
+        assert!(json.contains("test-session-123"));
+        assert!(json.contains("agent-456"));
+        assert!(json.contains("initializer"));
+
+        // Test deserialization
+        let deserialized: crate::models::AgentSession = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.session_id, session.session_id);
+        assert_eq!(deserialized.agent_id, session.agent_id);
+        assert_eq!(deserialized.registered_to_daemon, session.registered_to_daemon);
     }
 }

@@ -1,9 +1,10 @@
 // 通用测试工具模块
 // 位置：src-tauri/tests/common/mod.rs
 
-use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder};
+use tauri::{AppHandle, WebviewWindowBuilder};
 
 /// 创建测试用的 Tauri 应用实例
+#[allow(dead_code)]
 pub fn setup_test_app() -> AppHandle {
     let builder = tauri::Builder::default();
 
@@ -18,15 +19,14 @@ pub fn setup_test_app() -> AppHandle {
 
     let handle = app.handle().clone();
 
-    // 在后台运行应用
-    std::thread::spawn(move || {
-        app.run(|_app_handle, _event| {});
-    });
-
+    // Note: This approach doesn't work well with Tauri's event loop
+    // Proper testing requires using tauri's test utilities
+    // For now, this is a placeholder
     handle
 }
 
 /// 清理测试环境
+#[allow(dead_code)]
 pub fn cleanup_test_app(_handle: AppHandle) {
     // 清理测试资源
     // TODO: 实现具体的清理逻辑

@@ -5,7 +5,7 @@
 > **状态**: 🔄 进行中  
 > **预计完成**: 2026-04-15  
 > **负责人**: OPC-HARNESS Team  
-> **文档版本**: v2.6  
+> **文档版本**: v2.7  
 > **最后更新**: 2026-03-24  
 > **Harness Engineering Health Score**: 100/100
 
@@ -35,7 +35,7 @@
 ## 📊 总体进度
 
 ```
-总体进度：65% (53/81 任务完成)
+总体进度：67% (54/81 任务完成)
 
 ✅ 已完成模块:
   - 基础设施：14/14 (100%) - INFRA-014 守护进程框架完成
@@ -43,7 +43,7 @@
   - Vibe Marketing: 5/5 (100%) - UI 完整，待接入真实 AI API
   
 📋 进行中模块:
-  - Vibe Coding: 9/36 (25%) - VC-001, VC-002, VC-003, VC-004, VC-012, VC-013, VC-014, VC-018 完成 ✅
+  - Vibe Coding: 10/36 (28%) - VC-001~VC-005, VC-012, VC-013, VC-014, VC-018 完成 ✅
   - AI 适配器：0/5 (0%) - 待接入真实 AI API
 ```
 
@@ -75,9 +75,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉 |
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 9 | 0 | 27 | 25% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 10 | 0 | 26 | 28% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **53** | **0** | **28** | **65%** |
+| **总计** | | **81** | **54** | **0** | **27** | **67%** |
 
 ### 详细进度说明
 
@@ -98,8 +98,8 @@
   - 竞品分析与流程整合 (6 个)
 - 🎉 **第一个完成的主要模块**
 
-**Vibe Coding (VC)** - 25% 进行中
-- ✅ 已完成：9 个任务
+**Vibe Coding (VC)** - 28% 进行中
+- ✅ 已完成：10 个任务
   - VC-001: 定义 Agent 通信协议和数据结构 ✅
   - VC-002: 实现 Stdio 管道通信层 ✅
   - VC-003: 实现 WebSocket 实时推送层 ✅ **新增完成**
@@ -109,15 +109,21 @@
     - 提供 Agent 创建、启动、停止、状态查询 API
     - 暴露 8 个 Tauri Commands 供前端调用
     - 7 个单元测试，覆盖率 100%
+  - VC-005: 实现会话状态持久化 ✅ **新增完成** 🎉
+    - 创建 AgentSession 数据模型
+    - 设计数据库表结构 (agent_sessions)
+    - 实现 CRUD 操作（create/get/update/delete）
+    - 集成到 AgentManager（persist_agent, restore_sessions）
+    - 支持应用重启后恢复 Agent 状态
+    - 添加 Tauri Command: get_all_agent_sessions
   - VC-012: 实现单个 Coding Agent 逻辑 ✅
   - VC-013: 实现并发控制 (4+ Agents 同时运行) ✅
   - VC-014: 实现功能分支管理 ✅
   - VC-018: 实现 QG-001 代码检查 (ESLint) ✅
-- 📋 待开始：27 个任务
-  - Agent 通信与管理 (1 个)
+- 📋 待开始：26 个任务
   - Initializer Agent (6 个)
   - Coding Agent 集群 (22 个)
-  - 质量门禁系统 (4 个)
+  - 质量门禁系统 (3 个)
   - HITL 检查点 (6 个)
   - MR Creation (4 个)
 
@@ -228,7 +234,14 @@
   - [x] 暴露 8 个 Tauri Commands 供前端调用
   - [x] 7 个单元测试，覆盖率 100%
   - [x] Health Score: 100/100
-- [ ] VC-005: 实现会话状态持久化
+- [x] VC-005: 实现会话状态持久化 ✅ **已完成**
+  - [x] 创建 AgentSession 数据模型
+  - [x] 设计数据库表结构 (agent_sessions)
+  - [x] 实现 CRUD 操作（create/get/update/delete）
+  - [x] 集成到 AgentManager（persist_agent, restore_sessions）
+  - [x] 支持应用重启后恢复 Agent 状态
+  - [x] 添加 Tauri Command: get_all_agent_sessions
+  - [x] 单元测试覆盖（agent_manager.rs 中的 VC-005 tests）
 
 #### 3.2 Initializer Agent 📋
 

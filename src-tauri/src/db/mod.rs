@@ -61,6 +61,24 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
+    // Create agent_sessions table (VC-005)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_sessions (
+            session_id TEXT NOT NULL,
+            agent_id TEXT PRIMARY KEY,
+            agent_type TEXT NOT NULL,
+            project_path TEXT NOT NULL,
+            status TEXT NOT NULL,
+            phase TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            stdio_channel_id TEXT,
+            registered_to_daemon INTEGER NOT NULL DEFAULT 0,
+            metadata TEXT
+        )",
+        [],
+    )?;
+
     Ok(())
 }
 
@@ -281,5 +299,150 @@ pub fn get_cli_session_by_id(conn: &Connection, id: &str) -> Result<Option<CLISe
 /// 删除 CLI 会话
 pub fn delete_cli_session(conn: &Connection, id: &str) -> Result<()> {
     conn.execute("DELETE FROM cli_sessions WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+// ==================== Agent Session CRUD (VC-005) ====================
+
+/// 创建 Agent Session
+pub fn create_agent_session(conn: &Connection, session: &crate::models::AgentSession) -> Result<()> {
+    conn.execute(
+        "INSERT INTO agent_sessions 
+         (session_id, agent_id, agent_type, project_path, status, phase, created_at, updated_at, 
+          stdio_channel_id, registered_to_daemon, metadata)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        [
+            &session.session_id,
+            &session.agent_id,
+            &session.agent_type,
+            &session.project_path,
+            &session.status,
+            &session.phase,
+            &session.created_at,
+            &session.updated_at,
+            &session.stdio_channel_id.clone().unwrap_or_default(),
+            &(if session.registered_to_daemon { "1".to_string() } else { "0".to_string() }),
+            &session.metadata.clone().unwrap_or_default(),
+        ],
+    )?;
+    Ok(())
+}
+
+/// 获取所有 Agent Sessions
+pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<crate::models::AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions ORDER BY created_at DESC")?;
+    let sessions = stmt.query_map([], |row| {
+        Ok(crate::models::AgentSession {
+            session_id: row.get(0)?,
+            agent_id: row.get(1)?,
+            agent_type: row.get(2)?,
+            project_path: row.get(3)?,
+            status: row.get(4)?,
+            phase: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+            stdio_channel_id: row.get(8)?,
+            registered_to_daemon: row.get::<_, i32>(9)? == 1,
+            metadata: row.get(10)?,
+        })
+    })?;
+
+    let mut result = Vec::new();
+    for session in sessions {
+        result.push(session?);
+    }
+    Ok(result)
+}
+
+/// 获取单个 Agent Session
+pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Option<crate::models::AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE agent_id = ?1")?;
+    let mut rows = stmt.query_map([agent_id], |row| {
+        Ok(crate::models::AgentSession {
+            session_id: row.get(0)?,
+            agent_id: row.get(1)?,
+            agent_type: row.get(2)?,
+            project_path: row.get(3)?,
+            status: row.get(4)?,
+            phase: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+            stdio_channel_id: row.get(8)?,
+            registered_to_daemon: row.get::<_, i32>(9)? == 1,
+            metadata: row.get(10)?,
+        })
+    })?;
+
+    if let Some(row) = rows.next() {
+        return Ok(Some(row?));
+    }
+    Ok(None)
+}
+
+/// 根据 Session ID 获取所有 Agents
+pub fn get_agent_sessions_by_session_id(conn: &Connection, session_id: &str) -> Result<Vec<crate::models::AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE session_id = ?1 ORDER BY created_at DESC")?;
+    let sessions = stmt.query_map([session_id], |row| {
+        Ok(crate::models::AgentSession {
+            session_id: row.get(0)?,
+            agent_id: row.get(1)?,
+            agent_type: row.get(2)?,
+            project_path: row.get(3)?,
+            status: row.get(4)?,
+            phase: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+            stdio_channel_id: row.get(8)?,
+            registered_to_daemon: row.get::<_, i32>(9)? == 1,
+            metadata: row.get(10)?,
+        })
+    })?;
+
+    let mut result = Vec::new();
+    for session in sessions {
+        result.push(session?);
+    }
+    Ok(result)
+}
+
+/// 更新 Agent Session 状态
+pub fn update_agent_session_status(conn: &Connection, agent_id: &str, status: &str, phase: &str) -> Result<()> {
+    let updated_at = Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE agent_sessions 
+         SET status = ?1, phase = ?2, updated_at = ?3
+         WHERE agent_id = ?4",
+        [status, phase, &updated_at, agent_id],
+    )?;
+    Ok(())
+}
+
+/// 更新 Agent Session 完整信息
+pub fn update_agent_session(conn: &Connection, session: &crate::models::AgentSession) -> Result<()> {
+    let updated_at = Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE agent_sessions 
+         SET session_id = ?2, agent_type = ?3, project_path = ?4, status = ?5, phase = ?6, 
+             updated_at = ?7, stdio_channel_id = ?8, registered_to_daemon = ?9, metadata = ?10
+         WHERE agent_id = ?1",
+        [
+            &session.agent_id,
+            &session.session_id,
+            &session.agent_type,
+            &session.project_path,
+            &session.status,
+            &session.phase,
+            &updated_at,
+            &session.stdio_channel_id.clone().unwrap_or_default(),
+            &(if session.registered_to_daemon { "1".to_string() } else { "0".to_string() }),
+            &session.metadata.clone().unwrap_or_default(),
+        ],
+    )?;
+    Ok(())
+}
+
+/// 删除 Agent Session
+pub fn delete_agent_session(conn: &Connection, agent_id: &str) -> Result<()> {
+    conn.execute("DELETE FROM agent_sessions WHERE agent_id = ?1", [agent_id])?;
     Ok(())
 }

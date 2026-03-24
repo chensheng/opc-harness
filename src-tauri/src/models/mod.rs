@@ -59,3 +59,33 @@ pub struct CLISession {
     pub project_path: String,
     pub created_at: String,
 }
+
+/// Agent Session 会话记录
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSession {
+    /// Session 唯一标识
+    pub session_id: String,
+    /// Agent ID
+    pub agent_id: String,
+    /// Agent 类型
+    pub agent_type: String,
+    /// 项目路径
+    pub project_path: String,
+    /// 当前状态
+    pub status: String,
+    /// 当前阶段
+    pub phase: String,
+    /// 创建时间
+    pub created_at: String,
+    /// 最后更新时间
+    pub updated_at: String,
+    /// Stdio 通道 ID（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stdio_channel_id: Option<String>,
+    /// 是否已注册到 Daemon
+    pub registered_to_daemon: bool,
+    /// 元数据（JSON）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<String>,
+}
