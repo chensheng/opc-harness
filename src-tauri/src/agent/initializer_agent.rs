@@ -403,6 +403,11 @@ mod env_utils {
     pub fn check_ide() -> Vec<String> {
         let mut ides = Vec::new();
 
+        // 在测试环境中跳过 IDE 检测，避免启动 GUI 应用
+        if std::env::var("HARNESS_TEST_MODE").is_ok() {
+            return ides;
+        }
+
         // 检查 VSCode
         if check_command_version("code", "--version").is_some() {
             ides.push("vscode".to_string());

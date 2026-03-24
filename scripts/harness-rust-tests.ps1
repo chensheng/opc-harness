@@ -50,8 +50,13 @@ Set-Location src-tauri
 $tempOutputFile = [System.IO.Path]::GetTempFileName()
 
 try {
+    # Set environment variables to disable any GUI/debug behavior
+    $env:RUST_LOG = "warn"
+    $env:TAURI_DEBUG = "false"
+    $env:HARNESS_TEST_MODE = "1"  # 禁用会启动 GUI 的测试
+    
     # Execute cargo test and redirect all output to temp file
-    & cargo test --bin opc-harness > $tempOutputFile 2>&1
+    & cargo test --bin opc-harness -- --nocapture > $tempOutputFile 2>&1
     $exitCode = $LASTEXITCODE
 } catch {
     Write-Host "[ERROR] Exception during test execution: $_" -ForegroundColor Red
