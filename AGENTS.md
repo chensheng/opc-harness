@@ -13,7 +13,6 @@
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
 
-
 ### ⭐⭐ 架构与约束
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计
 - [`docs/references/architecture-rules.md`](./docs/references/architecture-rules.md) - 架构约束（FE/BE/TEST）

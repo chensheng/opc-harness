@@ -159,53 +159,6 @@ use crate::utils::generate_uuid();
 // ❌ 避免：过度使用 super::super::...
 ```
 
-## 🧪 测试要求
-
-### 运行测试
-
-**单元测试**:
-```bash
-npm run test:unit          # 运行所有单元测试（包含 Rust）⭐
-```
-
-**Rust 测试**:
-```bash
-cd src-tauri && cargo test   # 运行 Rust 测试
-```
-
-**按需使用**:
-```bash
-npx vitest run --coverage  # 生成覆盖率报告
-npx vitest                 # 监视模式
-```
-
-### 单元测试
-```
-// ✅ 推荐：为业务逻辑编写测试
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validate_project_name() {
-        assert!(validate_name("My Project").is_ok());
-        assert!(validate_name("").is_err());
-        assert!(validate_name("a".repeat(101)).is_err());
-    }
-}
-```
-
-### 集成测试
-```
-// ✅ 推荐：测试完整流程
-#[tokio::test]
-async fn test_create_project_flow() {
-    let project = create_project("Test".to_string(), None).await.unwrap();
-    assert_eq!(project.name, "Test");
-    assert!(!project.id.is_empty());
-}
-```
-
 ## 🚨 常见陷阱
 
 ### 陷阱 1: 在 Commands 中包含业务逻辑
@@ -254,28 +207,6 @@ pub struct Project {
 }
 ```
 
-## 🔧 工具集成
-
-### Cargo 检查
-```
-# 编译检查
-cargo check
-
-# 格式化检查
-cargo fmt --check
-
-# Clippy lint
-cargo clippy -- -D warnings
-```
-
-### 格式化配置
-```
-# rustfmt.toml
-edition = "2021"
-max_width = 100
-tab_spaces = 4
-```
-
 ## 📖 参考资源
 
 - [Rust 官方文档](https://doc.rust-lang.org/book/)
@@ -284,11 +215,6 @@ tab_spaces = 4
 - [rusqlite 文档](https://docs.rs/rusqlite/)
 
 ---
-
-**违反这些规则的后果**: 
-- `npm run harness:check` 将报告错误
-- CI/CD 流水线会失败
-- Agent 会自动修复并重新提交
 
 **需要帮助？** 
 查看根目录 [`AGENTS.md`](../AGENTS.md) 获取更多导航信息。

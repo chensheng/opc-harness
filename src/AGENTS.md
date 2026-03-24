@@ -118,54 +118,6 @@ import { Button } from '../../../components/ui/button';
 // ⚠️ 强制：ESLint 检查 import 路径深度 <= 3
 ```
 
-## 🧪 测试要求
-
-### 运行测试
-
-**单元测试**:
-```bash
-npm run test:unit          # 运行所有单元测试 ⭐
-```
-
-**E2E 测试**:
-```bash
-npm run test:e2e           # E2E 测试（智能运行，自动管理服务器）⭐
-```
-
-**按需使用**:
-```bash
-npx vitest run --coverage  # 生成覆盖率报告
-npx vitest --ui            # UI 界面
-npx vitest                 # 监视模式（开发时用）
-```
-
-### 组件测试
-``typescript
-// ✅ 推荐：测试用户交互
-import { render, screen, fireEvent } from '@testing-library/react';
-import { Button } from './button';
-
-test('按钮点击触发回调', () => {
-  const handleClick = vi.fn();
-  render(<Button onClick={handleClick}>点击</Button>);
-  fireEvent.click(screen.getByText('点击'));
-  expect(handleClick).toHaveBeenCalledTimes(1);
-});
-```
-
-### Hooks 测试
-``typescript
-// ✅ 推荐：测试 Hooks 逻辑
-import { renderHook, act } from '@testing-library/react';
-import { useCounter } from './useCounter';
-
-test('计数器增加', () => {
-  const { result } = renderHook(() => useCounter());
-  act(() => result.current.increment());
-  expect(result.current.count).toBe(1);
-});
-```
-
 ## 🚨 常见陷阱
 
 ### 陷阱 1: 在组件中直接调用 Tauri API
@@ -208,7 +160,7 @@ const handleClick = () => {
 ```
 
 ### 陷阱 3: 类型滥用 any
-``typescript
+```typescript
 // ❌ 错误
 function processData(data: any) {
   return data.value;
@@ -223,31 +175,6 @@ function processData(data: Data) {
 }
 ```
 
-## 🔧 工具集成
-
-### ESLint 规则
-```javascript
-// .eslintrc.js
-module.exports = {
-  rules: {
-    '@typescript-eslint/no-explicit-any': 'error',
-    'import/no-unresolved': 'error',
-    'react-hooks/rules-of-hooks': 'error',
-  }
-};
-```
-
-### Prettier 配置
-```javascript
-// .prettierrc
-module.exports = {
-  semi: true,
-  singleQuote: true,
-  tabWidth: 2,
-  trailingComma: 'es5',
-};
-```
-
 ## 📖 参考资源
 
 - [React 官方文档](https://react.dev/)
@@ -256,11 +183,6 @@ module.exports = {
 - [shadcn/ui 文档](https://ui.shadcn.com/)
 
 ---
-
-**违反这些规则的后果**: 
-- `npm run harness:check` 将报告错误
-- CI/CD 流水线会失败
-- Agent 会自动修复并重新提交
 
 **需要帮助？** 
 查看根目录 [`AGENTS.md`](../AGENTS.md) 获取更多导航信息。
