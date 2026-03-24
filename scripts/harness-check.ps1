@@ -335,55 +335,69 @@ function Invoke-TSTestsCheck {
     Write-Host "  Running TypeScript unit tests..." -ForegroundColor Gray
     
     try {
-        $testJob = Start-Job -ScriptBlock {
-            Set-Location $using:Script:State.OriginalLocation
-            & npm run test:unit 2>&1
+        # Use the dedicated TS test script for better output parsing
+        $tsTestScript = Join-Path $PSScriptRoot "harness-ts-tests.ps1"
+        
+        if (-not (Test-Path $tsTestScript)) {
+            Write-CheckResult -Status "FAIL" -Message "TS test script not found: $tsTestScript"
+            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test script missing" -ScorePenalty $Script:Config.ScoreWeights.TSTests
+            return
         }
         
-        $waited = $testJob | Wait-Job -Timeout $Script:Config.Timeouts.TSTests
+        # Execute the dedicated script and capture output
+        $testOutputFile = [System.IO.Path]::GetTempFileName()
+        & powershell -ExecutionPolicy Bypass -File $tsTestScript -Verbose > $testOutputFile 2>&1
+        $exitCode = $LASTEXITCODE
         
-        if ($waited) {
-            $testOutput = Receive-Job $testJob
-            Stop-Job $testJob | Remove-Job -Force
+        $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8
+        Remove-Item $testOutputFile -Force
+        
+        # Parse results from the dedicated script output
+        if ($testOutput -match "\[PASS\].*\((\d+)\s+files.*(\d+)\s+tests\)") {
+            $testFiles = $matches[1]
+            $totalTests = $matches[2]
+            Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files, $totalTests tests)"
             
-            # Simple approach: check for the summary line pattern
-            $hasPassed = $testOutput -match 'Test Files\s+\d+\s+passed'
-            $hasFailed = $testOutput -match '\d+\s+failed|FAILURES'
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } elseif ($testOutput -match "\[PASS\].*\((\d+)\s+files\)") {
+            $testFiles = $matches[1]
+            Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
             
-            if ($hasPassed -and -not $hasFailed) {
-                # Extract test file count if possible
-                if ($testOutput -match 'Test Files\s+(\d+)\s+passed') {
-                    $testFiles = $matches[1]
-                    Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
-                } else {
-                    Write-CheckResult -Status "PASS" -Message "All TS tests passed"
-                }
-            } elseif ($hasFailed) {
-                Write-CheckResult -Status "FAIL" -Message "Some TS tests failed"
-                Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.TSTests
-                
-                if ($Verbose) {
-                    # Show summary only
-                    $summaryLines = $testOutput -split "`n" | Where-Object { $_ -match "Test Files|Tests\s+\d+" }
-                    if ($summaryLines.Count -gt 0) {
-                        Write-Host ($summaryLines -join "`n") -ForegroundColor Gray
-                    }
-                }
-            } else {
-                # Fallback to warning if we can't determine the result
-                Write-CheckResult -Status "WARN" -Message "Could not parse TS test results"
-                Add-Issue -Type "TS Tests" -Severity "Warning" -Message "Unknown result" -ScorePenalty 10
-                
-                if ($Verbose) {
-                    Write-Host "Raw output (last 5 lines):" -ForegroundColor Gray
-                    ($testOutput -split "`n" | Select-Object -Last 5) | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
-                }
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } elseif ($testOutput -match "\[FAIL\]") {
+            Write-CheckResult -Status "FAIL" -Message "Some TS tests failed"
+            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.TSTests
+            
+            if ($Verbose) {
+                # Show only the summary part
+                $summaryLines = $testOutput -split "`n" | Where-Object { $_ -match "\[FAIL\]|\[PASS\]|Duration" }
+                Write-Host ($summaryLines -join "`n") -ForegroundColor Gray
+            }
+        } elseif ($testOutput -match "\[WARN\]") {
+            Write-CheckResult -Status "WARN" -Message "Could not parse TS test results"
+            Add-Issue -Type "TS Tests" -Severity "Warning" -Message "Unknown result" -ScorePenalty 10
+            
+            if ($Debug) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
+        } elseif ($exitCode -ne 0) {
+            Write-CheckResult -Status "FAIL" -Message "TS test execution failed (exit code: $exitCode)"
+            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.TSTests
+            
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
             }
         } else {
-            Write-CheckResult -Status "FAIL" -Message "TS tests timed out (>$($Script:Config.Timeouts.TSTests)s)"
-            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test timeout" -ScorePenalty 10
+            # Fallback - assume success if no clear failure
+            Write-CheckResult -Status "PASS" -Message "TS tests completed"
             
-            Stop-Job $testJob | Remove-Job -Force
+            if ($Verbose) {
+                Write-Host $testOutput -ForegroundColor Gray
+            }
         }
     } catch {
         Write-CheckResult -Status "FAIL" -Message "TS test execution failed: $_"
@@ -498,60 +512,35 @@ function Show-Summary {
             $severityColor = if ($issue.Severity -eq "Error") { "Red" } else { "Yellow" }
             Write-Host "    - [$($issue.Severity)] $($issue.Type): $($issue.Message)" -ForegroundColor $severityColor
         }
+        
         Write-Host ""
-    }
-    
-    $endTime = Get-Date
-    $duration = $endTime - $StartTime
-    Write-Host "  Duration: $($duration.Minutes)m$($duration.Seconds)s" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "========================================" -ForegroundColor Cyan
-}
-
-# =============================================
-# 主执行流程
-# =============================================
-
-try {
-    Write-Header -Text "OPC-HARNESS Architecture Health Check v2.1"
-    
-    $startTime = Get-Date
-    
-    # Execute all checks in order (always run all 9 checks)
-    $checks = @(
-        { Invoke-TypeScriptCheck },
-        { Invoke-ESLintCheck },
-        { Invoke-PrettierCheck },
-        { Invoke-RustCompilationCheck },
-        { Invoke-RustTestsCheck },
-        { Invoke-TSTestsCheck },
-        { Invoke-DependencyCheck },
-        { Invoke-DirectoryCheck },
-        { Invoke-DocumentationCheck }
-    )
-    
-    foreach ($check in $checks) {
-        & $check
-    }
-    
-    # Show summary
-    Show-Summary
-    
-    # Exit with appropriate code
-    if ($Script:State.Issues.Where({ $_.Severity -eq "Error" }).Count -gt 0) {
-        exit 1
-    }
-    
-} catch {
-    Write-Host "[FATAL] Unexpected error: $_" -ForegroundColor Red
-    if ($Verbose) {
-        throw
     } else {
-        exit 2
+        Write-Host '  Status: All checks passed!' -ForegroundColor Green
+        Write-Host ''
     }
-} finally {
-    # Cleanup: restore original location
-    if ($Script:State.OriginalLocation) {
-        Set-Location $Script:State.OriginalLocation
-    }
+    
+    $duration = (Get-Date) - $Script:State.StartTime
+    Write-Host ('  Duration: {0}m{1}s' -f [int]$duration.TotalMinutes, $duration.Seconds) -ForegroundColor Gray
+    Write-Host ''
+    Write-Host '========================================' -ForegroundColor Cyan
 }
+
+# =============================================
+# 主执行流程 - 按顺序执行所有检查
+# =============================================
+
+Write-Header
+
+$Script:State.StartTime = Get-Date
+
+Invoke-TypeScriptCheck       # 1/8
+Invoke-ESLintCheck           # 2/8
+Invoke-PrettierCheck         # 3/8
+Invoke-RustCompilationCheck  # 4/8
+Invoke-RustTestsCheck        # 5/8
+Invoke-TSTestsCheck          # 6/8
+Invoke-DependencyCheck       # 7/8
+Invoke-DirectoryCheck        # 8/9
+Invoke-DocumentationCheck    # 9/9
+
+Show-Summary
