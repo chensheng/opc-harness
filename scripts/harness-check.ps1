@@ -352,51 +352,32 @@ function Invoke-TSTestsCheck {
         $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8
         Remove-Item $testOutputFile -Force
         
-        # Parse results from the dedicated script output
-        if ($testOutput -match "\[PASS\].*\((\d+)\s+files.*(\d+)\s+tests\)") {
-            $testFiles = $matches[1]
-            $totalTests = $matches[2]
-            Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files, $totalTests tests)"
-            
-            if ($Verbose) {
-                Write-Host $testOutput -ForegroundColor Gray
+        # Simplified logic: Rely on exit code first, then parse stats for display
+        if ($exitCode -eq 0) {
+            # Success - extract and display statistics from dedicated script output
+            if ($testOutput -match "\[PASS\].*\((\d+)\s+files.*(\d+)\s+tests\)") {
+                $testFiles = $matches[1]
+                $totalTests = $matches[2]
+                Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files, $totalTests tests)"
+            } elseif ($testOutput -match "\[PASS\].*\((\d+)\s+files\)") {
+                $testFiles = $matches[1]
+                Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
+            } else {
+                Write-CheckResult -Status "PASS" -Message "TS tests completed"
             }
-        } elseif ($testOutput -match "\[PASS\].*\((\d+)\s+files\)") {
-            $testFiles = $matches[1]
-            Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
-            
-            if ($Verbose) {
-                Write-Host $testOutput -ForegroundColor Gray
-            }
-        } elseif ($testOutput -match "\[FAIL\]") {
-            Write-CheckResult -Status "FAIL" -Message "Some TS tests failed"
-            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.TSTests
-            
-            if ($Verbose) {
-                # Show only the summary part
-                $summaryLines = $testOutput -split "`n" | Where-Object { $_ -match "\[FAIL\]|\[PASS\]|Duration" }
-                Write-Host ($summaryLines -join "`n") -ForegroundColor Gray
-            }
-        } elseif ($testOutput -match "\[WARN\]") {
-            Write-CheckResult -Status "WARN" -Message "Could not parse TS test results"
-            Add-Issue -Type "TS Tests" -Severity "Warning" -Message "Unknown result" -ScorePenalty 10
-            
-            if ($Debug) {
-                Write-Host $testOutput -ForegroundColor Gray
-            }
-        } elseif ($exitCode -ne 0) {
-            Write-CheckResult -Status "FAIL" -Message "TS test execution failed (exit code: $exitCode)"
-            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.TSTests
             
             if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         } else {
-            # Fallback - assume success if no clear failure
-            Write-CheckResult -Status "PASS" -Message "TS tests completed"
+            # Failure - rely on exit code, show simple summary
+            Write-CheckResult -Status "FAIL" -Message "TS test execution failed (exit code: $exitCode)"
+            Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.TSTests
             
             if ($Verbose) {
-                Write-Host $testOutput -ForegroundColor Gray
+                # Show only the summary part for debugging
+                $summaryLines = $testOutput -split "`n" | Where-Object { $_ -match "\[FAIL\]|\[PASS\]|\[WARN\]|Duration" }
+                Write-Host ($summaryLines -join "`n") -ForegroundColor Gray
             }
         }
     } catch {
