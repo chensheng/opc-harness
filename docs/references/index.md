@@ -44,7 +44,7 @@
 
 | 文档 | 描述 | 版本 |
 |------|------|------|
-| [product-design.md](./product-design.md) | 完整产品需求文档 (PRD) | v1.1 |
-| ~~[architecture-design.md](./architecture-design.md)~~ | ❌ 已移至 [`design-docs/architecture-design.md`](../design-docs/architecture-design.md) | - |
-| [symphony.md](./symphony.md) | Symphony 产品设计文档 | v2.0 |
+| ~~[产品设计.md](./产品设计.md)~~ | ❌ 已移至 [`product-specs/产品设计.md`](../product-specs/产品设计.md) | - |
+| ~~[架构设计.md](./架构设计.md)~~ | ❌ 已移至 [`design-docs/system-architecture.md`](../design-docs/system-architecture.md) | - |
+| [symphony.md](./symphony.md) | Symphony产品设计文档 | v2.0 |
 | [autonomous-coding-harness.md](./autonomous-coding-harness.md) | Coding Harness PRD | v1.1 |
