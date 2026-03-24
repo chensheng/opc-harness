@@ -87,7 +87,7 @@ try {
 }
 
 # 4. Rust/Cargo compilation check
-Write-Host "[4/6] Rust Compilation Check..." -ForegroundColor Yellow
+Write-Host "[4/8] Rust Compilation Check..." -ForegroundColor Yellow
 $originalLocation = Get-Location
 Set-Location src-tauri
 
@@ -121,8 +121,144 @@ if ($cargoAvailable) {
 
 Set-Location $originalLocation
 
-# 5. Dependency integrity check
-Write-Host "[5/6] Dependency Integrity Check..." -ForegroundColor Yellow
+# 5. Rust Unit Tests Check (NEW)
+Write-Host "[5/8] Rust Unit Tests Check..." -ForegroundColor Yellow
+Set-Location src-tauri
+
+if ($cargoAvailable) {
+    # Run cargo test and capture output
+    Write-Host "  Running Rust unit tests..." -ForegroundColor Gray
+    $testOutput = & cargo test --bin opc-harness 2>&1 | Out-String
+    
+    # Check test result from output
+    if ($testOutput -match "test result: ok\. (\d+) passed") {
+        $testCount = $matches[1]
+        Write-Host "  [PASS] All $testCount Rust tests passed" -ForegroundColor Green
+    } elseif ($testOutput -match "test result: FAILED\. (\d+) passed; (\d+) failed") {
+        $passed = $matches[1]
+        $failed = $matches[2]
+        Write-Host "  [FAIL] Rust tests: $passed passed, $failed failed" -ForegroundColor Red
+        $Issues += @{ Type = "Rust Tests"; Severity = "Error"; Message = "$failed test(s) failed" }
+        $Score -= 20
+        
+        if ($Verbose) {
+            Write-Host $testOutput -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  [WARN] Could not parse test results" -ForegroundColor Yellow
+        $Issues += @{ Type = "Rust Tests"; Severity = "Warning"; Message = "Test execution issue" }
+        $Score -= 10
+        
+        if ($Verbose) {
+            Write-Host $testOutput -ForegroundColor Gray
+        }
+    }
+} else {
+    Write-Host "  [WARN] Cannot execute Rust tests (Cargo not available)" -ForegroundColor Yellow
+    $Issues += @{ Type = "Rust Tests"; Severity = "Warning"; Message = "Rust environment not ready" }
+}
+
+Set-Location $originalLocation
+
+# 6. TypeScript Unit Tests Check (NEW)
+Write-Host "[6/8] TypeScript Unit Tests Check..." -ForegroundColor Yellow
+
+# Check if npm and node_modules are available
+$npmAvailable = $false
+try {
+    $null = Get-Command npm -ErrorAction Stop
+    $npmAvailable = $true
+} catch {
+    # Npm not found
+}
+
+if ($npmAvailable -and (Test-Path "node_modules")) {
+    # Run npm test:unit and capture output with timeout
+    Write-Host "  Running TypeScript unit tests..." -ForegroundColor Gray
+    
+    try {
+        # Use timeout to prevent hanging (30 seconds max)
+        $testJob = Start-Job -ScriptBlock {
+            Set-Location $using:PSScriptRoot/..
+            npm run test:unit 2>&1
+        }
+        
+        # Wait for job with timeout
+        $waitResult = Wait-Job $testJob -Timeout 30
+        
+        if ($waitResult) {
+            $testOutput = Receive-Job $testJob | Out-String
+            Remove-Job $testJob -Force
+            
+            # Check test result from output
+            if ($testOutput -match "Test Suites:\s+(\d+) passed") {
+                $suitesPassed = $matches[1]
+                
+                if ($testOutput -match "Tests:\s+(\d+) passed") {
+                    $testsPassed = $matches[1]
+                    Write-Host "  [PASS] All $testsPassed TypeScript tests passed ($suitesPassed suites)" -ForegroundColor Green
+                } else {
+                    Write-Host "  [PASS] TypeScript tests passed ($suitesPassed suites)" -ForegroundColor Green
+                }
+            } elseif ($testOutput -match "Test Suites:\s+(\d+) failed \| (\d+) passed") {
+                $suitesFailed = $matches[1]
+                $suitesPassed = $matches[2]
+                
+                if ($testOutput -match "Tests:\s+(\d+) failed \| (\d+) passed") {
+                    $testsFailed = $matches[1]
+                    $testsPassed = $matches[2]
+                    
+                    # Check if failures are due to ECONNREFUSED (database connection issues)
+                    if ($testOutput -match "ECONNREFUSED") {
+                        Write-Host "  [WARN] TypeScript tests: $testsPassed passed, $testsFailed failed (database connection issue)" -ForegroundColor Yellow
+                        $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "$testsFailed test(s) failed due to database connection" }
+                        $Score -= 5
+                    } else {
+                        Write-Host "  [FAIL] TypeScript tests: $testsPassed passed, $testsFailed failed" -ForegroundColor Red
+                        $Issues += @{ Type = "TS Tests"; Severity = "Error"; Message = "$testsFailed test(s) failed" }
+                        $Score -= 20
+                    }
+                } else {
+                    Write-Host "  [FAIL] TypeScript test suites: $suitesPassed passed, $suitesFailed failed" -ForegroundColor Red
+                    $Issues += @{ Type = "TS Tests"; Severity = "Error"; Message = "$suitesFailed suite(s) failed" }
+                    $Score -= 20
+                }
+                
+                if ($Verbose) {
+                    Write-Host $testOutput -ForegroundColor Gray
+                }
+            } else {
+                Write-Host "  [WARN] Could not parse TypeScript test results" -ForegroundColor Yellow
+                $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "Test execution issue" }
+                $Score -= 10
+                
+                if ($Verbose) {
+                    Write-Host $testOutput -ForegroundColor Gray
+                }
+            }
+        } else {
+            Write-Host "  [WARN] TypeScript tests timed out (>30s)" -ForegroundColor Yellow
+            $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "Test timeout" }
+            $Score -= 10
+            Stop-Job $testJob -Force
+            Remove-Job $testJob -Force
+        }
+    } catch {
+        Write-Host "  [WARN] Error running TypeScript tests" -ForegroundColor Yellow
+        $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "Test execution error" }
+        $Score -= 10
+        
+        if ($Verbose) {
+            Write-Host $_.Exception.Message -ForegroundColor Gray
+        }
+    }
+} else {
+    Write-Host "  [WARN] Cannot execute TypeScript tests (npm/node_modules not available)" -ForegroundColor Yellow
+    $Issues += @{ Type = "TS Tests"; Severity = "Warning"; Message = "Node.js environment not ready" }
+}
+
+# 7. Dependency integrity check
+Write-Host "[7/8] Dependency Integrity Check..." -ForegroundColor Yellow
 $packageLockExists = Test-Path "package-lock.json"
 $nodeModulesExists = Test-Path "node_modules"
 $cargoLockExists = Test-Path "src-tauri\Cargo.lock"
@@ -145,8 +281,8 @@ if ($packageLockExists -and $nodeModulesExists -and $cargoLockExists) {
     }
 }
 
-# 6. Directory structure check
-Write-Host "[6/8] Directory Structure Check..." -ForegroundColor Yellow
+# 8. Directory structure check
+Write-Host "[8/8] Directory Structure Check..." -ForegroundColor Yellow
 $requiredDirs = @(
     "src/components",
     "src/stores",
@@ -195,9 +331,9 @@ if ($missingDirs.Count -eq 0) {
     $Score -= 5
 }
 
-# 7. Documentation consistency check (optional)
+# 9. Documentation consistency check (optional)
 if ($DocCheck -or $All) {
-    Write-Host "[7/8] Documentation Consistency Check..." -ForegroundColor Yellow
+    Write-Host "[9/9] Documentation Consistency Check..." -ForegroundColor Yellow
     try {
         & ./scripts/harness-doc-check.ps1 -Verbose:$Verbose | Out-Null
         if ($LASTEXITCODE -eq 0) {
@@ -213,9 +349,9 @@ if ($DocCheck -or $All) {
     }
 }
 
-# 8. Dead code detection (optional)
+# 10. Dead code detection (optional)
 if ($DeadCode -or $All) {
-    Write-Host "[8/8] Dead Code Detection..." -ForegroundColor Yellow
+    Write-Host "[10/10] Dead Code Detection..." -ForegroundColor Yellow
     try {
         & ./scripts/harness-dead-code.ps1 -Verbose:$Verbose | Out-Null
         if ($LASTEXITCODE -eq 0) {
