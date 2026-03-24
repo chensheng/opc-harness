@@ -115,7 +115,7 @@ npm run harness:check
 
 **目标**: Health Score 100/100
 
-#### 检查项（8 步）
+#### 检查项（10 步 - 默认完整模式）
 
 | # | 检查项 | 失败扣分 | 说明 |
 |---|--------|---------|------|
@@ -127,10 +127,21 @@ npm run harness:check
 | 6 | **TypeScript 单元测试** | -20 | 自动运行 `npm run test:unit` |
 | 7 | 依赖完整性 | -5 | 文件检查 |
 | 8 | 目录结构 | -5 | 结构验证 |
+| 9 | **文档一致性检查** ⭐ | **-5** | **默认执行** (可用 `-NoDocCheck` 跳过) |
+| 10 | **死代码检测** ⭐ | **-5** | **默认执行** (可用 `-NoDeadCode` 跳过) |
 
-**可选检查**（使用 `-All` 参数）:
-- 文档一致性检查 (-5 分)
-- 死代码检测 (-5 分)
+**快速模式**（使用 `-Quick` 参数）:
+- 仅运行前 8 项核心检查
+- 适用于本地开发快速验证
+- CI/CD 中的初步质量门禁
+
+**参数说明**:
+- `-Verbose`: 显示详细输出和错误信息
+- `-Fix`: 自动修复 ESLint 和 Prettier 问题
+- `-Quick`: 快速模式（跳过文档和死代码检测）
+- `-NoDocCheck`: 跳过文档一致性检查
+- `-NoDeadCode`: 跳过死代码检测
+- ~~`-All`~~: **已废弃**（默认就是完整模式）
 
 #### TypeScript 测试智能识别
 
@@ -163,7 +174,7 @@ npm run harness:check
 2. **任务完成报告**: 创建详细报告（模板见下方）
 
 #### 任务完成报告模板
-```markdown
+```
 # {任务 ID} 任务完成报告 - {任务名称}
 
 ## 📋 任务概述
@@ -228,12 +239,22 @@ npm run lint:fix
 ```
 
 ### 提交前验证
-```bash
-# 唯一需要的命令（包含所有检查）
+```
+# 完整验证（默认，包含文档和死代码检测）
 npm run harness:check
+
+# 快速模式（仅核心 8 项检查）
+npm run harness:check -- -Quick
 
 # 详细输出模式
 npm run harness:check -- -Verbose
+
+# 自动修复代码问题
+npm run harness:check -- -Fix
+
+# 跳过特定检查（特殊情况使用）
+npm run harness:check -- -NoDocCheck    # 跳过文档检查
+npm run harness:check -- -NoDeadCode   # 跳过失代码检测
 ```
 
 ### CI/CD 集成
@@ -315,7 +336,7 @@ try { /* ... */ } catch (_error) { /* ... */ }
 ### Harness 脚本问题
 
 **Q1: PowerShell 执行策略错误？**
-```powershell
+```
 # 使用 Bypass 参数
 powershell -ExecutionPolicy Bypass -File ./scripts/harness-check.ps1
 ```

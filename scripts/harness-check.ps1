@@ -6,9 +6,9 @@ param(
     [switch]$Fix,          # 自动修复问题
     [switch]$Verbose,      # 详细输出
     [switch]$Json,         # JSON 格式输出
-    [switch]$DocCheck,     # 包含文档一致性检查
-    [switch]$DeadCode,     # 包含死代码检测
-    [switch]$All           # 运行所有检查（包括文档和死代码）
+    [switch]$NoDocCheck,   # 跳过文档一致性检查（默认执行）
+    [switch]$NoDeadCode,   # 跳过死代码检测（默认执行）
+    [switch]$Quick         # 快速模式（仅核心 8 项检查）
 )
 
 $ErrorActionPreference = "Stop"
@@ -331,9 +331,9 @@ if ($missingDirs.Count -eq 0) {
     $Score -= 5
 }
 
-# 9. Documentation consistency check (optional)
-if ($DocCheck -or $All) {
-    Write-Host "[9/9] Documentation Consistency Check..." -ForegroundColor Yellow
+# 9. Documentation consistency check (default enabled)
+if (-not $NoDocCheck -and -not $Quick) {
+    Write-Host "[9/10] Documentation Consistency Check..." -ForegroundColor Yellow
     try {
         & ./scripts/harness-doc-check.ps1 -Verbose:$Verbose | Out-Null
         if ($LASTEXITCODE -eq 0) {
@@ -349,8 +349,8 @@ if ($DocCheck -or $All) {
     }
 }
 
-# 10. Dead code detection (optional)
-if ($DeadCode -or $All) {
+# 10. Dead code detection (default enabled)
+if (-not $NoDeadCode -and -not $Quick) {
     Write-Host "[10/10] Dead Code Detection..." -ForegroundColor Yellow
     try {
         & ./scripts/harness-dead-code.ps1 -Verbose:$Verbose | Out-Null

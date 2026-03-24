@@ -9,7 +9,7 @@
 ## 🎯 快速入口（按优先级）
 
 ### ⭐⭐⭐ 必读核心
-- **[📘 Harness Engineering 流程](./docs/HARNESS_ENGINEERING.md)** - **7 阶段标准开发流程** 🔥
+- [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md) - 7阶段标准开发流程
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
 
@@ -60,9 +60,9 @@ DB → Services        // 数据库层不可依赖数据层
 ### 3. 反馈回路
 **自动化检查**:
 ```bash
-npm run harness:check     # 提交前必跑
-npm run harness:fix       # 自动修复格式问题
-npm run harness:check -- -All  # 完整验证（含文档/死代码）
+npm run harness:check          # 提交前必跑（完整验证）
+npm run harness:fix            # 自动修复格式问题
+npm run harness:check -- -Quick  # 快速模式（仅核心 8 项）
 ```
 
 **质量门禁**:
@@ -83,7 +83,7 @@ graph LR
 A[1.任务选择] --> B[2.架构学习] --> C[3.测试设计] --> D[4.开发实施] --> E[5.质量验证] --> F[6.文档更新] --> G[7.完成交付]
 ```
 
-**详细说明**: 详见 **[Harness Engineering 开发流程](./docs/HARNESS_ENGINEERING.md)**
+**详细说明**: 详见 **[Harness Engineering 流程](./docs/HARNESS_ENGINEERING.md)**
 
 **快速参考**:
 1. **任务选择**: 查阅 [MVP 版本规划](./docs/exec-plans/active/MVP 版本规划.md)，选 P0/P1
@@ -118,27 +118,26 @@ Level 3: docs/*                 ← 详细设计
 ## 🔧 命令速查
 
 ### 日常开发
+
 ```bash
 # 测试流程
 npm run test:unit              # 单元测试
 npm run test:e2e               # E2E 测试
-npm run harness:check          # 架构检查
+npm run harness:check          # 架构检查（完整验证）
 npm run harness:fix            # 自动修复
-
-# 调试模式
-npx vitest                     # 监听测试
-npx vitest --ui                # UI 界面
-npx tsc --noEmit               # TS 类型检查
-cd src-tauri && cargo check   # Rust 编译
 ```
 
 ### 提交前验证
 ```bash
-# 唯一需要的命令（推荐）
+# 完整验证（默认，包含文档和死代码检测）
 npm run harness:check
 
-# 完整验证（可选）
-npm run harness:check -- -All
+# 快速模式（仅核心 8 项检查）
+npm run harness:check -- -Quick
+
+# 跳过特定检查（特殊情况）
+npm run harness:check -- -NoDocCheck    # 跳过文档检查
+npm run harness:check -- -NoDeadCode   # 跳过失代码检测
 ```
 
 ---
