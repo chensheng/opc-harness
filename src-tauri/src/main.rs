@@ -6,6 +6,7 @@ mod cli;
 mod commands;
 mod db;
 mod models;
+mod quality;
 mod services;
 mod utils;
 pub mod agent_protocol;
