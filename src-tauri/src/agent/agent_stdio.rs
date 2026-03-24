@@ -445,6 +445,11 @@ impl StdioChannelManager {
     pub fn remove_channel(&mut self, channel_id: &str) -> Option<StdioChannel> {
         self.channels.remove(channel_id)
     }
+
+    /// 获取所有通道
+    pub fn get_all_channels(&self) -> &HashMap<String, StdioChannel> {
+        &self.channels
+    }
 }
 
 /// 创建新的 Stdio 通道

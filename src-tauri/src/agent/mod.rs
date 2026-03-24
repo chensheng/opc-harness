@@ -11,6 +11,7 @@ pub mod branch_manager;
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
+pub mod agent_manager; // VC-004: Agent Manager
 
 // 重新导出常用类型，方便外部使用
 pub use types::{AgentPhase, AgentStatus, AgentConfig, AgentType};
@@ -44,4 +45,8 @@ pub use daemon::{
 pub use agent_stdio::{
     StdioChannel, StdioChannelManager, StdioChannelConfig, StdioChannelStatus, StdioChannelStats,
     StdioMessage, StdioMessageType,
+};
+// VC-004: 导出 Agent Manager 相关类型
+pub use agent_manager::{
+    AgentManager, AgentHandle, AgentManagerStats,
 };
