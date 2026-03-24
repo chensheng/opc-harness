@@ -5,15 +5,26 @@
 
 pub mod types;
 pub mod messages;
+pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
 pub mod daemon;
 
 // 重新导出常用类型，方便外部使用
-pub use types::{AgentPhase, AgentStatus, AgentConfig};
+pub use types::{AgentPhase, AgentStatus, AgentConfig, AgentType};
 pub use messages::{
     AgentRequest, AgentResponse, AgentMessage, MessageType,
     StdioCommand, StdioOutput, WebSocketMessage,
+    // VC-001: 新增数据类型导出
+    Issue, IssueStatus, Priority,
+    CheckpointType, CheckpointRequest, CheckpointResponse, CheckpointDecision,
+    QualityGateResult,
+    AgentSessionState,
+};
+pub use initializer_agent::{
+    InitializerAgent, InitializerAgentConfig, InitializerStatus,
+    PRDParseResult, EnvironmentCheckResult, TaskDecompositionResult,
+    InitializerResult,
 };
 pub use coding_agent::{
     CodingAgent, CodingAgentConfig, CodingTask, CodingTaskType,

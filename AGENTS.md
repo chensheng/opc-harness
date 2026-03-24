@@ -21,8 +21,6 @@
 
 ### ⭐ 测试与验证
 ```bash
-npm run test:unit          # 单元测试（覆盖率≥70%）
-npm run test:e2e           # E2E 测试（核心流程）
 npm run harness:check      # 架构健康检查（目标 100/100）
 ```
 
@@ -62,7 +60,6 @@ DB → Services        // 数据库层不可依赖数据层
 ```bash
 npm run harness:check          # 提交前必跑（完整验证）
 npm run harness:fix            # 自动修复格式问题
-npm run harness:check -- -Quick  # 快速模式（仅核心 8 项）
 ```
 
 **质量门禁**:
@@ -121,23 +118,15 @@ Level 3: docs/*                 ← 详细设计
 
 ```bash
 # 测试流程
-npm run test:unit              # 单元测试
-npm run test:e2e               # E2E 测试
 npm run harness:check          # 架构检查（完整验证）
 npm run harness:fix            # 自动修复
+npm run test:e2e               # E2E 测试
 ```
 
 ### 提交前验证
 ```bash
 # 完整验证（默认，包含文档和死代码检测）
 npm run harness:check
-
-# 快速模式（仅核心 8 项检查）
-npm run harness:check -- -Quick
-
-# 跳过特定检查（特殊情况）
-npm run harness:check -- -NoDocCheck    # 跳过文档检查
-npm run harness:check -- -NoDeadCode   # 跳过失代码检测
 ```
 
 ---

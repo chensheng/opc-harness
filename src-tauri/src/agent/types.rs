@@ -30,14 +30,35 @@ pub enum AgentStatus {
     Failed(String),
 }
 
+/// Agent 类型枚举
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentType {
+    /// Initializer Agent: PRD 解析、环境检查、任务分解
+    Initializer,
+    /// Coding Agent: 代码生成、测试编写、质量修复
+    Coding,
+    /// MR Creation Agent: 分支合并、回归测试、MR 创建
+    MRCreation,
+}
+
+impl std::fmt::Display for AgentType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentType::Initializer => write!(f, "initializer"),
+            AgentType::Coding => write!(f, "coding"),
+            AgentType::MRCreation => write!(f, "mr_creation"),
+        }
+    }
+}
+
 /// Agent 配置信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
     /// Agent 唯一标识
     pub agent_id: String,
-    /// Agent 类型："initializer" | "coding" | "mr_creation"
+    /// Agent 类型
     #[serde(rename = "type")]
-    pub agent_type: String,
+    pub agent_type: AgentType,
     /// 当前阶段
     pub phase: AgentPhase,
     /// 当前状态
@@ -46,4 +67,8 @@ pub struct AgentConfig {
     pub project_path: String,
     /// 会话 ID
     pub session_id: String,
+    /// AI 服务配置（可选）
+    pub ai_config: Option<crate::ai::AIConfig>,
+    /// 附加配置参数
+    pub metadata: Option<serde_json::Value>,
 }
