@@ -10,6 +10,7 @@ pub mod coding_agent;
 pub mod branch_manager;
 pub mod daemon;
 pub mod agent_stdio;
+pub mod websocket_manager;
 
 // 重新导出常用类型，方便外部使用
 pub use types::{AgentPhase, AgentStatus, AgentConfig, AgentType};
