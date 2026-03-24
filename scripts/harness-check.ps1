@@ -346,22 +346,37 @@ function Invoke-TSTestsCheck {
             $testOutput = Receive-Job $testJob
             Stop-Job $testJob | Remove-Job -Force
             
-            if ($testOutput -match "Test Files\s+(\d+) passed") {
-                $testFiles = $matches[1]
-                Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
-            } elseif ($testOutput -match "FAILURES") {
+            # Simple approach: check for the summary line pattern
+            $hasPassed = $testOutput -match 'Test Files\s+\d+\s+passed'
+            $hasFailed = $testOutput -match '\d+\s+failed|FAILURES'
+            
+            if ($hasPassed -and -not $hasFailed) {
+                # Extract test file count if possible
+                if ($testOutput -match 'Test Files\s+(\d+)\s+passed') {
+                    $testFiles = $matches[1]
+                    Write-CheckResult -Status "PASS" -Message "All TS tests passed ($testFiles files)"
+                } else {
+                    Write-CheckResult -Status "PASS" -Message "All TS tests passed"
+                }
+            } elseif ($hasFailed) {
                 Write-CheckResult -Status "FAIL" -Message "Some TS tests failed"
                 Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.TSTests
                 
                 if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
+                    # Show summary only
+                    $summaryLines = $testOutput -split "`n" | Where-Object { $_ -match "Test Files|Tests\s+\d+" }
+                    if ($summaryLines.Count -gt 0) {
+                        Write-Host ($summaryLines -join "`n") -ForegroundColor Gray
+                    }
                 }
             } else {
+                # Fallback to warning if we can't determine the result
                 Write-CheckResult -Status "WARN" -Message "Could not parse TS test results"
                 Add-Issue -Type "TS Tests" -Severity "Warning" -Message "Unknown result" -ScorePenalty 10
                 
                 if ($Verbose) {
-                    Write-Host $testOutput -ForegroundColor Gray
+                    Write-Host "Raw output (last 5 lines):" -ForegroundColor Gray
+                    ($testOutput -split "`n" | Select-Object -Last 5) | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
                 }
             }
         } else {
@@ -372,7 +387,7 @@ function Invoke-TSTestsCheck {
         }
     } catch {
         Write-CheckResult -Status "FAIL" -Message "TS test execution failed: $_"
-        Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.TSTests
+        Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution exception" -ScorePenalty $Script:Config.ScoreWeights.TSTests
         
         if ($Verbose) {
             Write-Host "Exception details: $_" -ForegroundColor Red

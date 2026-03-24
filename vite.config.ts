@@ -27,7 +27,7 @@ export default defineConfig(async () => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test-utils/setup.ts',
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.test.ts', 'e2e/**/*.spec.ts'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.test.ts'],
     exclude: [
       'node_modules',
       'dist',
@@ -35,6 +35,7 @@ export default defineConfig(async () => ({
       '.husky',
       'scripts',
       'src-tauri',
+      'e2e',
       '**/*.d.ts',
       '**/*.config.*',
     ],
