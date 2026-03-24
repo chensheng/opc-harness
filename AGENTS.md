@@ -9,9 +9,10 @@
 ## 🎯 快速入口（按优先级）
 
 ### ⭐⭐⭐ 必读核心
+- **[📘 Harness Engineering 流程](./docs/HARNESS_ENGINEERING.md)** - **7 阶段标准开发流程** 🔥
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
-- **[📘 Harness Engineering 流程](./docs/HARNESS_ENGINEERING.md)** - **7 阶段标准开发流程** 🔥
+
 
 ### ⭐⭐ 架构与约束
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计
