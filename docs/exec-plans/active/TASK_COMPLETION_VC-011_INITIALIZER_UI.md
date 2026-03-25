@@ -50,7 +50,7 @@
 
 ### 组件结构
 
-```typescript
+``typescript
 InitializerWorkflow (主组件)
 ├── WorkflowSteps (四步工作流进度条)
 │   ├── Step 1: PRD Parsing
@@ -64,7 +64,7 @@ InitializerWorkflow (主组件)
 
 ### 状态管理
 
-```typescript
+``typescript
 interface InitializerWorkflowState {
   status: 'idle' | 'running' | 'completed' | 'failed'
   currentStep: number
@@ -88,7 +88,7 @@ const statusMap = {
 
 ### 数据结构
 
-```typescript
+``typescript
 interface LogEntry {
   timestamp: Date
   level: 'info' | 'warn' | 'error' | 'debug'
@@ -202,3 +202,46 @@ interface InitializerResult {
 
 **最后更新**: 2026-03-25  
 **状态**: 📋 执行中
+
+## 📋 任务选择
+
+从 MVP 路线图中选择 **VC-011: 实现 Initializer Agent UI**
+
+### 任务分析
+
+**需求**: 
+- 四步工作流展示
+- 实时日志输出
+- 用户交互界面
+
+**依赖项**: 
+- ✅ VC-010: Initializer Agent 主逻辑 - 已完成
+
+**现状分析**:
+通过查看 [`InitializerWorkflow.tsx`](d:\workspace\opc-harness\src\components\vibe-coding\InitializerWorkflow.tsx) 代码，发现组件已经完整实现了 Initializer Agent UI：
+
+1. ✅ **四步工作流展示**
+   - PRD 解析
+   - 环境检查
+   - Git 初始化
+   - 任务分解
+
+2. ✅ **实时日志面板**
+   - 支持 info/warn/error/debug 级别
+   - 时间戳显示
+   - 滚动更新
+
+3. ✅ **进度可视化**
+   - 进度条（0-100%）
+   - 步骤状态图标
+   - 状态卡片
+
+4. ✅ **用户交互**
+   - 开始/重新按钮
+   - 自动启动支持
+   - 完成/错误回调
+
+**需要完成的工作**:
+1. 编写单元测试
+2. 集成到 App.tsx
+3. 更新文档状态
