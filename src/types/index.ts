@@ -178,3 +178,81 @@ export interface AppSettings {
   autoSave: boolean
   defaultAIProvider?: string
 }
+
+// HITL Checkpoint Types (Vibe Coding)
+export interface Issue {
+  id: string
+  iid: number
+  title: string
+  description: string
+  acceptanceCriteria: string[]
+  priority: 'P0' | 'P1' | 'P2' | 'P3'
+  status: 'todo' | 'in_progress' | 'done'
+  estimatedHours?: number
+  dependencies?: number[] // issue iids
+  labels: string[]
+  filePath?: string
+}
+
+export interface Milestone {
+  id: string
+  iid: number
+  title: string
+  description: string
+  issues: number[] // issue iids
+  dueDate?: string
+}
+
+export type CheckpointStatus = 'pending' | 'reviewed' | 'approved' | 'rejected'
+
+export type CheckpointId =
+  | 'CP-001' // 项目验证
+  | 'CP-002' // 任务分解审查
+  | 'CP-003' // 上下文丰富化
+  | 'CP-004' // 回归测试审查
+  | 'CP-005' // Issue 选择确认
+  | 'CP-006' // Issue 完成审查
+  | 'CP-007' // MR 创建审查
+  | 'CP-008' // 最终 MR 审查
+
+export interface Checkpoint {
+  id: CheckpointId
+  name: string
+  description: string
+  triggeredAt: string
+  agentId: string
+  status: CheckpointStatus
+  reviewItems: ReviewItem[]
+  userAction?: UserAction
+  feedback?: string
+  autoAcceptEnabled: boolean
+  trustThreshold: number
+}
+
+export interface ReviewItem {
+  itemType: 'issue_list' | 'milestone_list' | 'code_diff' | 'test_report' | 'project_info'
+  title: string
+  content: string // Markdown or JSON string
+  severity: 'high' | 'medium' | 'low'
+  metadata?: Record<string, unknown>
+}
+
+export interface UserAction {
+  action: 'approve' | 'reject' | 'modify'
+  timestamp: string
+  modifications?: Modification[]
+}
+
+export interface Modification {
+  issueIid?: number
+  field: string
+  oldValue: unknown
+  newValue: unknown
+}
+
+export interface CheckpointResponse {
+  checkpointId: CheckpointId
+  approved: boolean
+  modifications?: Modification[]
+  feedback?: string
+}
