@@ -61,9 +61,6 @@ interface TaskStats {
 }
 
 export function ProgressVisualization() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { projectId: _projectId } = useParams<{ projectId: string }>()
-
   // Mock data - will be replaced with real data from Backend
   const [milestones] = useState<Milestone[]>([
     {
@@ -453,8 +450,6 @@ interface InitializerStep {
 }
 
 export function AgentMonitor() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { projectId: _projectId } = useParams<{ projectId: string }>()
   const [agents, setAgents] = useState<AgentInfo[]>([
     {
       agentId: 'agent-001',
@@ -1380,7 +1375,7 @@ interface LogEntry {
   level: 'info' | 'warn' | 'error' | 'debug' | 'success'
   source: string
   message: string
-  data?: any
+  data?: unknown
 }
 
 interface LogStats {
