@@ -5,6 +5,7 @@ mod ai;
 mod cli;
 mod commands;
 mod db;
+mod file;
 mod models;
 mod prompts;
 mod quality;
