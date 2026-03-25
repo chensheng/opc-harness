@@ -664,6 +664,40 @@ pub async fn get_all_agent_sessions(
         .map_err(|e| format!("Failed to fetch agent sessions: {}", e))
 }
 
+/// 运行 Initializer Agent 初始化流程 (VC-010)
+#[tauri::command]
+pub async fn run_initializer_agent(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    project_path: String,
+    prd_content: String,
+) -> Result<crate::agent::initializer_agent::InitializerResult, String> {
+    use crate::agent::initializer_agent::{InitializerAgent, InitializerAgentConfig};
+    use uuid::Uuid;
+    
+    let manager = state.read().await;
+    
+    // 创建 InitializerAgent 配置
+    let config = InitializerAgentConfig {
+        agent_id: format!("initializer-{}", Uuid::new_v4()),
+        project_path: project_path.clone(),
+        ai_config: crate::ai::AIConfig {
+            provider: "openai".to_string(),
+            api_key: "placeholder".to_string(), // 实际使用时需要从安全存储获取
+            model: "gpt-4".to_string(),
+            base_url: None,
+        },
+        prd_file_path: None,
+        prd_content: Some(prd_content),
+    };
+    
+    // 创建 Agent 并执行初始化
+    let mut agent = InitializerAgent::new(config);
+    let result = agent.run_initialization().await?;
+    
+    Ok(result)
+}
+
 /// 初始化 Agent Manager
 #[tauri::command]
 pub async fn initialize_agent_manager(
