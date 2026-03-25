@@ -121,8 +121,6 @@ interface LogStats {
 
 ### MVP 验收标准 (Log Terminal)
 
-根据 [MVP开发任务拆解](d:/workspace/opc-harness/docs/MVP开发任务拆解.md):
-
 > **VC-017: 实现实时输出显示** ⭐ **P0 必须**
 > - CLI 输出能实时显示在界面
 > - 支持多级别日志 (info/warn/error)
@@ -528,8 +526,6 @@ const sourceDistribution = groupBySource(logs)
 ---
 
 ## 📝 相关文档
-
-- [MVP开发任务拆解](d:/workspace/opc-harness/docs/MVP开发任务拆解.md#vibe-coding---编辑器与预览)
 - [架构设计 - 守护进程](d:/workspace/opc-harness/docs/架构设计.md#守护进程架构)
 - [Vibe Coding 规格说明](d:/workspace/opc-harness/docs/product-specs/vibe-coding-spec.md#实时日志与监控)
 
