@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Play,
@@ -9,9 +9,6 @@ import {
   ExternalLink,
   RefreshCw,
   ChevronRight,
-  ChevronDown,
-  File,
-  Folder,
   CheckCircle,
   AlertCircle,
   Loader2,
@@ -41,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { useProjectStore } from '@/stores'
 import type { FileNode, CLIOutputLine } from '@/types'
+import { FileExplorer } from './FileExplorer'
 
 interface Milestone {
   id: string
@@ -1134,56 +1132,27 @@ export function CodingWorkspace() {
     outputEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [cliOutput])
 
-  const toggleFolder = (path: string) => {
-    const toggleNode = (nodes: FileNode[]): FileNode[] => {
-      return nodes.map(node => {
-        if (node.path === path) {
-          return { ...node, isExpanded: !node.isExpanded }
-        }
-        if (node.children) {
-          return { ...node, children: toggleNode(node.children) }
-        }
-        return node
-      })
-    }
-    setFileTree(toggleNode(fileTree))
-  }
+  const handleFileSelect = useCallback((path: string) => {
+    setSelectedFile(path)
+  }, [])
 
-  const renderFileTree = (nodes: FileNode[], depth = 0) => {
-    return nodes.map(node => (
-      <div key={node.path} style={{ paddingLeft: depth * 16 }}>
-        <button
-          onClick={() =>
-            node.type === 'directory' ? toggleFolder(node.path) : setSelectedFile(node.path)
+  const handleFolderToggle = useCallback(
+    (path: string) => {
+      const toggleNode = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(node => {
+          if (node.path === path) {
+            return { ...node, isExpanded: !node.isExpanded }
           }
-          className={`flex items-center gap-1 w-full px-2 py-1 text-sm rounded hover:bg-accent ${
-            selectedFile === node.path ? 'bg-accent' : ''
-          }`}
-        >
-          {node.type === 'directory' ? (
-            <>
-              {node.isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-              <Folder className="w-4 h-4 text-yellow-500" />
-            </>
-          ) : (
-            <>
-              <span className="w-4" />
-              <File className="w-4 h-4 text-blue-500" />
-            </>
-          )}
-          <span className="truncate">{node.name}</span>
-        </button>
-        {node.type === 'directory' &&
-          node.isExpanded &&
-          node.children &&
-          renderFileTree(node.children, depth + 1)}
-      </div>
-    ))
-  }
+          if (node.children) {
+            return { ...node, children: toggleNode(node.children) }
+          }
+          return node
+        })
+      }
+      setFileTree(toggleNode(fileTree))
+    },
+    [fileTree]
+  )
 
   const handleSendCommand = () => {
     if (!cliInput.trim()) return
@@ -1269,7 +1238,14 @@ export function CodingWorkspace() {
             <FolderTree className="w-4 h-4" />
             <span className="text-sm font-medium">文件</span>
           </div>
-          <div className="flex-1 overflow-auto p-2">{renderFileTree(fileTree)}</div>
+          <div className="flex-1 overflow-auto p-2">
+            <FileExplorer
+              fileTree={fileTree}
+              selectedFile={selectedFile}
+              onSelectFile={handleFileSelect}
+              onToggleFolder={handleFolderToggle}
+            />
+          </div>
         </Card>
 
         {/* Editor / Preview */}

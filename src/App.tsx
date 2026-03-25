@@ -12,7 +12,6 @@ import {
   ProgressVisualization,
   LogTerminal,
 } from './components/vibe-coding/CodingWorkspace'
-import { FileExplorer } from './components/vibe-coding/FileExplorer'
 import { CheckpointReview } from './components/vibe-coding/CheckpointReview'
 import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy'
 import { AIConfig } from './components/common/AIConfig'
@@ -32,7 +31,7 @@ function App() {
         <Route path="/agent-monitor/:projectId" element={<AgentMonitor />} />
         <Route path="/progress/:projectId" element={<ProgressVisualization />} />
         <Route path="/logs/:projectId" element={<LogTerminal />} />
-        <Route path="/files/:projectId" element={<FileExplorer />} />
+        {/* FileExplorer 需要在 CodingWorkspace 中使用，不单独作为路由 */}
         <Route path="/checkpoint/:projectId/:checkpointId" element={<CheckpointReview />} />
         <Route path="/marketing/:projectId" element={<MarketingStrategy />} />
         <Route path="/ai-config" element={<AIConfig />} />
