@@ -9,6 +9,7 @@ import {
   CodingWorkspace,
   InitializerWorkflow,
   AgentMonitor,
+  ProgressVisualization,
 } from './components/vibe-coding/CodingWorkspace'
 import { CheckpointReview } from './components/vibe-coding/CheckpointReview'
 import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy'
@@ -27,6 +28,7 @@ function App() {
         <Route path="/coding/:projectId" element={<CodingWorkspace />} />
         <Route path="/initializer/:projectId" element={<InitializerWorkflow />} />
         <Route path="/agent-monitor/:projectId" element={<AgentMonitor />} />
+        <Route path="/progress/:projectId" element={<ProgressVisualization />} />
         <Route path="/checkpoint/:projectId/:checkpointId" element={<CheckpointReview />} />
         <Route path="/marketing/:projectId" element={<MarketingStrategy />} />
         <Route path="/ai-config" element={<AIConfig />} />
