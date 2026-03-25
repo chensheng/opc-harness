@@ -12,6 +12,13 @@ import {
   ChevronDown,
   File,
   Folder,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Terminal,
+  GitBranch,
+  FileText,
+  ListTodo,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -52,6 +59,291 @@ const mockCLIOutput = [
   { type: 'stdout' as const, content: '> Compiling...', timestamp: '10:00:05' },
   { type: 'stdout' as const, content: '> Compiled successfully', timestamp: '10:00:08' },
 ]
+
+interface InitializerStep {
+  id: string
+  name: string
+  description: string
+  icon: React.ReactNode
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  logs: string[]
+  error?: string
+}
+
+export function InitializerWorkflow() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
+  const [steps, setSteps] = useState<InitializerStep[]>([
+    {
+      id: 'prd-parsing',
+      name: 'PRD 解析',
+      description: '解析产品需求文档，提取核心功能',
+      icon: <FileText className="w-5 h-5" />,
+      status: 'pending',
+      logs: [],
+    },
+    {
+      id: 'env-check',
+      name: '环境检查',
+      description: '验证开发环境和工具链',
+      icon: <Terminal className="w-5 h-5" />,
+      status: 'pending',
+      logs: [],
+    },
+    {
+      id: 'git-init',
+      name: 'Git 初始化',
+      description: '创建 Git 仓库和配置文件',
+      icon: <GitBranch className="w-5 h-5" />,
+      status: 'pending',
+      logs: [],
+    },
+    {
+      id: 'task-decomposition',
+      name: '任务分解',
+      description: '将 PRD 分解为可执行的 Issues',
+      icon: <ListTodo className="w-5 h-5" />,
+      status: 'pending',
+      logs: [],
+    },
+  ])
+  const [isRunning, setIsRunning] = useState(false)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [overallProgress, setOverallProgress] = useState(0)
+
+  const startInitialization = async () => {
+    setIsRunning(true)
+    setOverallProgress(0)
+
+    // Mock initialization flow
+    for (let i = 0; i < steps.length; i++) {
+      setCurrentStepIndex(i)
+      await executeStep(i)
+      setOverallProgress(((i + 1) / steps.length) * 100)
+    }
+
+    setIsRunning(false)
+    // Navigate to CP-002 checkpoint after completion
+    setTimeout(() => {
+      navigate(`/checkpoint/${projectId}/CP-002`)
+    }, 1000)
+  }
+
+  const executeStep = async (stepIndex: number) => {
+    const step = steps[stepIndex]
+
+    // Update step status to running
+    setSteps(prev => prev.map((s, idx) => (idx === stepIndex ? { ...s, status: 'running' } : s)))
+
+    // Mock logs for each step
+    const mockLogs: Record<string, string[]> = {
+      'prd-parsing': [
+        '正在读取 PRD 文档...',
+        '分析产品需求...',
+        '提取功能列表...',
+        '识别技术栈...',
+        'PRD 解析完成！共识别 12 个核心功能',
+      ],
+      'env-check': [
+        '检查 Git 版本...',
+        '✓ Git 2.40.0 已安装',
+        '检查 Node.js 版本...',
+        '✓ Node.js 20.10.0 已安装',
+        '检查 npm 版本...',
+        '✓ npm 10.2.3 已安装',
+        '检查 Rust 版本...',
+        '✓ Rust 1.75.0 已安装',
+        '环境检查通过！',
+      ],
+      'git-init': [
+        '初始化 Git 仓库...',
+        '创建 .gitignore 文件...',
+        '配置 Git 用户信息...',
+        '创建初始提交...',
+        'Git 仓库初始化成功！',
+      ],
+      'task-decomposition': [
+        '分析 PRD 功能列表...',
+        '设计系统架构...',
+        '创建 Milestones...',
+        '分解任务为 Issues...',
+        '评估优先级和依赖关系...',
+        '估算工时...',
+        '任务分解完成！共生成 15 个 Issues',
+      ],
+    }
+
+    // Simulate step execution with logs
+    const logs = mockLogs[step.id] || []
+    for (const log of logs) {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      setSteps(prev =>
+        prev.map((s, idx) => (idx === stepIndex ? { ...s, logs: [...s.logs, log] } : s))
+      )
+    }
+
+    // Mark step as completed
+    setSteps(prev => prev.map((s, idx) => (idx === stepIndex ? { ...s, status: 'completed' } : s)))
+  }
+
+  const stopInitialization = () => {
+    setIsRunning(false)
+    setSteps(prev =>
+      prev.map((s, idx) => (idx > currentStepIndex ? { ...s, status: 'pending' } : s))
+    )
+  }
+
+  const retryStep = (stepIndex: number) => {
+    executeStep(stepIndex)
+  }
+
+  const getStepColor = (status: InitializerStep['status']) => {
+    switch (status) {
+      case 'completed':
+        return 'border-green-500 bg-green-50 dark:bg-green-950/20'
+      case 'running':
+        return 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
+      case 'failed':
+        return 'border-red-500 bg-red-50 dark:bg-red-950/20'
+      default:
+        return 'border-gray-200 dark:border-gray-800'
+    }
+  }
+
+  const getStepIcon = (status: InitializerStep['status'], icon: React.ReactNode) => {
+    if (status === 'completed') return <CheckCircle className="w-5 h-5 text-green-500" />
+    if (status === 'running') return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+    if (status === 'failed') return <AlertCircle className="w-5 h-5 text-red-500" />
+    return icon
+  }
+
+  const allCompleted = steps.every(s => s.status === 'completed')
+
+  return (
+    <div className="h-full flex flex-col p-6 space-y-6 overflow-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Initializer Agent 工作流</h2>
+          <p className="text-muted-foreground mt-1">AI 正在初始化项目环境和任务分解</p>
+        </div>
+        <div className="flex gap-2">
+          {!isRunning && !allCompleted && (
+            <Button onClick={startInitialization}>
+              <Play className="w-4 h-4 mr-2" />
+              启动初始化
+            </Button>
+          )}
+          {isRunning && (
+            <Button variant="destructive" onClick={stopInitialization}>
+              <Square className="w-4 h-4 mr-2" />
+              停止
+            </Button>
+          )}
+          {allCompleted && (
+            <Button onClick={() => navigate(`/checkpoint/${projectId}/CP-002`)}>
+              <ChevronRight className="w-4 h-4 mr-2" />
+              前往审查任务分解
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">总体进度</span>
+          <span className="text-sm text-muted-foreground">{Math.round(overallProgress)}%</span>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
+          <div
+            className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+            style={{ width: `${overallProgress}%` }}
+          />
+        </div>
+      </Card>
+
+      {/* Steps Timeline */}
+      <div className="space-y-4">
+        {steps.map((step, index) => (
+          <Card key={step.id} className={`border-l-4 ${getStepColor(step.status)} p-4`}>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">{getStepIcon(step.status, step.icon)}</div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">{step.name}</h3>
+                    <p className="text-sm text-muted-foreground">{step.description}</p>
+                  </div>
+                  <Badge variant={step.status === 'completed' ? 'default' : 'secondary'}>
+                    {step.status === 'completed'
+                      ? '已完成'
+                      : step.status === 'running'
+                        ? '执行中'
+                        : step.status === 'failed'
+                          ? '失败'
+                          : '等待中'}
+                  </Badge>
+                </div>
+
+                {/* Logs */}
+                {step.logs.length > 0 && (
+                  <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
+                    {step.logs.map((log, logIndex) => (
+                      <div key={logIndex} className="text-gray-700 dark:text-gray-300">
+                        <span className="text-muted-foreground mr-2">
+                          [{new Date().toLocaleTimeString()}]
+                        </span>
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {step.error && (
+                  <div className="flex items-center gap-2 text-red-500 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{step.error}</span>
+                  </div>
+                )}
+
+                {/* Retry Button */}
+                {step.status === 'failed' && (
+                  <Button size="sm" variant="outline" onClick={() => retryStep(index)}>
+                    <RefreshCw className="w-3 h-3 mr-2" />
+                    重试此步骤
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Summary Card */}
+      {allCompleted && (
+        <Card className="p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
+          <div className="flex items-center gap-4">
+            <CheckCircle className="w-12 h-12 text-green-500" />
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-green-700 dark:text-green-400">
+                ✨ 初始化完成！
+              </h3>
+              <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                项目环境已准备就绪，共生成 15 个开发任务。请前往下一步审查任务分解结果。
+              </p>
+            </div>
+            <Button onClick={() => navigate(`/checkpoint/${projectId}/CP-002`)}>
+              前往审查
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}
 
 export function CodingWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
