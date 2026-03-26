@@ -9,6 +9,7 @@ pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
 pub mod mr_creation_agent;  // VC-016: MR Creation Agent
+pub mod test_generator_agent;  // VC-021: Test Generator Agent
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
@@ -41,6 +42,11 @@ pub use branch_manager::{
 pub use mr_creation_agent::{
     MRCreationAgent, MRCreationConfig, MRCreationStatus,
     MRCreationResult, MRDescription, MergeConflict, ConflictType,
+};
+pub use test_generator_agent::{
+    TestGeneratorAgent, TestGeneratorConfig, TestGeneratorStatus,
+    TestGenerationResult, TestFile, TestCase, TestFramework, TestType,
+    SourceAnalysis, FunctionInfo, ClassInfo, ParameterInfo, PropertyInfo,
 };
 pub use daemon::{
     DaemonManager, DaemonConfig, DaemonStatus, DaemonSnapshot,
