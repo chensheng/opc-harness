@@ -3,11 +3,11 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { Terminal, type TerminalProps } from './Terminal'
 
 describe('Terminal Component', () => {
   const defaultProps: TerminalProps = {
-    cwd: '/test/path',
     autoFocus: false,
   }
 
@@ -18,13 +18,7 @@ describe('Terminal Component', () => {
     it('should render terminal component', () => {
       render(<Terminal {...defaultProps} />)
 
-      expect(screen.getByText('CWD: /test/path')).toBeInTheDocument()
-    })
-
-    it('should render with custom cwd', () => {
-      render(<Terminal cwd="/custom/path" />)
-
-      expect(screen.getByText('CWD: /custom/path')).toBeInTheDocument()
+      expect(screen.getByText('Ready')).toBeInTheDocument()
     })
 
     it('should apply custom className', () => {
@@ -60,32 +54,35 @@ describe('Terminal Component', () => {
    */
   describe('Command Execution', () => {
     it('should execute command on submit', async () => {
-      const onCommandExecuted = jest.fn()
+      const onCommandExecuted = vi.fn()
       render(<Terminal {...defaultProps} autoFocus={true} onCommandExecuted={onCommandExecuted} />)
 
       const input = screen.getByRole('textbox') as HTMLInputElement
       fireEvent.change(input, { target: { value: 'ls -la' } })
       fireEvent.submit(input.form!)
 
-      await waitFor(() => {
-        expect(onCommandExecuted).toHaveBeenCalledWith(
-          'ls -la',
-          expect.stringContaining('Command executed successfully')
-        )
-      })
+      await waitFor(
+        () => {
+          expect(onCommandExecuted).toHaveBeenCalledWith(
+            'ls -la',
+            expect.stringContaining('Command executed successfully')
+          )
+        },
+        { timeout: 500 }
+      )
     })
 
     it('should not execute empty command', async () => {
-      const onCommandExecuted = jest.fn()
+      const onCommandExecuted = vi.fn()
       render(<Terminal {...defaultProps} autoFocus={true} onCommandExecuted={onCommandExecuted} />)
 
       const input = screen.getByRole('textbox') as HTMLInputElement
       fireEvent.change(input, { target: { value: '   ' } })
       fireEvent.submit(input.form!)
 
-      await waitFor(() => {
-        expect(onCommandExecuted).not.toHaveBeenCalled()
-      })
+      // 等待一小段时间确保回调没有被调用
+      await new Promise(resolve => setTimeout(resolve, 200))
+      expect(onCommandExecuted).not.toHaveBeenCalled()
     })
   })
 
@@ -116,9 +113,12 @@ describe('Terminal Component', () => {
       fireEvent.change(input, { target: { value: 'echo hello' } })
       fireEvent.submit(input.form!)
 
-      await waitFor(() => {
-        expect(screen.getByText(/Command executed successfully/)).toBeInTheDocument()
-      })
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Command executed successfully/)).toBeInTheDocument()
+        },
+        { timeout: 500 }
+      )
     })
   })
 
@@ -138,16 +138,16 @@ describe('Terminal Component', () => {
    * 状态栏测试
    */
   describe('Status Bar', () => {
-    it('should display current working directory', () => {
-      render(<Terminal cwd="/project/src" />)
+    it('should display ready status', () => {
+      render(<Terminal {...defaultProps} />)
 
-      expect(screen.getByText('CWD: /project/src')).toBeInTheDocument()
+      expect(screen.getByText('Ready')).toBeInTheDocument()
     })
 
-    it('should display shell path when provided', () => {
-      render(<Terminal shell="/bin/zsh" />)
+    it('should display history count', () => {
+      render(<Terminal {...defaultProps} />)
 
-      expect(screen.getByText('Shell: /bin/zsh')).toBeInTheDocument()
+      expect(screen.getByText(/History:/)).toBeInTheDocument()
     })
   })
 })

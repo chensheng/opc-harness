@@ -28,8 +28,9 @@ const ANSI_COLORS: Record<string, string> = {
 function parseAnsiToHtml(text: string): string {
   let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-  // 处理 ANSI 颜色代码
-  html = html.replace(/\x1b\[([0-9;]*)m/g, (_match, codes) => {
+  // 处理 ANSI 颜色代码 (使用 Unicode 转义替代 \x1b)
+  // eslint-disable-next-line no-control-regex
+  html = html.replace(/\u001b\[([0-9;]*)m/g, (_match, codes) => {
     const codeList = codes.split(';')
     const colorCode = codeList.find((c: string) => c.startsWith('3'))
 
@@ -81,10 +82,6 @@ export interface TerminalTheme {
  * Terminal 组件 Props
  */
 export interface TerminalProps {
-  /** 工作目录 */
-  cwd?: string
-  /** Shell 程序路径 */
-  shell?: string
   /** 主题配置 */
   theme?: TerminalTheme
   /** 字体大小（像素） */
@@ -136,8 +133,6 @@ export interface TerminalHandle {
  * ```
  */
 export const Terminal: React.FC<TerminalProps> = ({
-  cwd = process.cwd(),
-  shell,
   theme,
   fontSize = 14,
   maxHistory = 100,
@@ -185,12 +180,7 @@ export const Terminal: React.FC<TerminalProps> = ({
       setIsExecuting(true)
 
       try {
-        // TODO: 集成真实的 Tauri Command
-        // const result = await invoke('execute_command', {
-        //   command,
-        //   cwd,
-        //   shell,
-        // });
+        // TODO: 集成真实的后端命令执行
 
         // 模拟命令执行（占位符）
         await new Promise(resolve => setTimeout(resolve, 100))
@@ -232,7 +222,7 @@ export const Terminal: React.FC<TerminalProps> = ({
         setIsExecuting(false)
       }
     },
-    [cwd, shell, maxHistory, onCommandExecuted]
+    [maxHistory, onCommandExecuted]
   )
 
   /**
@@ -390,7 +380,7 @@ export const Terminal: React.FC<TerminalProps> = ({
 
         {/* 当前命令提示符 */}
         {!readOnly && (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{ marginRight: '8px', color: activeTheme.green }}>
               {showLineNumbers ? `[${outputs.length + 1}]` : '$'}
             </span>
@@ -400,7 +390,6 @@ export const Terminal: React.FC<TerminalProps> = ({
               value={currentCommand}
               onChange={e => setCurrentCommand(e.target.value)}
               onKeyDown={handleKeyDown}
-              onSubmit={handleSubmit}
               disabled={isExecuting || readOnly}
               autoComplete="off"
               autoCorrect="off"
@@ -417,7 +406,7 @@ export const Terminal: React.FC<TerminalProps> = ({
                 caretColor: activeTheme.cursor,
               }}
             />
-          </div>
+          </form>
         )}
 
         {/* 执行中指示器 */}
@@ -438,8 +427,7 @@ export const Terminal: React.FC<TerminalProps> = ({
         }}
       >
         <div>
-          <span>CWD: {cwd}</span>
-          {shell && <span style={{ marginLeft: '16px' }}>Shell: {shell}</span>}
+          <span>Ready</span>
         </div>
         <div>
           <span>History: {commandHistory.length}</span>
