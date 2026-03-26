@@ -8,6 +8,7 @@ pub mod prd_parser;  // VC-006: PRD 解析器
 pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
+pub mod mr_creation_agent;  // VC-016: MR Creation Agent
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
@@ -36,6 +37,10 @@ pub use coding_agent::{
 pub use branch_manager::{
     BranchManager, BranchManagerConfig, BranchInfo, BranchType,
     BranchOperationResult,
+};
+pub use mr_creation_agent::{
+    MRCreationAgent, MRCreationConfig, MRCreationStatus,
+    MRCreationResult, MRDescription, MergeConflict, ConflictType,
 };
 pub use daemon::{
     DaemonManager, DaemonConfig, DaemonStatus, DaemonSnapshot,
