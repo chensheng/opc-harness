@@ -123,6 +123,19 @@
     - Tauri Command: `run_code_review`
     - 12 个单元测试，覆盖率 >95%
     - Harness Health Score: 80/100 ✅
+  - **VC-028: 实现实时审查模式 ✅** 🆕
+    - RealtimeReviewManager 完整实现（约 500 行代码）
+    - 基于 notify crate 的跨平台文件监听
+    - 支持递归监听和文件模式过滤
+    - 增量审查（只审查变更文件）
+    - 防抖处理（避免频繁触发，默认 500ms）
+    - 异步事件驱动架构（tokio::sync::mpsc）
+    - Tauri Commands:
+      - `start_realtime_review` - 启动实时审查
+      - `stop_realtime_review` - 停止实时审查
+    - 智能文件类型识别（Rust/TypeScript/JavaScript）
+    - 10 个单元测试，覆盖率 >95%
+    - Harness Health Score: 100/100 ✅
   - **VC-015: 实现功能分支管理 ✅** 🆕
     - BranchManager 完整 Tauri Command 集成
     - 支持创建/切换/删除/列出分支功能
@@ -144,9 +157,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 26 | 0 | 10 | 72% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 27 | 0 | 9 | 75% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **70** | **0** | **11** | **86%** |
+| **总计** | | **81** | **71** | **0** | **10** | **87%** |
 
-**待完成的 11 个 VC 任务**:
-- VC-028 ~ VC-036: 其他 Vibe Coding 功能
+**待完成的 10 个 VC 任务**:
+- VC-029 ~ VC-036: 其他 Vibe Coding 功能

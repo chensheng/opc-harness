@@ -71,6 +71,8 @@ fn main() {
             agent::agent_manager::run_debug_agent,
             agent::agent_manager::generate_commit_message,
             agent::agent_manager::run_code_review,
+            agent::agent_manager::start_realtime_review,
+            agent::agent_manager::stop_realtime_review,
 
             // System commands
             commands::system::get_app_version,
