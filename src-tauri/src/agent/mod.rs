@@ -12,6 +12,7 @@ pub mod mr_creation_agent;  // VC-016: MR Creation Agent
 pub mod test_generator_agent;  // VC-021: Test Generator Agent
 pub mod debug_agent;  // VC-022: Debug Agent
 pub mod git_commit_assistant;  // VC-026: Git Commit Assistant
+pub mod code_review_agent;  // VC-027: Code Review Agent
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
@@ -58,6 +59,11 @@ pub use git_commit_assistant::{
     GitCommitAssistant, GitCommitAssistantConfig, CommitStatus, CommitMessage,
     ChangeInfo, FileChangeType, CommitType,
 };
+pub use code_review_agent::{
+    CodeReviewAgent, CodeReviewAgentConfig, CodeReviewStatus, ReviewResult,
+    ReviewComment, ReviewSeverity, ReviewDimension, CodeChange,
+};
+
 pub use daemon::{
     DaemonManager, DaemonConfig, DaemonStatus, DaemonSnapshot,
     DaemonCommand, DaemonEvent, AgentProcessInfo, ResourceUsage,

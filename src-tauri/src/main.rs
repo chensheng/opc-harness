@@ -60,7 +60,7 @@ fn main() {
             commands::database::get_all_cli_sessions,
             commands::database::get_cli_session_by_id,
             commands::database::delete_cli_session,
-            // Agent Manager commands (VC-010, VC-015, VC-016, VC-022, VC-026)
+            // Agent Manager commands (VC-010, VC-015, VC-016, VC-022, VC-026, VC-027)
             agent::agent_manager::run_initializer_agent,
             agent::agent_manager::create_feature_branch,
             agent::agent_manager::checkout_branch,
@@ -70,6 +70,8 @@ fn main() {
             agent::agent_manager::create_merge_request,
             agent::agent_manager::run_debug_agent,
             agent::agent_manager::generate_commit_message,
+            agent::agent_manager::run_code_review,
+
             // System commands
             commands::system::get_app_version,
             commands::system::open_external_link,

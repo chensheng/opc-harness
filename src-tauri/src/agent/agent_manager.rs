@@ -22,6 +22,8 @@ use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::agent_stdio::StdioChannelManager;
 use crate::agent::types::{AgentConfig, AgentType, AgentStatus, AgentPhase};
 use crate::agent::branch_manager::{BranchManager, BranchManagerConfig, BranchInfo, BranchOperationResult};
+use crate::agent::git_commit_assistant::{CommitType, CommitMessage, ChangeInfo, FileChangeType};
+use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, CodeReviewStatus, ReviewResult, ReviewComment, ReviewDimension, ReviewSeverity, CodeChange};
 use crate::db;
 
 /// Agent 句柄信息
@@ -908,6 +910,48 @@ pub async fn get_current_branch(
     let branch_manager = manager.get_branch_manager().await;
     let current = branch_manager.as_ref().unwrap().get_current_branch().await?;
     Ok(current)
+}
+
+/// 运行代码审查 Agent
+#[tauri::command]
+pub async fn run_code_review(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+    _file_paths: Vec<String>,
+    enable_ai: bool,
+) -> Result<ReviewResult, String> {
+    let _manager = state.read().await;
+    
+    // 创建 CodeReviewAgent 配置
+    let config = CodeReviewAgentConfig {
+        project_path: ".".to_string(),
+        enable_ai,
+        dimensions: vec![
+            ReviewDimension::Style,
+            ReviewDimension::Performance,
+            ReviewDimension::Security,
+            ReviewDimension::BestPractice,
+        ],
+        min_severity: ReviewSeverity::Info,
+        max_comments: 100,
+    };
+
+    let mut agent = CodeReviewAgent::new(config);
+
+    // TODO: 实际实现中需要从文件路径读取代码内容
+    // 这里创建一个示例的 CodeChange 列表用于演示
+    let code_changes = vec![
+        CodeChange {
+            file_path: "example.rs".to_string(),
+            content: "// Example code for review".to_string(),
+            language: "rust".to_string(),
+            change_type: "Modified".to_string(),
+        }
+    ];
+
+    // 运行审查
+    let result = agent.run_review(&code_changes).await?;
+    Ok(result)
 }
 
 /// 初始化 Agent Manager

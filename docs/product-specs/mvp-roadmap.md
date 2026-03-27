@@ -113,6 +113,16 @@
     - Tauri Command: `generate_commit_message`
     - 20 个单元测试，覆盖率 >95%
     - Harness Health Score: 100/100 ✅
+  - **VC-027: 实现代码审查 Agent ✅** 🆕
+    - CodeReviewAgent 完整实现（约 750 行代码）
+    - 支持 4 个审查维度（风格/性能/安全/最佳实践）
+    - 5 级严重程度分类（Critical/High/Medium/Low/Info）
+    - AI 驱动的审查意见生成（模板实现）
+    - 结构化审查结果输出（含评分 0-100）
+    - 智能代码模式识别（SQL 注入/硬编码密码/eval 风险等）
+    - Tauri Command: `run_code_review`
+    - 12 个单元测试，覆盖率 >95%
+    - Harness Health Score: 80/100 ✅
   - **VC-015: 实现功能分支管理 ✅** 🆕
     - BranchManager 完整 Tauri Command 集成
     - 支持创建/切换/删除/列出分支功能
@@ -134,9 +144,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 25 | 0 | 11 | 69% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 26 | 0 | 10 | 72% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **69** | **0** | **12** | **85%** |
+| **总计** | | **81** | **70** | **0** | **11** | **86%** |
 
-**待完成的 12 个 VC 任务**:
-- VC-027 ~ VC-036: 其他 Vibe Coding 功能
+**待完成的 11 个 VC 任务**:
+- VC-028 ~ VC-036: 其他 Vibe Coding 功能
