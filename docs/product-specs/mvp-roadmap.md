@@ -113,6 +113,20 @@
     - Tauri Command: `generate_commit_message`
     - 20 个单元测试，覆盖率 >95%
     - Harness Health Score: 100/100 ✅
+  - **VC-015: 实现功能分支管理 ✅** 🆕
+    - BranchManager 完整 Tauri Command 集成
+    - 支持创建/切换/删除/列出分支功能
+    - 基于 Issue ID 自动生成规范分支名（feature/{issue-id}-{description}）
+    - 完善的分支命名验证逻辑
+    - Tauri Commands:
+      - `create_feature_branch` - 创建功能分支
+      - `checkout_branch` - 切换分支
+      - `delete_branch` - 删除分支
+      - `list_branches` - 列出所有分支
+      - `get_current_branch` - 获取当前分支
+    - AgentManager 扩展支持 BranchManager
+    - 208 个 Rust 测试全部通过 ✅
+    - Harness Health Score: 100/100 ✅
 
 ### 任务分布统计
 
@@ -120,10 +134,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 24 | 0 | 12 | 67% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 25 | 0 | 11 | 69% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **68** | **0** | **13** | **83%** |
+| **总计** | | **81** | **69** | **0** | **12** | **85%** |
 
-**待完成的 13 个 VC 任务**:
-- VC-015: 实现功能分支管理 (已有部分实现)
+**待完成的 12 个 VC 任务**:
 - VC-027 ~ VC-036: 其他 Vibe Coding 功能

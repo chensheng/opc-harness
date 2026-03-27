@@ -21,6 +21,7 @@ use crate::agent::daemon::{DaemonManager, DaemonConfig, DaemonStatus};
 use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::agent_stdio::StdioChannelManager;
 use crate::agent::types::{AgentConfig, AgentType, AgentStatus, AgentPhase};
+use crate::agent::branch_manager::{BranchManager, BranchManagerConfig, BranchInfo, BranchOperationResult};
 use crate::db;
 
 /// Agent 句柄信息
@@ -129,6 +130,8 @@ pub struct AgentManager {
     websocket: Arc<RwLock<WebSocketManager>>,
     /// Stdio 通道管理器
     stdio: Arc<RwLock<StdioChannelManager>>,
+    /// 分支管理器
+    branch_manager: Arc<RwLock<Option<BranchManager>>>,
     /// 守护进程配置（使用 RwLock 包装以支持内部可变性）
     daemon_config: Arc<RwLock<Option<DaemonConfig>>>,
     /// 统计信息
@@ -144,6 +147,7 @@ impl AgentManager {
             daemon: Arc::new(RwLock::new(DaemonManager::new())),
             websocket: Arc::new(RwLock::new(WebSocketManager::new(app_handle))),
             stdio: Arc::new(RwLock::new(StdioChannelManager::new())),
+            branch_manager: Arc::new(RwLock::new(None)),
             daemon_config: Arc::new(RwLock::new(None)),
             stats: Arc::new(RwLock::new(AgentManagerStats::default())),
         }
@@ -556,6 +560,38 @@ impl AgentManager {
     ) -> Result<(), String> {
         self.websocket.read().await.send_progress(&session_id.to_string(), phase, current, total, description).await
     }
+
+    // ========================================================================
+    // Branch Manager Methods (VC-015)
+    // ========================================================================
+
+    /// 获取或创建 BranchManager（异步版本）
+    pub async fn get_or_create_branch_manager(&self) -> tokio::sync::RwLockWriteGuard<'_, Option<BranchManager>> {
+        // 检查是否已存在
+        {
+            let bm = self.branch_manager.read().await;
+            if bm.is_some() {
+                drop(bm);
+                return self.branch_manager.write().await;
+            }
+        }
+        
+        // 创建新的 BranchManager
+        let mut bm = self.branch_manager.write().await;
+        if bm.is_none() {
+            *bm = Some(BranchManager::new(BranchManagerConfig {
+                project_path: ".".to_string(),
+                default_base_branch: "main".to_string(),
+                name_prefix: None,
+            }));
+        }
+        bm
+    }
+
+    /// 获取 BranchManager（只读）
+    pub async fn get_branch_manager(&self) -> tokio::sync::RwLockReadGuard<Option<BranchManager>> {
+        self.branch_manager.read().await
+    }
 }
 
 // ============================================================================
@@ -800,6 +836,78 @@ pub async fn generate_commit_message(
     let message = assistant.generate_commit_message().await?;
     
     Ok(message)
+}
+
+/// 创建功能分支
+#[tauri::command]
+pub async fn create_feature_branch(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    issue_id: String,
+    description: String,
+) -> Result<BranchOperationResult, String> {
+    let manager = state.read().await;
+    let mut branch_manager = manager.get_or_create_branch_manager().await;
+    
+    // 创建功能分支
+    let result = branch_manager
+        .as_mut()
+        .unwrap()
+        .create_feature_branch(&description, Some(&issue_id), None)
+        .await?;
+    
+    Ok(result)
+}
+
+/// 切换到指定分支
+#[tauri::command]
+pub async fn checkout_branch(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    branch_name: String,
+) -> Result<BranchOperationResult, String> {
+    let manager = state.read().await;
+    let mut branch_manager = manager.get_or_create_branch_manager().await;
+    let result = branch_manager.as_mut().unwrap().checkout_branch(&branch_name).await?;
+    Ok(result)
+}
+
+/// 删除分支
+#[tauri::command]
+pub async fn delete_branch(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    branch_name: String,
+    force: bool,
+) -> Result<BranchOperationResult, String> {
+    let manager = state.read().await;
+    let mut branch_manager = manager.get_or_create_branch_manager().await;
+    let result = branch_manager.as_mut().unwrap().delete_branch(&branch_name, force).await?;
+    Ok(result)
+}
+
+/// 列出所有分支
+#[tauri::command]
+pub async fn list_branches(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<Vec<BranchInfo>, String> {
+    let manager = state.read().await;
+    let branch_manager = manager.get_branch_manager().await;
+    let branches = branch_manager.as_ref().unwrap().get_local_branches().await?;
+    Ok(branches)
+}
+
+/// 获取当前分支
+#[tauri::command]
+pub async fn get_current_branch(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<Option<String>, String> {
+    let manager = state.read().await;
+    let branch_manager = manager.get_branch_manager().await;
+    let current = branch_manager.as_ref().unwrap().get_current_branch().await?;
+    Ok(current)
 }
 
 /// 初始化 Agent Manager
