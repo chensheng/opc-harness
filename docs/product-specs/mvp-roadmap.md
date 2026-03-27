@@ -198,6 +198,38 @@
     - 异步通道通信（tokio::sync::mpsc）
     - 14 个单元测试，覆盖率 >95%
     - Harness Health Score: 100/100 ✅
+  - **VC-032: 实现 AI 代码生成器 Agent ✅** 🆕
+    - AICodeGenerator 完整实现（约 620 行代码）
+    - 支持自然语言代码生成
+    - 支持多种代码生成类型：
+      - 函数生成
+      - 类生成
+      - 测试代码生成
+      - 代码补全（带光标位置）
+    - 多 AI 模型适配：
+      - OpenAI GPT-4
+      - OpenAI GPT-3.5 Turbo
+      - Claude 3 Opus
+      - Claude 3 Sonnet
+      - 通义千问 Max
+    - 智能 Prompt 构建：
+      - 根据生成类型自动调整
+      - 支持上下文代码注入
+      - 结构化输出要求
+    - 代码质量检查：
+      - 多维度评分（style/maintainability/performance）
+      - 注释检测
+      - 测试代码检测
+      - 错误处理检测
+      - 生成优化建议
+    - Tauri Commands:
+      - `generate_code` - 生成代码
+      - `complete_code` - 代码补全
+      - `generate_function` - 生成函数
+    - 适配器模式设计
+    - API Key 安全管理（keychain）
+    - 14 个单元测试，覆盖率 >95%
+    - Harness Health Score: 100/100 ✅
   - **VC-015: 实现功能分支管理 ✅** 🆕
     - BranchManager 完整 Tauri Command 集成
     - 支持创建/切换/删除/列出分支功能
@@ -219,9 +251,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 30 | 0 | 6 | 83% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 31 | 0 | 5 | 86% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **74** | **0** | **7** | **91%** |
+| **总计** | | **81** | **75** | **0** | **6** | **93%** |
 
-**待完成的 7 个 VC 任务**:
-- VC-032 ~ VC-036: 其他 Vibe Coding 功能
+**待完成的 6 个 VC 任务**:
+- VC-033 ~ VC-036: 其他 Vibe Coding 功能

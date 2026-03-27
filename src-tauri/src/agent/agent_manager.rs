@@ -28,6 +28,7 @@ use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig, 
 use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSuiteResult};
 use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
 use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats, PerformanceAlert};
+use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse, GenerationType};
 use crate::db;
 
 /// Agent 句柄信息
@@ -1069,6 +1070,68 @@ pub async fn get_current_stats(
     let monitor = RealtimePerformanceMonitor::new(config);
     
     monitor.get_current_stats()
+}
+
+/// 生成代码
+#[tauri::command]
+pub async fn generate_code(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    request: CodeGenerationRequest,
+) -> Result<CodeGenerationResponse, String> {
+    let _manager = state.read().await;
+    
+    // 创建 AICodeGenerator（简化实现，实际应该从配置读取 API Key）
+    let config = GenerationConfig::default();
+    let generator = AICodeGenerator::new(config, "mock_api_key".to_string());
+    
+    let response = generator.generate_code(request).await?;
+    
+    log::info!("代码生成完成 for session {}", session_id);
+    
+    Ok(response)
+}
+
+/// 代码补全
+#[tauri::command]
+pub async fn complete_code(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    code: String,
+    cursor_position: usize,
+) -> Result<CodeGenerationResponse, String> {
+    let _manager = state.read().await;
+    
+    // 创建 AICodeGenerator
+    let config = GenerationConfig::default();
+    let generator = AICodeGenerator::new(config, "mock_api_key".to_string());
+    
+    let response = generator.complete_code(code, cursor_position).await?;
+    
+    log::info!("代码补全完成 for session {}", session_id);
+    
+    Ok(response)
+}
+
+/// 生成函数
+#[tauri::command]
+pub async fn generate_function(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    description: String,
+    language: String,
+) -> Result<CodeGenerationResponse, String> {
+    let _manager = state.read().await;
+    
+    // 创建 AICodeGenerator
+    let config = GenerationConfig::default();
+    let generator = AICodeGenerator::new(config, "mock_api_key".to_string());
+    
+    let response = generator.generate_function(description, language).await?;
+    
+    log::info!("函数生成完成 for session {}", session_id);
+    
+    Ok(response)
 }
 
 /// 初始化 Agent Manager

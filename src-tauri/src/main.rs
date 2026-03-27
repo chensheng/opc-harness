@@ -78,6 +78,9 @@ fn main() {
             agent::agent_manager::start_monitoring,
             agent::agent_manager::stop_monitoring,
             agent::agent_manager::get_current_stats,
+            agent::agent_manager::generate_code,
+            agent::agent_manager::complete_code,
+            agent::agent_manager::generate_function,
 
             // System commands
             commands::system::get_app_version,
