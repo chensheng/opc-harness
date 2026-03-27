@@ -11,6 +11,7 @@ pub mod branch_manager;
 pub mod mr_creation_agent;  // VC-016: MR Creation Agent
 pub mod test_generator_agent;  // VC-021: Test Generator Agent
 pub mod debug_agent;  // VC-022: Debug Agent
+pub mod git_commit_assistant;  // VC-026: Git Commit Assistant
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
@@ -52,6 +53,10 @@ pub use test_generator_agent::{
 pub use debug_agent::{
     DebugAgent, DebugAgentConfig, DebugStatus, DebugResult,
     ErrorInfo, ErrorType, ErrorSource, Diagnosis,
+};
+pub use git_commit_assistant::{
+    GitCommitAssistant, GitCommitAssistantConfig, CommitStatus, CommitMessage,
+    ChangeInfo, FileChangeType, CommitType,
 };
 pub use daemon::{
     DaemonManager, DaemonConfig, DaemonStatus, DaemonSnapshot,

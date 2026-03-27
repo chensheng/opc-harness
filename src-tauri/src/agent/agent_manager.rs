@@ -771,6 +771,37 @@ pub async fn run_debug_agent(
     Ok(result)
 }
 
+/// 生成 Git 提交信息 (VC-026)
+#[tauri::command]
+pub async fn generate_commit_message(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    project_path: String,
+    use_ai: bool,
+    include_file_list: bool,
+    max_summary_length: usize,
+    conventional_commit: bool,
+) -> Result<crate::agent::git_commit_assistant::CommitMessage, String> {
+    use crate::agent::git_commit_assistant::{GitCommitAssistant, GitCommitAssistantConfig};
+    
+    let manager = state.read().await;
+    
+    // 创建 GitCommitAssistant 配置
+    let config = GitCommitAssistantConfig {
+        project_path: project_path.clone(),
+        use_ai,
+        include_file_list,
+        max_summary_length: if max_summary_length == 0 { 50 } else { max_summary_length },
+        conventional_commit,
+    };
+    
+    // 创建 Assistant 并生成提交信息
+    let mut assistant = GitCommitAssistant::new(config);
+    let message = assistant.generate_commit_message().await?;
+    
+    Ok(message)
+}
+
 /// 初始化 Agent Manager
 #[tauri::command]
 pub async fn initialize_agent_manager(
