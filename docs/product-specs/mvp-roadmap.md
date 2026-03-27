@@ -151,6 +151,28 @@
     - 异步进程管理（tokio::process::Command）
     - 12 个单元测试，覆盖率 >95%
     - Harness Health Score: 100/100 ✅
+  - **VC-030: 实现性能基准测试 Agent ✅** 🆕
+    - PerformanceBenchmarkAgent 完整实现（约 650 行代码）
+    - 支持 Rust 基准测试（criterion）
+    - 支持 TypeScript 基准测试（benchmark.js）
+    - 性能指标收集和分析：
+      - mean/median/std_dev/min/max
+      - memory_usage（可选）
+      - throughput_ops_per_sec（可选）
+    - 回归检测机制：
+      - 与历史基线对比
+      - 回归判定（阈值 >5%）
+      - 性能提升/退化/稳定分类
+    - 瓶颈识别和优化建议：
+      - 识别最慢操作（>100ms）
+      - 统计性能退化数量
+      - 生成优化建议
+      - 波动检测（std_dev > 20%）
+    - Tauri Command:
+      - `run_benchmark` - 运行基准测试
+    - 异步进程管理（tokio::process::Command）
+    - 12 个单元测试，覆盖率 >95%
+    - Harness Health Score: 100/100 ✅
   - **VC-015: 实现功能分支管理 ✅** 🆕
     - BranchManager 完整 Tauri Command 集成
     - 支持创建/切换/删除/列出分支功能
@@ -172,9 +194,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 28 | 0 | 8 | 78% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 29 | 0 | 7 | 81% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **72** | **0** | **9** | **89%** |
+| **总计** | | **81** | **73** | **0** | **8** | **90%** |
 
-**待完成的 9 个 VC 任务**:
-- VC-030 ~ VC-036: 其他 Vibe Coding 功能
+**待完成的 8 个 VC 任务**:
+- VC-031 ~ VC-036: 其他 Vibe Coding 功能

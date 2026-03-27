@@ -26,6 +26,7 @@ use crate::agent::git_commit_assistant::{CommitType, CommitMessage, ChangeInfo, 
 use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, CodeReviewStatus, ReviewResult, ReviewComment, ReviewDimension, ReviewSeverity, CodeChange};
 use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig, WatchStatus, FileChangeEvent, RealtimeReviewResult};
 use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSuiteResult};
+use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
 use crate::db;
 
 /// Agent 句柄信息
@@ -1004,6 +1005,25 @@ pub async fn run_tests(
                session_id, result.passed, result.total);
     
     Ok(result)
+}
+
+/// 运行性能基准测试
+#[tauri::command]
+pub async fn run_benchmark(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    config: BenchmarkConfig,
+) -> Result<BenchmarkReport, String> {
+    let _manager = state.read().await;
+    
+    // 创建 PerformanceBenchmarkAgent 并运行基准测试
+    let agent = PerformanceBenchmarkAgent::new(config);
+    let report = agent.run_benchmarks().await?;
+    
+    log::info!("基准测试完成 for session {}: {} total, {} regressed", 
+               session_id, report.total_benchmarks, report.regressed_count);
+    
+    Ok(report)
 }
 
 /// 初始化 Agent Manager

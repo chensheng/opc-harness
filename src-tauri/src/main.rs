@@ -74,6 +74,7 @@ fn main() {
             agent::agent_manager::start_realtime_review,
             agent::agent_manager::stop_realtime_review,
             agent::agent_manager::run_tests,
+            agent::agent_manager::run_benchmark,
 
             // System commands
             commands::system::get_app_version,
