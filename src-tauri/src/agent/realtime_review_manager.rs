@@ -406,6 +406,7 @@ mod tests {
         assert!(RealtimeReviewManager::should_watch_file("src/main.rs", &patterns));
         assert!(RealtimeReviewManager::should_watch_file("src/lib.rs", &patterns));
         assert!(!RealtimeReviewManager::should_watch_file("src/main.ts", &patterns));
+        assert!(!RealtimeReviewManager::should_watch_file("README.md", &patterns));
     }
 
     #[test]

@@ -14,6 +14,7 @@ pub mod debug_agent;  // VC-022: Debug Agent
 pub mod git_commit_assistant;  // VC-026: Git Commit Assistant
 pub mod code_review_agent;  // VC-027: Code Review Agent
 pub mod realtime_review_manager;  // VC-028: Real-time Review Manager
+pub mod test_runner_agent;  // VC-029: Test Runner Agent
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;

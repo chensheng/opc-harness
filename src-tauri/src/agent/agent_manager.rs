@@ -25,6 +25,7 @@ use crate::agent::branch_manager::{BranchManager, BranchManagerConfig, BranchInf
 use crate::agent::git_commit_assistant::{CommitType, CommitMessage, ChangeInfo, FileChangeType};
 use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, CodeReviewStatus, ReviewResult, ReviewComment, ReviewDimension, ReviewSeverity, CodeChange};
 use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig, WatchStatus, FileChangeEvent, RealtimeReviewResult};
+use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSuiteResult};
 use crate::db;
 
 /// Agent 句柄信息
@@ -984,6 +985,25 @@ pub async fn stop_realtime_review(
     // TODO: 实际实现中需要从 AgentManager 获取 RealtimeReviewManager 实例
     log::info!("实时审查监听已停止 for session: {}", session_id);
     Ok(())
+}
+
+/// 运行测试
+#[tauri::command]
+pub async fn run_tests(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    config: TestRunnerConfig,
+) -> Result<TestSuiteResult, String> {
+    let _manager = state.read().await;
+    
+    // 创建 TestRunnerAgent 并运行测试
+    let agent = TestRunnerAgent::new(config);
+    let result = agent.run_tests().await?;
+    
+    log::info!("测试完成 for session {}: {} passed / {} total", 
+               session_id, result.passed, result.total);
+    
+    Ok(result)
 }
 
 /// 初始化 Agent Manager

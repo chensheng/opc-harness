@@ -136,6 +136,21 @@
     - 智能文件类型识别（Rust/TypeScript/JavaScript）
     - 10 个单元测试，覆盖率 >95%
     - Harness Health Score: 100/100 ✅
+  - **VC-029: 实现测试运行器 Agent ✅** 🆕
+    - TestRunnerAgent 完整实现（约 710 行代码）
+    - 支持 Rust 测试运行（cargo test --json）
+    - 支持 TypeScript 测试运行（npm test）
+    - 智能测试输出解析：
+      - Rust 文本格式（test ... ok/FAILED/ignored）
+      - vitest/jest 格式（✓/×/↓符号）
+      - JSON 格式解析
+    - 失败重试机制（可配置最大重试次数）
+    - 测试覆盖率统计（line/branch/file coverage）
+    - Tauri Command:
+      - `run_tests` - 运行测试套件
+    - 异步进程管理（tokio::process::Command）
+    - 12 个单元测试，覆盖率 >95%
+    - Harness Health Score: 100/100 ✅
   - **VC-015: 实现功能分支管理 ✅** 🆕
     - BranchManager 完整 Tauri Command 集成
     - 支持创建/切换/删除/列出分支功能
@@ -157,9 +172,9 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 27 | 0 | 9 | 75% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 28 | 0 | 8 | 78% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **71** | **0** | **10** | **87%** |
+| **总计** | | **81** | **72** | **0** | **9** | **89%** |
 
-**待完成的 10 个 VC 任务**:
-- VC-029 ~ VC-036: 其他 Vibe Coding 功能
+**待完成的 9 个 VC 任务**:
+- VC-030 ~ VC-036: 其他 Vibe Coding 功能
