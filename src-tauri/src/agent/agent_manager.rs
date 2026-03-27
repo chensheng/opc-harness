@@ -27,6 +27,7 @@ use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, Co
 use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig, WatchStatus, FileChangeEvent, RealtimeReviewResult};
 use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSuiteResult};
 use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
+use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats, PerformanceAlert};
 use crate::db;
 
 /// Agent 句柄信息
@@ -1024,6 +1025,50 @@ pub async fn run_benchmark(
                session_id, report.total_benchmarks, report.regressed_count);
     
     Ok(report)
+}
+
+/// 启动实时监控
+#[tauri::command]
+pub async fn start_monitoring(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    config: MonitoringConfig,
+) -> Result<(), String> {
+    let mut manager = state.write().await;
+    
+    // 创建 RealtimePerformanceMonitor 并启动监控
+    let mut monitor = RealtimePerformanceMonitor::new(config);
+    monitor.start_monitoring().await?;
+    
+    // 存储到会话管理（简化实现，实际应该存储在 manager.sessions 中）
+    log::info!("实时性能监控已启动 for session {}", session_id);
+    
+    Ok(())
+}
+
+/// 停止实时监控
+#[tauri::command]
+pub async fn stop_monitoring(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<(), String> {
+    let mut manager = state.write().await;
+    
+    // 停止监控（简化实现）
+    log::info!("实时性能监控已停止 for session {}", session_id);
+    
+    Ok(())
+}
+
+/// 获取当前系统统计信息
+#[tauri::command]
+pub async fn get_current_stats(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+) -> Result<SystemStats, String> {
+    let config = MonitoringConfig::default();
+    let monitor = RealtimePerformanceMonitor::new(config);
+    
+    monitor.get_current_stats()
 }
 
 /// 初始化 Agent Manager

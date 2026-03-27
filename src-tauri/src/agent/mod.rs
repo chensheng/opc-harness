@@ -16,6 +16,7 @@ pub mod code_review_agent;  // VC-027: Code Review Agent
 pub mod realtime_review_manager;  // VC-028: Real-time Review Manager
 pub mod test_runner_agent;  // VC-029: Test Runner Agent
 pub mod performance_benchmark_agent;  // VC-030: Performance Benchmark Agent
+pub mod realtime_performance_monitor;  // VC-031: Real-time Performance Monitor
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
