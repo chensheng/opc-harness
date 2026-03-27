@@ -60,9 +60,10 @@ fn main() {
             commands::database::get_all_cli_sessions,
             commands::database::get_cli_session_by_id,
             commands::database::delete_cli_session,
-            // Agent Manager commands (VC-010, VC-016)
+            // Agent Manager commands (VC-010, VC-016, VC-022)
             agent::agent_manager::run_initializer_agent,
             agent::agent_manager::create_merge_request,
+            agent::agent_manager::run_debug_agent,
             // System commands
             commands::system::get_app_version,
             commands::system::open_external_link,

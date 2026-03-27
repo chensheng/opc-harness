@@ -729,6 +729,48 @@ pub async fn create_merge_request(
     Ok(result)
 }
 
+/// 运行 Debug Agent 诊断错误 (VC-022)
+#[tauri::command]
+pub async fn run_debug_agent(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    project_path: String,
+    error_source: String,
+    error_output: String,
+    auto_fix: bool,
+    max_suggestions: usize,
+) -> Result<crate::agent::debug_agent::DebugResult, String> {
+    use crate::agent::debug_agent::{DebugAgent, DebugAgentConfig, ErrorSource};
+    
+    let manager = state.read().await;
+    
+    // 解析错误来源
+    let parsed_error_source = match error_source.to_lowercase().as_str() {
+        "typescript" | "ts" => ErrorSource::TypeScript,
+        "rust" | "rs" => ErrorSource::Rust,
+        "eslint" => ErrorSource::ESLint,
+        "jest" | "vitest" => ErrorSource::Jest,
+        "cargo" | "cargo-test" => ErrorSource::CargoTest,
+        "runtime" | "log" => ErrorSource::RuntimeLog,
+        _ => ErrorSource::UserInput,
+    };
+    
+    // 创建 DebugAgent 配置
+    let config = DebugAgentConfig {
+        project_path: project_path.clone(),
+        error_source: parsed_error_source,
+        auto_fix,
+        max_suggestions: if max_suggestions == 0 { 5 } else { max_suggestions },
+        error_output,
+    };
+    
+    // 创建 Agent 并执行调试
+    let mut agent = DebugAgent::new(config);
+    let result = agent.run_debug().await?;
+    
+    Ok(result)
+}
+
 /// 初始化 Agent Manager
 #[tauri::command]
 pub async fn initialize_agent_manager(

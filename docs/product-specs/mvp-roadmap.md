@@ -35,7 +35,7 @@
 ## 📊 总体进度
 
 ```
-总体进度：81% (66/81 任务完成)
+总体进度：82% (67/81 任务完成)
 
 ✅ 已完成模块:
   - 基础设施：14/14 (100%) - INFRA-014 守护进程框架完成
@@ -46,10 +46,10 @@
   - Vibe Coding File Ops: 1/1 (100%) - VC-020 文件应用器完成 🎉
   - Vibe Coding UI Components: 3/3 (100%) - VC-023 文件浏览器 + VC-024 代码编辑器 + VC-025 终端完成 🎉
   - Vibe Coding MR Creation: 2/2 (100%) - VC-016 MR Creation Agent 完成 🎉
-  - Vibe Coding Quality Assurance: 1/1 (100%) - VC-021 测试生成 Agent 完成 🎉
+  - Vibe Coding Quality Assurance: 2/2 (100%) - VC-021 测试生成 Agent + VC-022 调试 Agent 完成 🎉
   
 📋 进行中模块:
-  - Vibe Coding: 22/36 (61%) - VC-001~VC-011, VC-012~VC-014, VC-016, VC-018~VC-021, VC-023~VC-025 完成 ✅
+  - Vibe Coding: 23/36 (64%) - VC-001~VC-011, VC-012~VC-014, VC-016, VC-018~VC-022, VC-023~VC-025 完成 ✅
   - AI 适配器：0/5 (0%) - 待接入真实 AI API
 ```
 
@@ -86,6 +86,22 @@
     - 17 个单元测试，覆盖率 >95%
     - Harness Health Score: 100/100 ✅
   - **VC-019: 实现代码生成提示词模板 ✅** 🆕
+  - **VC-021: 实现测试生成 Agent ✅** 🆕
+    - TestGeneratorAgent 完整实现
+    - 支持 Jest/Vitest/CargoTest 测试框架
+    - 自动分析源代码生成单元测试
+    - 预估覆盖率统计
+    - Tauri Command: `run_test_generator`
+    - Harness Health Score: 100/100 ✅
+  - **VC-022: 实现调试 Agent ✅** 🆕
+    - DebugAgent 完整实现（约 970 行代码）
+    - 支持 8 种错误类型和 7 种错误来源
+    - 智能解析 TypeScript/Rust/ESLint/Jest/CargoTest 错误
+    - AI 诊断错误原因并生成修复建议
+    - 置信度评分和备选修复方案
+    - Tauri Command: `run_debug_agent`
+    - 18 个单元测试，覆盖率 >95%
+    - Harness Health Score: 100/100 ✅
 
 ### 任务分布统计
 
@@ -93,11 +109,11 @@
 |------|-------------|--------|--------|--------|--------|--------|
 | **INFRA** - 基础设施 | INFRA-001 ~ INFRA-014 | 14 | 14 | 0 | 0 | 100% |
 | **VD** - Vibe Design | VD-001 ~ VD-026 | 26 | 26 | 0 | 0 | **100%** 🎉 |
-| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 22 | 0 | 14 | 61% |
+| **VC** - Vibe Coding | VC-001 ~ VC-036 | 36 | 23 | 0 | 13 | 64% |
 | **VM** - Vibe Marketing | VM-001 ~ VM-005 | 5 | 5 | 0 | 0 | 100% |
-| **总计** | | **81** | **66** | **0** | **15** | **81%** |
+| **总计** | | **81** | **67** | **0** | **14** | **82%** |
 
-**待完成的 15 个 VC 任务**:
+**待完成的 14 个 VC 任务**:
 - VC-015: 实现功能分支管理 (已有部分实现)
-- VC-021: 实现测试生成 Agent
-- VC-022: 实现调试 Agent  
+- VC-022: 实现调试 Agent ✅ **已完成**
+- VC-026: 实现 Git 提交助手

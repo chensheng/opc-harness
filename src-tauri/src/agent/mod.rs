@@ -10,6 +10,7 @@ pub mod coding_agent;
 pub mod branch_manager;
 pub mod mr_creation_agent;  // VC-016: MR Creation Agent
 pub mod test_generator_agent;  // VC-021: Test Generator Agent
+pub mod debug_agent;  // VC-022: Debug Agent
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;
@@ -47,6 +48,10 @@ pub use test_generator_agent::{
     TestGeneratorAgent, TestGeneratorConfig, TestGeneratorStatus,
     TestGenerationResult, TestFile, TestCase, TestFramework, TestType,
     SourceAnalysis, FunctionInfo, ClassInfo, ParameterInfo, PropertyInfo,
+};
+pub use debug_agent::{
+    DebugAgent, DebugAgentConfig, DebugStatus, DebugResult,
+    ErrorInfo, ErrorType, ErrorSource, Diagnosis,
 };
 pub use daemon::{
     DaemonManager, DaemonConfig, DaemonStatus, DaemonSnapshot,

@@ -29,6 +29,7 @@ eventsource-stream = "0.2"
 lazy_static = "1.4"
 log = "0.4"
 num_cpus = "1.16"
+regex = "1.10"
 
 [features]
 default = ["custom-protocol"]
