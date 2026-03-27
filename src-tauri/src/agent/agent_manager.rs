@@ -29,6 +29,7 @@ use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSui
 use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
 use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats, PerformanceAlert};
 use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse, GenerationType};
+use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, SuggestionConfig, CodeSuggestion};
 use crate::db;
 
 /// Agent 句柄信息
@@ -1132,6 +1133,60 @@ pub async fn generate_function(
     log::info!("函数生成完成 for session {}", session_id);
     
     Ok(response)
+}
+
+/// 启动代码建议
+#[tauri::command]
+pub async fn start_suggestions(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+    file_paths: Vec<String>,
+) -> Result<(), String> {
+    let _manager = state.read().await;
+    
+    // 创建 RealtimeCodeSuggestions（简化实现）
+    let config = SuggestionConfig::default();
+    let mut suggestions = RealtimeCodeSuggestions::new(config);
+    
+    suggestions.start_monitoring(file_paths).await?;
+    
+    log::info!("代码建议已启动 for session {}", session_id);
+    
+    Ok(())
+}
+
+/// 停止代码建议
+#[tauri::command]
+pub async fn stop_suggestions(
+    state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<(), String> {
+    let mut manager = state.write().await;
+    
+    // 停止建议（简化实现）
+    log::info!("代码建议已停止 for session {}", session_id);
+    
+    Ok(())
+}
+
+/// 获取代码建议
+#[tauri::command]
+pub async fn get_suggestions(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    file_path: String,
+) -> Result<Vec<CodeSuggestion>, String> {
+    use std::fs;
+    
+    // 读取文件内容
+    let content = fs::read_to_string(&file_path)
+        .map_err(|e| format!("读取文件失败：{}", e))?;
+    
+    // 创建分析器
+    let config = SuggestionConfig::default();
+    let analyzer = RealtimeCodeSuggestions::new(config);
+    
+    // 分析文件并返回建议
+    Ok(analyzer.analyze_file(&file_path, &content))
 }
 
 /// 初始化 Agent Manager

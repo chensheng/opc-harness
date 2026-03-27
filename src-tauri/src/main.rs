@@ -81,6 +81,9 @@ fn main() {
             agent::agent_manager::generate_code,
             agent::agent_manager::complete_code,
             agent::agent_manager::generate_function,
+            agent::agent_manager::start_suggestions,
+            agent::agent_manager::stop_suggestions,
+            agent::agent_manager::get_suggestions,
 
             // System commands
             commands::system::get_app_version,
