@@ -698,6 +698,37 @@ pub async fn run_initializer_agent(
     Ok(result)
 }
 
+/// 运行 MR Creation Agent 创建合并请求 (VC-016)
+#[tauri::command]
+pub async fn create_merge_request(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    project_path: String,
+    target_branch: String,
+    feature_branches: Vec<String>,
+    run_regression_tests: bool,
+    auto_resolve_conflicts: bool,
+) -> Result<crate::agent::mr_creation_agent::MRCreationResult, String> {
+    use crate::agent::mr_creation_agent::{MRCreationAgent, MRCreationConfig};
+    
+    let manager = state.read().await;
+    
+    // 创建 MRCreationAgent 配置
+    let config = MRCreationConfig {
+        project_path: project_path.clone(),
+        target_branch: target_branch.clone(),
+        feature_branches,
+        run_regression_tests,
+        auto_resolve_conflicts,
+    };
+    
+    // 创建 Agent 并执行 MR 创建
+    let mut agent = MRCreationAgent::new(config);
+    let result = agent.create_mr().await?;
+    
+    Ok(result)
+}
+
 /// 初始化 Agent Manager
 #[tauri::command]
 pub async fn initialize_agent_manager(
