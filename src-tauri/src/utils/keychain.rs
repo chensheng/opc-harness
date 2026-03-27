@@ -131,19 +131,19 @@ mod tests {
 
     #[test]
     fn test_has_api_key() {
-        let provider = "test-has-key";
+        let provider = format!("test-has-key-{}", std::process::id());
         let api_key = "test-key";
 
         // Initially should not have key
-        assert!(!has_api_key(provider));
+        assert!(!has_api_key(&provider));
 
         // Save and check again
-        save_api_key(provider, api_key).expect("Failed to save");
-        assert!(has_api_key(provider));
+        save_api_key(&provider, api_key).expect("Failed to save");
+        assert!(has_api_key(&provider));
 
         // Delete and verify
-        delete_api_key(provider).expect("Failed to delete");
-        assert!(!has_api_key(provider));
+        delete_api_key(&provider).expect("Failed to delete");
+        assert!(!has_api_key(&provider));
     }
 
     #[test]
