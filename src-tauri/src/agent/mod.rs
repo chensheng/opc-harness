@@ -87,3 +87,4 @@ pub use agent_stdio::{
 pub use agent_manager::{
     AgentManager, AgentHandle, AgentManagerStats,
 };
+pub mod code_diff_visualizer;

@@ -32,6 +32,8 @@ use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGen
 use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, CodeSuggestion, SuggestionConfig};
 use crate::agent::mr_description_generator::{MRDescriptionGenerator, MRDescription, TestSummary, RiskLevel};
 use crate::agent::code_change_tracker::{CodeChangeTracker, ChangeSummary, ChangeStatistics, FileChange, ChangeType};
+use crate::agent::code_diff_visualizer::{CodeDiffVisualizer, FileDiff, DiffSummary as VisualDiffSummary};
+
 use crate::db;
 
 /// Agent 句柄信息
@@ -1251,6 +1253,51 @@ pub async fn get_file_diff(
     let (_, _, diff) = tracker.get_file_diff(&file_path).await?;
     
     Ok(diff)
+}
+
+/// 获取文件差异可视化数据
+#[tauri::command]
+pub async fn get_file_diff_visual(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+    file_path: String,
+) -> Result<FileDiff, String> {
+    // 使用当前目录作为项目路径
+    let project_path = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // 创建可视化器
+    let visualizer = CodeDiffVisualizer::new(project_path)?;
+    
+    // 获取文件差异可视化数据
+    let file_diff = visualizer.get_file_diff_visual(&file_path).await?;
+    
+    Ok(file_diff)
+}
+
+/// 获取差异摘要
+#[tauri::command]
+pub async fn get_diff_summary(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+    file_path: String,
+) -> Result<VisualDiffSummary, String> {
+    // 使用当前目录作为项目路径
+    let project_path = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // 创建可视化器
+    let visualizer = CodeDiffVisualizer::new(project_path)?;
+    
+    // 获取文件差异
+    let file_diff = visualizer.get_file_diff_visual(&file_path).await?;
+    
+    // 生成摘要
+    let summary = VisualDiffSummary {
+        file_path: file_diff.file_path.clone(),
+        stats: file_diff.stats.clone(),
+        hunk_count: file_diff.hunks.len() as u32,
+    };
+    
+    Ok(summary)
 }
 
 /// 获取变更统计信息

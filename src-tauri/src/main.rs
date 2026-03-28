@@ -91,6 +91,9 @@ fn main() {
             // MR Description Generator commands
             agent::agent_manager::generate_mr_description,
             agent::agent_manager::get_mr_template,
+            // Code Diff Visualizer commands
+            agent::agent_manager::get_file_diff_visual,
+            agent::agent_manager::get_diff_summary,
 
             // System commands
             commands::system::get_app_version,
