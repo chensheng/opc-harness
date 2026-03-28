@@ -108,6 +108,13 @@
 - [ ] `generate_personas_glm` - 用户画像 (开发者)
 - [ ] `generate_competitor_analysis_glm` - 竞品分析 (开源)
 
+**MiniMax API** (5 个子任务):
+- [ ] `chat_minimax` - 非流式聊天
+- [ ] `stream_chat_minimax` - 流式聊天
+- [ ] `generate_prd_minimax` - PRD 生成 (创意写作优化)
+- [ ] `generate_personas_minimax` - 用户画像 (情感化设计)
+- [ ] `generate_competitor_analysis_minimax` - 竞品分析 (市场洞察)
+
 **AI 服务管理器增强** (4 个子任务):
 - [ ] 智能路由（根据任务选择最佳 AI）
 - [ ] Token 计数和计费
@@ -246,7 +253,8 @@ Week 1 (03-28 ~ 04-03): AI 适配器完整实现
 ├── OpenAI API ✅
 ├── Claude API ✅
 ├── Kimi API ✅
-└── GLM API ✅
+├── GLM API ✅
+└── MiniMax API 📋
 
 Week 2 (04-01 ~ 04-07): Vibe Design 真实化
 ├── PRD 生成 ✅
@@ -295,7 +303,7 @@ Week 3-4 (04-10 ~ 04-15): 集成测试和优化
 
 ### 质量指标
 
-| 指标 | 当前值 | 目标值 | 测量方式 |
+| 指标 | 当前값 | 目标값 | 测量方式 |
 |------|--------|--------|----------|
 | 单元测试覆盖率 | 75% | ≥90% (Rust) | cargo tarpaulin |
 | 前端测试覆盖率 | 70% | ≥80% | vitest coverage |
@@ -325,7 +333,7 @@ sqlite >= 3.40.0
 
 ### API Key 配置
 
-```bash
+```
 # 复制示例文件
 cp .env.example .env
 
@@ -334,50 +342,4 @@ OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 KIMI_API_KEY=...
 GLM_API_KEY=...
-```
-
-### 启动开发环境
-
-```bash
-# 安装依赖
-npm install
-
-# 启动前端开发服务器
-npm run dev
-
-# 启动 Tauri 开发模式
-npm run tauri dev
-
-# 运行测试
-npm run harness:check
-```
-
----
-
-## 📝 相关文档
-
-- [`Phase 2 详细执行计划`](./docs/exec-plans/phase2-real-ai-integration.md) - 完整任务分解
-- [`MVP 路线图`](./docs/product-specs/mvp-roadmap.md) - Phase 1 详情
-- [`Vibe Design 规格`](./docs/product-specs/vibe-design-spec.md) - 产品需求
-- [`Vibe Coding 规格`](./docs/product-specs/vibe-coding-spec.md) - 编码需求
-- [`Vibe Marketing 规格`](./docs/product-specs/vibe-marketing-spec.md) - 营销需求
-- [`架构约束`](./docs/design-docs/architecture-rules.md) - 技术规范
-
----
-
-## 🎯 成功标准
-
-Phase 2 成功的定义：
-
-1. **功能完整性**: 所有 mock 数据替换为真实 AI 生成 ✅
-2. **用户体验**: 流畅自然，无明显延迟或卡顿 ✅
-3. **代码质量**: 测试覆盖率达标，无重大 bug ✅
-4. **性能指标**: 响应时间、并发能力达到目标 ✅
-5. **安全可靠**: 数据安全、系统稳定、故障可恢复 ✅
-6. **文档齐全**: 开发文档、用户手册、API 文档完整 ✅
-
----
-
-**批准人**: OPC-HARNESS Team  
-**创建日期**: 2026-03-28  
-**下次更新**: 根据实际进展每周更新
+MINIMAX_API_KEY=...
