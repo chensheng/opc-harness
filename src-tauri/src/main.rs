@@ -44,6 +44,11 @@ fn main() {
             commands::ai::stream_chat_claude,
             commands::ai::generate_personas_claude,
             commands::ai::generate_competitor_analysis_claude,
+            // Kimi API commands (AI-003)
+            commands::ai::chat_kimi,
+            commands::ai::stream_chat_kimi,
+            commands::ai::generate_personas_kimi,
+            commands::ai::generate_competitor_analysis_kimi,
             // CLI commands
             commands::cli::detect_tools,
             commands::cli::create_cli_session,
