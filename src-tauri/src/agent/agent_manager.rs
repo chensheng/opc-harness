@@ -29,7 +29,8 @@ use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSui
 use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
 use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats, PerformanceAlert};
 use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse, GenerationType};
-use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, SuggestionConfig, CodeSuggestion};
+use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, CodeSuggestion, SuggestionConfig};
+use crate::agent::mr_description_generator::{MRDescriptionGenerator, MRDescription, TestSummary, RiskLevel};
 use crate::agent::code_change_tracker::{CodeChangeTracker, ChangeSummary, ChangeStatistics, FileChange, ChangeType};
 use crate::db;
 
@@ -1269,6 +1270,78 @@ pub async fn get_change_statistics(
     let statistics = tracker.calculate_statistics(&changes);
     
     Ok(statistics)
+}
+
+/// 生成 MR 描述
+#[tauri::command]
+pub async fn generate_mr_description(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+    feature_branches: Vec<String>,
+    target_branch: String,
+) -> Result<MRDescription, String> {
+    // 使用当前目录作为项目路径
+    let project_path = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // 创建生成器
+    let generator = MRDescriptionGenerator::new(project_path)?;
+    
+    // 生成 MR 描述
+    let mr_description = generator.generate_description(&feature_branches, &target_branch).await?;
+    
+    Ok(mr_description)
+}
+
+/// 获取 MR 模板
+#[tauri::command]
+pub async fn get_mr_template(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+    template_name: String,
+) -> Result<String, String> {
+    // 返回预设的 MR 模板
+    let templates = match template_name.as_str() {
+        "default" => r#"# Merge Request Template
+
+## 📋 Description
+<!-- Describe your changes in detail -->
+
+## 🔗 Related Issue
+<!-- Link to the issue that is fixed by this PR -->
+
+Fixes #
+
+## ✅ Checklist
+- [ ] Code compiles without warnings
+- [ ] Tests are passing
+- [ ] Documentation is updated
+- [ ] Changelog is updated
+
+## 🧪 Testing Done
+<!-- Describe the testing you have done -->
+
+## 📸 Screenshots (if applicable)
+<!-- Add screenshots to demonstrate UI changes -->
+
+"#.to_string(),
+        "feature" => r#"# Feature Implementation
+
+## 🎯 Goal
+<!-- What problem does this feature solve? -->
+
+## 🚀 Changes
+<!-- List the main changes -->
+
+## 📋 Requirements
+- [ ] Feature implementation complete
+- [ ] Tests added/updated
+- [ ] Documentation updated
+
+"#.to_string(),
+        _ => return Err(format!("Unknown template: {}. Available: default, feature", template_name)),
+    };
+    
+    Ok(templates)
 }
 
 // ============================================================================

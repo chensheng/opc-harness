@@ -88,6 +88,9 @@ fn main() {
             agent::agent_manager::get_workspace_changes,
             agent::agent_manager::get_file_diff,
             agent::agent_manager::get_change_statistics,
+            // MR Description Generator commands
+            agent::agent_manager::generate_mr_description,
+            agent::agent_manager::get_mr_template,
 
             // System commands
             commands::system::get_app_version,

@@ -9,6 +9,7 @@ pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
 pub mod mr_creation_agent;  // VC-016: MR Creation Agent
+pub mod mr_description_generator;  // MR Description Generator
 pub mod test_generator_agent;  // VC-021: Test Generator Agent
 pub mod debug_agent;  // VC-022: Debug Agent
 pub mod git_commit_assistant;  // VC-026: Git Commit Assistant
