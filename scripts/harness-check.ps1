@@ -1,16 +1,15 @@
 #!/usr/bin/env pwsh
 # Harness Engineering 架构健康检查脚本
 # 用法：.\scripts\harness-check.ps1
-# 版本：2.2 (优化日志输出 - 直接在命令行显示，无日志文件)
+# 版本：2.1 (简化版 - 默认全量检查)
 
 param(
     [switch]$Verbose,      # 详细输出
-    [switch]$Json,         # JSON 格式输出
-    [switch]$Silent        # 静默模式（仅显示摘要）
+    [switch]$Json          # JSON 格式输出
 )
 
 # =============================================
-# 配置区域
+# 配置区域 - 集中管理所有配置
 # =============================================
 
 $Script:Config = @{
@@ -59,6 +58,10 @@ $Script:Config = @{
         "docs/product-specs/index.md",
         "docs/references/index.md"
     )
+    
+    Timeouts = @{
+        TSTests = 30  # seconds
+    }
 }
 
 $Script:State = @{
@@ -67,27 +70,26 @@ $Script:State = @{
     OriginalLocation = Get-Location
     CargoAvailable  = $false
     NpmAvailable    = $false
-    StartTime       = $null
 }
 
 # =============================================
-# 工具函数
+# 工具函数区域 - 通用辅助函数
 # =============================================
 
 function Write-Header {
-    if (-not $Silent) {
-        Write-Host ""
-        Write-Host "========================================" -ForegroundColor Cyan
-        Write-Host "  Harness Engineering Health Check" -ForegroundColor Cyan
-        Write-Host ""
-    }
+    param([string]$Text)
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  $Text" -ForegroundColor Cyan
+    Write-Host ""
 }
 
 function Write-CheckStart {
-    param([string]$Name, [string]$Index)
-    if (-not $Silent) {
-        Write-Host "[$Index] $Name..." -ForegroundColor Yellow
-    }
+    param(
+        [string]$Name,
+        [string]$Index
+    )
+    Write-Host "[$Index] $Name..." -ForegroundColor Yellow
 }
 
 function Write-CheckResult {
@@ -97,15 +99,14 @@ function Write-CheckResult {
         [string]$Message
     )
     
-    if (-not $Silent) {
-        $color = switch ($Status) {
-            "PASS" { "Green" }
-            "FAIL" { "Red" }
-            "WARN" { "Yellow" }
-            "FIX"  { "Blue" }
-        }
-        Write-Host "  [$Status] $Message" -ForegroundColor $color
+    $color = switch ($Status) {
+        "PASS" { "Green" }
+        "FAIL" { "Red" }
+        "WARN" { "Yellow" }
+        "FIX"  { "Blue" }
     }
+    
+    Write-Host "  [$Status] $Message" -ForegroundColor $color
 }
 
 function Add-Issue {
@@ -139,7 +140,7 @@ function Test-CommandAvailable {
 }
 
 # =============================================
-# 检查函数
+# 检查函数区域 - 各项独立检查逻辑
 # =============================================
 
 function Invoke-TypeScriptCheck {
@@ -153,7 +154,7 @@ function Invoke-TypeScriptCheck {
             Write-CheckResult -Status "FAIL" -Message "TypeScript type checking failed"
             Add-Issue -Type "TypeScript" -Severity "Error" -Message "Type check failed" -ScorePenalty $Script:Config.ScoreWeights.TypeScript
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $tscResult -ForegroundColor Gray
             }
         }
@@ -174,8 +175,14 @@ function Invoke-ESLintCheck {
             Write-CheckResult -Status "FAIL" -Message "ESLint check has warnings/errors"
             Add-Issue -Type "ESLint" -Severity "Error" -Message "Code style violation" -ScorePenalty $Script:Config.ScoreWeights.ESLint
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose -or $Fix) {
                 Write-Host $eslintResult -ForegroundColor Gray
+            }
+            
+            if ($Fix) {
+                Write-CheckResult -Status "FIX" -Message "Attempting auto-fix..."
+                npm run lint:fix | Out-Null
+                Write-CheckResult -Status "OK" -Message "Auto-fix completed"
             }
         }
     } catch {
@@ -195,8 +202,10 @@ function Invoke-PrettierCheck {
             Write-CheckResult -Status "FAIL" -Message "Prettier formatting failed"
             Add-Issue -Type "Prettier" -Severity "Error" -Message "Code format not standard" -ScorePenalty $Script:Config.ScoreWeights.Prettier
             
-            if ($Verbose -and -not $Silent) {
-                Write-Host $prettierResult -ForegroundColor Gray
+            if ($Fix) {
+                Write-CheckResult -Status "FIX" -Message "Auto-formatting code..."
+                npm run format | Out-Null
+                Write-CheckResult -Status "OK" -Message "Code formatted"
             }
         }
     } catch {
@@ -208,6 +217,7 @@ function Invoke-PrettierCheck {
 function Invoke-RustCompilationCheck {
     Write-CheckStart -Name "Rust Compilation Check" -Index "4/8"
     
+    # Check if cargo is available
     $Script:State.CargoAvailable = Test-CommandAvailable -CommandName "cargo"
     
     if (-not $Script:State.CargoAvailable) {
@@ -216,9 +226,10 @@ function Invoke-RustCompilationCheck {
         return
     }
     
+    # Run cargo check
     Set-Location src-tauri
     try {
-        $cargoOutput = cargo check 2>&1
+        $null = & cargo check
         
         if ($LASTEXITCODE -eq 0) {
             Write-CheckResult -Status "PASS" -Message "Rust compilation check passed"
@@ -226,8 +237,8 @@ function Invoke-RustCompilationCheck {
             Write-CheckResult -Status "FAIL" -Message "Rust compilation check failed"
             Add-Issue -Type "Rust" -Severity "Error" -Message "Compilation error" -ScorePenalty $Script:Config.ScoreWeights.Rust
             
-            if ($Verbose -and -not $Silent) {
-                Write-Host $cargoOutput -ForegroundColor Gray
+            if ($Verbose) {
+                Write-Host "Run 'cd src-tauri; cargo check' for details" -ForegroundColor Gray
             }
         }
     } finally {
@@ -244,15 +255,13 @@ function Invoke-RustTestsCheck {
         return
     }
     
-    if (-not $Silent) {
-        Write-Host "  Running Rust unit tests..." -ForegroundColor Gray
-    }
+    Write-Host "  Running Rust unit tests..." -ForegroundColor Gray
     
     try {
         $rustTestScript = Join-Path $PSScriptRoot "harness-rust-tests.ps1"
         
         if (-not (Test-Path $rustTestScript)) {
-            Write-CheckResult -Status "FAIL" -Message "Rust test script not found"
+            Write-CheckResult -Status "FAIL" -Message "Rust test script not found: $rustTestScript"
             Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test script missing" -ScorePenalty $Script:Config.ScoreWeights.RustTests
             return
         }
@@ -264,39 +273,40 @@ function Invoke-RustTestsCheck {
         $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8
         Remove-Item $testOutputFile -Force
         
+        # Parse results
         if ($testOutput -match "\[PASS\] All (\d+) Rust tests passed") {
             $testCount = $matches[1]
             Write-CheckResult -Status "PASS" -Message "All $testCount Rust tests passed"
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         } elseif ($testOutput -match "\[FAIL\].*panic|\[ERROR\]") {
             Write-CheckResult -Status "FAIL" -Message "Rust tests encountered an error"
             Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test execution error" -ScorePenalty $Script:Config.ScoreWeights.RustTests
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         } elseif ($testOutput -match "\[FAIL\] Rust tests:.*failed") {
             Write-CheckResult -Status "FAIL" -Message "Some Rust tests failed"
             Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test failures" -ScorePenalty $Script:Config.ScoreWeights.RustTests
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         } elseif ($rustTestExitCode -ne 0) {
             Write-CheckResult -Status "FAIL" -Message "Rust test execution failed (exit code: $rustTestExitCode)"
             Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.RustTests
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         } else {
             Write-CheckResult -Status "WARN" -Message "Could not parse Rust test results"
             Add-Issue -Type "Rust Tests" -Severity "Warning" -Message "Unknown test result" -ScorePenalty 10
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         }
@@ -304,7 +314,7 @@ function Invoke-RustTestsCheck {
         Write-CheckResult -Status "FAIL" -Message "Rust test execution failed: $_"
         Add-Issue -Type "Rust Tests" -Severity "Error" -Message "Test execution exception" -ScorePenalty $Script:Config.ScoreWeights.RustTests
         
-        if ($Verbose -and -not $Silent) {
+        if ($Verbose) {
             Write-Host "Exception details: $_" -ForegroundColor Red
         }
     }
@@ -321,19 +331,19 @@ function Invoke-TSTestsCheck {
         return
     }
     
-    if (-not $Silent) {
-        Write-Host "  Running TypeScript unit tests..." -ForegroundColor Gray
-    }
+    Write-Host "  Running TypeScript unit tests..." -ForegroundColor Gray
     
     try {
+        # Use the dedicated TS test script for better output parsing
         $tsTestScript = Join-Path $PSScriptRoot "harness-ts-tests.ps1"
         
         if (-not (Test-Path $tsTestScript)) {
-            Write-CheckResult -Status "FAIL" -Message "TS test script not found"
+            Write-CheckResult -Status "FAIL" -Message "TS test script not found: $tsTestScript"
             Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test script missing" -ScorePenalty $Script:Config.ScoreWeights.TSTests
             return
         }
         
+        # Execute the dedicated script and capture output
         $testOutputFile = [System.IO.Path]::GetTempFileName()
         & powershell -ExecutionPolicy Bypass -File $tsTestScript -Verbose > $testOutputFile 2>&1
         $exitCode = $LASTEXITCODE
@@ -341,7 +351,9 @@ function Invoke-TSTestsCheck {
         $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8
         Remove-Item $testOutputFile -Force
         
+        # Simplified logic: Rely on exit code first, then parse stats for display
         if ($exitCode -eq 0) {
+            # Success - extract and display statistics from dedicated script output
             if ($testOutput -match "\[PASS\].*\((\d+)\s+files.*(\d+)\s+tests\)") {
                 $testFiles = $matches[1]
                 $totalTests = $matches[2]
@@ -353,14 +365,16 @@ function Invoke-TSTestsCheck {
                 Write-CheckResult -Status "PASS" -Message "TS tests completed"
             }
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host $testOutput -ForegroundColor Gray
             }
         } else {
+            # Failure - rely on exit code, show simple summary
             Write-CheckResult -Status "FAIL" -Message "TS test execution failed (exit code: $exitCode)"
             Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution failed" -ScorePenalty $Script:Config.ScoreWeights.TSTests
             
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
+                # Show only the summary part for debugging
                 $summaryLines = $testOutput -split "`n" | Where-Object { $_ -match "\[FAIL\]|\[PASS\]|\[WARN\]|Duration" }
                 Write-Host ($summaryLines -join "`n") -ForegroundColor Gray
             }
@@ -369,7 +383,7 @@ function Invoke-TSTestsCheck {
         Write-CheckResult -Status "FAIL" -Message "TS test execution failed: $_"
         Add-Issue -Type "TS Tests" -Severity "Error" -Message "Test execution exception" -ScorePenalty $Script:Config.ScoreWeights.TSTests
         
-        if ($Verbose -and -not $Silent) {
+        if ($Verbose) {
             Write-Host "Exception details: $_" -ForegroundColor Red
         }
     }
@@ -383,9 +397,7 @@ function Invoke-DependencyCheck {
     foreach ($file in $Script:Config.RequiredFiles) {
         if (-not (Test-Path $file)) {
             $severity = if ($file -like "*.json") { "Error" } else { "Warning" }
-            if (-not $Silent) {
-                Write-Host "  [$severity] Required file missing: $file" -ForegroundColor $(if ($severity -eq "Error") { "Red" } else { "Yellow" })
-            }
+            Write-Host "  [$severity] Required file missing: $file" -ForegroundColor $(if ($severity -eq "Error") { "Red" } else { "Yellow" })
             $depIssues++
         }
     }
@@ -404,9 +416,7 @@ function Invoke-DirectoryCheck {
     $dirIssues = 0
     foreach ($dir in $Script:Config.RequiredDirs) {
         if (-not (Test-Path $dir)) {
-            if (-not $Silent) {
-                Write-Host "  [WARN] Required directory missing: $dir" -ForegroundColor Yellow
-            }
+            Write-Host "  [WARN] Required directory missing: $dir" -ForegroundColor Yellow
             $dirIssues++
         }
     }
@@ -424,30 +434,28 @@ function Invoke-DocumentationCheck {
     
     $docIssues = 0
     
+    # Check key documents exist
     foreach ($doc in $Script:Config.KeyDocuments) {
         if (Test-Path $doc) {
-            if ($Verbose -and -not $Silent) {
+            if ($Verbose) {
                 Write-Host "  ✅ $doc" -ForegroundColor Green
             }
         } else {
-            if (-not $Silent) {
-                Write-Host "  ❌ $doc (MISSING)" -ForegroundColor Red
-            }
+            Write-Host "  ❌ $doc (MISSING)" -ForegroundColor Red
             $docIssues++
         }
     }
     
+    # Check index files have links
     foreach ($indexFile in $Script:Config.IndexFiles) {
         if (Test-Path $indexFile) {
             $content = Get-Content $indexFile -Raw
             if ($content -match '\[.*\]\(.*\)') {
-                if ($Verbose -and -not $Silent) {
+                if ($Verbose) {
                     Write-Host "  ✅ $indexFile (has links)" -ForegroundColor Green
                 }
             } else {
-                if (-not $Silent) {
-                    Write-Host "  ⚠️  $indexFile (no links found)" -ForegroundColor Yellow
-                }
+                Write-Host "  ⚠️  $indexFile (no links found)" -ForegroundColor Yellow
                 $docIssues++
             }
         }
@@ -462,7 +470,7 @@ function Invoke-DocumentationCheck {
 }
 
 # =============================================
-# 结果汇总
+# 结果汇总区域 - 输出最终报告
 # =============================================
 
 function Show-Summary {
@@ -484,6 +492,7 @@ function Show-Summary {
             $severityColor = if ($issue.Severity -eq "Error") { "Red" } else { "Yellow" }
             Write-Host "    - [$($issue.Severity)] $($issue.Type): $($issue.Message)" -ForegroundColor $severityColor
         }
+        
         Write-Host ""
     } else {
         Write-Host '  Status: All checks passed!' -ForegroundColor Green
@@ -497,10 +506,11 @@ function Show-Summary {
 }
 
 # =============================================
-# 主执行流程
+# 主执行流程 - 按顺序执行所有检查
 # =============================================
 
 Write-Header
+
 $Script:State.StartTime = Get-Date
 
 Invoke-TypeScriptCheck       # 1/8

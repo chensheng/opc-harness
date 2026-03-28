@@ -115,32 +115,11 @@ function generateReport(testName: string, result: 'pass' | 'fail', details: stri
 let serverAvailable = false
 
 beforeAll(async () => {
-  // 服务器已由 harness-e2e.ps1 启动，直接验证是否可访问（带重试）
-  const maxRetries = 5
-  const retryDelay = 1000
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(TEST_CONFIG.baseUrl)
-      if (response.status === 200) {
-        serverAvailable = true
-        console.log(`✅ Development server is ready (attempt ${attempt}/${maxRetries})`)
-        return
-      }
-    } catch (error) {
-      console.error(`❌ Attempt ${attempt}/${maxRetries} failed: ${(error as Error).message}`)
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay))
-      }
-    }
-  }
-  
-  // 如果无法连接，尝试自己启动服务器
-  console.log('⚠️  Could not connect to existing server, trying to start one...')
-  const inUse = await isPortInUse(1420)
+  const port = 1420
+  const inUse = await isPortInUse(port)
   
   if (inUse) {
-    console.log('✅ Development server already running on port', 1420)
+    console.log('✅ Development server already running on port', port)
     serverAvailable = true
   } else {
     console.log('🚀 Starting development server...')
