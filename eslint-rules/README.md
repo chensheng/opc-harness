@@ -19,7 +19,7 @@
 - ❌ 违反允许依赖矩阵的导入
 
 **允许的依赖关系**:
-```javascript
+```
 stores → [lib, types, external]
 hooks → [stores, lib, types, ui-components, external]
 business-components → [hooks, lib, types, ui-components, external]
@@ -243,8 +243,8 @@ export function useAgent() {
 
 ## 🔗 相关文档
 
-- [`Harness Engineering 流程`](../../docs/HARNESS_ENGINEERING.md)
-- [`架构约束规则`](../../tests/architecture/constraints.test.ts)
+- [`Harness Engineering 流程`](../docs/HARNESS_ENGINEERING.md)
+- [`架构约束规则`](../tests/architecture/constraints.test.ts)
 - [`ESLint 官方文档](https://eslint.org/)
 - [`TD-004 技术债务文档`](../docs/exec-plans/tech-debts/TD-004-architecture-guard-tests.md)
 

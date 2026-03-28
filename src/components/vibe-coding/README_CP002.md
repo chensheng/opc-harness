@@ -220,8 +220,8 @@ Footer (辅助信息)
 
 - [CP-002 详细规格](./cp-002-checkpoint-ui.md)
 - [任务完成总结](./TASK_COMPLETION_CP002.md)
-- [MVP版本规划](../../product-specs/mvp-roadmap.md)
-- [架构设计 - HITL](../../架构设计.md#hitl-检查点机制)
+- [MVP 版本规划](../../../docs/product-specs/mvp-roadmap.md)
+- [架构设计 - HITL](../../../../ARCHITECTURE.md#hitl-检查点机制)
 
 ---
 
@@ -252,7 +252,7 @@ Footer (辅助信息)
 
 ### 自动化测试 (待开发)
 
-```typescript
+``typescript
 // TODO: 添加 Vitest 单元测试
 describe('CheckpointReview', () => {
   it('should display correct statistics', () => {})
