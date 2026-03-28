@@ -12,7 +12,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main
+          className="flex-1 overflow-auto p-6"
+          style={{ paddingBottom: 'calc(0.5rem + var(--safe-area-inset-bottom))' }}
+        >
+          {children}
+        </main>
       </div>
       <LoadingOverlay />
     </div>
