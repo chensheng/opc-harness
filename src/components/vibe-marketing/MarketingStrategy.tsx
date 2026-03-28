@@ -137,12 +137,27 @@ Would love your feedback!`,
 export function MarketingStrategy() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, updateProjectStatus, updateProjectProgress } = useProjectStore()
+  const { getProjectById, updateProjectStatus, updateProjectProgress, projects } = useProjectStore()
   const { setLoading } = useAppStore()
 
   const [strategy, setStrategy] = useState<MarketingStrategyType | null>(null)
   const [copies, setCopies] = useState<MarketingCopy[]>([])
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+
+  // 如果没有 projectId，重定向到最近的项目
+  useEffect(() => {
+    if (!projectId && projects.length > 0) {
+      // 获取最近的项目（按 updatedAt 排序）
+      const sortedProjects = [...projects].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
+      const mostRecentProject = sortedProjects[0]
+      navigate(`/marketing/${mostRecentProject.id}`, { replace: true })
+    } else if (!projectId && projects.length === 0) {
+      // 没有项目，重定向到首页
+      navigate('/', { replace: true })
+    }
+  }, [projectId, projects, navigate])
 
   const project = projectId ? getProjectById(projectId) : undefined
 
