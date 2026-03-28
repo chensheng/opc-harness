@@ -99,7 +99,7 @@ pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
     conn.execute(
         "INSERT INTO projects (id, name, description, status, progress, created_at, updated_at, idea, prd, user_personas, competitor_analysis)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        [
+        (
             &project.id,
             &project.name,
             &project.description,
@@ -107,11 +107,13 @@ pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
             &project.progress.to_string(),
             &project.created_at,
             &project.updated_at,
-            &project.idea.clone().unwrap_or_default(),
-            &project.prd.clone().unwrap_or_default(),
-            &project.user_personas.clone().unwrap_or_default(),
-            &project.competitor_analysis.clone().unwrap_or_default(),
-        ],
+            // 使用 as_deref() 将 Option<String> 转换为 Option<&str>
+            // rusqlite 可以正确处理 Option<&str> (NULL 或字符串)
+            project.idea.as_deref(),
+            project.prd.as_deref(),
+            project.user_personas.as_deref(),
+            project.competitor_analysis.as_deref(),
+        ),
     )?;
     Ok(())
 }
@@ -167,7 +169,7 @@ pub fn get_project_by_id(conn: &Connection, id: &str) -> Result<Option<Project>>
     Ok(None)
 }
 
-/// 更新项目
+/// 更新项目信息
 pub fn update_project(conn: &Connection, project: &Project) -> Result<()> {
     let updated_at = Utc::now().to_rfc3339();
     conn.execute(
@@ -175,18 +177,20 @@ pub fn update_project(conn: &Connection, project: &Project) -> Result<()> {
          SET name = ?2, description = ?3, status = ?4, progress = ?5, updated_at = ?6,
              idea = ?7, prd = ?8, user_personas = ?9, competitor_analysis = ?10
          WHERE id = ?1",
-        [
+        (
             &project.id,
             &project.name,
             &project.description,
             &project.status,
             &project.progress.to_string(),
             &updated_at,
-            &project.idea.clone().unwrap_or_default(),
-            &project.prd.clone().unwrap_or_default(),
-            &project.user_personas.clone().unwrap_or_default(),
-            &project.competitor_analysis.clone().unwrap_or_default(),
-        ],
+            // 使用 as_deref() 将 Option<String> 转换为 Option<&str>
+            // rusqlite 可以正确处理 Option<&str> (NULL 或字符串)
+            project.idea.as_deref(),
+            project.prd.as_deref(),
+            project.user_personas.as_deref(),
+            project.competitor_analysis.as_deref(),
+        ),
     )?;
     Ok(())
 }

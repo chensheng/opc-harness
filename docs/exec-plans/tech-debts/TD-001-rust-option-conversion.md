@@ -4,10 +4,11 @@
 
 - **创建日期**: 2026-03-16
 - **优先级**: P2 (中等)
-- **状态**: 📋 待解决
+- **状态**: ✅ 已偿还
 - **影响范围**: `src-tauri/src/db/mod.rs`
-- **负责人**: 未分配
+- **负责人**: OPC-HARNESS Team
 - **偿还计划**: 2026-03-24 周
+- **实际完成**: 2026-03-28
 
 ---
 
@@ -19,81 +20,109 @@
 
 - rusqlite 需要 `&str` 类型参数
 - `Option<String>.map_or()` 返回类型推断错误
+- 数组参数需要统一类型，无法混合 `&String` 和 `Option<&str>`
 
-### 当前错误代码
+### 原始代码（已修复）
 
 ```rust
-// ❌ 当前错误代码
+// ❌ 原始代码：使用 unwrap_or_default() 会丢失 NULL 语义
 .bind(2, project.description.map_or("", |d| d.as_str()))?
+// 或
+&project.idea.clone().unwrap_or_default()
 ```
 
-### 修复方案
+### 最终修复方案
 
 ```rust
-// ✅ 修复方案：使用 as_deref()
-.bind(2, project.description.as_deref())?
+// ✅ 修复方案：使用 as_deref() + 元组
+conn.execute(
+    "INSERT INTO projects (...) VALUES (?1, ?2, ...)",
+    (
+        &project.id,
+        &project.name,
+        project.idea.as_deref(), // Option<&str> - 保留 NULL 语义
+        project.prd.as_deref(),
+        // ...
+    ),
+)?;
 ```
 
 ---
 
-## 🎯 解决方案
+## 🎯 解决方案实施
 
-### 步骤 1: 修改 create_project 函数
+### 步骤 1: 修改 `create_project` 函数 ✅
 
+**文件**: `src-tauri/src/db/mod.rs:97-118`
+
+**变更**:
 ```rust
-// src-tauri/src/db/mod.rs
-pub fn create_project(&self, project: &Project) -> Result<i64> {
-    let mut stmt = self.conn.prepare(
-        "INSERT INTO projects (name, description, created_at, updated_at) 
-         VALUES (?1, ?2, ?3, ?4)"
+// Before
+pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
+    conn.execute(
+        "...",
+        [
+            &project.id,
+            &project.idea.clone().unwrap_or_default(), // ❌ 失去 NULL 语义
+            // ...
+        ],
     )?;
-    
-    stmt.execute(params![
-        project.name,
-        project.description.as_deref(), // ✅ 修复
-        project.created_at,
-        project.updated_at
-    ])?;
-    
-    Ok(self.conn.last_insert_rowid())
+    Ok(())
 }
-```
 
-### 步骤 2: 修改 update_project 函数
-
-```rust
-pub fn update_project(&self, project: &Project) -> Result<()> {
-    let mut stmt = self.conn.prepare(
-        "UPDATE projects SET name = ?1, description = ?2, updated_at = ?3 
-         WHERE id = ?4"
+// After
+pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
+    conn.execute(
+        "...",
+        (
+            &project.id,
+            project.idea.as_deref(), // ✅ 保留 NULL 语义
+            // ...
+        ),
     )?;
-    
-    stmt.execute(params![
-        project.name,
-        project.description.as_deref(), // ✅ 修复
-        project.updated_at,
-        project.id
-    ])?;
-    
     Ok(())
 }
 ```
 
----
+### 步骤 2: 修改 `update_project` 函数 ✅
 
-## ✅ 验收标准
+**文件**: `src-tauri/src/db/mod.rs:174-196`
 
-- [ ] 代码编译通过，无警告
-- [ ] 数据库操作测试通过
-- [ ] 类型推导正确，无需显式类型注解
+**变更**: 同样的改进
 
 ---
 
-## 📚 相关资源
+## ✅ 验收结果
 
-- [Rust Option 文档](https://doc.rust-lang.org/std/option/)
-- [rusqlite 参数绑定](https://docs.rs/rusqlite/latest/rusqlite/struct.Statement.html#method.execute)
+- [x] 代码编译通过，无警告 ✅
+- [x] 数据库操作测试通过 ✅
+- [x] 类型推导正确，无需显式类型注解 ✅
+- [x] 335 个 Rust 单元测试全部通过 ✅
 
 ---
 
-**最后更新**: 2026-03-24
+## 📊 改进效果
+
+### 代码质量提升
+
+1. **语义准确性**:
+   - `unwrap_or_default()` 会将 `None` 转换为空字符串 `""`
+   - `as_deref()` 保留 `None` 为 SQL `NULL`，更符合数据库语义
+
+2. **性能优化**:
+   - 避免了不必要的 `.clone()` 操作
+   - 减少内存分配
+
+3. **可维护性**:
+   - 代码更简洁
+   - 符合 Rust 最佳实践
+
+### 编译结果
+
+```bash
+cargo check
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.28s
+
+cargo test
+test result: ok. 335 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
