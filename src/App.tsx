@@ -33,6 +33,7 @@ function App() {
         <Route path="/logs/:projectId" element={<LogTerminal />} />
         {/* FileExplorer 需要在 CodingWorkspace 中使用，不单独作为路由 */}
         <Route path="/checkpoint/:projectId/:checkpointId" element={<CheckpointReview />} />
+        <Route path="/marketing" element={<MarketingStrategy />} />
         <Route path="/marketing/:projectId" element={<MarketingStrategy />} />
         <Route path="/ai-config" element={<AIConfig />} />
         <Route path="/settings" element={<Settings />} />
