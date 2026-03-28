@@ -5,8 +5,10 @@
 pub mod code_generation;
 pub mod prd_template;
 pub mod user_persona;
+pub mod competitor_analysis;
 
 // 重新导出常用项
 pub use code_generation::*;
 pub use prd_template::*;
 pub use user_persona::*;
+pub use competitor_analysis::*;
