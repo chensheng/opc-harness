@@ -36,7 +36,7 @@ describe('PRD Real AI Implementation', () => {
 
   it('should generate PRD with real AI (non-streaming)', () => {
     // 验证非流式 PRD 生成
-    const idea = '一个帮助独立开发者管理项目进度的 AI 工具'
+    const _idea = '一个帮助独立开发者管理项目进度的 AI 工具'
     const prdResponse = {
       title: 'AI Project Progress Manager',
       overview: '专为独立开发者设计的项目管理工具，利用 AI 技术自动化进度跟踪和风险评估。该产品通过智能算法预测项目完成时间，自动识别潜在风险，并提供数据驱动的决策建议，帮助开发者更高效地管理多个项目。',
@@ -268,7 +268,7 @@ SaaS 订阅...
 
   it('should parse PRD from markdown format', () => {
     // 验证从 Markdown 解析 PRD
-    const markdownPRD = `
+    const _markdownPRD = `
 # AI Project Manager
 
 ## 1. 产品概述

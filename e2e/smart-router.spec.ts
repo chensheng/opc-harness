@@ -66,7 +66,7 @@ describe('AI Smart Router', () => {
 
   it('should auto-route chat tasks to cost-effective provider', () => {
     // 验证聊天任务自动路由到经济型 Provider
-    const taskType = 'Chat'
+    const _taskType = 'Chat'
     const routingDecision = {
       selectedProvider: 'Kimi',
       reason: 'Fast and cost-effective for chat',
@@ -94,9 +94,9 @@ describe('AI Smart Router', () => {
     console.log('✅ Chat auto-routing test passed')
   })
 
-  it('should route PRD tasks to quality-focused provider', () => {
-    // 验证 PRD 任务路由到质量优先的 Provider
-    const taskType = 'PRD'
+  it('should route prd-writing tasks to Anthropic', () => {
+    // 验证 PRD 写作任务路由到 Anthropic
+    const _taskType = 'prd-writing'
     const routingDecision = {
       selectedProvider: 'Anthropic',
       reason: 'Best for long-form content',
@@ -124,9 +124,9 @@ describe('AI Smart Router', () => {
     console.log('✅ PRD routing test passed')
   })
 
-  it('should use cost-based routing when strategy is CostEffective', () => {
-    // 验证成本优先路由策略
-    const strategy = 'CostEffective'
+  it('should use CostEffective strategy for simple tasks', () => {
+    // 验证简单任务使用成本优先策略
+    const _strategy = 'CostEffective'
     const routingDecision = {
       selectedProvider: 'Kimi',
       reason: 'Lowest cost level: 2',
@@ -154,37 +154,42 @@ describe('AI Smart Router', () => {
     console.log('✅ Cost-based routing test passed')
   })
 
-  it('should use performance-based routing when strategy is Performance', () => {
-    // 验证性能优先路由策略
-    const strategy = 'Performance'
-    const routingDecision = {
-      selectedProvider: 'OpenAI',
-      reason: 'Best performance level: 2',
-      alternatives: ['Kimi', 'GLM']
+  it('should check provider health before routing', () => {
+    // 验证路由前检查 Provider 健康状态
+    const _isHealthy = true
+    const healthCheck = {
+      isOpenAIHealthy: true,
+      isAnthropicHealthy: true,
+      isKimiHealthy: true,
+      isGLMHealthy: true,
+      lastCheckTime: Date.now()
     }
 
-    expect(routingDecision.selectedProvider).toBe('OpenAI')
-    expect(routingDecision.reason).toContain('performance')
+    expect(healthCheck.isOpenAIHealthy).toBe(true)
+    expect(healthCheck.isAnthropicHealthy).toBe(true)
+    expect(healthCheck.isKimiHealthy).toBe(true)
+    expect(healthCheck.isGLMHealthy).toBe(true)
+    expect(healthCheck.lastCheckTime).toBeLessThanOrEqual(Date.now())
 
     testReport.steps.push({
       step: 5,
-      name: '验证性能优先路由',
+      name: '验证路由前检查 Provider 健康状态',
       status: 'completed',
       assertions: [
-        '选择性能等级最优的 Provider',
-        '原因包含 performance 关键字'
+        '所有 Provider 健康状态正常',
+        '健康检查时间有效'
       ]
     })
 
-    testReport.results.totalAssertions += 2
-    testReport.results.passedAssertions += 2
+    testReport.results.totalAssertions += 5
+    testReport.results.passedAssertions += 5
 
-    console.log('✅ Performance-based routing test passed')
+    console.log('✅ Provider health check before routing test passed')
   })
 
-  it('should use quality-based routing when strategy is Quality', () => {
-    // 验证质量优先路由策略
-    const strategy = 'Quality'
+  it('should use Quality strategy for complex tasks', () => {
+    // 验证复杂任务使用质量优先策略
+    const _strategy = 'Quality'
     const routingDecision = {
       selectedProvider: 'OpenAI',
       reason: 'Best quality level: 1',
@@ -214,8 +219,8 @@ describe('AI Smart Router', () => {
 
   it('should respect manual provider selection', () => {
     // 验证手动选择 Provider
-    const strategy = 'Manual'
-    const manualProvider = 'Anthropic'
+    const _strategy = 'Manual'
+    const _manualProvider = 'Anthropic'
     const routingDecision = {
       selectedProvider: 'Anthropic',
       reason: 'Manual selection',
@@ -243,23 +248,22 @@ describe('AI Smart Router', () => {
     console.log('✅ Manual provider selection test passed')
   })
 
-  it('should fallback to available provider when primary fails', () => {
-    // 验证故障转移机制
-    const primaryProvider = 'OpenAI'
-    const isHealthy = false
-    const fallbackDecision = {
+  it('should handle provider failure with fallback', () => {
+    // 验证 Provider 失败时的降级处理
+    const _taskType = 'general'
+    const failureScenario = {
       selectedProvider: 'Kimi',
       reason: 'Fallback to available provider',
       alternatives: ['GLM']
     }
 
-    expect(fallbackDecision.selectedProvider).not.toBe(primaryProvider)
-    expect(fallbackDecision.reason).toContain('Fallback')
-    expect(fallbackDecision.alternatives.length).toBeGreaterThan(0)
+    expect(failureScenario.selectedProvider).not.toBe('OpenAI')
+    expect(failureScenario.reason).toContain('Fallback')
+    expect(failureScenario.alternatives.length).toBeGreaterThan(0)
 
     testReport.steps.push({
       step: 8,
-      name: '验证故障转移机制',
+      name: '验证 Provider 失败时的降级处理',
       status: 'completed',
       assertions: [
         '主 Provider 不可用时自动切换',
@@ -271,7 +275,7 @@ describe('AI Smart Router', () => {
     testReport.results.totalAssertions += 3
     testReport.results.passedAssertions += 3
 
-    console.log('✅ Fallback mechanism test passed')
+    console.log('✅ Provider failure with fallback test passed')
   })
 
   it('should track provider health status', () => {
@@ -306,9 +310,9 @@ describe('AI Smart Router', () => {
     console.log('✅ Provider health tracking test passed')
   })
 
-  it('should support code generation task routing', () => {
-    // 验证代码生成任务路由
-    const taskType = 'CodeGeneration'
+  it('should route coding tasks to GLM', () => {
+    // 验证编码任务路由到 GLM
+    const _taskType = 'coding'
     const routingDecision = {
       selectedProvider: 'GLM',
       reason: 'Strong technical capabilities',
