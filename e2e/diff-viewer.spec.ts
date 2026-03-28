@@ -13,7 +13,7 @@ import net from 'net'
 
 // 测试配置
 const TEST_CONFIG = {
-  baseUrl: 'http://localhost:1420',
+  baseUrl: 'http://127.0.0.1:1420',  // 使用 IPv4 地址避免连接问题
   timeout: 30000,
   viewport: { width: 1280, height: 720 },
 }
