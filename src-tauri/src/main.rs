@@ -49,6 +49,9 @@ fn main() {
             commands::ai::stream_chat_kimi,
             commands::ai::generate_personas_kimi,
             commands::ai::generate_competitor_analysis_kimi,
+            // GLM API commands (AI-004)
+            commands::ai::chat_glm,
+            commands::ai::stream_chat_glm,
             // CLI commands
             commands::cli::detect_tools,
             commands::cli::create_cli_session,

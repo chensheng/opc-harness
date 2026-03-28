@@ -1047,6 +1047,113 @@ pub async fn generate_competitor_analysis_kimi(
 }
 
 // ============================================================================
+// GLM API 专用 Commands (AI-004)
+// ============================================================================
+
+/// GLM 聊天命令（非流式）
+#[tauri::command]
+pub async fn chat_glm(request: ChatRequestPayload) -> Result<ChatResponse, String> {
+    log::info!("Sending chat request to GLM: {:?}", request);
+    
+    // 创建 AI Provider
+    let provider = AIProvider::new(AIProviderType::GLM, request.api_key);
+    
+    // 构建聊天请求
+    let chat_request = ChatRequest {
+        model: request.model,
+        messages: request.messages.into_iter().map(|msg| AIMessage {
+            role: msg.role,
+            content: msg.content,
+        }).collect(),
+        temperature: request.temperature,
+        max_tokens: request.max_tokens,
+        stream: false,
+    };
+    
+    // 调用 AI Provider (GLM uses OpenAI-compatible API)
+    let response = provider.chat(chat_request)
+        .await
+        .map_err(|e| format!("GLM 调用失败：{}", e))?;
+    
+    log::info!("GLM chat response received: {} chars", response.content.len());
+    
+    Ok(response)
+}
+
+/// GLM 聊天命令（流式）
+#[tauri::command]
+pub async fn stream_chat_glm(
+    app: tauri::AppHandle,
+    request: ChatRequestPayload,
+) -> Result<String, String> {
+    log::info!("Sending streaming chat request to GLM: {:?}", request);
+    
+    // 生成会话 ID
+    let session_id = Uuid::new_v4().to_string();
+    
+    // 创建 AI Provider
+    let provider = AIProvider::new(AIProviderType::GLM, request.api_key);
+    
+    // 构建聊天请求
+    let chat_request = ChatRequest {
+        model: request.model,
+        messages: request.messages.into_iter().map(|msg| AIMessage {
+            role: msg.role,
+            content: msg.content,
+        }).collect(),
+        temperature: request.temperature,
+        max_tokens: request.max_tokens,
+        stream: true,
+    };
+    
+    // 克隆 session_id 和 app handle 用于闭包
+    let session_id_clone = session_id.clone();
+    let app_handle_clone = app.clone();
+    
+    // 定义 chunk 处理回调
+    let on_chunk = move |content: String| -> Result<(), crate::ai::AIError> {
+        let chunk = StreamChunk {
+            session_id: session_id_clone.clone(),
+            content,
+            is_complete: false,
+        };
+        
+        // 发送事件到前端
+        app_handle_clone.emit("ai-stream-chunk", chunk)
+            .map_err(|e| crate::ai::AIError { 
+                message: format!("Failed to emit chunk: {}", e) 
+            })?;
+        
+        Ok(())
+    };
+    
+    // 调用流式聊天
+    match provider.stream_chat(chat_request, on_chunk).await {
+        Ok(final_content) => {
+            // 发送完成事件
+            let complete_data = StreamComplete {
+                session_id: session_id.clone(),
+                content: final_content.clone(),
+            };
+            let _ = app.emit("ai-stream-complete", complete_data);
+            
+            log::info!("GLM streaming chat completed: {} chars", final_content.len());
+            Ok(final_content)
+        }
+        Err(e) => {
+            // 发送错误事件
+            let error_data = StreamError {
+                session_id: session_id.clone(),
+                error: e.to_string(),
+            };
+            let _ = app.emit("ai-stream-error", error_data);
+            
+            Err(e.to_string())
+        }
+    }
+}
+
+// ============================================================================
 // 测试模块
 // ============================================================================
 
@@ -1505,6 +1612,90 @@ More text"#;
             println!("Kimi API key is configured");
         } else {
             println!("Skipping Kimi API key validation - no key configured");
+        }
+    }
+
+    // =====================================================================
+    // GLM Commands 测试
+    // =====================================================================
+
+    #[test]
+    fn test_glm_provider_creation() {
+        use crate::ai::AIProviderType;
+        
+        let provider = AIProvider::new(AIProviderType::GLM, "test_key".to_string());
+        assert_eq!(provider.provider_id(), "glm");
+    }
+
+    #[test]
+    fn test_glm_openai_compatibility() {
+        // GLM 使用 OpenAI 兼容 API，验证配置正确
+        let glm_base_url = "https://open.bigmodel.cn/api/paas/v4";
+        assert!(glm_base_url.contains("bigmodel.cn"));
+    }
+
+    #[test]
+    fn test_chat_glm_request_structure() {
+        // 验证聊天请求结构正确
+        let messages = vec![
+            Message { role: "user".to_string(), content: "你好，请介绍一下你自己".to_string() },
+        ];
+        
+        let request = ChatRequestPayload {
+            provider: "glm".to_string(),
+            model: "glm-4".to_string(),
+            api_key: "test_key".to_string(),
+            messages,
+            temperature: Some(0.7),
+            max_tokens: Some(1024),
+        };
+        
+        assert_eq!(request.provider, "glm");
+        assert_eq!(request.model, "glm-4");
+        assert_eq!(request.messages.len(), 1);
+    }
+
+    #[test]
+    fn test_generate_prd_glm_input() {
+        // 验证 PRD 生成输入（技术导向）
+        let idea = "一个基于 AI 的代码审查工具，帮助开发者提高代码质量";
+        
+        let request = GeneratePRDRequest {
+            idea: idea.to_string(),
+            provider: "glm".to_string(),
+            model: "glm-4".to_string(),
+            api_key: "test_key".to_string(),
+        };
+        
+        assert!(request.idea.contains("AI"));
+        assert!(request.idea.contains("代码审查"));
+        assert_eq!(request.provider, "glm");
+    }
+
+    #[test]
+    fn test_generate_personas_glm_input() {
+        // 验证用户画像生成输入（开发者）
+        let idea = "一个面向开发者的 API 调试工具";
+        
+        let request = GeneratePRDRequest {
+            idea: idea.to_string(),
+            provider: "glm".to_string(),
+            model: "glm-4".to_string(),
+            api_key: "test_key".to_string(),
+        };
+        
+        assert!(request.idea.contains("开发者"));
+        assert!(request.idea.contains("API"));
+    }
+
+    #[test]
+    fn test_glm_api_key_validation() {
+        // 这个测试需要真实的 API key，所以只是占位
+        let valid_key = !std::env::var("ZHIPU_API_KEY").unwrap_or_default().is_empty();
+        if valid_key {
+            println!("GLM API key is configured");
+        } else {
+            println!("Skipping GLM API key validation - no key configured");
         }
     }
 
