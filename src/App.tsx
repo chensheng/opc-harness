@@ -26,6 +26,7 @@ function App() {
         <Route path="/prd/:projectId" element={<PRDDisplay />} />
         <Route path="/personas/:projectId" element={<UserPersonas />} />
         <Route path="/competitors/:projectId" element={<CompetitorAnalysis />} />
+        <Route path="/coding" element={<CodingWorkspace />} />
         <Route path="/coding/:projectId" element={<CodingWorkspace />} />
         <Route path="/initializer/:projectId" element={<InitializerWorkflow />} />
         <Route path="/agent-monitor/:projectId" element={<AgentMonitor />} />

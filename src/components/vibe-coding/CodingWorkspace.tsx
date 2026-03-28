@@ -1108,7 +1108,7 @@ export function InitializerWorkflow() {
 export function CodingWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, updateProjectStatus, updateProjectProgress } = useProjectStore()
+  const { getProjectById, updateProjectStatus, updateProjectProgress, projects } = useProjectStore()
 
   const [fileTree, setFileTree] = useState<FileNode[]>(mockFileTree)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -1117,6 +1117,21 @@ export function CodingWorkspace() {
   const [isRunning, setIsRunning] = useState(false)
   const [activeTab, setActiveTab] = useState('code')
   const outputEndRef = useRef<HTMLDivElement>(null)
+
+  // 如果没有 projectId，重定向到最近的项目
+  useEffect(() => {
+    if (!projectId && projects.length > 0) {
+      // 获取最近的项目（按 updatedAt 排序）
+      const sortedProjects = [...projects].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
+      const mostRecentProject = sortedProjects[0]
+      navigate(`/coding/${mostRecentProject.id}`, { replace: true })
+    } else if (!projectId && projects.length === 0) {
+      // 没有项目，重定向到首页
+      navigate('/', { replace: true })
+    }
+  }, [projectId, projects, navigate])
 
   const project = projectId ? getProjectById(projectId) : undefined
 
