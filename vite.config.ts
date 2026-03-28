@@ -30,7 +30,6 @@ export default defineConfig(async () => ({
     include: [
       'src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.test.ts',
-      'e2e/**/*.spec.ts', // VC-036: 添加 E2E 测试支持
     ],
     exclude: [
       'node_modules',
@@ -41,6 +40,7 @@ export default defineConfig(async () => ({
       'src-tauri',
       '**/*.d.ts',
       '**/*.config.*',
+      'e2e/**', // 排除 E2E 测试
     ],
     coverage: {
       provider: 'v8',
