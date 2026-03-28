@@ -13,10 +13,10 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
         <main
-          className="flex-1 overflow-auto p-6"
-          style={{ paddingBottom: 'calc(0.5rem + var(--safe-area-inset-bottom))' }}
+          className="flex-1 overflow-auto"
+          style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom) + 2rem)' }}
         >
-          {children}
+          <div className="p-6 min-h-full">{children}</div>
         </main>
       </div>
       <LoadingOverlay />
