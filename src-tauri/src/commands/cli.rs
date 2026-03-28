@@ -449,7 +449,7 @@ pub async fn init_git_repo(request: InitGitRepoRequest) -> Result<bool, String> 
     // 创建初始的 .gitignore 文件
     let gitignore_path = repo_path.join(".gitignore");
     if !gitignore_path.exists() {
-        let default_gitignore = "# Dependencies\nnode_modules/\n.pnpm-store/\n\n# Build output\ndist/\nbuild/\nout/\n\n# Environment\n.env\n.env.local\n.env.*.local\n\n# IDE\n.vscode/\n.idea/\n*.swp\n*.swo\n*~\n\n# OS\n.DS_Store\nThumbs.db\n\n# Logs\n*.log\nlogs/\n\n# Testing\ncoverage/\n.nyc_output/\n";
+        let default_gitignore = "# Dependencies\nnode_modules/\n.pnpm-store/\n\n# Build output\ndist/\nbuild/\nout/\n\n# Environment\n.env\n.env.local\n.env.*.local\n\n# IDE\n.idea/\n*.swp\n*.swo\n*~\n\n# OS\n.DS_Store\nThumbs.db\n\n# Logs\n*.log\nlogs/\n\n# Testing\ncoverage/\n.nyc_output/\n";
         tokio::fs::write(&gitignore_path, default_gitignore)
             .await
             .map_err(|e| format!("Failed to create .gitignore: {}", e))?;
