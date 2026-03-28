@@ -560,20 +560,158 @@ fn extract_list_items(content: &str, list_context: &str) -> Option<Vec<String>> 
 
 #[tauri::command]
 pub async fn generate_user_personas(
-    _request: GeneratePRDRequest,
+    request: GeneratePRDRequest,
 ) -> Result<Vec<UserPersonaResponse>, String> {
-    // TODO: Implement actual persona generation
-    Ok(vec![UserPersonaResponse {
-        id: "1".to_string(),
-        name: "Alex".to_string(),
-        age: "28".to_string(),
-        occupation: "Full-stack Developer".to_string(),
-        background: "Experienced developer working on side projects".to_string(),
-        goals: vec!["Build passive income".to_string()],
-        pain_points: vec!["Limited time".to_string()],
-        behaviors: vec!["Active on Twitter".to_string()],
-        quote: Some("I want to focus on creative work.".to_string()),
-    }])
+    log::info!("Generating user personas for idea: {}", request.idea);
+    
+    // 1. 构建产品信息
+    let product_info = format!("基于以下产品想法生成用户画像：{}", request.idea);
+    
+    // 2. 根据 AI Provider 选择优化的提示词
+    let prompt = match request.provider.as_str() {
+        "minimax" => user_persona::generate_user_persona_prompt_minimax(&product_info),
+        "glm" => user_persona::generate_user_persona_prompt_glm(&product_info),
+        _ => user_persona::generate_user_persona_prompt(&product_info),
+    };
+    
+    // 3. 创建 AI Provider
+    let provider = match request.provider.as_str() {
+        "openai" => AIProvider::new(AIProviderType::OpenAI, request.api_key),
+        "anthropic" => AIProvider::new(AIProviderType::Anthropic, request.api_key),
+        "kimi" => AIProvider::new(AIProviderType::Kimi, request.api_key),
+        "glm" => AIProvider::new(AIProviderType::GLM, request.api_key),
+        "minimax" => AIProvider::new(AIProviderType::MiniMax, request.api_key),
+        _ => {
+            return Err(format!("不支持的 AI 提供商：{}", request.provider));
+        }
+    };
+    
+    // 4. 构建聊天请求
+    let chat_request = ChatRequest {
+        model: request.model,
+        messages: vec![AIMessage {
+            role: "user".to_string(),
+            content: prompt,
+        }],
+        temperature: Some(0.8), // 稍微提高温度增加创造性
+        max_tokens: Some(4096), // 用户画像需要较长文本
+        stream: false,
+    };
+    
+    // 5. 调用 AI Provider
+    let response = provider.chat(chat_request)
+        .await
+        .map_err(|e| format!("AI 调用失败：{}", e))?;
+    
+    // 6. 解析 AI 生成的用户画像
+    let personas = parse_user_personas_from_markdown(&response.content)
+        .map_err(|e| format!("用户画像解析失败：{}", e))?;
+    
+    log::info!("User personas generated successfully: {} personas", personas.len());
+    
+    Ok(personas)
+}
+
+/// 从 Markdown 文本中解析用户画像
+fn parse_user_personas_from_markdown(markdown: &str) -> Result<Vec<UserPersonaResponse>, String> {
+    // 简化的解析逻辑，实际应该使用更复杂的 Markdown 解析器
+    let mut personas = Vec::new();
+    
+    // 按行分割并提取信息
+    let lines: Vec<&str> = markdown.lines().collect();
+    let mut current_persona: Option<UserPersonaResponse> = None;
+    let mut id_counter = 1;
+    
+    for line in lines {
+        let trimmed = line.trim();
+        
+        // 检测新的画像开始（通常以 # 或数字开头）
+        if trimmed.starts_with('#') || (trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) && trimmed.contains('.')) {
+            // 保存之前的画像
+            if let Some(persona) = current_persona.take() {
+                personas.push(persona);
+            }
+            
+            // 创建新画像
+            current_persona = Some(UserPersonaResponse {
+                id: id_counter.to_string(),
+                name: extract_name_from_line(trimmed).unwrap_or_else(|| format!("用户{}", id_counter)),
+                age: "".to_string(),
+                occupation: "".to_string(),
+                background: "".to_string(),
+                goals: Vec::new(),
+                pain_points: Vec::new(),
+                behaviors: Vec::new(),
+                quote: None,
+            });
+            id_counter += 1;
+        } else if let Some(ref mut persona) = current_persona {
+            // 提取具体字段
+            if trimmed.contains("年龄") && trimmed.contains(':') {
+                persona.age = extract_value_after_colon(trimmed);
+            } else if trimmed.contains("职业") && trimmed.contains(':') {
+                persona.occupation = extract_value_after_colon(trimmed);
+            } else if trimmed.contains("背景") && trimmed.contains(':') {
+                persona.background = extract_value_after_colon(trimmed);
+            } else if trimmed.contains("目标") && trimmed.contains(':') {
+                persona.goals.push(extract_value_after_colon(trimmed));
+            } else if trimmed.contains("痛点") && trimmed.contains(':') {
+                persona.pain_points.push(extract_value_after_colon(trimmed));
+            } else if trimmed.contains("行为") && trimmed.contains(':') {
+                persona.behaviors.push(extract_value_after_colon(trimmed));
+            } else if trimmed.starts_with('"') || trimmed.starts_with('"') {
+                // 提取引言
+                let quote = trimmed.trim_matches('"').trim_matches('"').to_string();
+                if !quote.is_empty() {
+                    persona.quote = Some(quote);
+                }
+            }
+        }
+    }
+    
+    // 添加最后一个画像
+    if let Some(persona) = current_persona {
+        personas.push(persona);
+    }
+    
+    // 如果没有解析出任何画像，尝试创建一个默认的
+    if personas.is_empty() {
+        personas.push(UserPersonaResponse {
+            id: "1".to_string(),
+            name: "典型用户".to_string(),
+            age: "25-35 岁".to_string(),
+            occupation: "专业人士".to_string(),
+            background: markdown.lines().take(3).collect::<Vec<_>>().join("\n"),
+            goals: vec!["解决核心问题".to_string()],
+            pain_points: vec!["当前解决方案不足".to_string()],
+            behaviors: vec!["积极寻找更好的工具".to_string()],
+            quote: Some("我需要一个更好的解决方案".to_string()),
+        });
+    }
+    
+    Ok(personas)
+}
+
+/// 从行中提取名字（简化版本）
+fn extract_name_from_line(line: &str) -> Option<String> {
+    // 尝试提取中文名字（通常 2-3 个字符）
+    if let Some(start) = line.find(|c: char| c.is_ascii_alphabetic() || c.is_whitespace()) {
+        let name_part = &line[..start];
+        let name = name_part.trim().trim_start_matches(|c: char| !c.is_alphabetic() && !c.is_whitespace());
+        if !name.is_empty() && name.len() <= 10 {
+            return Some(name.to_string());
+        }
+    }
+    None
+}
+
+/// 提取冒号后的值
+fn extract_value_after_colon(line: &str) -> String {
+    if let Some(pos) = line.find(':') {
+        line[pos + 1..].trim().trim_end_matches(',').to_string()
+    } else {
+        line.to_string()
+    }
 }
 
 #[tauri::command]
