@@ -27,7 +27,7 @@ beforeAll(async () => {
   // 确保报告目录存在
   try {
     mkdirSync(REPORT_DIR, { recursive: true });
-  } catch (_error) {
+  } catch {
     // 忽略目录创建错误
   }
 });
@@ -114,7 +114,7 @@ describe('CLI Browser Network Requests', () => {
     const testName = 'response-time';
     try {
       const startTime = Date.now();
-      const response = await fetch(TEST_CONFIG.baseUrl);
+      await fetch(TEST_CONFIG.baseUrl);
       const responseTime = Date.now() - startTime;
       
       console.log(`Response time: ${responseTime}ms`);

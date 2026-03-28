@@ -30,7 +30,7 @@ const REPORT_DIR = join(process.cwd(), 'docs', 'testing', 'browser-reports');
 beforeAll(async () => {
   try {
     mkdirSync(REPORT_DIR, { recursive: true });
-  } catch (_error) {
+  } catch {
     // 忽略目录创建错误
   }
 });
@@ -70,8 +70,7 @@ describe('CLI Browser Performance Tests', () => {
     const startTime = Date.now();
     
     try {
-      const response = await fetch(TEST_CONFIG.baseUrl);
-      const html = await response.text();
+      await fetch(TEST_CONFIG.baseUrl);
       
       const loadTime = Date.now() - startTime;
       
@@ -192,7 +191,7 @@ describe('CLI Browser Performance Tests', () => {
     try {
       const startTime = Date.now();
       
-      const response = await fetch(TEST_CONFIG.baseUrl);
+      await fetch(TEST_CONFIG.baseUrl);
       const ttfb = Date.now() - startTime;
       
       console.log(`TTFB: ${ttfb}ms`);

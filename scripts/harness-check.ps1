@@ -344,8 +344,9 @@ function Invoke-TSTestsCheck {
         }
         
         # Execute the dedicated script and capture output
+        # Skip E2E tests by default as they require dev server
         $testOutputFile = [System.IO.Path]::GetTempFileName()
-        & powershell -ExecutionPolicy Bypass -File $tsTestScript -Verbose > $testOutputFile 2>&1
+        & powershell -ExecutionPolicy Bypass -File $tsTestScript -Verbose -SkipE2E > $testOutputFile 2>&1
         $exitCode = $LASTEXITCODE
         
         $testOutput = Get-Content $testOutputFile -Raw -Encoding UTF8

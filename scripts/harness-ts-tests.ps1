@@ -3,7 +3,8 @@
 
 param(
     [switch]$Verbose,
-    [switch]$Debug
+    [switch]$Debug,
+    [switch]$SkipE2E  # Skip E2E tests that require dev server
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -11,7 +12,12 @@ param(
 Write-Host "Running TypeScript unit tests..." -ForegroundColor Gray
 
 # Execute tests and capture both stdout and stderr
-$output = & npm run test:unit 2>&1
+if ($SkipE2E) {
+    Write-Host "Skipping E2E tests (dev server not running)..." -ForegroundColor Yellow
+    $output = & npm run test:unit -- --exclude "**/e2e/*.spec.ts" 2>&1
+} else {
+    $output = & npm run test:unit 2>&1
+}
 $exitCode = $LASTEXITCODE
 
 if ($Verbose) {
