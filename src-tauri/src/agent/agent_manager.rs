@@ -30,6 +30,7 @@ use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, Bench
 use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats, PerformanceAlert};
 use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse, GenerationType};
 use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, SuggestionConfig, CodeSuggestion};
+use crate::agent::code_change_tracker::{CodeChangeTracker, ChangeSummary, ChangeStatistics, FileChange, ChangeType};
 use crate::db;
 
 /// Agent 句柄信息
@@ -1208,6 +1209,66 @@ pub async fn initialize_agent_manager(
     };
 
     manager.initialize(config).await
+}
+
+// ========================================================================
+// VC-034: Code Change Tracker Commands
+// ========================================================================
+
+/// 获取工作区的所有变更
+#[tauri::command]
+pub async fn get_workspace_changes(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+) -> Result<ChangeSummary, String> {
+    // 使用当前目录作为工作区根目录
+    let workspace_root = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // 创建 CodeChangeTracker
+    let tracker = CodeChangeTracker::new(workspace_root)?;
+    
+    // 生成变更摘要
+    let summary = tracker.generate_summary().await?;
+    
+    Ok(summary)
+}
+
+/// 获取单个文件的 diff
+#[tauri::command]
+pub async fn get_file_diff(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+    file_path: String,
+) -> Result<String, String> {
+    // 使用当前目录作为工作区根目录
+    let workspace_root = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // 创建 CodeChangeTracker
+    let tracker = CodeChangeTracker::new(workspace_root)?;
+    
+    // 获取文件 diff
+    let (_, _, diff) = tracker.get_file_diff(&file_path).await?;
+    
+    Ok(diff)
+}
+
+/// 获取变更统计信息
+#[tauri::command]
+pub async fn get_change_statistics(
+    _state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
+    _session_id: String,
+) -> Result<ChangeStatistics, String> {
+    // 使用当前目录作为工作区根目录
+    let workspace_root = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+    
+    // 创建 CodeChangeTracker
+    let tracker = CodeChangeTracker::new(workspace_root)?;
+    
+    // 检测变更并计算统计
+    let changes = tracker.detect_changes().await?;
+    let statistics = tracker.calculate_statistics(&changes);
+    
+    Ok(statistics)
 }
 
 // ============================================================================

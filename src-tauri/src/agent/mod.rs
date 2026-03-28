@@ -19,6 +19,7 @@ pub mod performance_benchmark_agent;  // VC-030: Performance Benchmark Agent
 pub mod realtime_performance_monitor;  // VC-031: Real-time Performance Monitor
 pub mod ai_code_generator;  // VC-032: AI Code Generator
 pub mod realtime_code_suggestions;  // VC-033: Real-time Code Suggestions
+pub mod code_change_tracker;  // VC-034: Code Change Tracker
 pub mod daemon;
 pub mod agent_stdio;
 pub mod websocket_manager;

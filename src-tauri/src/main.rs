@@ -84,6 +84,10 @@ fn main() {
             agent::agent_manager::start_suggestions,
             agent::agent_manager::stop_suggestions,
             agent::agent_manager::get_suggestions,
+            // VC-034: Code Change Tracker
+            agent::agent_manager::get_workspace_changes,
+            agent::agent_manager::get_file_diff,
+            agent::agent_manager::get_change_statistics,
 
             // System commands
             commands::system::get_app_version,
