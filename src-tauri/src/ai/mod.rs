@@ -1,3 +1,7 @@
+//! AI 模块 - 提供 AI Provider 和智能路由功能
+
+pub mod router;
+
 use log::{debug, error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -6,13 +10,14 @@ use std::error::Error;
 use std::fmt;
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AIProviderType {
     OpenAI,
-    Anthropic,
+    Anthropic,  // Claude
     Kimi,
     GLM,
     MiniMax,
+    DeepL,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,6 +134,7 @@ impl AIProvider {
             AIProviderType::Kimi => "https://api.moonshot.cn/v1".to_string(),
             AIProviderType::GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
             AIProviderType::MiniMax => "https://api.minimax.chat/v1".to_string(),
+            AIProviderType::DeepL => "https://api-free.deepl.com/v2".to_string(),
         }
     }
 
@@ -172,6 +178,7 @@ impl AIProvider {
             AIProviderType::Kimi => self.chat_kimi(request).await,
             AIProviderType::GLM => self.chat_glm(request).await,
             AIProviderType::MiniMax => self.chat_minimax(request).await,
+            AIProviderType::DeepL => self.chat_deepl(request).await,
         }
     }
 
@@ -185,6 +192,7 @@ impl AIProvider {
             AIProviderType::Kimi => self.stream_chat_kimi(request, on_chunk).await,
             AIProviderType::GLM => self.stream_chat_glm(request, on_chunk).await,
             AIProviderType::MiniMax => self.stream_chat_minimax(request, on_chunk).await,
+            AIProviderType::DeepL => self.stream_chat_deepl(request, on_chunk).await,
         }
     }
 
@@ -518,7 +526,30 @@ impl AIProvider {
             AIProviderType::Kimi => "kimi",
             AIProviderType::GLM => "glm",
             AIProviderType::MiniMax => "minimax",
+            AIProviderType::DeepL => "deepl",
         }
+    }
+
+    // =====================================================================
+    // DeepL API 实现 (翻译专用)
+    // =====================================================================
+
+    async fn chat_deepl(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
+        // DeepL 是翻译专用 API，这里提供一个简单的占位实现
+        // 实际使用需要调用 DeepL API
+        Ok(ChatResponse {
+            content: "DeepL translation service placeholder".to_string(),
+            model: request.model,
+            usage: None,
+        })
+    }
+
+    async fn stream_chat_deepl<F>(&self, _request: ChatRequest, _on_chunk: F) -> Result<String, AIError>
+    where
+        F: FnMut(String) -> Result<(), AIError>,
+    {
+        // DeepL streaming placeholder
+        Ok("DeepL streaming service placeholder".to_string())
     }
 }
 
