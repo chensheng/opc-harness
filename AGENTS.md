@@ -2,11 +2,12 @@
 
 > **Harness Engineering**: "人类掌舵，Agent 执行"  
 > **适用范围**: OPC-HARNESS 项目所有 AI Agent 和开发者  
-> **最后更新**: 2026-03-24  
+> **最后更新**: 2026-03-28  
+> **当前阶段**: Phase 2 - 真实 AI 集成 🚀
 
 ---
 
-AI Agent执行任务的流程必须严格遵循 [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md)。
+AI Agent 执行任务的流程必须严格遵循 [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md)。
 
 ## 🎯 快速入口（按优先级）
 
@@ -14,6 +15,8 @@ AI Agent执行任务的流程必须严格遵循 [`Harness Engineering 流程`](.
 - [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md) - 标准开发流程
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
+- [`Phase 2 版本规划`](./VERSION_PLANNING.md) - 下一阶段任务 🔥🆕
+- [`Phase 2 快速开始`](./docs/exec-plans/phase2-quickstart.md) - 开发指南 🔥🆕
 
 ### ⭐⭐ 架构与约束
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计

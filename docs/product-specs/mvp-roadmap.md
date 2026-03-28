@@ -69,12 +69,6 @@
 
 **Phase 7: Vibe Marketing** - 100% 完成 🎉
 - ✅ 7.1 发布策略与营销文案 (5/5) - 完成
-- ✅ 7.2 流程优化 (1/1) - VM-009 完成 🆕
-  - **VM-009: Vibe Marketing 界面默认显示最近的项目 ✅** 🆕
-    - 智能路由重定向逻辑实现
-    - 按 updatedAt 排序获取最近项目
-    - 无项目时自动跳转首页
-    - Harness Health Score: 100/100 ✅
 
 **Phase 3: Vibe Coding - Agent 基础架构** - 17% 进行中
 - ✅ 3.1 Agent 通信与管理 (1/5) - VC-001 完成 ✅
