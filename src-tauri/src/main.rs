@@ -39,6 +39,11 @@ fn main() {
             commands::ai::generate_competitor_analysis,
             commands::ai::generate_marketing_strategy,
             commands::ai::generate_marketing_copy,
+            // Claude API commands (AI-002)
+            commands::ai::chat_claude,
+            commands::ai::stream_chat_claude,
+            commands::ai::generate_personas_claude,
+            commands::ai::generate_competitor_analysis_claude,
             // CLI commands
             commands::cli::detect_tools,
             commands::cli::create_cli_session,
