@@ -35,6 +35,7 @@ fn main() {
             commands::ai::chat,
             commands::ai::stream_chat,
             commands::ai::generate_prd,
+            commands::ai::stream_generate_prd,
             commands::ai::generate_user_personas,
             commands::ai::generate_competitor_analysis,
             commands::ai::generate_marketing_strategy,
