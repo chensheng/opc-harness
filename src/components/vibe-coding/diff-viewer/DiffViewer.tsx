@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { FileDiff, DiffViewerProps, SideBySideLine } from './types'
+import { DiffViewerProps, DiffViewerLine } from './types'
 import './styles.css'
 
 const DiffViewer: React.FC<DiffViewerProps> = ({
   fileDiff,
   viewMode = 'side-by-side',
-  onFileSelect,
+  _onFileSelect, // 前缀 _ 表示有意不使用
 }) => {
   const [expandedHunks, setExpandedHunks] = useState<number[]>([])
 
@@ -19,7 +19,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
     )
   }
 
-  const renderLineNumber = (line: any, side: 'left' | 'right') => {
+  const renderLineNumber = (line: DiffViewerLine, side: 'left' | 'right') => {
     const lineNum = side === 'left' ? line.line_number_old : line.line_number_new
     if (lineNum === null) {
       return <span className="diff-line-number-empty"></span>
@@ -27,7 +27,7 @@ const DiffViewer: React.FC<DiffViewerProps> = ({
     return <span className="diff-line-number">{lineNum}</span>
   }
 
-  const renderLine = (line: any, index: number, side: 'left' | 'right') => {
+  const renderLine = (line: DiffViewerLine, index: number, side: 'left' | 'right') => {
     const className = `diff-line ${
       line.change_type === 'added'
         ? 'diff-line-added'

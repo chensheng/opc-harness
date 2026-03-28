@@ -174,23 +174,23 @@ async function stopDevServer(): Promise<void> {
 }
 
 /**
- * 辅助函数：保存测试截图
+ * 辅助函数：保存测试截图（预留功能）
  */
-function saveScreenshot(page: any, filename: string): void {
+function _saveScreenshot(page: unknown, filename: string): void {
   try {
     mkdirSync(REPORT_DIR, { recursive: true })
-    const screenshotPath = join(REPORT_DIR, filename)
-    page.screenshot({ path: screenshotPath })
-    console.log(`📸 Screenshot saved: ${filename}`)
+    const _screenshotPath = join(REPORT_DIR, filename)
+    // page.screenshot({ path: screenshotPath })
+    console.log(`📸 Screenshot would be saved: ${filename}`)
   } catch (error) {
     console.warn(`Failed to save screenshot: ${error}`)
   }
 }
 
 /**
- * 辅助函数：保存 HTML 快照
+ * 辅助函数：保存 HTML 快照（预留功能）
  */
-function saveHTMLSnapshot(html: string, filename: string): void {
+function _saveHTMLSnapshot(html: string, filename: string): void {
   try {
     mkdirSync(REPORT_DIR, { recursive: true })
     const snapshotPath = join(REPORT_DIR, filename)

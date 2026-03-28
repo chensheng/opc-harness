@@ -40,7 +40,15 @@ export interface DiffSummary {
 export interface DiffViewerProps {
   fileDiff: FileDiff | null
   viewMode?: 'side-by-side' | 'unified'
-  onFileSelect?: (file: string) => void
+  _onFileSelect?: (file: string) => void // 前缀 _ 表示有意不使用
+}
+
+// 用于渲染行的内部类型
+export interface DiffViewerLine {
+  line_number_old: number | null
+  line_number_new: number | null
+  content: string
+  change_type: 'unchanged' | 'added' | 'removed'
 }
 
 export interface SideBySideLine {
