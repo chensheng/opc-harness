@@ -33,10 +33,22 @@
 总体完成度：计划中 (39 个任务，全部从 Sprint 1 转移)
 
 📋 Sprint 2 新增（从 Sprint 1 转移）:
-  - Vibe Coding 完整：12 个任务（US-031~033, US-034~036, TT-020~024, US-037~039）
-  - 基础设施增强：5 个任务（TT-041~045）
-  - Vibe Design 增强：12 个任务（US-047~058）
-  - Vibe Marketing 完整：10 个任务（US-059~068）
+  - Vibe Coding 完整：12 个任务
+    - User Stories: US-031, US-032, US-033 (Initializer Agent)
+    - User Stories: US-034, US-035, US-036, US-037 (通信和检查点)
+    - Technical Tasks: TT-020, TT-021 (WebSocket)
+    - Technical Tasks: TT-022, TT-023, TT-024, TT-025, TT-026 (数据库)
+  - 基础设施增强：5 个任务
+    - Technical Tasks: TT-041, TT-042, TT-043, TT-044, TT-045 (多 AI 厂商)
+  - Vibe Design 增强：12 个任务
+    - User Stories: US-047, US-048, US-049 (流式输出)
+    - User Stories: US-050, US-051, US-052 (质量检查)
+    - User Stories: US-053, US-054, US-055 (迭代优化)
+    - User Stories: US-056, US-057, US-058, US-059, US-060 (可视化增强)
+  - Vibe Marketing 完整：10 个任务
+    - User Stories: US-061, US-062, US-063 (发布策略)
+    - User Stories: US-064, US-065, US-066, US-067 (营销文案)
+    - User Stories: US-068, US-069, US-070 (营销日历)
   
 📈 累计完成（含 Sprint 1）:
   - Sprint 1 已完成：73 个任务 ✅
@@ -316,26 +328,68 @@
 
 ```
 📋 Vibe Design 增强：75% (9/12)
-   - 流式输出实现 (US-047 ~ US-049)
-   - 质量检查系统 (US-050 ~ US-052)
-   - 迭代优化流程 (US-053 ~ US-055)
-   - 可视化增强 (US-056 ~ US-060)
+   - 流式输出实现
+     * US-047: PRD 流式生成
+     * US-048: 用户画像渐进式渲染
+     * US-049: 竞品分析实时更新
+   - 质量检查系统
+     * US-050: PRD 完整性检查
+     * US-051: PRD 一致性验证
+     * US-052: PRD 可行性评估
+   - 迭代优化流程
+     * US-053: 反馈和重新生成
+     * US-054: 历史版本查看
+     * US-055: 用户偏好学习
+   - 可视化增强
+     * US-056: 用户画像卡片优化
+     * US-057: 竞品对比雷达图
+     * US-058: 竞品时间线
+     * US-059: 交互式数据探索
+     * US-060: 自定义可视化样式
 
 📋 Vibe Coding 完整：60% (7/12)
-   - 完整 Initializer Agent (US-031 ~ US-033)
-   - 实时通信 (TT-020 ~ TT-021, US-034)
-   - 数据库设计 (TT-022 ~ TT-026，部分)
-   - HITL 检查点 (US-035 ~ US-037，部分)
+   - 完整 Initializer Agent
+     * US-031: PRD 深度 AI 解析
+     * US-032: 智能任务分解
+     * US-033: Git 工作流完整实现
+   - 实时通信
+     * TT-020: WebSocket 服务端实现
+     * TT-021: 消息协议定义
+     * US-034: Agent 执行日志实时查看
+   - 数据库设计
+     * TT-022: Milestone 表设计
+     * TT-023: Issue 表设计
+     * TT-024: Agent Session 表设计
+     * TT-025: CRUD Operations
+     * TT-026: 查询优化和索引
+   - HITL 检查点
+     * US-035: CP-002 初始方案审查
+     * US-036: CP-006 中期进展审查
+     * US-037: CP-010 最终交付审查
 
 📋 Vibe Marketing 完整：80% (8/10)
-   - 发布策略增强 (US-061 ~ US-063)
-   - 营销文案增强 (US-064 ~ US-067)
-   - 营销日历 (US-068 ~ US-070，部分)
+   - 发布策略增强
+     * US-061: 发布计划甘特图
+     * US-062: 任务依赖管理
+     * US-063: 动态调整发布计划
+   - 营销文案增强
+     * US-064: 多渠道文案适配
+     * US-065: A/B 测试
+     * US-066: 一键复制和发布
+     * US-067: 文案效果追踪
+   - 营销日历
+     * US-068: 营销日历查看
+     * US-069: 倒计时和提醒
+     * US-070: 营销效果追踪
 
 📋 多 AI 厂商：50% (2-3/5)
-   - OpenAI API 集成 (TT-041)
-   - Claude API 集成 (TT-042)
-   - Kimi/GLM API 集成 (TT-043/044，可选)
+   - OpenAI API 集成
+     * TT-041: OpenAI API 完整集成
+   - Claude API 集成
+     * TT-042: Claude API 完整集成
+   - Kimi/GLM API 集成（可选）
+     * TT-043: Kimi API 完整集成
+     * TT-044: GLM API 完整集成
 ```
 
 ### Week 4 (04-10 ~ 04-15): 集成测试
@@ -462,7 +516,6 @@
 ### 相关文档
 - [sprint-guide.md](./sprint-guide.md) - Sprint 文档编写指南
 - [sprint-1.md](./sprint-1.md) - Sprint 1 总结
-- [VERSION_PLANNING.md](../../VERSION_PLANNING.md) - 版本规划总览
 - [ARCHITECTURE.md](../../ARCHITECTURE.md) - 系统架构
 
 ### 变更记录
