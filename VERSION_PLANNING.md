@@ -109,11 +109,11 @@
 - [ ] `generate_competitor_analysis_glm` - 竞品分析 (开源)
 
 **MiniMax API** (5 个子任务):
-- [ ] `chat_minimax` - 非流式聊天
-- [ ] `stream_chat_minimax` - 流式聊天
-- [ ] `generate_prd_minimax` - PRD 生成 (创意写作优化)
-- [ ] `generate_personas_minimax` - 用户画像 (情感化设计)
-- [ ] `generate_competitor_analysis_minimax` - 竞品分析 (市场洞察)
+- [x] `chat_minimax` - 非流式聊天 ✅ **已完成**
+- [x] `stream_chat_minimax` - 流式聊天 ✅ **已完成**
+- [x] `generate_prd_minimax` - PRD 生成 (创意写作优化) ✅ **已完成**
+- [x] `generate_personas_minimax` - 用户画像 (情感化设计) ✅ **已完成**
+- [x] `generate_competitor_analysis_minimax` - 竞品分析 (市场洞察) ✅ **已完成**
 
 **AI 服务管理器增强** (4 个子任务):
 - [ ] 智能路由（根据任务选择最佳 AI）
