@@ -10,7 +10,7 @@
 ```
 docs/sprint-plans/
 ├── README.md                          # 本说明文档
-├── SPRINT-DOCUMENT-GUIDELINES.md      # Sprint 文档编写规范 ⭐
+├── sprint-guide.md                    # Sprint 文档编写规范 ⭐
 ├── sprint-1.md                        # Sprint 1: MVP 版本
 ├── sprint-2.md                        # Sprint 2: 增强与优化
 └── archive/                           # 已完成的 Sprint 归档
