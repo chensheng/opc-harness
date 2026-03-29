@@ -2,17 +2,16 @@
 
 > **Harness Engineering**: "人类掌舵，Agent 执行"  
 > **适用范围**: OPC-HARNESS 项目所有 AI Agent 和开发者  
-> **最后更新**: 2026-03-29  
-> **当前阶段**: Sprint 2 - 增强与优化 🚀
+> **最后更新**: 2026-03-29
 
 ---
 
-AI Agent 执行任务的流程必须严格遵循 [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md)。
+开发前必须先阅读 [`Harness Engineering 开发流程`](./docs/dev_workflow.md)，必须严格遵循该标准开发流程。
 
 ## 🎯 快速入口（按优先级）
 
 ### ⭐⭐⭐ 必读核心
-- [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md) - 标准开发流程
+- [`Harness Engineering 开发流程`](./docs/dev_workflow.md) - 标准开发流程
 - [`Sprint 规划索引`](./docs/sprint-plans/index.md) - Sprint计划导航
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
@@ -91,7 +90,7 @@ Level 2: docs/*                 ← 详细设计
 Level 1: AGENTS.md (本文件)     ← 导航地图
     ↓
 Level 2: docs/                  ← 详细文档
-    ├── HARNESS_ENGINEERING.md  ← 开发流程 🔥
+    ├── dev_workflow.md         ← 开发流程 🔥
     ├── exec-plans/             ← 执行计划
     ├── product-specs/          ← 产品规格
     └── design-docs/            ← 设计文档
