@@ -118,6 +118,109 @@ pub struct Milestone {
     pub updated_at: String,
 }
 
+// ==================== Entity Trait Implementations ====================
+
+use crate::db::Entity;
+use rusqlite::types::ToSql;
+use rusqlite::Row;
+
+impl Entity for Project {
+    fn table_name() -> &'static str { "projects" }
+    
+    fn primary_key() -> &'static str { "id" }
+    
+    fn get_primary_key(&self) -> &str { &self.id }
+    
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Project {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            description: row.get(2)?,
+            status: row.get(3)?,
+            progress: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+            idea: row.get(7)?,
+            prd: row.get(8)?,
+            user_personas: row.get(9)?,
+            competitor_analysis: row.get(10)?,
+        })
+    }
+}
+
+impl Entity for Milestone {
+    fn table_name() -> &'static str { "milestones" }
+    
+    fn primary_key() -> &'static str { "id" }
+    
+    fn get_primary_key(&self) -> &str { &self.id }
+    
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Milestone {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            title: row.get(2)?,
+            description: row.get(3)?,
+            order: row.get(4)?,
+            status: row.get(5)?,
+            due_date: row.get(6)?,
+            completed_at: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+        })
+    }
+}
+
+impl Entity for Issue {
+    fn table_name() -> &'static str { "issues" }
+    
+    fn primary_key() -> &'static str { "id" }
+    
+    fn get_primary_key(&self) -> &str { &self.id }
+    
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Issue {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            milestone_id: row.get(2)?,
+            title: row.get(3)?,
+            description: row.get(4)?,
+            issue_type: row.get(5)?,
+            priority: row.get(6)?,
+            status: row.get(7)?,
+            assignee: row.get(8)?,
+            parent_issue_id: row.get(9)?,
+            order: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
+        })
+    }
+}
+
+impl Entity for AgentSession {
+    fn table_name() -> &'static str { "agent_sessions" }
+    
+    fn primary_key() -> &'static str { "agent_id" }
+    
+    fn get_primary_key(&self) -> &str { &self.agent_id }
+    
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(AgentSession {
+            session_id: row.get(0)?,
+            agent_id: row.get(1)?,
+            agent_type: row.get(2)?,
+            project_path: row.get(3)?,
+            status: row.get(4)?,
+            phase: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+            stdio_channel_id: row.get(8)?,
+            registered_to_daemon: row.get::<_, String>(9)? == "1",
+            metadata: row.get(10)?,
+        })
+    }
+}
+
 /// 项目任务/问题
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
