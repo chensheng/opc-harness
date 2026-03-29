@@ -582,8 +582,51 @@
 ### 变更记录
 | 版本 | 日期 | 变更内容 | 作者 |
 |------|------|---------|------|
+| v2.1 | 2026-03-29 | 将未完成的 17 个任务转移到 Sprint 2 | OPC-HARNESS Team |
 | v2.0 | 2026-03-29 | 按 sprint-guide 规范重构文档 | OPC-HARNESS Team |
 | v1.0 | 2026-03-23 | 初始版本 | OPC-HARNESS Team |
+
+---
+
+## 🔄 Sprint 2 任务转移说明
+
+以下任务由于优先级较低（P1）且时间限制，已从本 Sprint 转移到 [Sprint 2](./sprint-2.md)：
+
+### 转移的任务清单（17 个）
+
+#### Vibe Coding - 完整 Initializer Agent（3 个任务）
+- **VC-003**: PRD 深度 AI 解析
+- **VC-004**: 智能任务分解（依赖关系识别）
+- **VC-005**: Git 工作流完整实现
+
+#### Vibe Coding - 实时通信（3 个任务）
+- **VC-034**: WebSocket 服务端实现
+- **VC-035**: 消息协议定义
+- **VC-036**: 前端 Hook 集成
+
+#### Vibe Coding - 数据库完整设计（5 个任务）
+- **VC-037**: Milestone 表设计
+- **VC-038**: Issue 表设计（含依赖关系）
+- **VC-039**: Agent Session 表设计
+- **VC-040**: 完整 CRUD Operations
+- **VC-041**: 数据库查询优化和索引
+
+#### Vibe Coding - HITL 检查点（3 个任务）
+- **VC-042**: CP-002 初始方案审查
+- **VC-043**: CP-006 中期进展审查
+- **VC-044**: CP-010 最终交付审查
+
+#### 基础设施 - 多 AI 厂商支持（5 个任务）
+- **INFRA-017**: OpenAI API 完整集成
+- **INFRA-018**: Claude API 完整集成
+- **INFRA-019**: Kimi API 完整集成
+- **INFRA-020**: GLM API 完整集成
+- **INFRA-021**: 智能路由和负载均衡
+
+**备注**: 
+- 这些任务均为 P1 优先级，对 MVP 核心功能影响较小
+- Sprint 2 将在 2026-04-06 开始，重点完成这些增强功能
+- 详细任务描述请查看 [sprint-2.md](./sprint-2.md)
 
 ---
 
