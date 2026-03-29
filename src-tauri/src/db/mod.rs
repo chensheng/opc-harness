@@ -375,16 +375,14 @@ pub fn delete_cli_session(conn: &Connection, id: &str) -> Result<()> {
     Ok(())
 }
 
-// ==================== Agent Session CRUD (VC-005) ====================
+// ==================== Agent Session CRUD ====================
 
 /// 创建 Agent Session
-pub fn create_agent_session(conn: &Connection, session: &crate::models::AgentSession) -> Result<()> {
+pub fn create_agent_session(conn: &Connection, session: &AgentSession) -> Result<()> {
     conn.execute(
-        "INSERT INTO agent_sessions 
-         (session_id, agent_id, agent_type, project_path, status, phase, created_at, updated_at, 
-          stdio_channel_id, registered_to_daemon, metadata)
+        "INSERT INTO agent_sessions (session_id, agent_id, agent_type, project_path, status, phase, created_at, updated_at, stdio_channel_id, registered_to_daemon, metadata)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        [
+        (
             &session.session_id,
             &session.agent_id,
             &session.agent_type,
@@ -393,19 +391,19 @@ pub fn create_agent_session(conn: &Connection, session: &crate::models::AgentSes
             &session.phase,
             &session.created_at,
             &session.updated_at,
-            &session.stdio_channel_id.clone().unwrap_or_default(),
+            &session.stdio_channel_id,
             &(if session.registered_to_daemon { "1".to_string() } else { "0".to_string() }),
-            &session.metadata.clone().unwrap_or_default(),
-        ],
+            &session.metadata,
+        ),
     )?;
     Ok(())
 }
 
-/// 获取所有 Agent Sessions
-pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<crate::models::AgentSession>> {
-    let mut stmt = conn.prepare("SELECT * FROM agent_sessions ORDER BY created_at DESC")?;
-    let sessions = stmt.query_map([], |row| {
-        Ok(crate::models::AgentSession {
+/// 获取项目的所有 Sessions
+pub fn get_sessions_by_project(conn: &Connection, project_path: &str) -> Result<Vec<AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE project_path = ?1 ORDER BY created_at DESC")?;
+    let sessions = stmt.query_map([project_path], |row| {
+        Ok(AgentSession {
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
@@ -415,7 +413,33 @@ pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<crate::models::Ag
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? == 1,
+            registered_to_daemon: row.get::<_, String>(9)? == "1",
+            metadata: row.get(10)?,
+        })
+    })?;
+
+    let mut result = Vec::new();
+    for session in sessions {
+        result.push(session?);
+    }
+    Ok(result)
+}
+
+/// 获取所有 Sessions
+pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions ORDER BY created_at DESC")?;
+    let sessions = stmt.query_map([], |row| {
+        Ok(AgentSession {
+            session_id: row.get(0)?,
+            agent_id: row.get(1)?,
+            agent_type: row.get(2)?,
+            project_path: row.get(3)?,
+            status: row.get(4)?,
+            phase: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+            stdio_channel_id: row.get(8)?,
+            registered_to_daemon: row.get::<_, String>(9)? == "1",
             metadata: row.get(10)?,
         })
     })?;
@@ -428,10 +452,10 @@ pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<crate::models::Ag
 }
 
 /// 获取单个 Agent Session
-pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Option<crate::models::AgentSession>> {
+pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Option<AgentSession>> {
     let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE agent_id = ?1")?;
     let mut rows = stmt.query_map([agent_id], |row| {
-        Ok(crate::models::AgentSession {
+        Ok(AgentSession {
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
@@ -441,7 +465,7 @@ pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Opti
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? == 1,
+            registered_to_daemon: row.get::<_, String>(9)? == "1",
             metadata: row.get(10)?,
         })
     })?;
@@ -452,11 +476,11 @@ pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Opti
     Ok(None)
 }
 
-/// 根据 Session ID 获取所有 Agents
-pub fn get_agent_sessions_by_session_id(conn: &Connection, session_id: &str) -> Result<Vec<crate::models::AgentSession>> {
-    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE session_id = ?1 ORDER BY created_at DESC")?;
-    let sessions = stmt.query_map([session_id], |row| {
-        Ok(crate::models::AgentSession {
+/// 按 Session ID 获取 Agent Session
+pub fn get_agent_session_by_session_id(conn: &Connection, session_id: &str) -> Result<Option<AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE session_id = ?1")?;
+    let mut rows = stmt.query_map([session_id], |row| {
+        Ok(AgentSession {
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
@@ -466,16 +490,15 @@ pub fn get_agent_sessions_by_session_id(conn: &Connection, session_id: &str) -> 
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? == 1,
+            registered_to_daemon: row.get::<_, String>(9)? == "1",
             metadata: row.get(10)?,
         })
     })?;
 
-    let mut result = Vec::new();
-    for session in sessions {
-        result.push(session?);
+    if let Some(row) = rows.next() {
+        return Ok(Some(row?));
     }
-    Ok(result)
+    Ok(None)
 }
 
 /// 更新 Agent Session 状态
@@ -491,7 +514,7 @@ pub fn update_agent_session_status(conn: &Connection, agent_id: &str, status: &s
 }
 
 /// 更新 Agent Session 完整信息
-pub fn update_agent_session(conn: &Connection, session: &crate::models::AgentSession) -> Result<()> {
+pub fn update_agent_session(conn: &Connection, session: &AgentSession) -> Result<()> {
     let updated_at = Utc::now().to_rfc3339();
     conn.execute(
         "UPDATE agent_sessions 

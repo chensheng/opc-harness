@@ -87,6 +87,14 @@ fn main() {
             commands::database::get_issue_by_id,
             commands::database::update_issue,
             commands::database::delete_issue,
+            // Agent Session commands (DB-004)
+            commands::database::create_agent_session,
+            commands::database::get_sessions_by_project,
+            commands::database::get_agent_session_by_id,
+            commands::database::get_agent_session_by_session_id,
+            commands::database::update_agent_session_status,
+            commands::database::update_agent_session,
+            commands::database::delete_agent_session,
             // Agent Manager commands (VC-010, VC-015, VC-016, VC-022, VC-026, VC-027)
             agent::agent_manager::run_initializer_agent,
             agent::agent_manager::create_feature_branch,

@@ -1,5 +1,5 @@
 use crate::db;
-use crate::models::{AIConfig, CLISession, Issue, Milestone, Project};
+use crate::models::{AIConfig, AgentSession, CLISession, Issue, Milestone, Project};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -339,4 +339,95 @@ pub fn update_issue(app_handle: tauri::AppHandle, issue: Issue) -> Result<(), St
 pub fn delete_issue(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
     db::delete_issue(&conn, &id).map_err(|e| e.to_string())
+}
+
+// ==================== Agent Session Commands ====================
+
+/// 创建 Agent Session
+#[tauri::command]
+pub fn create_agent_session(
+    app_handle: tauri::AppHandle,
+    session_id: String,
+    agent_id: String,
+    agent_type: String,
+    project_path: String,
+    status: String,
+    phase: String,
+    stdio_channel_id: Option<String>,
+    metadata: Option<String>,
+) -> Result<String, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+
+    let session = AgentSession {
+        session_id,
+        agent_id: agent_id.clone(),
+        agent_type,
+        project_path,
+        status,
+        phase,
+        created_at: Utc::now().to_rfc3339(),
+        updated_at: Utc::now().to_rfc3339(),
+        stdio_channel_id,
+        registered_to_daemon: false,
+        metadata,
+    };
+
+    db::create_agent_session(&conn, &session).map_err(|e| e.to_string())?;
+    Ok(agent_id)
+}
+
+/// 获取项目的所有 Sessions
+#[tauri::command]
+pub fn get_sessions_by_project(
+    app_handle: tauri::AppHandle,
+    project_path: String,
+) -> Result<Vec<AgentSession>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_sessions_by_project(&conn, &project_path).map_err(|e| e.to_string())
+}
+
+/// 获取单个 Agent Session（按 agent_id）
+#[tauri::command]
+pub fn get_agent_session_by_id(
+    app_handle: tauri::AppHandle,
+    agent_id: String,
+) -> Result<Option<AgentSession>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_agent_session_by_id(&conn, &agent_id).map_err(|e| e.to_string())
+}
+
+/// 获取 Agent Session（按 session_id）
+#[tauri::command]
+pub fn get_agent_session_by_session_id(
+    app_handle: tauri::AppHandle,
+    session_id: String,
+) -> Result<Option<AgentSession>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_agent_session_by_session_id(&conn, &session_id).map_err(|e| e.to_string())
+}
+
+/// 更新 Agent Session 状态
+#[tauri::command]
+pub fn update_agent_session_status(
+    app_handle: tauri::AppHandle,
+    agent_id: String,
+    status: String,
+    phase: String,
+) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::update_agent_session_status(&conn, &agent_id, &status, &phase).map_err(|e| e.to_string())
+}
+
+/// 更新 Agent Session 完整信息
+#[tauri::command]
+pub fn update_agent_session(app_handle: tauri::AppHandle, session: AgentSession) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::update_agent_session(&conn, &session).map_err(|e| e.to_string())
+}
+
+/// 删除 Agent Session
+#[tauri::command]
+pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::delete_agent_session(&conn, &agent_id).map_err(|e| e.to_string())
 }
