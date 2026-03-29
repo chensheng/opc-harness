@@ -117,3 +117,38 @@ pub struct Milestone {
     /// 更新时间
     pub updated_at: String,
 }
+
+/// 项目任务/问题
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Issue {
+    /// Issue ID
+    pub id: String,
+    /// 所属项目 ID
+    pub project_id: String,
+    /// 关联的里程碑 ID（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub milestone_id: Option<String>,
+    /// Issue 标题
+    pub title: String,
+    /// 详细描述
+    pub description: String,
+    /// 类型：feature/bug/task
+    pub issue_type: String,
+    /// 优先级：critical/high/medium/low
+    pub priority: String,
+    /// 状态：open/in_progress/done/closed
+    pub status: String,
+    /// 负责人（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+    /// 父 Issue ID（可选，用于任务分解）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_issue_id: Option<String>,
+    /// 排序顺序
+    pub order: i32,
+    /// 创建时间
+    pub created_at: String,
+    /// 更新时间
+    pub updated_at: String,
+}

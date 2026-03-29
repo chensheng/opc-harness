@@ -80,6 +80,13 @@ fn main() {
             commands::database::get_milestone_by_id,
             commands::database::update_milestone,
             commands::database::delete_milestone,
+            // Issue commands (DB-003)
+            commands::database::create_issue,
+            commands::database::get_issues_by_project,
+            commands::database::get_issues_by_milestone,
+            commands::database::get_issue_by_id,
+            commands::database::update_issue,
+            commands::database::delete_issue,
             // Agent Manager commands (VC-010, VC-015, VC-016, VC-022, VC-026, VC-027)
             agent::agent_manager::run_initializer_agent,
             agent::agent_manager::create_feature_branch,

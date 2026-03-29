@@ -1,5 +1,5 @@
 use crate::db;
-use crate::models::{AIConfig, CLISession, Milestone, Project};
+use crate::models::{AIConfig, CLISession, Issue, Milestone, Project};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -258,4 +258,85 @@ pub fn update_milestone(app_handle: tauri::AppHandle, milestone: Milestone) -> R
 pub fn delete_milestone(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
     db::delete_milestone(&conn, &id).map_err(|e| e.to_string())
+}
+
+// ==================== Issue Commands ====================
+
+/// 创建 Issue
+#[tauri::command]
+pub fn create_issue(
+    app_handle: tauri::AppHandle,
+    project_id: String,
+    title: String,
+    description: String,
+    issue_type: String,
+    priority: String,
+    milestone_id: Option<String>,
+    parent_issue_id: Option<String>,
+    order: i32,
+) -> Result<String, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+
+    let issue = Issue {
+        id: Uuid::new_v4().to_string(),
+        project_id,
+        milestone_id,
+        title,
+        description,
+        issue_type,
+        priority,
+        status: "open".to_string(),
+        assignee: None,
+        parent_issue_id,
+        order,
+        created_at: Utc::now().to_rfc3339(),
+        updated_at: Utc::now().to_rfc3339(),
+    };
+
+    db::create_issue(&conn, &issue).map_err(|e| e.to_string())?;
+    Ok(issue.id)
+}
+
+/// 获取项目的所有 Issues
+#[tauri::command]
+pub fn get_issues_by_project(
+    app_handle: tauri::AppHandle,
+    project_id: String,
+) -> Result<Vec<Issue>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_issues_by_project(&conn, &project_id).map_err(|e| e.to_string())
+}
+
+/// 按里程碑获取 Issues
+#[tauri::command]
+pub fn get_issues_by_milestone(
+    app_handle: tauri::AppHandle,
+    milestone_id: String,
+) -> Result<Vec<Issue>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_issues_by_milestone(&conn, &milestone_id).map_err(|e| e.to_string())
+}
+
+/// 获取单个 Issue
+#[tauri::command]
+pub fn get_issue_by_id(
+    app_handle: tauri::AppHandle,
+    id: String,
+) -> Result<Option<Issue>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_issue_by_id(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// 更新 Issue
+#[tauri::command]
+pub fn update_issue(app_handle: tauri::AppHandle, issue: Issue) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::update_issue(&conn, &issue).map_err(|e| e.to_string())
+}
+
+/// 删除 Issue
+#[tauri::command]
+pub fn delete_issue(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::delete_issue(&conn, &id).map_err(|e| e.to_string())
 }
