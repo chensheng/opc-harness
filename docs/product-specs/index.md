@@ -59,7 +59,7 @@
 4. **守护进程架构**: 后台管理代理生命周期，支持断点续传
 
 **相关文档**:
-- [`vibe-coding-spec.md`](./vibe-coding-spec.md) - 详细功能规格（待创建）
+- [`vibe-coding-spec.md`](./vibe-coding-spec.md) - 详细功能规格
 - [产品设计文档 §6.2](./product-design.md#62-vibe-coding-核心机制) - 核心机制
 - [Symphony 参考文档](../references/symphony.md) - 技术参考
 
@@ -86,27 +86,27 @@
 - **需求**: 支持多 AI 厂商配置
 - **状态**: ✅ 已完成
 - **支持厂商**: OpenAI, Kimi, GLM, Anthropic, MiniMax
-- **文档**: [`ai-config-spec.md`](./ai-config-spec.md)
+- **文档**: AI 配置详见主应用设置界面
 
 ### 项目管理
 
 - **需求**: 项目创建、进度追踪、状态管理
 - **状态**: ✅ 已完成
 - **特性**: SQLite 持久化、Git 集成
-- **文档**: [`project-management-spec.md`](./project-management-spec.md)
+- **文档**: 项目管理详见主应用功能
 
 ### CLI 集成
 
 - **需求**: 支持 Kimi/Claude/Codex CLI工具
 - **状态**: ✅ 已完成
-- **文档**: [`cli-integration-spec.md`](./cli-integration-spec.md)
+- **文档**: CLI 集成详见主应用功能
 
 ### 一键部署
 
-- **需求**: Vercel/Netlify自动化部署
+- **需求**: Vercel/Netlify 自动化部署
 - **状态**: 📋 规划中
 - **平台**: Vercel, Netlify, Cloudflare
-- **文档**: [`deployment-spec.md`](./deployment-spec.md) (待创建)
+- **文档**: 部署功能规划中
 
 ## 📊 数据指标
 
@@ -193,10 +193,13 @@
 
 ### 内部文档
 - [`product-design.md`](./product-design.md) - 完整产品需求和市场定位
-- [`MVP版本规划.md`](./MVP版本规划.md) - MVP版本规划和路线图
+- [`vibe-design-spec.md`](./vibe-design-spec.md) - Vibe Design 功能规格
+- [`vibe-coding-spec.md`](./vibe-coding-spec.md) - Vibe Coding 功能规格
+- [`vibe-marketing-spec.md`](./vibe-marketing-spec.md) - Vibe Marketing 功能规格
 - [`../design-docs/system-architecture.md`](../design-docs/system-architecture.md) - 技术架构和系统设计
 - [`../references/symphony.md`](../references/symphony.md) - AI编码代理编排参考
 - [`../../AGENTS.md`](../../AGENTS.md) - AI Agent 导航地图
+- [`../../README.md`](../../README.md) - 项目 README
 
 ### 外部参考
 - [Anthropic Claude API](https://docs.anthropic.com/)

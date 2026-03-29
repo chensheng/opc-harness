@@ -218,10 +218,8 @@ Footer (辅助信息)
 
 ## 🔗 相关文档
 
-- [CP-002 详细规格](./cp-002-checkpoint-ui.md)
-- [任务完成总结](./TASK_COMPLETION_CP002.md)
 - [Sprint 1 总结](../../../docs/sprint-plans/sprint-1.md) ✅
-- [架构设计 - HITL](../../../../ARCHITECTURE.md#hitl-检查点机制)
+- [架构设计](../../../docs/design-docs/system-architecture.md#hitl-检查点机制)
 
 ---
 
@@ -268,8 +266,3 @@ describe('CheckpointReview', () => {
 如有问题或建议，请提交 Issue 或联系 OPC-HARNESS 团队。
 
 ---
-
-**文档版本**: v1.0  
-**创建时间**: 2026-03-25  
-**最后更新**: 2026-03-25  
-**维护者**: OPC-HARNESS Team

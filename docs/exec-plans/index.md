@@ -26,7 +26,7 @@ exec-plans/
 
 ### 场景 1: 创建新的执行计划
 
-**何时**: 从 [MVP版本规划](../product-specs/mvp-roadmap.md) 中选择任务后立即创建
+**何时**: 从 [Sprint 规划](../sprint-plans/index.md) 中选择任务后立即创建
 
 **步骤**:
 
@@ -38,7 +38,7 @@ exec-plans/
 ```
 
 #### 2. 填写基本信息
-```markdown
+````
 # {TASK_ID}: {TASK_NAME}
 
 **状态**: 🔄 进行中  
@@ -51,7 +51,7 @@ exec-plans/
 ```
 
 #### 3. 填写任务概述
-```markdown
+```
 ## 📋 任务概述
 
 ### 背景
@@ -76,7 +76,7 @@ _为什么需要这个功能？解决什么问题？_
 ```
 
 #### 4. 设计解决方案
-```markdown
+```
 ## 💡 解决方案设计
 
 ### 架构设计
@@ -105,7 +105,7 @@ _使用的技术栈、框架、库及选型理由_
 **何时**: 每日站会前或工作结束时更新
 
 **填写内容**:
-```markdown
+```
 ## 📅 执行日志
 
 ### Day 1 (YYYY-MM-DD)
@@ -146,7 +146,7 @@ _使用的技术栈、框架、库及选型理由_
 **何时**: 遇到无法独立解决的阻塞时
 
 **填写内容**:
-```markdown
+```
 ## 🚧 阻塞问题
 
 ### 问题 1: [简短描述]
@@ -175,7 +175,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 #### 2. 更新文档状态
-```markdown
+```
 # {TASK_ID}: {TASK_NAME}
 
 **状态**: ✅ 已完成  
@@ -185,7 +185,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 #### 3. 填写交付物清单
-```markdown
+```
 ## ✅ 交付物
 
 ### 1. 核心功能实现
@@ -205,7 +205,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 #### 4. 填写质量指标
-```markdown
+```
 ## 📊 质量指标
 
 ### Harness Engineering 合规性
@@ -235,7 +235,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 #### 5. 填写技术亮点
-```markdown
+```
 ## 🌟 技术亮点
 
 ### 创新点
@@ -256,7 +256,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 #### 6. 填写复盘总结
-```markdown
+```
 ## 🔄 复盘总结
 
 ### 做得好的 (Keep)
@@ -281,7 +281,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 #### 7. 更新最后信息
-```markdown
+```
 ---
 
 **维护者**: OPC-HARNESS Team  
@@ -322,7 +322,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ### Feature 类型模板
 适用于新功能开发任务
 
-```markdown
+```
 # {TASK_ID}: {TASK_NAME} - 执行计划
 
 **状态**: 🔄 进行中  
@@ -361,7 +361,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ### Infra 类型模板
 适用于基础设施/工具链任务
 
-```markdown
+```
 # {TASK_ID}: {TASK_NAME} - 执行计划
 
 **状态**: 🔄 进行中  
@@ -421,7 +421,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 
 ## 🔄 完整工作流
 
-```mermaid
+```
 graph LR
     A[从 MVP 选择任务] --> B[创建执行计划<br/>active/]
     B --> C[填写任务概述]
@@ -445,4 +445,3 @@ graph LR
     P --> Q[填写技术亮点]
     Q --> R[填写复盘总结]
     R --> S[Git 提交]
-```

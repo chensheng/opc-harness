@@ -16,20 +16,8 @@
 
 ## 🏗️ 核心设计文档
 
-- [`core-beliefs.md`](./core-beliefs.md) - Core Beliefs
-- [`system-architecture.md`](./system-architecture.md) - System Architecture
-- [`database-schema.md`](./database-schema.md) - Database Schema
-- [`architecture-design.md`](./architecture-design.md) - OPC-HARNESS Complete Architecture Design 🔥
+- [`system-architecture.md`](./system-architecture.md) - 系统架构设计 🔥
 
 ## 📐 技术规范
 
-- [`frontend-guidelines.md`](./frontend-guidelines.md) - 前端开发规范
-- [`rust-guidelines.md`](./rust-guidelines.md) - Rust 后端规范
-- [`api-design.md`](./api-design.md) - Tauri Commands 设计规范
 - [`architecture-rules.md`](./architecture-rules.md) - 架构约束规则（含测试约束）🔥
-
-## 🔄 更新记录
-
-- **2026-03-22**: 按照 OpenAI Harness Engineering 最佳实践重组目录结构
-- **2026-03-17**: 添加 ADR-005 SSE 流式输出
-- **2026-03-16**: 添加 ADR-004 SQLite 集成
