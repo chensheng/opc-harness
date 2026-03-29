@@ -11,8 +11,8 @@
 docs/sprint-plans/
 ├── README.md                          # 本说明文档
 ├── SPRINT-DOCUMENT-GUIDELINES.md      # Sprint 文档编写规范 ⭐
-├── sprint-1-mvp.md                    # Sprint 1: MVP 版本
-├── sprint-2-enhancement.md            # Sprint 2: 增强与优化
+├── sprint-1.md                        # Sprint 1: MVP 版本
+├── sprint-2.md                        # Sprint 2: 增强与优化
 └── archive/                           # 已完成的 Sprint 归档
 ```
 
@@ -24,8 +24,8 @@ docs/sprint-plans/
 
 | Sprint | 主题 | 周期 | 状态 | 文档 |
 |--------|------|------|------|------|
-| Sprint 1 | "从 0 到 1 - 让想法变成代码" | 2026-03-23 ~ 2026-04-05 | 🔄 进行中 | [sprint-1-mvp.md](./sprint-1-mvp.md) |
-| Sprint 2 | "从 1 到 10 - 让产品更强大" | 2026-04-06 ~ 2026-04-15 | 📋 待开始 | [sprint-2-enhancement.md](./sprint-2-enhancement.md) |
+| Sprint 1 | "从 0 到 1 - 让想法变成代码" | 2026-03-23 ~ 2026-04-05 | 🔄 进行中 | [sprint-1.md](./sprint-1.md) |
+| Sprint 2 | "从 1 到 10 - 让产品更强大" | 2026-04-06 ~ 2026-04-15 | 📋 待开始 | [sprint-2.md](./sprint-2.md) |
 
 ### 已完成的 Sprint
 
@@ -35,13 +35,13 @@ docs/sprint-plans/
 
 ## 📖 文档规范
 
-**详细的 Sprint 文档编写规范请查看**: [SPRINT-DOCUMENT-GUIDELINES.md](./SPRINT-DOCUMENT-GUIDELINES.md)
+**详细的 Sprint 文档编写规范请查看**: [sprint-guide.md](./sprint-guide.md)
 
 ### 快速参考
 
 #### 文档命名
-`sprint-{N}-{topic}.md`  
-示例：`sprint-1-mvp.md`, `sprint-2-enhancement.md`
+`sprint-{N}.md`  
+示例：`sprint-1.md`, `sprint-2.md`
 
 #### 优先级定义
 - **P0**: Must Have（必须完成）
@@ -90,14 +90,6 @@ Epic → Feature → User Story → Technical Task
 ### 质量指标
 - **Bug 率**: Bug 数 / 完成任务数 × 100%
 - **测试覆盖率**: ≥80%
-
----
-
-## 🔗 相关文档
-
-- [SPRINT-DOCUMENT-GUIDELINES.md](./SPRINT-DOCUMENT-GUIDELINES.md) - Sprint 文档编写指南
-- [ARCHITECTURE.md](../ARCHITECTURE.md) - 系统架构文档
-- [AGENTS.md](../../src/AGENTS.md) - Agent 开发指南
 
 ---
 
