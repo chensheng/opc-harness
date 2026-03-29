@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowRight, ArrowLeft, TrendingUp, Check, X, Lightbulb } from 'lucide-react'
+import { ArrowRight, ArrowLeft, TrendingUp, Check, X, Lightbulb, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useProjectStore, useAppStore } from '@/stores'
-import type { CompetitorAnalysis } from '@/types'
+import { useCompetitorStream } from '@/hooks/useCompetitorStream'
+import type { CompetitorAnalysis as CompetitorAnalysisType } from '@/types'
 
-// Simulated AI-generated competitor analysis
-function generateMockCompetitorAnalysis(): CompetitorAnalysis {
+// Simulated AI-generated competitor analysis (fallback)
+function generateMockCompetitorAnalysis(): CompetitorAnalysisType {
   return {
     competitors: [
       {
@@ -34,9 +35,9 @@ function generateMockCompetitorAnalysis(): CompetitorAnalysis {
       '我们的产品专注于为独立创造者提供一站式解决方案，整合产品构思、快速构建和增长运营三大模块，这是现有竞品所不具备的核心优势。',
     opportunities: [
       '一人公司/独立创造者市场快速增长',
-      'AI工具普及降低了技术门槛',
+      'AI 工具普及降低了技术门槛',
       '远程工作趋势推动副业经济发展',
-      '用户对All-in-one解决方案的需求增加',
+      '用户对 All-in-one 解决方案的需求增加',
     ],
   }
 }
@@ -47,29 +48,56 @@ export function CompetitorAnalysis() {
   const { getProjectById, setProjectCompetitorAnalysis } = useProjectStore()
   const { setLoading } = useAppStore()
 
-  const [analysis, setAnalysis] = useState<CompetitorAnalysis | null>(null)
+  const [_useFallback, setUseFallback] = useState(false)
+
+  // 使用流式 Hook
+  const { analysis, isStreaming, isComplete, error, sessionId, startStream, reset } =
+    useCompetitorStream()
 
   const project = projectId ? getProjectById(projectId) : undefined
 
   useEffect(() => {
-    if (project) {
-      if (project.competitorAnalysis) {
-        setAnalysis(project.competitorAnalysis)
-      } else {
-        generateAnalysis()
+    if (project && !sessionId) {
+      if (project.competitorAnalysis && !isStreaming) {
+        // 已有缓存数据，直接使用
+        reset()
+      } else if (!isStreaming && !error) {
+        // 启动流式生成
+        startStreamWithIdea(project)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
+  const startStreamWithIdea = async (proj: {
+    prd?: { overview?: string }
+    description?: string
+  }) => {
+    try {
+      // 从项目 idea 生成竞品分析
+      const idea = proj.prd?.overview || proj.description || '创建一个创新的产品'
+
+      await startStream({
+        idea,
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        apiKey: '', // TODO: 从配置中获取
+      })
+    } catch (err) {
+      console.error('[CompetitorAnalysis] Error starting stream:', err)
+      // 降级到 mock 数据
+      setUseFallback(true)
+      generateAnalysis()
+    }
+  }
+
   const generateAnalysis = async () => {
-    setLoading(true, 'AI正在分析竞品...')
+    setLoading(true, '正在分析竞品...')
 
     try {
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       const generatedAnalysis = generateMockCompetitorAnalysis()
-      setAnalysis(generatedAnalysis)
 
       if (projectId) {
         setProjectCompetitorAnalysis(projectId, generatedAnalysis)
@@ -78,6 +106,13 @@ export function CompetitorAnalysis() {
       setLoading(false)
     }
   }
+
+  // 保存到 store 当分析完成时
+  useEffect(() => {
+    if (isComplete && analysis && projectId) {
+      setProjectCompetitorAnalysis(projectId, analysis)
+    }
+  }, [isComplete, analysis, projectId, setProjectCompetitorAnalysis])
 
   if (!project) {
     return (
@@ -90,12 +125,44 @@ export function CompetitorAnalysis() {
     )
   }
 
-  if (!analysis) {
+  // 显示加载状态
+  if (!analysis && isStreaming) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">正在分析竞品...</p>
+          <p className="mt-4 text-muted-foreground flex items-center gap-2">
+            <Sparkles className="w-4 h-4 animate-pulse" />
+            AI 正在实时分析竞品...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // 错误状态
+  if (error && !analysis) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-destructive mb-4">生成失败：{error}</p>
+          <Button onClick={() => setUseFallback(true)} variant="outline">
+            使用示例数据
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // 没有数据
+  if (!analysis) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-muted-foreground">暂无竞品分析数据</p>
+          <Button onClick={generateAnalysis} className="mt-4">
+            生成示例数据
+          </Button>
         </div>
       </div>
     )
@@ -104,62 +171,92 @@ export function CompetitorAnalysis() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">🔍 竞品分析</h1>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          🔍 竞品分析
+          {isStreaming && (
+            <Badge variant="secondary" className="animate-pulse">
+              <Sparkles className="w-3 h-3 mr-1" />
+              实时更新中...
+            </Badge>
+          )}
+          {isComplete && (
+            <Badge variant="default" className="bg-green-600">
+              <Check className="w-3 h-3 mr-1" />
+              完成
+            </Badge>
+          )}
+        </h1>
         <p className="text-muted-foreground">{project.name}</p>
       </div>
 
-      {/* Competitors */}
+      {/* Competitors - 渐进式渲染 */}
       <div className="space-y-4">
         <h2 className="text-lg font-medium">主要竞品</h2>
-        {analysis.competitors.map((competitor, index) => (
-          <Card key={index}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle>{competitor.name}</CardTitle>
-                {competitor.marketShare && (
-                  <Badge variant="secondary">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    市场份额: {competitor.marketShare}
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="flex items-center gap-2 text-sm font-medium text-green-600 mb-2">
-                    <Check className="w-4 h-4" />
-                    优势
-                  </h4>
-                  <ul className="space-y-1">
-                    {competitor.strengths.map((strength, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">
-                        • {strength}
-                      </li>
-                    ))}
-                  </ul>
+        {analysis.competitors.length > 0 ? (
+          analysis.competitors.map((competitor, index) => (
+            <Card
+              key={index}
+              className={isStreaming ? 'animate-in fade-in slide-in-from-bottom-4' : ''}
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle>{competitor.name}</CardTitle>
+                  {competitor.marketShare && (
+                    <Badge variant="secondary">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      市场份额：{competitor.marketShare}
+                    </Badge>
+                  )}
                 </div>
-                <div>
-                  <h4 className="flex items-center gap-2 text-sm font-medium text-red-600 mb-2">
-                    <X className="w-4 h-4" />
-                    劣势
-                  </h4>
-                  <ul className="space-y-1">
-                    {competitor.weaknesses.map((weakness, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">
-                        • {weakness}
-                      </li>
-                    ))}
-                  </ul>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="flex items-center gap-2 text-sm font-medium text-green-600 mb-2">
+                      <Check className="w-4 h-4" />
+                      优势
+                    </h4>
+                    <ul className="space-y-1">
+                      {competitor.strengths.map((strength, i) => (
+                        <li
+                          key={i}
+                          className="text-sm text-muted-foreground animate-in fade-in"
+                          style={{ animationDelay: `${i * 50}ms` }}
+                        >
+                          • {strength}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center gap-2 text-sm font-medium text-red-600 mb-2">
+                      <X className="w-4 h-4" />
+                      劣势
+                    </h4>
+                    <ul className="space-y-1">
+                      {competitor.weaknesses.map((weakness, i) => (
+                        <li
+                          key={i}
+                          className="text-sm text-muted-foreground animate-in fade-in"
+                          style={{ animationDelay: `${i * 50}ms` }}
+                        >
+                          • {weakness}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <p className="text-muted-foreground text-center py-8">正在分析竞品...</p>
+        )}
       </div>
 
-      {/* Differentiation */}
-      <Card>
+      {/* Differentiation - 打字机效果 */}
+      <Card className={isStreaming ? 'animate-in fade-in' : ''}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lightbulb className="w-5 h-5" />
@@ -167,33 +264,51 @@ export function CompetitorAnalysis() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground leading-relaxed">{analysis.differentiation}</p>
+          {analysis.differentiation ? (
+            <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap animate-in fade-in">
+              {analysis.differentiation}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">正在生成差异化分析...</p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Opportunities */}
-      <Card>
+      {/* Opportunities - 渐进式列表 */}
+      <Card className={isStreaming ? 'animate-in fade-in' : ''}>
         <CardHeader>
           <CardTitle>市场机会</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {analysis.opportunities.map((opportunity, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span className="text-muted-foreground">{opportunity}</span>
-              </li>
-            ))}
-          </ul>
+          {analysis.opportunities.length > 0 ? (
+            <ul className="space-y-2">
+              {analysis.opportunities.map((opportunity, index) => (
+                <li
+                  key={index}
+                  className="flex items-start gap-2 animate-in fade-in slide-in-from-left-2"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <span className="text-primary mt-1">•</span>
+                  <span className="text-muted-foreground">{opportunity}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">正在识别市场机会...</p>
+          )}
         </CardContent>
       </Card>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => navigate(`/personas/${projectId}`)}>
+        <Button
+          variant="outline"
+          onClick={() => navigate(`/personas/${projectId}`)}
+          disabled={isStreaming}
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
           返回用户画像
         </Button>
-        <Button onClick={() => navigate(`/coding/${projectId}`)}>
+        <Button onClick={() => navigate(`/coding/${projectId}`)} disabled={isStreaming}>
           开始开发
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
