@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useProjectStore, useAppStore } from '@/stores'
 import { usePersonaStream } from '@/hooks/usePersonaStream'
-import type { UserPersona } from '@/types'
 
 export function UserPersonas() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -19,7 +18,7 @@ export function UserPersonas() {
   const project = projectId ? getProjectById(projectId) : undefined
 
   // 使用流式生成 Hook
-  const { personas, isStreaming, isComplete, error, startStream, reset } = usePersonaStream()
+  const { personas, isStreaming, isComplete, error, startStream } = usePersonaStream()
 
   const hasExistingPersonas = project?.userPersonas && project.userPersonas.length > 0
 

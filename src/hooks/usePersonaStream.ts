@@ -33,6 +33,13 @@ interface UsePersonaStreamReturn {
 }
 
 /**
+ * 取消监听函数类型
+ */
+interface UnlistenFn {
+  (): void
+}
+
+/**
  * 解析 Markdown 格式的用户画像为结构化数据
  *
  * Markdown 格式示例:
@@ -125,12 +132,13 @@ export function usePersonaStream(): UsePersonaStreamReturn {
   // 流式内容缓冲
   const [streamingContent, setStreamingContent] = useState('')
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const unlistenFns = useRef<Function[]>([])
+  const unlistenFns = useRef<UnlistenFn[]>([])
 
   // AI 配置
   const { getActiveConfig } = useAIConfigStore()
 
   // 打字机效果：逐字展示 streamingContent
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!streamingContent) return
 
@@ -148,15 +156,22 @@ export function usePersonaStream(): UsePersonaStreamReturn {
         clearInterval(interval)
 
         // 解析当前完整的 Markdown 内容
-        const parsedPersonas = parsePersonasFromMarkdown(markdownContent + streamingContent)
-        if (parsedPersonas.length > 0) {
-          setPersonas(parsedPersonas)
-        }
+        // 使用最新的 markdownContent 值（通过闭包捕获）
+        setPersonas(prevPersonas => {
+          const parsedPersonas = parsePersonasFromMarkdown(markdownContent + streamingContent)
+          if (
+            parsedPersonas.length > 0 &&
+            JSON.stringify(parsedPersonas) !== JSON.stringify(prevPersonas)
+          ) {
+            return parsedPersonas
+          }
+          return prevPersonas
+        })
       }
     }, 30) // 30ms/字符，比 PRD 更快
 
     return () => clearInterval(interval)
-  }, [streamingContent])
+  }, [streamingContent, markdownContent])
 
   // 开始流式生成
   const startStream = useCallback(
@@ -205,7 +220,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
             setStreamingContent(prev => prev + event.payload.content)
           }
         })
-        unlistenFns.current.push(unlistenChunk)
+        unlistenFns.current.push(await unlistenChunk)
 
         // 监听 complete 事件
         const unlistenComplete = await listen<{ session_id: string; content: string }>(
@@ -225,7 +240,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
             }
           }
         )
-        unlistenFns.current.push(unlistenComplete)
+        unlistenFns.current.push(await unlistenComplete)
 
         // 监听 error 事件
         const unlistenError = await listen<{ session_id: string; error: string }>(
@@ -238,7 +253,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
             }
           }
         )
-        unlistenFns.current.push(unlistenError)
+        unlistenFns.current.push(await unlistenError)
       } catch (err) {
         console.error('[usePersonaStream] Start stream failed:', err)
         setError(err instanceof Error ? err.message : '生成失败')
@@ -284,9 +299,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
         clearTimeout(typingTimerRef.current)
       }
       unlistenFns.current.forEach(unlistenFn => {
-        if (typeof unlistenFn === 'function') {
-          unlistenFn()
-        }
+        unlistenFn()
       })
     }
   }, [])

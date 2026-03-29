@@ -40,16 +40,7 @@ $Script:Config = @{
     )
     
     KeyDocuments = @(
-        "AGENTS.md",
-        "README.md",
-        "ARCHITECTURE.md",
-        "src/AGENTS.md",
-        "src-tauri/AGENTS.md",
-        "docs/README.md",
-        "docs/design-docs/index.md",
-        "docs/exec-plans/index.md",
-        "docs/product-specs/index.md",
-        "docs/references/index.md"
+        "AGENTS.md"
     )
     
     IndexFiles = @(

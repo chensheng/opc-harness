@@ -71,7 +71,7 @@ describe('usePersonaStream', () => {
     let completeCallback:
       | ((event: { payload: { session_id: string; content: string } }) => void)
       | null = null
-    const mockUnlisten = vi.fn()
+    const mockUnlistenFn = vi.fn()
     mockListen.mockImplementation(((
       event: string,
       callback: (event: { payload: { session_id: string; content: string } }) => void
@@ -79,7 +79,8 @@ describe('usePersonaStream', () => {
       if (event === 'persona-stream-complete') {
         completeCallback = callback
       }
-      return Promise.resolve(mockUnlisten)
+      // 所有事件都返回同一个 mock unlisten 函数
+      return Promise.resolve(mockUnlistenFn)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any)
 

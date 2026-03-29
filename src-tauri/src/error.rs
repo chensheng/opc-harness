@@ -441,7 +441,7 @@ mod tests {
     fn test_from_rusqlite_error() {
         // 这里无法直接创建 rusqlite::Error，所以只测试编译通过
         // 实际测试需要在集成测试中
-        let _ = AppError::from;
+        let _: fn(rusqlite::Error) -> AppError = AppError::from;
     }
 
     #[test]
