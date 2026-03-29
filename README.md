@@ -2,7 +2,7 @@
 
 > AI 驱动的一人公司操作系统
 
-OPC-HARNESS 是一个为独立创造者整合产品构思 (Vibe Design)、快速构建 (Vibe Coding)、增长运营 (Vibe Marketing) 三大模块的 AI 驱动桌面应用，实现从想法到产品的全流程闭环。
+OPC-HARNESS 是一个为独立创造者整合产品构思 (Vibe Design)、快速构建 (Vibe Coding)、增长运营 (Vibe Marketing) 三大模块的 AI 驱动桌面应用，实现从想法到产品运营的全流程闭环。
 
 ## ✨ 核心功能
 
@@ -89,6 +89,6 @@ npm run tauri:build
 - **渐进式检查** - 从基础类型检查到完整架构验证，分层保障代码质量
 - **文档驱动** - 防止"注释漂移"，确保代码与文档同步演进
 
-### 核心组件
+### 核心文档
 
 - **[AGENTS.md](./AGENTS.md)** - AI Agent 导航地图（必读）⭐
