@@ -74,6 +74,12 @@ fn main() {
             commands::database::get_all_cli_sessions,
             commands::database::get_cli_session_by_id,
             commands::database::delete_cli_session,
+            // Milestone commands (DB-002)
+            commands::database::create_milestone,
+            commands::database::get_milestones_by_project,
+            commands::database::get_milestone_by_id,
+            commands::database::update_milestone,
+            commands::database::delete_milestone,
             // Agent Manager commands (VC-010, VC-015, VC-016, VC-022, VC-026, VC-027)
             agent::agent_manager::run_initializer_agent,
             agent::agent_manager::create_feature_branch,

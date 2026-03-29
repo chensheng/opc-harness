@@ -89,3 +89,31 @@ pub struct AgentSession {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<String>,
 }
+
+/// 项目里程碑
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Milestone {
+    /// 里程碑 ID
+    pub id: String,
+    /// 所属项目 ID
+    pub project_id: String,
+    /// 里程碑标题
+    pub title: String,
+    /// 详细描述
+    pub description: String,
+    /// 排序顺序
+    pub order: i32,
+    /// 状态
+    pub status: String,
+    /// 截止日期（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_date: Option<String>,
+    /// 完成时间（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    /// 创建时间
+    pub created_at: String,
+    /// 更新时间
+    pub updated_at: String,
+}

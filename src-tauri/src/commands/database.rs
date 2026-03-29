@@ -1,5 +1,5 @@
 use crate::db;
-use crate::models::{AIConfig, CLISession, Project};
+use crate::models::{AIConfig, CLISession, Milestone, Project};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -193,4 +193,69 @@ pub fn get_cli_session_by_id(
 pub fn delete_cli_session(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
     db::delete_cli_session(&conn, &id).map_err(|e| e.to_string())
+}
+
+// ==================== Milestone Commands ====================
+
+/// 创建里程碑
+#[tauri::command]
+pub fn create_milestone(
+    app_handle: tauri::AppHandle,
+    project_id: String,
+    title: String,
+    description: String,
+    order: i32,
+    due_date: Option<String>,
+) -> Result<String, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+
+    let milestone = Milestone {
+        id: Uuid::new_v4().to_string(),
+        project_id,
+        title,
+        description,
+        order,
+        status: "pending".to_string(),
+        due_date,
+        completed_at: None,
+        created_at: Utc::now().to_rfc3339(),
+        updated_at: Utc::now().to_rfc3339(),
+    };
+
+    db::create_milestone(&conn, &milestone).map_err(|e| e.to_string())?;
+    Ok(milestone.id)
+}
+
+/// 获取项目的所有里程碑
+#[tauri::command]
+pub fn get_milestones_by_project(
+    app_handle: tauri::AppHandle,
+    project_id: String,
+) -> Result<Vec<Milestone>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_milestones_by_project(&conn, &project_id).map_err(|e| e.to_string())
+}
+
+/// 获取单个里程碑
+#[tauri::command]
+pub fn get_milestone_by_id(
+    app_handle: tauri::AppHandle,
+    id: String,
+) -> Result<Option<Milestone>, String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::get_milestone_by_id(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// 更新里程碑
+#[tauri::command]
+pub fn update_milestone(app_handle: tauri::AppHandle, milestone: Milestone) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::update_milestone(&conn, &milestone).map_err(|e| e.to_string())
+}
+
+/// 删除里程碑
+#[tauri::command]
+pub fn delete_milestone(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
+    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    db::delete_milestone(&conn, &id).map_err(|e| e.to_string())
 }
