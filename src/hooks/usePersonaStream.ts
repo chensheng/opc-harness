@@ -138,7 +138,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
   const { getActiveConfig } = useAIConfigStore()
 
   // 打字机效果：逐字展示 streamingContent
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!streamingContent) return
 

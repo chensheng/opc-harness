@@ -81,7 +81,6 @@ describe('usePersonaStream', () => {
       }
       // 所有事件都返回同一个 mock unlisten 函数
       return Promise.resolve(mockUnlistenFn)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any)
 
     const { result } = renderHook(() => usePersonaStream())
@@ -147,7 +146,6 @@ describe('usePersonaStream', () => {
         completeCallback = callback
       }
       return Promise.resolve(mockUnlistenComplete)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any)
 
     const { result } = renderHook(() => usePersonaStream())
@@ -198,7 +196,6 @@ describe('usePersonaStream', () => {
         errorCallback = callback
       }
       return Promise.resolve(mockUnlistenError)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any)
 
     const { result } = renderHook(() => usePersonaStream())
@@ -233,7 +230,7 @@ describe('usePersonaStream', () => {
     const mockUnlisten = vi.fn()
 
     mockInvoke.mockResolvedValueOnce(mockSessionId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     mockListen.mockResolvedValueOnce(mockUnlisten as any)
 
     const { result } = renderHook(() => usePersonaStream())
@@ -299,7 +296,6 @@ describe('usePersonaStream', () => {
         completeCallback = callback
       }
       return Promise.resolve(mockUnlistenParse)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any)
 
     const { result } = renderHook(() => usePersonaStream())
