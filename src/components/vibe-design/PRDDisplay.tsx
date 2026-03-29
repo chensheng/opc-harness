@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowRight, Users, Target, Zap, Clock, Download, Edit } from 'lucide-react'
+import { ArrowRight, Users, Target, Zap, Clock, Download, Edit, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,8 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useProjectStore, useAppStore } from '@/stores'
 import { downloadFile } from '@/lib/utils'
 import type { PRD } from '@/types'
+import { usePRDStream } from '@/hooks/usePRDStream'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
 
-// Simulated AI-generated PRD
+// Simulated AI-generated PRD (fallback)
 function generateMockPRD(idea: string): PRD {
   return {
     title: idea.slice(0, 30) + (idea.length > 30 ? '...' : ''),
@@ -20,12 +22,12 @@ function generateMockPRD(idea: string): PRD {
       '核心功能模块化，按需使用',
       '数据同步和备份机制',
       '多平台支持（Web、移动端）',
-      'API接口开放，支持第三方集成',
+      'API 接口开放，支持第三方集成',
     ],
     techStack: ['React', 'Node.js', 'PostgreSQL', 'Redis', 'Docker'],
-    estimatedEffort: '2-4周',
-    businessModel: 'Freemium模式，基础功能免费，高级功能订阅制',
-    pricing: '免费版：基础功能；Pro版：$9/月；Team版：$29/月',
+    estimatedEffort: '2-4 周',
+    businessModel: 'Freemium 模式，基础功能免费，高级功能订阅制',
+    pricing: '免费版：基础功能；Pro 版：$9/月；Team 版：$29/月',
   }
 }
 
@@ -35,9 +37,23 @@ export function PRDDisplay() {
   const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress } =
     useProjectStore()
   const { setLoading } = useAppStore()
+  const aiConfigStore = useAIConfigStore()
 
   const [prd, setPrd] = useState<PRD | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+
+  // 使用 PRD 流式生成 Hook
+  const {
+    prd: streamingPRD,
+    markdownContent,
+    isStreaming,
+    isComplete,
+    error,
+    sessionId: _sessionId,
+    startStream,
+    stopStream,
+    reset,
+  } = usePRDStream()
 
   const project = projectId ? getProjectById(projectId) : undefined
 
@@ -53,34 +69,80 @@ export function PRDDisplay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project])
 
+  // 当流式 PRD 更新时，同步到本地状态
+  useEffect(() => {
+    if (streamingPRD && isStreaming) {
+      setPrd(streamingPRD)
+    }
+  }, [streamingPRD, isStreaming])
+
   const generatePRD = async () => {
     if (!project) return
 
-    setLoading(true, 'AI正在生成产品需求文档...')
+    const activeConfig = aiConfigStore.getActiveConfig()
 
-    try {
-      // Simulate AI processing
-      await new Promise(resolve => setTimeout(resolve, 2000))
+    if (activeConfig?.apiKey) {
+      setLoading(true, 'AI 正在生成产品需求文档...')
 
-      const generatedPRD = generateMockPRD(project.idea || project.description)
-      setPrd(generatedPRD)
+      // 使用流式生成
+      reset()
+      await startStream({
+        idea: project.idea || project.description,
+        provider: activeConfig.provider,
+        model: activeConfig.model,
+        apiKey: activeConfig.apiKey,
+      })
+    } else {
+      // 降级到模拟生成
+      setLoading(true, '正在生成产品需求文档...')
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const generatedPRD = generateMockPRD(project.idea || project.description)
+        setPrd(generatedPRD)
 
-      if (projectId) {
-        setProjectPRD(projectId, generatedPRD)
-        updateProjectStatus(projectId, 'design')
-        updateProjectProgress(projectId, 25)
+        if (projectId) {
+          setProjectPRD(projectId, generatedPRD)
+          updateProjectStatus(projectId, 'design')
+          updateProjectProgress(projectId, 25)
+        }
+      } finally {
+        setLoading(false)
       }
-    } finally {
-      setLoading(false)
     }
   }
 
+  // 监听流式完成，保存 PRD
+  useEffect(() => {
+    if (isComplete && streamingPRD && projectId) {
+      setProjectPRD(projectId, streamingPRD)
+      updateProjectStatus(projectId, 'design')
+      updateProjectProgress(projectId, 25)
+      setLoading(false)
+    }
+  }, [
+    isComplete,
+    streamingPRD,
+    projectId,
+    setProjectPRD,
+    updateProjectStatus,
+    updateProjectProgress,
+    setLoading,
+  ])
+
   const handleExport = () => {
-    if (!prd) return
+    if (!prd && !markdownContent) return
 
-    const content = `# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}\n`
+    // 优先导出 Markdown 原文
+    const content =
+      markdownContent ||
+      `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}\n`
 
-    downloadFile(content, `${prd.title}-PRD.md`, 'text/markdown')
+    downloadFile(content, `${prd?.title || 'PRD'}-PRD.md`, 'text/markdown')
+  }
+
+  const handleStopGeneration = () => {
+    stopStream()
+    setLoading(false)
   }
 
   if (!project) {
@@ -94,17 +156,94 @@ export function PRDDisplay() {
     )
   }
 
+  // 流式生成中的 UI
+  if (isStreaming) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-primary animate-pulse" />
+              AI 正在创作 PRD...
+            </h1>
+            <p className="text-muted-foreground">{project.name}</p>
+          </div>
+          <Button variant="destructive" onClick={handleStopGeneration}>
+            停止生成
+          </Button>
+        </div>
+
+        {/* 实时内容预览 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>实时生成预览</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="prose prose-sm max-w-none">
+              {markdownContent ? (
+                <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                  {markdownContent}
+                  <span className="inline-block w-2 h-4 bg-primary ml-1 animate-pulse" />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                    <p className="mt-4 text-muted-foreground">正在连接 AI...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 进度提示 */}
+        <Card>
+          <CardContent className="py-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">生成进度</span>
+                <span className="text-muted-foreground">{markdownContent.length} 字符</span>
+              </div>
+              <div className="h-2 bg-accent rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{
+                    width: `${Math.min((markdownContent.length / 2000) * 100, 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="py-6">
+              <p className="text-destructive">{error}</p>
+              <Button onClick={() => generatePRD()} className="mt-4" variant="outline">
+                重试
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  // 没有 PRD 时的初始状态
   if (!prd) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">正在生成PRD...</p>
+          <p className="mt-4 text-muted-foreground">正在生成 PRD...</p>
         </div>
       </div>
     )
   }
 
+  // PRD 已生成的正常显示
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
