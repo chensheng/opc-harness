@@ -154,7 +154,7 @@ async fn get_issues_by_project(project_id: String) -> Result<Vec<Issue>, String>
 
 ## ✅ 验收标准
 
-根据 MVP版本规划 (mvp-roadmap.md):
+根据 Sprint 1 规划 (docs/sprint-plans/sprint-1.md):
 
 - [x] UI 界面完整，包含所有必要元素
 - [x] Issue 列表清晰展示 (标题、描述、优先级、依赖)
@@ -220,7 +220,7 @@ Footer (辅助信息)
 
 - [CP-002 详细规格](./cp-002-checkpoint-ui.md)
 - [任务完成总结](./TASK_COMPLETION_CP002.md)
-- [MVP 版本规划](../../../docs/product-specs/mvp-roadmap.md)
+- [Sprint 1 总结](../../../docs/sprint-plans/sprint-1.md) ✅
 - [架构设计 - HITL](../../../../ARCHITECTURE.md#hitl-检查点机制)
 
 ---

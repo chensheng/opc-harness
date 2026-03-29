@@ -2,8 +2,8 @@
 
 > **Harness Engineering**: "人类掌舵，Agent 执行"  
 > **适用范围**: OPC-HARNESS 项目所有 AI Agent 和开发者  
-> **最后更新**: 2026-03-28  
-> **当前阶段**: Phase 2 - 真实 AI 集成 🚀
+> **最后更新**: 2026-03-29  
+> **当前阶段**: Sprint 2 - 增强与优化 🚀
 
 ---
 
@@ -13,10 +13,10 @@ AI Agent 执行任务的流程必须严格遵循 [`Harness Engineering 流程`](
 
 ### ⭐⭐⭐ 必读核心
 - [`Harness Engineering 流程`](./docs/HARNESS_ENGINEERING.md) - 标准开发流程
+- [`Sprint 规划索引`](./docs/sprint-plans/index.md) - Sprint计划导航
 - [`src/AGENTS.md`](./src/AGENTS.md) - 前端开发规范（React + TypeScript）
 - [`src-tauri/AGENTS.md`](./src-tauri/AGENTS.md) - Rust 后端规范
-- [`Phase 2 版本规划`](./VERSION_PLANNING.md) - 下一阶段任务 🔥🆕
-- [`Phase 2 快速开始`](./docs/exec-plans/phase2-quickstart.md) - 开发指南 🔥🆕
+
 
 ### ⭐⭐ 架构与约束
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计
@@ -37,8 +37,9 @@ npm run harness:check      # 架构健康检查（目标 100/100）
 
 **关键文档**:
 - `docs/design-docs/` - 技术决策记录
-- `docs/product-specs/mvp-roadmap.md` - 产品规划和执行进度
+- `docs/product-specs/` - 产品规格
 - `docs/exec-plans/` - 执行计划
+- `docs/sprint-plans/` - Sprint计划
 
 ### 2. 架构约束
 **数据流规则**:
@@ -82,22 +83,19 @@ npm run harness:fix            # 自动修复格式问题
 ```
 Level 1: AGENTS.md (本文件)     ← 导航地图
     ↓
-Level 2: src/AGENTS.md          ← 模块规范
-    ↓
-Level 3: docs/*                 ← 详细设计
+Level 2: docs/*                 ← 详细设计
 ```
 
 **目录组织**:
 ```
 Level 1: AGENTS.md (本文件)     ← 导航地图
     ↓
-Level 2: src/AGENTS.md          ← 模块规范
-    ↓
-Level 3: docs/                  ← 详细文档
+Level 2: docs/                  ← 详细文档
     ├── HARNESS_ENGINEERING.md  ← 开发流程 🔥
     ├── exec-plans/             ← 执行计划
     ├── product-specs/          ← 产品规格
     └── design-docs/            ← 设计文档
+    └── sprint-plans/           ← Sprint计划
 ```
 
 ---
