@@ -18,7 +18,7 @@
 
 
 ### ⭐⭐ 架构与约束
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) - 系统架构设计
+- [`ARCHITECTURE.md`](./docs/design-docs/system-architecture.md) - 系统架构设计
 - [`docs/design-docs/architecture-rules.md`](./docs/design-docs/architecture-rules.md) - 架构约束（FE/BE/TEST）🔥
 - [`e2e/app.spec.ts`](./e2e/app.spec.ts) - E2E 测试示例 🔥
 
