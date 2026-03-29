@@ -5,6 +5,7 @@ mod ai;
 mod cli;
 mod commands;
 mod db;
+mod error;
 mod file;
 mod models;
 mod prompts;
@@ -13,6 +14,9 @@ mod services;
 mod utils;
 pub mod agent;
 pub mod agent_protocol;
+
+// 导出统一错误类型
+pub use error::{AppError, AppResult, ErrorCode};
 
 fn main() {
     tauri::Builder::default()
