@@ -30,8 +30,6 @@ export default defineConfig(() => ({
     include: [
       'src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.test.ts',
-      'e2e/**/*.spec.ts', // VC-036: 添加 E2E 测试支持
-      'e2e/browser/**/*.test.{ts,tsx}', // 添加浏览器 E2E 测试支持
     ],
     exclude: [
       'node_modules',
@@ -40,6 +38,7 @@ export default defineConfig(() => ({
       '.husky',
       'scripts',
       'src-tauri',
+      'e2e/**', // 排除 E2E 测试
       '**/*.d.ts',
       '**/*.config.*',
     ],
