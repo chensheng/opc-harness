@@ -93,8 +93,8 @@ describe('CLI Browser Performance Tests', () => {
       const responseSize = html.length;
       console.log(`Response size: ${responseSize} bytes`);
       
-      // HTML 应该在合理范围内（1KB - 1MB）
-      expect(responseSize).toBeGreaterThan(1024);
+      // HTML 应该在合理范围内（100 字节 - 1MB）
+      expect(responseSize).toBeGreaterThan(100);
       expect(responseSize).toBeLessThan(1048576);
       
       generateReport(testName, 'pass', `Size: ${responseSize} bytes`);

@@ -48,5 +48,4 @@ temp
 *.tmp
 
 # Test Reports
-docs/testing/e2e-reports/
-coverage/
+docs/testing
