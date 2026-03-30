@@ -245,7 +245,7 @@ export function useAgent() {
 
 - [`Harness Engineering 流程`](../docs/dev_workflow.md)
 - [`架构约束规则`](../tests/architecture/constraints.test.ts)
-- [`ESLint 官方文档](https://eslint.org/)
+- [ESLint 官方文档](https://eslint.org/)
 - [`TD-004 技术债务文档`](../docs/exec-plans/tech-debts/TD-004-architecture-guard-tests.md)
 
 ---
