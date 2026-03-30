@@ -18,6 +18,7 @@ import { useProjectStore, useAppStore } from '@/stores'
 import { useCompetitorStream } from '@/hooks/useCompetitorStream'
 import { CompetitorRadarChart } from '@/components/CompetitorRadarChart'
 import { CompetitorTimeline } from '@/components/CompetitorTimeline'
+import { InteractiveDataExplorer } from '@/components/InteractiveDataExplorer'
 import type { CompetitorAnalysis as CompetitorAnalysisType } from '@/types'
 
 // Simulated AI-generated competitor analysis (fallback)
@@ -63,6 +64,7 @@ export function CompetitorAnalysis() {
   const [_useFallback, setUseFallback] = useState(false)
   const [showRadar, setShowRadar] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
+  const [showExplorer, setShowExplorer] = useState(false)
 
   // 使用流式 Hook
   const { analysis, isStreaming, isComplete, error, sessionId, startStream, reset } =
@@ -213,6 +215,10 @@ export function CompetitorAnalysis() {
           <Calendar className="w-4 h-4" />
           {showTimeline ? '隐藏时间线' : '显示时间线'}
         </Button>
+        <Button variant="outline" onClick={() => setShowExplorer(!showExplorer)} className="gap-2">
+          <BarChart3 className="w-4 h-4" />
+          {showExplorer ? '隐藏数据探索' : '数据探索'}
+        </Button>
       </div>
 
       {/* 雷达图 */}
@@ -226,6 +232,13 @@ export function CompetitorAnalysis() {
       {showTimeline && (
         <div className="animate-in fade-in slide-in-from-bottom-4">
           <CompetitorTimeline analysis={analysis} />
+        </div>
+      )}
+
+      {/* 交互式数据探索器 */}
+      {showExplorer && (
+        <div className="animate-in fade-in slide-in-from-bottom-4">
+          <InteractiveDataExplorer competitors={analysis.competitors} />
         </div>
       )}
 

@@ -97,6 +97,54 @@ export interface Competitor {
   strengths: string[]
   weaknesses: string[]
   marketShare?: string
+  // 新增指标字段
+  revenue?: string // 收入
+  userGrowth?: string // 用户增长率
+  employeeCount?: number // 员工数量
+  foundedYear?: number // 成立年份
+  funding?: string // 融资金额
+  customerSatisfaction?: number // 客户满意度 (0-100)
+  innovationScore?: number // 创新能力评分 (0-100)
+  priceRange?: string // 价格区间
+  geographicPresence?: string[] // 地理覆盖
+  keyProducts?: string[] // 核心产品
+}
+
+// 数据探索器配置
+export interface ExplorerConfig {
+  selectedMetrics: MetricKey[]
+  viewMode: ViewMode
+  filters: DataFilters
+  sortBy?: MetricKey
+  sortOrder?: 'asc' | 'desc'
+}
+
+export type MetricKey =
+  | 'marketShare'
+  | 'revenue'
+  | 'userGrowth'
+  | 'employeeCount'
+  | 'funding'
+  | 'customerSatisfaction'
+  | 'innovationScore'
+
+export type ViewMode = 'bar' | 'line' | 'pie' | 'radar' | 'cards'
+
+export interface DataFilters {
+  minMarketShare?: number
+  maxEmployeeCount?: number
+  foundedAfter?: number
+  hasFunding?: boolean
+}
+
+// 指标元数据（用于显示）
+export interface MetricDefinition {
+  key: MetricKey
+  label: string
+  description: string
+  unit: string
+  icon: string
+  color: string
 }
 
 // CLI Tool Types
