@@ -345,11 +345,14 @@ mod tests {
             quality_summary: None,
         }).unwrap();
 
-        // 回滚到 V1
-        let rolled_back = manager.rollback_to_version(&v1_id).unwrap();
+        // 回滚到 V1 - 使用作用域限制借用生命周期
+        let rolled_back_prd_json = {
+            let rolled_back = manager.rollback_to_version(&v1_id).unwrap();
+            rolled_back.prd_json.clone()
+        };
         
         assert_eq!(manager.history.current_version_id, v1_id);
-        assert!(rolled_back.prd_json.contains("V1"));
+        assert!(rolled_back_prd_json.contains("V1"));
     }
 
     #[test]

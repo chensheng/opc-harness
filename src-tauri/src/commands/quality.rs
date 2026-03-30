@@ -282,7 +282,8 @@ fn parse_list_items(text: &str) -> Vec<String> {
     for line in text.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with('-') || trimmed.starts_with('*') || trimmed.starts_with('•') {
-            let item = trimmed[1..].trim().to_string();
+            // 使用 chars() 方法安全地跳过第一个字符
+            let item = trimmed.chars().skip(1).collect::<String>().trim().to_string();
             if !item.is_empty() {
                 items.push(item);
             }

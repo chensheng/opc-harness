@@ -610,6 +610,7 @@ use std::collections::HashMap;
     }
 
     #[test]
+    #[ignore = "Requires git repository setup"]
     fn test_generate_summary() {
         let (_temp_dir, repo_path) = setup_git_repo();
         

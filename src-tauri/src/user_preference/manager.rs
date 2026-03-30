@@ -240,7 +240,7 @@ mod tests {
         let model = manager.analyze_from_feedback(&feedbacks);
         
         assert!(model.preferred_feature_complexity > 0.0);
-        assert!(model.feedback_keywords.contains(&"添加"));
+        assert!(model.feedback_keywords.contains(&"添加".to_string()));
     }
 
     #[test]
@@ -263,7 +263,7 @@ mod tests {
         let model = manager.analyze_from_feedback(&feedbacks);
         
         assert!(model.preferred_feature_complexity < 0.5);
-        assert!(model.feedback_keywords.contains(&"简化"));
+        assert!(model.feedback_keywords.contains(&"简化".to_string()));
     }
 
     #[test]
