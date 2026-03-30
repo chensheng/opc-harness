@@ -1,19 +1,39 @@
 /// PRD 质量检查相关的 Tauri Commands
 
-use crate::quality::prd_checker::{PRDDocument, PRDQualityChecker, PRDQualityReport};
-use tauri::command;
+use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityChecker, PRDQualityReport};
+use crate::quality::prd_consistency_checker::{PRDConsistencyChecker, PRDDocument as ConsistencyPRDDocument};
+use serde::{Deserialize, Serialize};
+
+/// PRD 一致性检查请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckPRDConsistencyRequest {
+    /// PRD 内容（Markdown 格式）
+    pub prd_content: String,
+}
+
+/// PRD 一致性检查响应
+pub type CheckPRDConsistencyResponse = crate::quality::prd_consistency_checker::PRDConsistencyReport;
+
+/// 检查 PRD 一致性
+#[tauri::command]
+pub async fn check_prd_consistency(
+    request: CheckPRDConsistencyRequest,
+) -> Result<CheckPRDConsistencyResponse, String> {
+    // 解析 Markdown 内容为 PRDDocument
+    let prd = parse_markdown_to_consistency_prd(&request.prd_content);
+    
+    // 创建检查器并执行检查
+    let checker = PRDConsistencyChecker::new();
+    let report = checker.check_consistency(&prd);
+    
+    Ok(report)
+}
 
 /// 检查 PRD 质量
-/// 
-/// # Arguments
-/// * `prd_content` - PRD 的 Markdown 内容
-/// 
-/// # Returns
-/// * `PRDQualityReport` - 质量检查报告
-#[command]
+#[tauri::command]
 pub async fn check_prd_quality(prd_content: String) -> Result<PRDQualityReport, String> {
     // 1. 解析 Markdown 内容为 PRDDocument
-    let prd = parse_markdown_to_prd(&prd_content);
+    let prd = parse_markdown_to_quality_prd(&prd_content);
 
     // 2. 创建质量检查器
     let checker = PRDQualityChecker::with_defaults();
@@ -24,10 +44,77 @@ pub async fn check_prd_quality(prd_content: String) -> Result<PRDQualityReport, 
     Ok(report)
 }
 
-/// 简单的 Markdown 解析器（基础实现）
-/// 
-/// 实际项目中应该使用 pulldown-cmark 等库进行更完善的解析
-fn parse_markdown_to_prd(content: &str) -> PRDDocument {
+/// 将 Markdown 内容解析为一致性检查用的 PRDDocument
+fn parse_markdown_to_consistency_prd(markdown: &str) -> ConsistencyPRDDocument {
+    let mut title = None;
+    let mut overview = None;
+    let mut target_users: Option<Vec<String>> = None;
+    let mut core_features: Option<Vec<String>> = None;
+    let mut tech_stack: Option<Vec<String>> = None;
+    let mut estimated_effort = None;
+
+    let lines: Vec<&str> = markdown.lines().collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i].trim();
+        
+        // 解析标题 (# 开头)
+        if line.starts_with('#') && !line.starts_with("##") {
+            title = Some(line.trim_start_matches('#').trim().to_string());
+        }
+        
+        // 解析章节
+        if line.starts_with("## ") {
+            let section_name = line.trim_start_matches("## ").trim().to_lowercase();
+            i += 1;
+            
+            let mut content = String::new();
+            while i < lines.len() && !lines[i].trim().starts_with("## ") && !lines[i].trim().starts_with('#') {
+                if !content.is_empty() {
+                    content.push('\n');
+                }
+                content.push_str(lines[i]);
+                i += 1;
+            }
+            
+            // 根据章节名提取内容
+            match section_name.as_str() {
+                s if s.contains("概述") || s.contains("overview") => {
+                    overview = Some(content.trim().to_string());
+                }
+                s if s.contains("用户") || s.contains("target") => {
+                    target_users = Some(extract_list_items(&content));
+                }
+                s if s.contains("功能") || s.contains("feature") => {
+                    core_features = Some(extract_list_items(&content));
+                }
+                s if s.contains("技术") || s.contains("tech") => {
+                    tech_stack = Some(extract_list_items(&content));
+                }
+                s if s.contains("工作量") || s.contains("effort") => {
+                    estimated_effort = Some(content.trim().to_string());
+                }
+                _ => {}
+            }
+            continue;
+        }
+        
+        i += 1;
+    }
+
+    ConsistencyPRDDocument {
+        title,
+        overview,
+        target_users,
+        core_features,
+        tech_stack,
+        estimated_effort,
+    }
+}
+
+/// 将 Markdown 内容解析为质量检查用的 PRDDocument
+fn parse_markdown_to_quality_prd(content: &str) -> QualityPRDDocument {
     let mut title = None;
     let mut overview = None;
     let mut target_users = None;
@@ -63,7 +150,7 @@ fn parse_markdown_to_prd(content: &str) -> PRDDocument {
         save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
     }
 
-    PRDDocument {
+    QualityPRDDocument {
         title,
         overview,
         target_users,
@@ -129,6 +216,20 @@ fn parse_list_items(text: &str) -> Vec<String> {
     items
 }
 
+/// 从文本中提取列表项（- 或 * 开头）
+fn extract_list_items(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.starts_with('-') || trimmed.starts_with('*') {
+                Some(trimmed[1..].trim().to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,7 +260,7 @@ mod tests {
 2 周
 "#;
 
-        let prd = parse_markdown_to_prd(markdown);
+        let prd = parse_markdown_to_quality_prd(markdown);
         assert_eq!(prd.title, Some("测试产品".to_string()));
         assert_eq!(prd.overview, Some("这是一个测试产品".to_string()));
         assert!(prd.target_users.is_some());

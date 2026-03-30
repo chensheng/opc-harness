@@ -136,6 +136,8 @@ fn main() {
 
             // PRD Quality Check commands (US-050)
             commands::quality::check_prd_quality,
+            // PRD Consistency Check commands (US-051)
+            commands::quality::check_prd_consistency,
 
             // System commands
             commands::system::get_app_version,

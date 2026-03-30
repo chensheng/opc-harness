@@ -95,3 +95,71 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   techStack: 10,
   estimatedEffort: 10,
 }
+
+// ==================== PRD 一致性检查类型 ====================
+
+/**
+ * 不一致性类型
+ */
+export type InconsistencyType =
+  | { type: 'user_not_served'; user: string }
+  | {
+      type: 'tech_stack_mismatch'
+      feature: string
+      required_techs: string[]
+      missing_techs: string[]
+    }
+  | { type: 'effort_underestimate'; complexity_score: number; estimated_hours: number }
+  | { type: 'terminology_inconsistent'; term: string; variants: string[] }
+  | {
+      type: 'logical_contradiction'
+      section1: string
+      content1: string
+      section2: string
+      content2: string
+      contradiction: string
+    }
+
+/**
+ * 不一致性问题
+ */
+export interface Inconsistency {
+  /** 不一致性类型 */
+  inconsistency_type: InconsistencyType
+  /** 严重程度 */
+  severity: IssueSeverity
+  /** 问题描述 */
+  description: string
+  /** 改进建议 */
+  suggestion?: string
+}
+
+/**
+ * 一致性各维度评分
+ */
+export interface ConsistencyDimensions {
+  /** 用户 - 功能对齐度 (0-100) */
+  user_feature_alignment: number
+  /** 技术 - 功能对齐度 (0-100) */
+  tech_feature_alignment: number
+  /** 工作量合理性 (0-100) */
+  effort_reasonableness: number
+  /** 术语一致性 (0-100) */
+  terminology_consistency: number
+  /** 逻辑一致性 (0-100) */
+  logical_consistency: number
+}
+
+/**
+ * PRD 一致性检查报告
+ */
+export interface PRDConsistencyReport {
+  /** 总体一致性得分 (0-100) */
+  overall_score: number
+  /** 各维度详细评分 */
+  dimensions: ConsistencyDimensions
+  /** 检测到的不一致性问题 */
+  inconsistencies: Inconsistency[]
+  /** 改进建议列表 */
+  suggestions: string[]
+}
