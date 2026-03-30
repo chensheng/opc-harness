@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowRight, ArrowLeft, TrendingUp, Check, X, Lightbulb, Sparkles } from 'lucide-react'
+import {
+  ArrowRight,
+  ArrowLeft,
+  TrendingUp,
+  Check,
+  X,
+  Lightbulb,
+  Sparkles,
+  BarChart3,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useProjectStore, useAppStore } from '@/stores'
 import { useCompetitorStream } from '@/hooks/useCompetitorStream'
+import { CompetitorRadarChart } from '@/components/CompetitorRadarChart'
 import type { CompetitorAnalysis as CompetitorAnalysisType } from '@/types'
 
 // Simulated AI-generated competitor analysis (fallback)
@@ -49,6 +59,7 @@ export function CompetitorAnalysis() {
   const { setLoading } = useAppStore()
 
   const [_useFallback, setUseFallback] = useState(false)
+  const [showRadar, setShowRadar] = useState(false)
 
   // 使用流式 Hook
   const { analysis, isStreaming, isComplete, error, sessionId, startStream, reset } =
@@ -169,7 +180,7 @@ export function CompetitorAnalysis() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           🔍 竞品分析
@@ -188,6 +199,21 @@ export function CompetitorAnalysis() {
         </h1>
         <p className="text-muted-foreground">{project.name}</p>
       </div>
+
+      {/* 雷达图切换按钮 */}
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={() => setShowRadar(!showRadar)} className="gap-2">
+          <BarChart3 className="w-4 h-4" />
+          {showRadar ? '隐藏对比图' : '显示对比图'}
+        </Button>
+      </div>
+
+      {/* 雷达图 */}
+      {showRadar && (
+        <div className="animate-in fade-in slide-in-from-bottom-4">
+          <CompetitorRadarChart analysis={analysis} productName={project.name || '本产品'} />
+        </div>
+      )}
 
       {/* Competitors - 渐进式渲染 */}
       <div className="space-y-4">
