@@ -2,6 +2,7 @@
 
 use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityChecker, PRDQualityReport};
 use crate::quality::prd_consistency_checker::{PRDConsistencyChecker, PRDDocument as ConsistencyPRDDocument};
+use crate::quality::prd_feasibility_assessor::{PRDFeasibilityAssessor, PRDDocument as FeasibilityPRDDocument};
 use serde::{Deserialize, Serialize};
 
 /// PRD 一致性检查请求
@@ -13,6 +14,16 @@ pub struct CheckPRDConsistencyRequest {
 
 /// PRD 一致性检查响应
 pub type CheckPRDConsistencyResponse = crate::quality::prd_consistency_checker::PRDConsistencyReport;
+
+/// PRD 可行性评估请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssessPRDFeasibilityRequest {
+    /// PRD 内容（Markdown 格式）
+    pub prd_content: String,
+}
+
+/// PRD 可行性评估响应
+pub type AssessPRDFeasibilityResponse = crate::quality::prd_feasibility_assessor::PRDFeasibilityReport;
 
 /// 检查 PRD 一致性
 #[tauri::command]
@@ -41,6 +52,21 @@ pub async fn check_prd_quality(prd_content: String) -> Result<PRDQualityReport, 
     // 3. 执行质量检查
     let report = checker.check_quality(&prd);
 
+    Ok(report)
+}
+
+/// 评估 PRD 可行性
+#[tauri::command]
+pub async fn assess_prd_feasibility(
+    request: AssessPRDFeasibilityRequest,
+) -> Result<AssessPRDFeasibilityResponse, String> {
+    // 解析 Markdown 内容为 PRDDocument
+    let prd = parse_markdown_to_feasibility_prd(&request.prd_content);
+    
+    // 创建评估器并执行评估
+    let assessor = PRDFeasibilityAssessor::new();
+    let report = assessor.assess_feasibility(&prd);
+    
     Ok(report)
 }
 
@@ -151,6 +177,53 @@ fn parse_markdown_to_quality_prd(content: &str) -> QualityPRDDocument {
     }
 
     QualityPRDDocument {
+        title,
+        overview,
+        target_users,
+        core_features,
+        tech_stack,
+        estimated_effort,
+    }
+}
+
+/// 将 Markdown 内容解析为可行性评估用的 PRDDocument
+fn parse_markdown_to_feasibility_prd(content: &str) -> FeasibilityPRDDocument {
+    let mut title = None;
+    let mut overview = None;
+    let mut target_users = None;
+    let mut core_features = None;
+    let mut tech_stack = None;
+    let mut estimated_effort = None;
+
+    let lines: Vec<&str> = content.lines().collect();
+    let mut current_section = String::new();
+    let mut current_content = Vec::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        // 检测章节标题 (# 开头)
+        if trimmed.starts_with('#') {
+            // 保存之前的章节内容
+            if !current_section.is_empty() {
+                save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
+            }
+
+            // 开始新章节
+            current_section = trimmed.trim_start_matches('#').trim().to_lowercase();
+            current_content.clear();
+        } else if !trimmed.is_empty() {
+            // 收集章节内容
+            current_content.push(trimmed);
+        }
+    }
+
+    // 保存最后一个章节
+    if !current_section.is_empty() {
+        save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
+    }
+
+    FeasibilityPRDDocument {
         title,
         overview,
         target_users,

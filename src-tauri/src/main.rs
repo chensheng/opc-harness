@@ -138,6 +138,8 @@ fn main() {
             commands::quality::check_prd_quality,
             // PRD Consistency Check commands (US-051)
             commands::quality::check_prd_consistency,
+            // PRD Feasibility Assessment commands (US-052)
+            commands::quality::assess_prd_feasibility,
 
             // System commands
             commands::system::get_app_version,

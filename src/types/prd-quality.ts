@@ -163,3 +163,113 @@ export interface PRDConsistencyReport {
   /** 改进建议列表 */
   suggestions: string[]
 }
+
+// ==================== PRD 可行性评估类型 ====================
+
+/**
+ * 风险等级
+ */
+export type RiskLevel = 'critical' | 'high' | 'medium' | 'low'
+
+/**
+ * 风险类型
+ */
+export type RiskType =
+  | { type: 'technical_capability_gap'; required_techs: string[]; team_skill_level: number }
+  | { type: 'resource_shortage'; required_people: number; available_team_size: number }
+  | { type: 'timeline_underestimate'; estimated_weeks: number; reasonable_min_weeks: number }
+  | {
+      type: 'technology_dependency_risk'
+      technology: string
+      maturity_level: string
+      community_support: string
+    }
+  | {
+      type: 'integration_complexity_risk'
+      systems_count: number
+      integration_points: number
+      complexity_score: number
+    }
+
+/**
+ * 单个风险
+ */
+export interface Risk {
+  /** 风险类型 */
+  risk_type: RiskType
+  /** 风险等级 */
+  level: RiskLevel
+  /** 风险描述 */
+  description: string
+  /** 影响分析 */
+  impact: string
+  /** 缓解建议 */
+  mitigation: string
+}
+
+/**
+ * 技术评估
+ */
+export interface TechnicalAssessment {
+  /** 技术栈复杂度 (0-1) */
+  complexity: number
+  /** 团队技能匹配度 (0-1) */
+  team_skill_match: number
+  /** 技术可行性得分 (0-100) */
+  feasibility_score: number
+  /** 技术难点列表 */
+  technical_challenges: string[]
+}
+
+/**
+ * 资源评估
+ */
+export interface ResourceAssessment {
+  /** 所需人力（人月） */
+  required_people_months: number
+  /** 可用团队规模 */
+  available_team_size: number
+  /** 资源充足度 (0-1) */
+  resource_adequacy: number
+  /** 关键技能需求 */
+  critical_skills: string[]
+}
+
+/**
+ * 时间评估
+ */
+export interface TimelineAssessment {
+  /** 预估时间（周） */
+  estimated_weeks: number
+  /** 合理时间范围（最小值） */
+  reasonable_min_weeks: number
+  /** 合理时间范围（最大值） */
+  reasonable_max_weeks: number
+  /** 时间合理性得分 (0-100) */
+  reasonableness_score: number
+}
+
+/**
+ * 可行性等级
+ */
+export type FeasibilityLevel = 'high' | 'medium' | 'low'
+
+/**
+ * PRD 可行性评估报告
+ */
+export interface PRDFeasibilityReport {
+  /** 总体可行性得分 (0-100) */
+  overall_score: number
+  /** 可行性等级 */
+  feasibility_level: FeasibilityLevel
+  /** 技术评估 */
+  technical: TechnicalAssessment
+  /** 资源评估 */
+  resource: ResourceAssessment
+  /** 时间评估 */
+  timeline: TimelineAssessment
+  /** 识别的风险列表 */
+  risks: Risk[]
+  /** 改进建议 */
+  recommendations: string[]
+}
