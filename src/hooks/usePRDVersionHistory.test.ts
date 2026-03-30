@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { usePRDVersionHistory } from './usePRDVersionHistory'
 import type { IterationHistory, PRDVersion } from '@/types/prd-iteration'
+import type { PRD } from '@/types'
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -19,21 +20,21 @@ describe('usePRDVersionHistory', () => {
       {
         versionId: 'version-1',
         timestamp: 1000000000,
-        prdJson: JSON.stringify({ title: 'V1' }),
+        prd: { title: 'V1' } as PRD,
         iterationNumber: 0,
         feedback: undefined,
       },
       {
         versionId: 'version-2',
         timestamp: 1000000100,
-        prdJson: JSON.stringify({ title: 'V2' }),
+        prd: { title: 'V2' } as PRD,
         iterationNumber: 1,
         feedback: '添加更多功能',
       },
       {
         versionId: 'version-3',
         timestamp: 1000000200,
-        prdJson: JSON.stringify({ title: 'V3' }),
+        prd: { title: 'V3' } as PRD,
         iterationNumber: 2,
         feedback: '优化用户体验',
       },
@@ -81,7 +82,7 @@ describe('usePRDVersionHistory', () => {
     await act(async () => {
       try {
         await result.current.loadHistory()
-      } catch (err) {
+      } catch {
         // Expected error
       }
     })
@@ -94,7 +95,7 @@ describe('usePRDVersionHistory', () => {
   it('should compare two versions successfully', async () => {
     const mockDiff = {
       addedFeatures: ['功能 3'],
-      removedFeatures: [],
+      removedFeatures: [] as string[],
       modifiedFieldsCount: 1,
     }
 
@@ -123,11 +124,28 @@ describe('usePRDVersionHistory', () => {
     })
   })
 
+  it('should handle compare versions without loaded history', async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    vi.mocked(invoke).mockRejectedValue(new Error('版本历史未加载'))
+
+    const { result } = renderHook(() => usePRDVersionHistory())
+
+    await act(async () => {
+      try {
+        await result.current.compareVersions('version-1', 'version-2')
+      } catch {
+        // Expected error
+      }
+    })
+
+    expect(result.current.error).toBe('版本历史未加载')
+  })
+
   it('should rollback to version successfully', async () => {
     const mockVersion: PRDVersion = {
       versionId: 'version-1',
       timestamp: 1000000000,
-      prdJson: JSON.stringify({ title: 'V1' }),
+      prd: { title: 'V1' } as PRD,
       iterationNumber: 0,
       feedback: undefined,
     }
@@ -193,23 +211,6 @@ describe('usePRDVersionHistory', () => {
     expect(result.current.history).toBeNull()
     expect(result.current.isLoading).toBe(false)
     expect(result.current.error).toBeNull()
-  })
-
-  it('should handle compare versions without loaded history', async () => {
-    const { invoke } = await import('@tauri-apps/api/core')
-    vi.mocked(invoke).mockRejectedValue(new Error('版本历史未加载'))
-
-    const { result } = renderHook(() => usePRDVersionHistory())
-
-    await act(async () => {
-      try {
-        await result.current.compareVersions('version-1', 'version-2')
-      } catch (err) {
-        // Expected error
-      }
-    })
-
-    expect(result.current.error).toBe('版本历史未加载')
   })
 
   it('should support multiple version comparisons', async () => {

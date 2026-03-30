@@ -76,7 +76,7 @@ describe('usePRDIteration', () => {
     await act(async () => {
       try {
         await result.current.createInitialVersion(testPRD)
-      } catch (err) {
+      } catch {
         // Expected error
       }
     })
@@ -98,7 +98,7 @@ describe('usePRDIteration', () => {
       },
       diff: {
         addedFeatures: ['功能 2', '基于用户反馈新增的功能'],
-        removedFeatures: [],
+        removedFeatures: [] as string[],
         modifiedFieldsCount: 2,
       },
       iterationNumber: 1,

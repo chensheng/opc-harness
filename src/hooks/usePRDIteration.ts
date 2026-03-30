@@ -38,13 +38,6 @@ function prdToJson(prd: PRD): string {
 }
 
 /**
- * 将 JSON 字符串解析为 PRD 对象
- */
-function jsonToPrd(json: string): PRD {
-  return JSON.parse(json)
-}
-
-/**
  * PRD 迭代优化 Hook
  */
 export function usePRDIteration(): UsePRDIterationReturn {

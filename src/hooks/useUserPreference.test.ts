@@ -63,7 +63,7 @@ describe('useUserPreference', () => {
     await act(async () => {
       try {
         await result.current.loadPreferences()
-      } catch (err) {
+      } catch {
         // Expected error
       }
     })

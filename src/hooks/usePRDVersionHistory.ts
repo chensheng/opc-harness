@@ -5,7 +5,6 @@
 import { useState, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { PRDVersion, PRDDiff, IterationHistory } from '@/types/prd-iteration'
-import type { PRD } from '@/types'
 
 interface UsePRDVersionHistoryReturn {
   /** 版本历史 */

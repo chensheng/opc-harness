@@ -3,7 +3,6 @@
  */
 
 import type { PRD } from './index'
-import type { QualityReport } from './prd-quality'
 
 /**
  * PRD 版本

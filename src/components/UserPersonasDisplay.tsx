@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { User, Target, Frown, Activity, Quote, Briefcase, TrendingUp, Heart } from 'lucide-react'
+import { User, Activity, Quote, Briefcase, TrendingUp, Heart } from 'lucide-react'
 import type { UserPersona } from '@/types'
 
 interface PersonaCardProps {

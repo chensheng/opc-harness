@@ -127,13 +127,3 @@ describe('CompetitorRadarChart', () => {
     expect(screen.getByText('竞品 B')).toBeInTheDocument()
   })
 })
-
-// Dimension configuration for testing
-const DIMENSIONS = [
-  { key: 'functionality', label: '功能性' },
-  { key: 'usability', label: '易用性' },
-  { key: 'performance', label: '性能' },
-  { key: 'reliability', label: '可靠性' },
-  { key: 'innovation', label: '创新性' },
-  { key: 'value', label: '性价比' },
-]

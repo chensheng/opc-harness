@@ -172,6 +172,7 @@ interface CompetitorTimelineProps {
 /**
  * 竞品时间线组件
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function CompetitorTimeline({ analysis, viewMode = 'all' }: CompetitorTimelineProps) {
   const events = generateTimelineEvents(analysis)
 

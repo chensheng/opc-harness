@@ -2,8 +2,6 @@
  * 用户偏好相关类型定义
  */
 
-import type { PRD } from './index'
-
 /**
  * 偏好模型
  */

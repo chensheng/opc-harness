@@ -3,16 +3,25 @@ import { usePRDVersionHistory } from '@/hooks/usePRDVersionHistory'
 import type { PRD } from '@/types'
 
 interface PRDVersionHistoryProps {
-  currentPrd?: PRD
+  _currentPrd?: PRD
   onRollback?: (prd: PRD) => void
 }
 
 /**
  * PRD 版本历史组件
  */
-export const PRDVersionHistory: React.FC<PRDVersionHistoryProps> = ({ currentPrd, onRollback }) => {
-  const { history, isLoading, error, loadHistory, compareVersions, rollbackToVersion } =
-    usePRDVersionHistory()
+export const PRDVersionHistory: React.FC<PRDVersionHistoryProps> = ({
+  _currentPrd,
+  onRollback,
+}) => {
+  const {
+    history,
+    isLoading,
+    error,
+    loadHistory,
+    compareVersions: _compareVersions,
+    rollbackToVersion,
+  } = usePRDVersionHistory()
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [compareMode, setCompareMode] = useState(false)
@@ -118,7 +127,7 @@ export const PRDVersionHistory: React.FC<PRDVersionHistoryProps> = ({ currentPrd
 
       {/* 版本列表 */}
       <div className="space-y-3">
-        {history.versions.map((version, index) => {
+        {history.versions.map((version, _index) => {
           const isCurrentVersion = version.versionId === history.currentVersionId
           const isSelected = selectedVersionId === version.versionId
           const isInCompare = compareVersionIds?.includes(version.versionId)
