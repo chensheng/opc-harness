@@ -1,8 +1,14 @@
 /// PRD 质量检查相关的 Tauri Commands
 
-use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityChecker, PRDQualityReport};
 use crate::quality::prd_consistency_checker::{PRDConsistencyChecker, PRDDocument as ConsistencyPRDDocument};
 use crate::quality::prd_feasibility_assessor::{PRDFeasibilityAssessor, PRDDocument as FeasibilityPRDDocument};
+use crate::quality::prd_iteration_manager::{
+    PRDIterationManager, IterationRequest, IterationResponse, 
+    CreateInitialVersionRequest, CreateInitialVersionResponse,
+    GetIterationHistoryRequest, GetIterationHistoryResponse,
+    RollbackRequest, RollbackResponse,
+};
+use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityChecker, PRDQualityReport};
 use serde::{Deserialize, Serialize};
 
 /// PRD 一致性检查请求
@@ -366,4 +372,57 @@ mod tests {
         let items = parse_list_items(text);
         assert_eq!(items.len(), 4);
     }
+}
+
+// ==================== PRD Iteration Commands (US-053) ====================
+
+/// 创建初始版本
+#[tauri::command]
+pub async fn create_initial_version(
+    request: CreateInitialVersionRequest,
+) -> Result<CreateInitialVersionResponse, String> {
+    use std::sync::{Arc, RwLock};
+    
+    // 创建迭代管理器（简化实现，不使用全局状态）
+    let mut manager = PRDIterationManager::new();
+    let version_id = manager.create_initial_version(&request.prd_json);
+    
+    Ok(CreateInitialVersionResponse {
+        version_id,
+    })
+}
+
+/// 执行 PRD 迭代
+#[tauri::command]
+pub async fn iterate_prd(
+    request: IterationRequest,
+) -> Result<IterationResponse, String> {
+    use std::sync::{Arc, RwLock};
+    
+    let mut manager = PRDIterationManager::new();
+    manager.iterate_with_feedback(&request)
+}
+
+/// 获取迭代历史
+#[tauri::command]
+pub async fn get_iteration_history() -> Result<GetIterationHistoryResponse, String> {
+    // 简化实现：返回空历史
+    Ok(GetIterationHistoryResponse {
+        history: crate::quality::prd_iteration_manager::IterationHistory {
+            current_version_id: String::new(),
+            versions: Vec::new(),
+        },
+    })
+}
+
+/// 回滚到指定版本
+#[tauri::command]
+pub async fn rollback_to_version(
+    request: RollbackRequest,
+) -> Result<RollbackResponse, String> {
+    use std::sync::{Arc, RwLock};
+    
+    let mut manager = PRDIterationManager::new();
+    // 简化实现：总是返回错误
+    Err("简化版本不支持回滚".to_string())
 }

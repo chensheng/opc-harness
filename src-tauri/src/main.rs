@@ -140,6 +140,11 @@ fn main() {
             commands::quality::check_prd_consistency,
             // PRD Feasibility Assessment commands (US-052)
             commands::quality::assess_prd_feasibility,
+            // PRD Iteration Optimization commands (US-053)
+            commands::quality::create_initial_version,
+            commands::quality::iterate_prd,
+            commands::quality::get_iteration_history,
+            commands::quality::rollback_to_version,
 
             // System commands
             commands::system::get_app_version,
