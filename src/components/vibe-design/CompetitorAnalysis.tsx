@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Sparkles,
   BarChart3,
+  Calendar,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { useProjectStore, useAppStore } from '@/stores'
 import { useCompetitorStream } from '@/hooks/useCompetitorStream'
 import { CompetitorRadarChart } from '@/components/CompetitorRadarChart'
+import { CompetitorTimeline } from '@/components/CompetitorTimeline'
 import type { CompetitorAnalysis as CompetitorAnalysisType } from '@/types'
 
 // Simulated AI-generated competitor analysis (fallback)
@@ -60,6 +62,7 @@ export function CompetitorAnalysis() {
 
   const [_useFallback, setUseFallback] = useState(false)
   const [showRadar, setShowRadar] = useState(false)
+  const [showTimeline, setShowTimeline] = useState(false)
 
   // 使用流式 Hook
   const { analysis, isStreaming, isComplete, error, sessionId, startStream, reset } =
@@ -200,11 +203,15 @@ export function CompetitorAnalysis() {
         <p className="text-muted-foreground">{project.name}</p>
       </div>
 
-      {/* 雷达图切换按钮 */}
-      <div className="flex justify-end">
+      {/* 可视化切换按钮组 */}
+      <div className="flex justify-end gap-2 flex-wrap">
         <Button variant="outline" onClick={() => setShowRadar(!showRadar)} className="gap-2">
           <BarChart3 className="w-4 h-4" />
           {showRadar ? '隐藏对比图' : '显示对比图'}
+        </Button>
+        <Button variant="outline" onClick={() => setShowTimeline(!showTimeline)} className="gap-2">
+          <Calendar className="w-4 h-4" />
+          {showTimeline ? '隐藏时间线' : '显示时间线'}
         </Button>
       </div>
 
@@ -212,6 +219,13 @@ export function CompetitorAnalysis() {
       {showRadar && (
         <div className="animate-in fade-in slide-in-from-bottom-4">
           <CompetitorRadarChart analysis={analysis} productName={project.name || '本产品'} />
+        </div>
+      )}
+
+      {/* 时间线 */}
+      {showTimeline && (
+        <div className="animate-in fade-in slide-in-from-bottom-4">
+          <CompetitorTimeline analysis={analysis} />
         </div>
       )}
 
