@@ -1,119 +1,100 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
 import type { UserPersona } from '@/types'
-import { useAIConfigStore } from '@/stores/aiConfigStore'
 
 /**
- * 用户画像流式生成 Hook
- *
- * 功能特性:
- * - 调用后端 stream_generate_personas 接口
- * - 监听 persona-stream-chunk/complete/error 事件
- * - 渐进式渲染用户画像（先基础信息，后详细特征）
- * - 打字机效果逐字展示
- * - 自动解析 Markdown 为 UserPersona 对象
+ * 用户画像流式生成请求参数
  */
-
-interface PersonaStreamConfig {
-  prdId: string
-  projectId: string
+export interface PersonaStreamRequest {
+  /** 项目创意或描述 */
+  idea: string
+  /** AI 提供商 */
+  provider: string
+  /** AI 模型 */
+  model: string
+  /** API 密钥 */
+  apiKey: string
 }
 
-interface UsePersonaStreamReturn {
+/**
+ * 用户画像流式生成返回值
+ */
+export interface UsePersonaStreamReturn {
+  /** 已生成的用户画像列表 */
   personas: UserPersona[]
+  /** Markdown 原始内容 */
   markdownContent: string
+  /** 是否正在流式生成中 */
   isStreaming: boolean
+  /** 流式生成是否完成 */
   isComplete: boolean
+  /** 错误信息 */
   error: string | null
+  /** 会话 ID */
   sessionId: string | null
-  startStream: (config: PersonaStreamConfig & { apiKey?: string; model?: string }) => Promise<void>
+  /** 开始流式生成 */
+  startStream: (request: PersonaStreamRequest) => Promise<void>
+  /** 停止流式生成 */
   stopStream: () => void
+  /** 重置状态 */
   reset: () => void
 }
 
 /**
- * 取消监听函数类型
- */
-interface UnlistenFn {
-  (): void
-}
-
-/**
- * 解析 Markdown 格式的用户画像为结构化数据
- *
- * Markdown 格式示例:
- * ````
- * ## 用户画像 1: Alex
- * - **年龄**: 28 岁
- * - **职业**: 全栈开发者
- * - **背景**: 有 5 年开发经验...
- * - **目标**:
- *   - 快速验证产品想法
- *   - 减少重复性工作
- * - **痛点**:
- *   - 时间有限
- *   - 不懂设计和营销
- * - **引言**: "我想把更多时间..."
- * ```
+ * 从 Markdown 解析用户画像
+ * @param markdown Markdown 格式的文本
+ * @returns 解析后的用户画像数组
  */
 function parsePersonasFromMarkdown(markdown: string): UserPersona[] {
   const personas: UserPersona[] = []
 
-  // 按画像分割（每个 ## 标题开始一个新的画像）
-  const personaBlocks = markdown.split(/(?=##\s+用户画像\s*\d*:)/)
+  // 按画像分隔符分割（假设每个画像以 "##" 开头）
+  const sections = markdown.split(/(?=##\s*(?:用户？画像？|Persona))/i)
 
-  for (const block of personaBlocks) {
-    if (!block.trim()) continue
+  for (const section of sections) {
+    if (!section.trim()) continue
 
-    // 提取姓名
-    const nameMatch = block.match(/##\s+用户画像\s*\d*:\s*(.+)/)
-    const name = nameMatch ? nameMatch[1].trim() : `用户画像 ${personas.length + 1}`
+    // 提取基本信息
+    const nameMatch = section.match(/(?:姓名|Name)[:：]\s*(.+)/i)
+    const ageMatch = section.match(/(?:年龄|Age)[:：]\s*(.+)/i)
+    const occupationMatch = section.match(/(?:职业|Occupation)[:：]\s*(.+)/i)
+    const backgroundMatch = section.match(/(?:背景|Background)[:：]\s*([\s\S]*?)(?=\n\n|\n#|$)/i)
 
-    // 提取各个字段
-    const extractField = (fieldName: string): string | null => {
-      const regex = new RegExp(`-\\s*\\*\\*${fieldName}\\*\\*:\\s*(.+?)(?=\\n-|$)`, 's')
-      const match = block.match(regex)
-      return match ? match[1].trim().replace(/\n\s*/g, '') : null
-    }
-
-    // 提取列表字段（如目标、痛点等）
-    const extractList = (fieldName: string): string[] => {
-      const regex = new RegExp(
-        `-\\s*\\*\\*${fieldName}\\*\\*:\\s*\\n([\\s\\S]*?)(?=\\n-\\s*\\*\\*|$)`,
-        's'
-      )
-      const match = block.match(regex)
+    // 提取列表项（目标、痛点、行为）
+    const extractList = (pattern: RegExp): string[] => {
+      const match = section.match(pattern)
       if (!match) return []
 
-      const listContent = match[1]
-      const items = listContent
+      const content = match[1]
+      const items = content
         .split('\n')
-        .filter(line => line.trim().startsWith('-'))
-        .map(line => line.replace(/^\s*-\s*/, '').trim())
+        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('•'))
+        .map(line => line.replace(/^[-•]\s*/, '').trim())
+        .filter(item => item.length > 0)
+
       return items
     }
 
-    const age = extractField('年龄')
-    const occupation = extractField('职业')
-    const background = extractField('背景')
-    const goals = extractList('目标')
-    const painPoints = extractList('痛点')
-    const behaviors = extractList('行为特征')
-    const quote = extractField('引言')
+    const goals = extractList(/(?:目标|Goals)[:：]\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n#|$)/i)
+    const painPoints = extractList(/(?:痛点|Pain\s*Points)[:：]\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n#|$)/i)
+    const behaviors = extractList(/(?:行为|Behaviors)[:：]\s*\n([\s\S]*?)(?=\n\n[A-Z]|\n#|$)/i)
 
-    // 只有当有基本信息时才添加
-    if (name || occupation || background) {
+    // 提取引用
+    const quoteMatch = section.match(/(?:"([^"]+)"|'([^']+)'|「([^」]+)」)/)
+
+    // 只有找到姓名才创建画像
+    if (nameMatch) {
       personas.push({
-        id: `persona-${personas.length}`,
-        name: name || `用户画像 ${personas.length + 1}`,
-        age: age || '未指定',
-        occupation: occupation || '未指定',
-        background: background || '暂无背景信息',
-        goals: goals.length > 0 ? goals : ['暂无明确目标'],
-        painPoints: painPoints.length > 0 ? painPoints : ['暂无明确痛点'],
-        behaviors: behaviors.length > 0 ? behaviors : ['暂无明确行为特征'],
-        quote: quote || undefined,
+        id: `persona-${personas.length + 1}`,
+        name: nameMatch[1].trim(),
+        age: ageMatch?.[1].trim() || '',
+        occupation: occupationMatch?.[1].trim() || '',
+        background: backgroundMatch?.[1].trim() || '',
+        goals,
+        painPoints,
+        behaviors,
+        quote: quoteMatch?.[1] || quoteMatch?.[2] || quoteMatch?.[3],
       })
     }
   }
@@ -121,6 +102,32 @@ function parsePersonasFromMarkdown(markdown: string): UserPersona[] {
   return personas
 }
 
+/**
+ * 用户画像流式生成 Hook
+ *
+ * 支持渐进式渲染的 AI 用户画像生成
+ *
+ * @example
+ * ```typescript
+ * const {
+ *   personas,
+ *   markdownContent,
+ *   isStreaming,
+ *   isComplete,
+ *   error,
+ *   startStream,
+ *   stopStream,
+ *   reset
+ * } = usePersonaStream()
+ *
+ * await startStream({
+ *   idea: '一个在线学习平台',
+ *   provider: 'openai',
+ *   model: 'gpt-4',
+ *   apiKey: 'sk-...'
+ * })
+ * ```
+ */
 export function usePersonaStream(): UsePersonaStreamReturn {
   const [personas, setPersonas] = useState<UserPersona[]>([])
   const [markdownContent, setMarkdownContent] = useState('')
@@ -129,180 +136,137 @@ export function usePersonaStream(): UsePersonaStreamReturn {
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
 
-  // 流式内容缓冲
-  const [streamingContent, setStreamingContent] = useState('')
-  const typingTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const unlistenFns = useRef<UnlistenFn[]>([])
+  const unlistenRef = useRef<UnlistenFn[]>([])
+  const isStreamingRef = useRef(false)
 
-  // AI 配置
-  const { getActiveConfig } = useAIConfigStore()
-
-  // 打字机效果：逐字展示 streamingContent
-
-  useEffect(() => {
-    if (!streamingContent) return
-
-    let charIndex = 0
-    const contentToAdd = streamingContent
-    const totalChars = contentToAdd.length
-
-    if (totalChars === 0) return
-
-    const interval = setInterval(() => {
-      if (charIndex < totalChars) {
-        setMarkdownContent(prev => prev + contentToAdd[charIndex])
-        charIndex++
-      } else {
-        clearInterval(interval)
-
-        // 解析当前完整的 Markdown 内容
-        // 使用最新的 markdownContent 值（通过闭包捕获）
-        setPersonas(prevPersonas => {
-          const parsedPersonas = parsePersonasFromMarkdown(markdownContent + streamingContent)
-          if (
-            parsedPersonas.length > 0 &&
-            JSON.stringify(parsedPersonas) !== JSON.stringify(prevPersonas)
-          ) {
-            return parsedPersonas
-          }
-          return prevPersonas
-        })
-      }
-    }, 30) // 30ms/字符，比 PRD 更快
-
-    return () => clearInterval(interval)
-  }, [streamingContent, markdownContent])
-
-  // 开始流式生成
-  const startStream = useCallback(
-    async (config: PersonaStreamConfig & { apiKey?: string; model?: string }) => {
+  // 清理所有订阅
+  const cleanup = useCallback(() => {
+    unlistenRef.current.forEach(unlisten => {
       try {
-        setError(null)
-        setIsComplete(false)
-        setPersonas([])
-        setMarkdownContent('')
-        setStreamingContent('')
-
-        // 获取 AI 配置
-        const activeConfig = getActiveConfig()
-        const provider = activeConfig?.provider || 'openai'
-        const apiKey = config.apiKey || activeConfig?.apiKey || ''
-        const model = config.model || activeConfig?.model || 'gpt-4o'
-
-        if (!apiKey) {
-          throw new Error('请先配置 API Key')
-        }
-
-        // 调用后端流式生成接口
-        const session_id = await invoke<string>('stream_generate_personas', {
-          prdId: config.prdId,
-          projectId: config.projectId,
-          provider,
-          apiKey,
-          model,
-        })
-
-        setSessionId(session_id)
-        setIsStreaming(true)
-
-        // 监听 chunk 事件
-        const unlistenChunk = await listen<{
-          session_id: string
-          content: string
-          is_complete: boolean
-        }>('persona-stream-chunk', event => {
-          if (event.payload.session_id === session_id) {
-            console.log(
-              '[usePersonaStream] Received persona chunk:',
-              event.payload.content.length,
-              'chars'
-            )
-            setStreamingContent(prev => prev + event.payload.content)
-          }
-        })
-        unlistenFns.current.push(await unlistenChunk)
-
-        // 监听 complete 事件
-        const unlistenComplete = await listen<{ session_id: string; content: string }>(
-          'persona-stream-complete',
-          event => {
-            if (event.payload.session_id === session_id) {
-              console.log('[usePersonaStream] Persona stream complete:', session_id)
-              setStreamingContent('')
-              setIsStreaming(false)
-              setIsComplete(true)
-
-              // 确保最终内容被解析
-              const finalPersonas = parsePersonasFromMarkdown(event.payload.content)
-              if (finalPersonas.length > 0) {
-                setPersonas(finalPersonas)
-              }
-            }
-          }
-        )
-        unlistenFns.current.push(await unlistenComplete)
-
-        // 监听 error 事件
-        const unlistenError = await listen<{ session_id: string; error: string }>(
-          'persona-stream-error',
-          event => {
-            if (event.payload.session_id === session_id) {
-              console.error('[usePersonaStream] Persona stream error:', event.payload.error)
-              setError(event.payload.error)
-              setIsStreaming(false)
-            }
-          }
-        )
-        unlistenFns.current.push(await unlistenError)
+        unlisten()
       } catch (err) {
-        console.error('[usePersonaStream] Start stream failed:', err)
-        setError(err instanceof Error ? err.message : '生成失败')
-        setIsStreaming(false)
-      }
-    },
-    [getActiveConfig]
-  )
-
-  // 停止流式生成
-  const stopStream = useCallback(() => {
-    if (typingTimerRef.current) {
-      clearTimeout(typingTimerRef.current)
-      typingTimerRef.current = null
-    }
-
-    setIsStreaming(false)
-    setStreamingContent('')
-
-    // 清理所有监听器
-    unlistenFns.current.forEach(unlistenFn => {
-      if (typeof unlistenFn === 'function') {
-        unlistenFn()
+        console.error('[usePersonaStream] Cleanup error:', err)
       }
     })
-    unlistenFns.current = []
+    unlistenRef.current = []
   }, [])
+
+  // 停止流式
+  const stopStream = useCallback(() => {
+    cleanup()
+    isStreamingRef.current = false
+    setIsStreaming(false)
+  }, [cleanup])
 
   // 重置状态
   const reset = useCallback(() => {
     stopStream()
     setPersonas([])
     setMarkdownContent('')
-    setError(null)
     setIsComplete(false)
+    setError(null)
     setSessionId(null)
   }, [stopStream])
 
-  // Cleanup on unmount
+  // 开始流式生成用户画像
+  const startStream = useCallback(
+    async (request: PersonaStreamRequest) => {
+      // 清理之前的订阅
+      cleanup()
+
+      // 重置状态
+      setMarkdownContent('')
+      setPersonas([])
+      setIsComplete(false)
+      setError(null)
+      setIsStreaming(true)
+      isStreamingRef.current = true
+
+      try {
+        // 监听用户画像流式 chunk 事件
+        const unlistenChunk = await listen<{
+          session_id: string
+          content: string
+          is_complete: boolean
+        }>('persona-stream-chunk', event => {
+          console.log(
+            '[usePersonaStream] Received persona chunk:',
+            event.payload.content.length,
+            'chars'
+          )
+
+          // 追加内容
+          setMarkdownContent(prev => {
+            const newContent = prev + event.payload.content
+
+            // 实时解析 Markdown 为结构化用户画像
+            const parsed = parsePersonasFromMarkdown(newContent)
+            setPersonas(parsed)
+
+            return newContent
+          })
+        })
+        unlistenRef.current.push(unlistenChunk)
+
+        // 监听完成事件
+        const unlistenComplete = await listen<{ session_id: string; content: string }>(
+          'persona-stream-complete',
+          event => {
+            console.log('[usePersonaStream] Persona stream complete:', event.payload.session_id)
+            setIsComplete(true)
+            setIsStreaming(false)
+            isStreamingRef.current = false
+            cleanup()
+
+            // 确保最终内容完整
+            setMarkdownContent(event.payload.content)
+            const parsed = parsePersonasFromMarkdown(event.payload.content)
+            setPersonas(parsed)
+          }
+        )
+        unlistenRef.current.push(unlistenComplete)
+
+        // 监听错误事件
+        const unlistenError = await listen<{ session_id: string; error: string }>(
+          'persona-stream-error',
+          event => {
+            console.error('[usePersonaStream] Persona stream error:', event.payload.error)
+            setError(event.payload.error)
+            setIsStreaming(false)
+            isStreamingRef.current = false
+            cleanup()
+          }
+        )
+        unlistenRef.current.push(unlistenError)
+
+        // 调用后端流式命令
+        const response = await invoke<string>('stream_generate_personas', {
+          request: {
+            idea: request.idea,
+            provider: request.provider,
+            model: request.model,
+            api_key: request.apiKey,
+          },
+        })
+
+        setSessionId(response)
+      } catch (err) {
+        console.error('[usePersonaStream] Error starting stream:', err)
+        setError(err instanceof Error ? err.message : '未知错误')
+        setIsStreaming(false)
+        isStreamingRef.current = false
+        cleanup()
+      }
+    },
+    [cleanup]
+  )
+
+  // 组件卸载时清理
   useEffect(() => {
     return () => {
-      if (typingTimerRef.current) {
-        clearTimeout(typingTimerRef.current)
-      }
-      unlistenFns.current.forEach(unlistenFn => {
-        unlistenFn()
-      })
+      cleanup()
     }
-  }, [])
+  }, [cleanup])
 
   return {
     personas,

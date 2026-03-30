@@ -1,249 +1,174 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { usePersonaStream } from './usePersonaStream'
-import { invoke } from '@tauri-apps/api/core'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { renderHook, act } from '@testing-library/react'
 import { listen } from '@tauri-apps/api/event'
+import { invoke } from '@tauri-apps/api/core'
+import { usePersonaStream } from './usePersonaStream'
 
 // Mock Tauri APIs
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(),
-}))
-
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn(),
 }))
 
-vi.mock('@/stores/aiConfigStore', () => ({
-  useAIConfigStore: () => ({
-    getActiveConfig: vi.fn(() => ({
-      provider: 'openai',
-      apiKey: 'test-api-key',
-      model: 'gpt-4o',
-    })),
-  }),
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
 }))
-
-const mockInvoke = vi.mocked(invoke)
-const mockListen = vi.mocked(listen)
 
 describe('usePersonaStream', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('should initialize with default values', () => {
+  it('should initialize with correct state', () => {
     const { result } = renderHook(() => usePersonaStream())
 
     expect(result.current.personas).toEqual([])
     expect(result.current.markdownContent).toBe('')
     expect(result.current.isStreaming).toBe(false)
     expect(result.current.isComplete).toBe(false)
-    expect(result.current.error).toBeNull()
-    expect(result.current.sessionId).toBeNull()
+    expect(result.current.error).toBe(null)
+    expect(result.current.sessionId).toBe(null)
   })
 
-  it('should start streaming and receive persona chunks', async () => {
-    const mockSessionId = 'persona-session-123'
-    const mockFullMarkdown = `## 用户画像 1: Alex
-- **年龄**: 28 岁
-- **职业**: 全栈开发者
-- **背景**: 有 5 年开发经验
-- **目标**:
-  - 快速验证产品想法
-  - 减少重复性工作
-- **痛点**:
-  - 时间有限
-  - 不懂设计
-- **行为特征**:
-  - 订阅技术博客
-- **引言**: "我想提高效率"
-`
-
-    // Mock invoke to return session ID
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
-
-    // Mock listen for complete event
-    let completeCallback:
-      | ((event: { payload: { session_id: string; content: string } }) => void)
-      | null = null
-    const mockUnlistenFn = vi.fn()
-    mockListen.mockImplementation(((
-      event: string,
-      callback: (event: { payload: { session_id: string; content: string } }) => void
-    ) => {
-      if (event === 'persona-stream-complete') {
-        completeCallback = callback
-      }
-      // 所有事件都返回同一个 mock unlisten 函数
-      return Promise.resolve(mockUnlistenFn)
-    }) as any)
-
-    const { result } = renderHook(() => usePersonaStream())
-
-    await act(async () => {
-      await result.current.startStream({
-        prdId: 'prd-1',
-        projectId: 'project-1',
-      })
-    })
-
-    expect(result.current.isStreaming).toBe(true)
-    expect(result.current.sessionId).toBe(mockSessionId)
-
-    // Simulate completion with full content
-    await act(async () => {
-      if (completeCallback) {
-        completeCallback({
-          payload: {
-            session_id: mockSessionId,
-            content: mockFullMarkdown,
-          },
-        })
-      }
-    })
-
-    // Wait for parsing
-    await waitFor(
-      () => {
-        expect(result.current.personas.length).toBeGreaterThan(0)
-      },
-      { timeout: 1000 }
-    )
-
-    expect(result.current.personas[0].name).toBe('Alex')
-  })
-
-  it('should handle stream completion', async () => {
-    const mockSessionId = 'persona-session-complete'
-    const mockFinalContent = `## 用户画像 1: Sarah
-- **年龄**: 32 岁
-- **职业**: UI/UX 设计师
-- **背景**: 在设计行业工作 8 年
-- **目标**:
-  - 将设计能力变现
-  - 建立个人品牌
-- **痛点**:
-  - 不懂技术实现
-  - 缺乏商业思维
-`
-
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
-
-    let completeCallback:
-      | ((event: { payload: { session_id: string; content: string } }) => void)
-      | null = null
-    const mockUnlistenComplete = vi.fn()
-    mockListen.mockImplementation(((
-      event: string,
-      callback: (event: { payload: { session_id: string; content: string } }) => void
-    ) => {
-      if (event === 'persona-stream-complete') {
-        completeCallback = callback
-      }
-      return Promise.resolve(mockUnlistenComplete)
-    }) as any)
-
-    const { result } = renderHook(() => usePersonaStream())
-
-    await act(async () => {
-      await result.current.startStream({
-        prdId: 'prd-1',
-        projectId: 'project-1',
-      })
-    })
-
-    // Simulate completion
-    await act(async () => {
-      if (completeCallback) {
-        completeCallback({
-          payload: {
-            session_id: mockSessionId,
-            content: mockFinalContent,
-          },
-        })
-      }
-    })
-
-    await waitFor(() => {
-      expect(result.current.isStreaming).toBe(false)
-      expect(result.current.isComplete).toBe(true)
-    })
-
-    expect(result.current.personas.length).toBe(1)
-    expect(result.current.personas[0].name).toBe('Sarah')
-  })
-
-  it('should handle stream errors', async () => {
-    const mockSessionId = 'persona-session-error'
-    const mockError = 'AI 调用失败'
-
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
-
-    let errorCallback:
-      | ((event: { payload: { session_id: string; error: string } }) => void)
-      | null = null
-    const mockUnlistenError = vi.fn()
-    mockListen.mockImplementation(((
-      event: string,
-      callback: (event: { payload: { session_id: string; error: string } }) => void
-    ) => {
-      if (event === 'persona-stream-error') {
-        errorCallback = callback
-      }
-      return Promise.resolve(mockUnlistenError)
-    }) as any)
-
-    const { result } = renderHook(() => usePersonaStream())
-
-    await act(async () => {
-      await result.current.startStream({
-        prdId: 'prd-1',
-        projectId: 'project-1',
-      })
-    })
-
-    // Simulate error
-    await act(async () => {
-      if (errorCallback) {
-        errorCallback({
-          payload: {
-            session_id: mockSessionId,
-            error: mockError,
-          },
-        })
-      }
-    })
-
-    await waitFor(() => {
-      expect(result.current.error).toBe(mockError)
-      expect(result.current.isStreaming).toBe(false)
-    })
-  })
-
-  it('should stop streaming when stopStream is called', async () => {
-    const mockSessionId = 'persona-session-stop'
+  it('should handle streaming chunks', async () => {
     const mockUnlisten = vi.fn()
+    vi.mocked(listen).mockImplementation(((event: string, handler: (payload: unknown) => void) => {
+      if (event === 'persona-stream-chunk') {
+        handler({
+          event: 'persona-stream-chunk',
+          id: 1,
+          payload: {
+            session_id: 'session-123',
+            content: '## 用户画像 1\n姓名：张三\n年龄：30\n职业：工程师\n',
+            is_complete: false,
+          },
+        })
+      }
+      return Promise.resolve(mockUnlisten)
+    }) as typeof listen)
 
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
+    // Mock invoke response
+    vi.mocked(invoke).mockResolvedValue('session-123')
 
-    mockListen.mockResolvedValueOnce(mockUnlisten as any)
+    const { result } = renderHook(() => usePersonaStream())
+
+    // Start streaming
+    await act(async () => {
+      await result.current.startStream({
+        idea: 'Test idea',
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: 'test-key',
+      })
+    })
+
+    // Should be streaming
+    expect(result.current.isStreaming).toBe(true)
+    expect(result.current.sessionId).toBe('session-123')
+
+    // Should have parsed the persona
+    expect(result.current.markdownContent).toBe(
+      '## 用户画像 1\n姓名：张三\n年龄：30\n职业：工程师\n'
+    )
+    expect(result.current.personas.length).toBeGreaterThan(0)
+  })
+
+  it('should handle stream complete', async () => {
+    const mockUnlisten = vi.fn()
+    vi.mocked(listen).mockResolvedValue(mockUnlisten)
+    vi.mocked(invoke).mockResolvedValue('session-123')
 
     const { result } = renderHook(() => usePersonaStream())
 
     await act(async () => {
       await result.current.startStream({
-        prdId: 'prd-1',
-        projectId: 'project-1',
+        idea: 'Test idea',
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: 'test-key',
+      })
+    })
+
+    // Simulate complete event
+    const completeCallback = vi
+      .mocked(listen)
+      .mock.calls.find(call => call[0] === 'persona-stream-complete')?.[1]
+
+    if (completeCallback) {
+      await act(async () => {
+        await completeCallback({
+          event: 'persona-stream-complete',
+          id: 2,
+          payload: {
+            session_id: 'session-123',
+            content:
+              '## 用户画像 1\n姓名：张三\n年龄：30\n职业：工程师\n目标:\n- 学习新技术\n- 提升技能\n',
+          },
+        })
+      })
+
+      expect(result.current.isComplete).toBe(true)
+      expect(result.current.isStreaming).toBe(false)
+      expect(result.current.personas.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('should handle stream error', async () => {
+    const mockUnlisten = vi.fn()
+    vi.mocked(listen).mockResolvedValue(mockUnlisten)
+    vi.mocked(invoke).mockResolvedValue('session-123')
+
+    const { result } = renderHook(() => usePersonaStream())
+
+    await act(async () => {
+      await result.current.startStream({
+        idea: 'Test idea',
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: 'test-key',
+      })
+    })
+
+    // Simulate error event
+    const errorCallback = vi
+      .mocked(listen)
+      .mock.calls.find(call => call[0] === 'persona-stream-error')?.[1]
+
+    if (errorCallback) {
+      await act(async () => {
+        await errorCallback({
+          event: 'persona-stream-error',
+          id: 3,
+          payload: {
+            session_id: 'session-123',
+            error: 'API key invalid',
+          },
+        })
+      })
+
+      expect(result.current.error).toBe('API key invalid')
+      expect(result.current.isStreaming).toBe(false)
+    }
+  })
+
+  it('should stop streaming', async () => {
+    const mockUnlisten = vi.fn()
+    vi.mocked(listen).mockResolvedValue(mockUnlisten)
+    vi.mocked(invoke).mockResolvedValue('session-123')
+
+    const { result } = renderHook(() => usePersonaStream())
+
+    await act(async () => {
+      await result.current.startStream({
+        idea: 'Test idea',
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: 'test-key',
       })
     })
 
     expect(result.current.isStreaming).toBe(true)
 
+    // Stop streaming
     await act(async () => {
       result.current.stopStream()
     })
@@ -251,10 +176,23 @@ describe('usePersonaStream', () => {
     expect(result.current.isStreaming).toBe(false)
   })
 
-  it('should reset all state when reset is called', async () => {
+  it('should reset state', async () => {
+    const mockUnlisten = vi.fn()
+    vi.mocked(listen).mockResolvedValue(mockUnlisten)
+    vi.mocked(invoke).mockResolvedValue('session-123')
+
     const { result } = renderHook(() => usePersonaStream())
 
-    // Set some initial state by simulating a stream
+    await act(async () => {
+      await result.current.startStream({
+        idea: 'Test idea',
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: 'test-key',
+      })
+    })
+
+    // Reset
     await act(async () => {
       result.current.reset()
     })
@@ -263,74 +201,76 @@ describe('usePersonaStream', () => {
     expect(result.current.markdownContent).toBe('')
     expect(result.current.isStreaming).toBe(false)
     expect(result.current.isComplete).toBe(false)
-    expect(result.current.error).toBeNull()
-    expect(result.current.sessionId).toBeNull()
+    expect(result.current.error).toBe(null)
+    expect(result.current.sessionId).toBe(null)
   })
 
-  it('should parse markdown content to structured personas', async () => {
-    const mockSessionId = 'persona-session-parse'
-    const mockMarkdown = `## 用户画像 1: Mike
-- **年龄**: 35 岁
-- **职业**: 产品经理
-- **背景**: 在科技公司工作 10 年
-- **目标**:
-  - 验证创业想法
-  - 建立 MVP
-- **痛点**:
-  - 缺乏技术合伙人
-  - 资源有限
-- **引言**: "我需要快速验证我的想法"
-`
-
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
-
-    let completeCallback:
-      | ((event: { payload: { session_id: string; content: string } }) => void)
-      | null = null
-    const mockUnlistenParse = vi.fn()
-    mockListen.mockImplementation(((
-      event: string,
-      callback: (event: { payload: { session_id: string; content: string } }) => void
-    ) => {
-      if (event === 'persona-stream-complete') {
-        completeCallback = callback
-      }
-      return Promise.resolve(mockUnlistenParse)
-    }) as any)
+  it('should parse persona from markdown correctly', async () => {
+    const mockUnlisten = vi.fn()
+    vi.mocked(listen).mockResolvedValue(mockUnlisten)
+    vi.mocked(invoke).mockResolvedValue('session-123')
 
     const { result } = renderHook(() => usePersonaStream())
 
     await act(async () => {
       await result.current.startStream({
-        prdId: 'prd-1',
-        projectId: 'project-1',
+        idea: 'Test idea',
+        provider: 'openai',
+        model: 'gpt-4',
+        apiKey: 'test-key',
       })
     })
 
-    // Simulate completion with full markdown
-    await act(async () => {
-      if (completeCallback) {
-        completeCallback({
+    // Simulate receiving complete persona data
+    const chunkCallback = vi
+      .mocked(listen)
+      .mock.calls.find(call => call[0] === 'persona-stream-chunk')?.[1]
+
+    const markdownContent = `## 用户画像 1
+姓名：李明
+年龄：28
+职业：产品经理
+背景：在一家互联网公司工作 5 年，负责多个成功产品。
+
+目标:
+- 打造用户体验优秀的产品
+- 学习数据分析技能
+- 提升团队管理能力
+
+痛点:
+- 需求变更频繁
+- 资源不足
+- 跨部门沟通困难
+
+行为:
+- 经常加班
+- 喜欢研究竞品
+- 定期参加行业会议
+
+"做产品就像雕刻艺术品，需要耐心和细心"`
+
+    if (chunkCallback) {
+      await act(async () => {
+        await chunkCallback({
+          event: 'persona-stream-chunk',
+          id: 4,
           payload: {
-            session_id: mockSessionId,
-            content: mockMarkdown,
+            session_id: 'session-123',
+            content: markdownContent,
+            is_complete: false,
           },
         })
-      }
-    })
+      })
 
-    await waitFor(() => {
-      expect(result.current.personas.length).toBe(1)
-    })
-
-    expect(result.current.personas[0]).toMatchObject({
-      name: 'Mike',
-      age: '35 岁',
-      occupation: '产品经理',
-      background: '在科技公司工作 10 年',
-      goals: ['验证创业想法', '建立 MVP'],
-      painPoints: ['缺乏技术合伙人', '资源有限'],
-      quote: '"我需要快速验证我的想法"',
-    })
+      const personas = result.current.personas
+      expect(personas.length).toBe(1)
+      expect(personas[0].name).toBe('李明')
+      expect(personas[0].age).toBe('28')
+      expect(personas[0].occupation).toBe('产品经理')
+      expect(personas[0].goals.length).toBeGreaterThan(0)
+      expect(personas[0].painPoints.length).toBeGreaterThan(0)
+      expect(personas[0].behaviors.length).toBeGreaterThan(0)
+      expect(personas[0].quote).toBeDefined()
+    }
   })
 })

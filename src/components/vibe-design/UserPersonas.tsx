@@ -4,7 +4,7 @@ import { User, Briefcase, Target, Quote, ArrowRight, ArrowLeft, RefreshCw } from
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useProjectStore, useAppStore } from '@/stores'
+import { useProjectStore, useAppStore, useAIConfigStore } from '@/stores'
 import { usePersonaStream } from '@/hooks/usePersonaStream'
 
 export function UserPersonas() {
@@ -12,6 +12,7 @@ export function UserPersonas() {
   const navigate = useNavigate()
   const { getProjectById, setProjectPersonas } = useProjectStore()
   const { setLoading } = useAppStore()
+  const aiConfigStore = useAIConfigStore()
 
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -43,9 +44,19 @@ export function UserPersonas() {
     setLoading(true, 'AI 正在生成用户画像...')
 
     try {
+      const activeConfig = aiConfigStore.getActiveConfig()
+
+      if (!activeConfig?.apiKey) {
+        console.error('[UserPersonas] No API key configured')
+        setLoading(false)
+        return
+      }
+
       await startStream({
-        prdId: projectId, // 使用 projectId 作为 prdId
-        projectId: projectId,
+        idea: project?.idea || project?.description || '',
+        provider: aiConfigStore.defaultProvider,
+        model: activeConfig.model,
+        apiKey: activeConfig.apiKey,
       })
     } catch (err) {
       console.error('[UserPersonas] Generation failed:', err)
