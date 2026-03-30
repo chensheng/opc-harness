@@ -74,6 +74,37 @@ export interface PRD {
   pricing?: string
 }
 
+// ========== PRD 迭代优化相关类型 ==========
+
+/**
+ * 用户反馈
+ */
+export interface UserFeedback {
+  version: number // 反馈对应的版本号
+  feedback: string // 反馈内容
+  timestamp: Date // 反馈时间
+}
+
+/**
+ * PRD 版本
+ */
+export interface PRDVersion {
+  version: number // 版本号（从 1 开始）
+  prd: PRD // 该版本的 PRD 内容
+  feedback?: UserFeedback // 产生该版本的反馈意见（如果有）
+  createdAt: Date // 创建时间
+  changes?: string[] // 相对于上一版本的变更说明
+}
+
+/**
+ * PRD 迭代历史
+ */
+export interface PRDIterationHistory {
+  currentVersion: number // 当前版本号
+  versions: PRDVersion[] // 所有版本列表
+  maxVersions: number // 最大保留版本数（默认 10）
+}
+
 export interface UserPersona {
   id: string
   name: string
