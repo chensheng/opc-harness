@@ -11,6 +11,7 @@ mod models;
 mod prompts;
 mod quality;
 mod services;
+mod user_preference;
 mod utils;
 pub mod agent;
 pub mod agent_protocol;
@@ -145,6 +146,11 @@ fn main() {
             commands::quality::iterate_prd,
             commands::quality::get_iteration_history,
             commands::quality::rollback_to_version,
+            // User Preference commands (US-055)
+            commands::user_preference::get_user_preferences,
+            commands::user_preference::update_user_preferences,
+            commands::user_preference::analyze_preference_from_feedback,
+            commands::user_preference::apply_preference_to_prd,
 
             // System commands
             commands::system::get_app_version,
