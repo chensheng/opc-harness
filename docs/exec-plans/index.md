@@ -36,7 +36,7 @@ exec-plans/
 
 **何时**: 任务完成后（harness:check 通过）
 
-**步骤**: [执行计划归档指引](./templates/how-to-archive-exec-plan.md))
+**步骤**: [执行计划归档指引](./templates/how-to-archive-exec-plan.md)
 
 ---
 
