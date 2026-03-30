@@ -241,7 +241,7 @@ describe('DiffViewer E2E Tests', () => {
 </html>
       `
       
-      const testFilePath = join(process.cwd(), 'test-diff-viewer.html')
+      const testFilePath = join(process.cwd(), 'e2e/test-diff-viewer.html')
       writeFileSync(testFilePath, testHTML)
       
       // 验证文件已创建
