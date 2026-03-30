@@ -10,13 +10,14 @@
 
 ```
 exec-plans/
-├── index.md              # 当前文件（使用指南）
-├── active/               # 活跃的执行计划
-├── completed/            # 已完成的执行计划
-├── templates/            # 任务类型模板库
-│   ├── how-to-create-exec-plan.md  # 创建执行计划指引
+├── index.md                          # 当前文件（使用指南）
+├── active/                           # 活跃的执行计划
+├── completed/                        # 已完成的执行计划
+├── tech-debts/                       # 技术债务
+├── templates/                        # 模板
+│   ├── how-to-create-exec-plan.md    # 创建执行计划指引
 │   └── how-to-complete-exec-plan.md  # 归档执行计划指引
-└── tech-debt-tracker.md  # 技术债务追踪
+|   └── how-to-track-tech-debt.md     # 技术债务追踪指引
 ```
 
 ---
@@ -36,3 +37,11 @@ exec-plans/
 **何时**: 任务完成后（harness:check 通过）
 
 **步骤**: [执行计划归档指引](./templates/how-to-archive-exec-plan.md))
+
+---
+
+### 追踪技术债务
+
+**何时**: 创建技术债务时
+
+**步骤**: [技术债务追踪指引](./templates/how-to-track-tech-debt.md)
