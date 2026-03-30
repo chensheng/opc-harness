@@ -134,6 +134,9 @@ fn main() {
             agent::agent_manager::get_file_diff_visual,
             agent::agent_manager::get_diff_summary,
 
+            // PRD Quality Check commands (US-050)
+            commands::quality::check_prd_quality,
+
             // System commands
             commands::system::get_app_version,
             commands::system::open_external_link,
