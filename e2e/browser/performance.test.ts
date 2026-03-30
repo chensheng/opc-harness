@@ -25,7 +25,7 @@ const TEST_CONFIG = {
 };
 
 // 测试报告存储目录
-const REPORT_DIR = join(process.cwd(), 'docs', 'testing', 'browser-reports');
+const REPORT_DIR = join(process.cwd(), 'test-results', 'browser-reports');
 
 beforeAll(async () => {
   try {

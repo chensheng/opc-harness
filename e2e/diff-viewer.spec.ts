@@ -88,7 +88,7 @@ const MOCK_MULTI_HUNK_DIFF = {
 };
 
 // 测试报告存储目录
-const REPORT_DIR = join(process.cwd(), 'docs', 'testing', 'e2e-reports')
+const REPORT_DIR = join(process.cwd(), 'test-results', 'e2e-reports')
 
 // 全局变量：开发服务器进程
 let devServer: ChildProcess | null = null

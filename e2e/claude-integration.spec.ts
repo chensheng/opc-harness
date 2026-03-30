@@ -13,7 +13,7 @@ import { writeFileSync } from 'fs'
 import { join } from 'path'
 
 // 测试报告存储目录
-const REPORT_DIR = join(process.cwd(), 'docs', 'testing', 'e2e-reports')
+const REPORT_DIR = join(process.cwd(), 'test-results', 'e2e-reports')
 
 /**
  * E2E 测试：Claude API 集成
