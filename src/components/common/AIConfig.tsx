@@ -270,9 +270,32 @@ export function AIConfig() {
                             </Badge>
                           )}
                           {streamError && (
-                            <div className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                              <X className="w-4 h-4" />
-                              {streamError}
+                            <div className="mt-2 text-sm text-red-600">
+                              <div className="font-semibold mb-1 flex items-center gap-1">
+                                <X className="w-4 h-4" />
+                                测试失败
+                              </div>
+                              <div className="break-all">{streamError}</div>
+                              {streamError.includes('401') || streamError.includes('Unauthorized') ? (
+                                <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded text-xs space-y-1">
+                                  <p className="font-semibold">认证失败，请检查：</p>
+                                  <ul className="list-disc list-inside space-y-0.5 ml-1">
+                                    <li>API Key 是否正确（包含完整字符，无空格）</li>
+                                    <li>API Key 是否已过期或被禁用</li>
+                                    <li>
+                                      <a
+                                        href="https://platform.moonshot.cn/console/api-keys"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                                      >
+                                        前往 Kimi 开放平台获取 API Key
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    </li>
+                                  </ul>
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
