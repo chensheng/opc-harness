@@ -4,7 +4,6 @@
 /// 识别项目风险并提供缓解建议
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// 风险等级
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

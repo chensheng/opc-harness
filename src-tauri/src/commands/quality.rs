@@ -5,7 +5,6 @@ use crate::quality::prd_feasibility_assessor::{PRDFeasibilityAssessor, PRDDocume
 use crate::quality::prd_iteration_manager::{
     PRDIterationManager, IterationRequest, IterationResponse, 
     CreateInitialVersionRequest, CreateInitialVersionResponse,
-    GetIterationHistoryRequest, GetIterationHistoryResponse,
     RollbackRequest, RollbackResponse,
 };
 use crate::quality::feedback_processor::{Feedback, RegenerateRequest};
@@ -423,8 +422,6 @@ mod tests_quality_checker {
 pub async fn create_initial_version(
     request: CreateInitialVersionRequest,
 ) -> Result<CreateInitialVersionResponse, String> {
-    use std::sync::{Arc, RwLock};
-    
     // 创建迭代管理器（简化实现，不使用全局状态）
     let mut manager = PRDIterationManager::new();
     let version_id = manager.create_initial_version(&request.prd_json);
@@ -439,30 +436,28 @@ pub async fn create_initial_version(
 pub async fn iterate_prd(
     request: IterationRequest,
 ) -> Result<IterationResponse, String> {
-    use std::sync::{Arc, RwLock};
     
     let mut manager = PRDIterationManager::new();
     manager.iterate_with_feedback(&request)
 }
 
 /// 获取迭代历史
-#[tauri::command]
-pub async fn get_iteration_history() -> Result<GetIterationHistoryResponse, String> {
-    // 简化实现：返回空历史
-    Ok(GetIterationHistoryResponse {
-        history: crate::quality::prd_iteration_manager::IterationHistory {
-            current_version_id: String::new(),
-            versions: Vec::new(),
-        },
-    })
-}
+// #[tauri::command]
+// pub async fn get_iteration_history() -> Result<GetIterationHistoryResponse, String> {
+//     // 简化实现：返回空历史
+//     Ok(GetIterationHistoryResponse {
+//         history: crate::quality::prd_iteration_manager::IterationHistory {
+//             current_version_id: String::new(),
+//             versions: Vec::new(),
+//         },
+//     })
+// }
 
 /// 回滚到指定版本
 #[tauri::command]
 pub async fn rollback_to_version(
     request: RollbackRequest,
 ) -> Result<RollbackResponse, String> {
-    use std::sync::{Arc, RwLock};
     
     let mut manager = PRDIterationManager::new();
     // 简化版本不支持回滚

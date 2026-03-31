@@ -2,7 +2,7 @@
 //! 
 //! 实现安全的文件修改、备份和回滚机制
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -187,7 +187,7 @@ impl CodingAgent {
 
     /// 生成代码（调用 AI 服务）
     pub async fn generate_code(&self, prompt: &str, context: Option<&str>) -> Result<CodingResult, String> {
-        use crate::ai::{AIConfig, Message, ChatRequest};
+        use crate::ai::{Message, ChatRequest};
         
         // 构建提示词
         let system_prompt = r#"You are an expert programmer. Generate clean, well-structured, production-ready code.

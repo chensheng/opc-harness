@@ -22,16 +22,15 @@ use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::agent_stdio::StdioChannelManager;
 use crate::agent::types::{AgentConfig, AgentType, AgentStatus, AgentPhase};
 use crate::agent::branch_manager::{BranchManager, BranchManagerConfig, BranchInfo, BranchOperationResult};
-use crate::agent::git_commit_assistant::{CommitType, CommitMessage, ChangeInfo, FileChangeType};
-use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, CodeReviewStatus, ReviewResult, ReviewComment, ReviewDimension, ReviewSeverity, CodeChange};
-use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig, WatchStatus, FileChangeEvent, RealtimeReviewResult};
+use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, ReviewResult, ReviewDimension, ReviewSeverity, CodeChange};
+use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig};
 use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSuiteResult};
 use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
-use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats, PerformanceAlert};
-use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse, GenerationType};
+use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats};
+use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse};
 use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, CodeSuggestion, SuggestionConfig};
-use crate::agent::mr_description_generator::{MRDescriptionGenerator, MRDescription, TestSummary, RiskLevel};
-use crate::agent::code_change_tracker::{CodeChangeTracker, ChangeSummary, ChangeStatistics, FileChange, ChangeType};
+use crate::agent::mr_description_generator::{MRDescriptionGenerator, MRDescription};
+use crate::agent::code_change_tracker::{CodeChangeTracker, ChangeSummary, ChangeStatistics};
 use crate::agent::code_diff_visualizer::{CodeDiffVisualizer, FileDiff, DiffSummary as VisualDiffSummary};
 
 use crate::db;
@@ -720,7 +719,7 @@ pub async fn run_initializer_agent(
     project_path: String,
     prd_content: String,
 ) -> Result<crate::agent::initializer_agent::InitializerResult, String> {
-    use crate::agent::initializer_agent::{InitializerAgent, InitializerAgentConfig};
+    use crate::agent::initializer_agent::InitializerAgentConfig;
     use uuid::Uuid;
     
     let manager = state.read().await;

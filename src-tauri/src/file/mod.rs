@@ -13,5 +13,3 @@ pub mod backup;
 pub mod file_applier;
 
 // 重新导出主要类型
-pub use backup::BackupManager;
-pub use file_applier::{FileApplier, FileApplyResult, BatchApplyResult, ChangeType, DiffStats};

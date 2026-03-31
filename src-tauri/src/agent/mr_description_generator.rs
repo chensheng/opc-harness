@@ -3,8 +3,8 @@
 //! 负责分析合并后的代码变更，生成结构化的 Merge Request 描述文档
 
 use serde::{Deserialize, Serialize};
-use crate::agent::code_change_tracker::{ChangeStatistics, ChangeType};
-use std::path::{Path, PathBuf};
+use crate::agent::code_change_tracker::ChangeStatistics;
+use std::path::PathBuf;
 use tokio::process::Command;
 
 /// MR 描述信息

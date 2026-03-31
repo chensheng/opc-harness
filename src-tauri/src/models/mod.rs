@@ -121,7 +121,6 @@ pub struct Milestone {
 // ==================== Entity Trait Implementations ====================
 
 use crate::db::Entity;
-use rusqlite::types::ToSql;
 use rusqlite::Row;
 
 impl Entity for Project {

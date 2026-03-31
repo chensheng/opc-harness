@@ -1,7 +1,6 @@
 /// 用户偏好相关 Tauri Commands
 
 use crate::user_preference::manager::{UserPreferenceManager, Feedback, PreferenceModel};
-use serde::{Deserialize, Serialize};
 
 /// 获取用户偏好
 #[tauri::command]

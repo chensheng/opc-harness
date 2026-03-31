@@ -7,9 +7,8 @@
 use notify::{Config, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher, EventKind};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::{self, Sender, Receiver};
 use tokio::time::{Duration, sleep};
 use tokio::sync::Mutex;

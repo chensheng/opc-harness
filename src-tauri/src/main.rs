@@ -76,13 +76,13 @@ fn main() {
             // GLM API commands (AI-004)
             commands::ai::chat_glm,
             commands::ai::stream_chat_glm,
-            // CLI commands
-            commands::cli::detect_tools,
-            commands::cli::create_cli_session,
-            commands::cli::send_cli_prompt,
-            commands::cli::read_cli_output,
-            commands::cli::stop_cli_session,
-            commands::cli::check_environment,
+            // CLI commands - 暂时注释（尚未实现）
+            // commands::cli::detect_tools,
+            // commands::cli::create_cli_session,
+            // commands::cli::send_cli_prompt,
+            // commands::cli::read_cli_output,
+            // commands::cli::stop_cli_session,
+            // commands::cli::check_environment,
             // Database commands
             commands::database::create_project,
             commands::database::get_all_projects,
@@ -162,7 +162,7 @@ fn main() {
             // PRD Iteration Optimization commands (US-053)
             commands::quality::create_initial_version,
             commands::quality::iterate_prd,
-            commands::quality::get_iteration_history,
+            // commands::quality::get_iteration_history,  // 暂时注释（尚未实现）
             commands::quality::rollback_to_version,
             // Streaming Output commands (US-048)
             commands::ai::stream_generate_prd,

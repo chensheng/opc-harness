@@ -1,10 +1,8 @@
 //! Debug Agent 实现
 //! 
-//! 负责分析编译错误、运行时错误和测试失败，使用 AI 生成诊断报告和修复建议
+//! 负责分析编译错误、运行时错误和测试失败，用 AI 生成诊断报告和修复建议
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use tokio::process::Command;
 
 /// 错误类型枚举
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

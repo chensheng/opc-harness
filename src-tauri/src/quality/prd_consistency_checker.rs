@@ -4,7 +4,6 @@
 /// 检测不同章节之间的矛盾和不一致之处
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// 不一致性类型
 #[derive(Debug, Clone, Serialize, Deserialize)]

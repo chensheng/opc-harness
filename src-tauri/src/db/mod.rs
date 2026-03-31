@@ -784,7 +784,6 @@ pub fn delete_issue(conn: &Connection, id: &str) -> Result<()> {
 
 // ==================== Generic CRUD Repository (简化版) ====================
 
-use rusqlite::types::ToSql;
 use std::marker::PhantomData;
 
 /// 实体 Trait - 所有数据库模型的基类 Trait

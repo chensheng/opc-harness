@@ -5,9 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::time::{SystemTime, Duration};
 use tokio::process::Command;
-use tokio::io::AsyncBufReadExt;
 use regex::Regex;
 
 /// 测试状态枚举
