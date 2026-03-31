@@ -82,7 +82,7 @@ export function useAIStream(): UseAIStreamReturn {
         unlistenRef.current.push(unlistenChunk)
 
         // 监听完成事件
-        const unlistenComplete = await listen<StreamComplete>('ai-stream-complete', (_event) => {
+        const unlistenComplete = await listen<StreamComplete>('ai-stream-complete', _event => {
           setIsComplete(true)
           setIsLoading(false)
           isStreamingRef.current = false
@@ -91,7 +91,7 @@ export function useAIStream(): UseAIStreamReturn {
         unlistenRef.current.push(unlistenComplete)
 
         // 监听错误事件
-        const unlistenError = await listen<StreamError>('ai-stream-error', (event) => {
+        const unlistenError = await listen<StreamError>('ai-stream-error', event => {
           setError(event.payload.error)
           setIsLoading(false)
           isStreamingRef.current = false
