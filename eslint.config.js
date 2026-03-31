@@ -3,6 +3,7 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import eslintConfigPrettier from 'eslint-config-prettier'
 import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
@@ -38,5 +39,7 @@ export default tseslint.config(
       'architecture/ui-component-purity': 'error',
       'architecture/store-api-check': 'error',
     },
-  }
+  },
+  // Prettier 配置必须放在最后，用于禁用所有与 Prettier 冲突的 ESLint 规则
+  eslintConfigPrettier
 )
