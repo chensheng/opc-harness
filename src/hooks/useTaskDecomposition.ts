@@ -36,11 +36,9 @@ export function useTaskDecomposition(): UseTaskDecompositionReturn {
     setError(null)
 
     try {
-      const request: DecomposeTasksRequest = {
+      const response = await invoke<DecomposeTasksResponse>('decompose_tasks', {
         analysis,
-      }
-
-      const response = await invoke<DecomposeTasksResponse>('decompose_tasks', request)
+      })
 
       if (response.success) {
         setTaskGraph(response.taskGraph)

@@ -1173,7 +1173,7 @@ pub async fn stop_suggestions(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
     session_id: String,
 ) -> Result<(), String> {
-    let mut manager = state.write().await;
+    let _manager = state.write().await;
     
     // 停止建议（简化实现）
     log::info!("代码建议已停止 for session {}", session_id);

@@ -31,12 +31,10 @@ export function usePRDAnalysis(): UsePRDAnalysisReturn {
     setError(null)
 
     try {
-      const request: AnalyzePRDDepthRequest = {
+      const response = await invoke<AnalyzePRDDepthResponse>('analyze_prd_depth', {
         prdContent,
         apiKey,
-      }
-
-      const response = await invoke<AnalyzePRDDepthResponse>('analyze_prd_depth', request)
+      })
 
       if (response.success) {
         setAnalysis(response.analysis)

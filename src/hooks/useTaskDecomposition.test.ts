@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { useTaskDecomposition } from './useTaskDecomposition'
 import type { PrdAnalysis } from '../types'
+import { FeatureType } from '../types'
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -30,7 +31,7 @@ describe('useTaskDecomposition', () => {
           id: 'F001',
           name: '用户管理',
           description: '用户 CRUD 操作',
-          featureType: 'core',
+          featureType: FeatureType.CORE,
           complexity: 3,
           estimatedHours: 6,
           priority: 8,

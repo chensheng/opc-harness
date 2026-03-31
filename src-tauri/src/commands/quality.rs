@@ -8,7 +8,7 @@ use crate::quality::prd_iteration_manager::{
     GetIterationHistoryRequest, GetIterationHistoryResponse,
     RollbackRequest, RollbackResponse,
 };
-use crate::quality::feedback_processor::{FeedbackProcessor, FeedbackRequest as ProcessorFeedbackRequest};
+use crate::quality::feedback_processor::{Feedback, RegenerateRequest};
 use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityChecker, PRDQualityReport};
 use crate::quality::prd_deep_analyzer::{PrdDeepAnalyzer, PrdAnalysis};
 use crate::quality::task_decomposer::{TaskDecomposer, TaskDependencyGraph};
@@ -378,6 +378,44 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod tests_quality_checker {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_prd() {
+        let markdown = r#"
+# 产品标题
+测试产品
+
+# 产品概述
+这是一个测试产品
+
+# 目标用户
+- 用户 A
+- 用户 B
+
+# 核心功能
+- 功能 1
+- 功能 2
+- 功能 3
+
+# 技术栈
+- React
+- Rust
+
+# 预估工作量
+2 周
+"#;
+
+        let prd = parse_markdown_to_quality_prd(markdown);
+        assert_eq!(prd.title, Some("测试产品".to_string()));
+        assert_eq!(prd.overview, Some("这是一个测试产品".to_string()));
+        assert!(prd.target_users.is_some());
+        assert_eq!(prd.target_users.as_ref().unwrap().len(), 2);
+    }
+}
+
 // ==================== PRD Iteration Commands (US-053) ====================
 
 /// 创建初始版本
@@ -433,10 +471,6 @@ pub async fn rollback_to_version(
 
 // ==================== PRD Feedback Commands (US-053) ====================
 
-use crate::quality::feedback_processor::{
-    PRDFeedbackProcessor, Feedback, RegenerateRequest,
-};
-
 /// 提交反馈并重新生成请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubmitFeedbackRequest {
@@ -474,6 +508,8 @@ pub struct SubmitFeedbackResponse {
 pub async fn submit_feedback_and_regenerate(
     request: SubmitFeedbackRequest,
 ) -> Result<SubmitFeedbackResponse, String> {
+    use crate::quality::feedback_processor::PRDFeedbackProcessor;
+    
     // 创建反馈处理器
     let processor = PRDFeedbackProcessor::new();
     

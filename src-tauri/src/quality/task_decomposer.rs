@@ -182,7 +182,7 @@ impl TaskDependencyGraph {
         }
         
         visited.insert(task_id.clone());
-        path.push(task_id);
+        path.push(task_id.clone());
         
         // 查找依赖当前任务的所有任务
         for edge in &self.edges {
