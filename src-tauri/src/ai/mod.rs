@@ -482,12 +482,22 @@ impl AIProvider {
             
             // 使用 Anthropic Claude 兼容 API
             let url = "https://api.kimi.com/coding/messages".to_string();
+            
+            // Kimi Coding 可能需要特定的模型名称
+            let coding_model_name = if request.model == "kimi-code" {
+                "kimi-for-coding"  // 根据官方文档，Kimi Coding API 使用的模型名称
+            } else {
+                &request.model
+            };
+            
             let body = serde_json::json!({
-                "model": request.model,
+                "model": coding_model_name,
                 "messages": messages,
                 "max_tokens": request.max_tokens.unwrap_or(2048),
                 "temperature": request.temperature.unwrap_or(0.7),
             });
+
+            log::info!("Sending Kimi Coding chat request to: {} with model: {}", url, coding_model_name);
 
             let response = self.client
                 .post(&url)
@@ -502,6 +512,7 @@ impl AIProvider {
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_default();
+                log::error!("Kimi Coding API error ({}): {}", status, error_text);
                 return Err(AIError {
                     message: format!("Kimi Coding API error ({}): {}", status, error_text),
                 });
@@ -555,14 +566,26 @@ impl AIProvider {
             messages.extend(request.messages);
             
             // 使用 Anthropic Claude 兼容流式 API
+            // 注意：Kimi Coding API 可能需要特殊的模型名称格式
             let url = "https://api.kimi.com/coding/messages".to_string();
+            
+            // Kimi Coding 可能需要特定的模型名称
+            let coding_model_name = if request.model == "kimi-code" {
+                "kimi-for-coding"  // 根据官方文档，Kimi Coding API 使用的模型名称
+            } else {
+                &request.model
+            };
+            
             let body = serde_json::json!({
-                "model": request.model,
+                "model": coding_model_name,
                 "messages": messages,
                 "max_tokens": request.max_tokens.unwrap_or(2048),
                 "temperature": request.temperature.unwrap_or(0.7),
                 "stream": true,
             });
+
+            log::info!("Sending Kimi Coding stream request to: {} with model: {}", url, coding_model_name);
+            log::debug!("Request body: {:?}", body);
 
             let response = self.client
                 .post(&url)
@@ -572,11 +595,26 @@ impl AIProvider {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| AIError { message: e.to_string() })?;
+                .map_err(|e| {
+                    log::error!("Kimi Coding stream request failed: {}", e);
+                    AIError { message: e.to_string() }
+                })?;
 
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_default();
+                log::error!("Kimi Coding stream API error ({}): {}", status, error_text);
+                
+                // 如果是 404，提示用户可能不支持流式
+                if status.as_u16() == 404 {
+                    return Err(AIError {
+                        message: format!(
+                            "Kimi Coding API 未找到 ({}): {}\n\n提示：Kimi Coding 可能不支持流式输出，请尝试使用非流式调用。\n使用的模型：{}\nBase URL: https://api.kimi.com/coding/",
+                            status, error_text, coding_model_name
+                        ),
+                    });
+                }
+                
                 return Err(AIError {
                     message: format!("Kimi Coding stream API error ({}): {}", status, error_text),
                 });
