@@ -23,6 +23,12 @@ pub mod websocket;
 pub use error::{AppError, AppResult, ErrorCode};
 
 fn main() {
+    // 初始化日志记录
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp(None)
+        .format_target(false)
+        .init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

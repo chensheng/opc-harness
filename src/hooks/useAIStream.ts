@@ -77,14 +77,12 @@ export function useAIStream(): UseAIStreamReturn {
       try {
         // 监听流式数据块事件
         const unlistenChunk = await listen<StreamChunk>('ai-stream-chunk', event => {
-          console.log('[useAIStream] Received chunk:', event.payload.content.length, 'chars')
           setContent(prev => prev + event.payload.content)
         })
         unlistenRef.current.push(unlistenChunk)
 
         // 监听完成事件
         const unlistenComplete = await listen<StreamComplete>('ai-stream-complete', event => {
-          console.log('[useAIStream] Stream complete:', event.payload.session_id)
           setIsComplete(true)
           setIsLoading(false)
           isStreamingRef.current = false
@@ -94,7 +92,6 @@ export function useAIStream(): UseAIStreamReturn {
 
         // 监听错误事件
         const unlistenError = await listen<StreamError>('ai-stream-error', event => {
-          console.error('[useAIStream] Stream error:', event.payload.error)
           setError(event.payload.error)
           setIsLoading(false)
           isStreamingRef.current = false

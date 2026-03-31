@@ -319,7 +319,7 @@ impl AIProvider {
             // 解析 SSE 数据
             let text = String::from_utf8_lossy(&chunk);
             for line in text.lines() {
-                if let Some(data) = line.strip_prefix("data: ") {
+                if let Some(data) = line.strip_prefix("data:") {
                     if data.trim() == "[DONE]" {
                         log::info!("OpenAI stream completed");
                         break;
@@ -709,7 +709,7 @@ impl AIProvider {
                 for line in text.lines() {
                     log::trace!("Processing line: {}", line);
                     
-                    if let Some(data) = line.strip_prefix("data: ") {
+                    if let Some(data) = line.strip_prefix("data:") {
                         log::trace!("Found data prefix: {}", data);
                         
                         if data.trim() == "[DONE]" {
