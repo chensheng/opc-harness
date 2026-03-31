@@ -689,9 +689,17 @@ impl AIProvider {
 
             use futures::StreamExt;
             let mut chunk_count = 0;
+            let mut parse_error_count = 0;
+            let mut no_data_count = 0;
+            let mut sent_chunk_count = 0;
+            
+            log::info!("Starting to process Kimi Coding stream...");
             
             while let Some(chunk_result) = stream.next().await {
-                let chunk = chunk_result.map_err(|e| AIError { message: e.to_string() })?;
+                let chunk = chunk_result.map_err(|e| {
+                    log::error!("Stream chunk read error: {}", e);
+                    AIError { message: e.to_string() }
+                })?;
                 let text = String::from_utf8_lossy(&chunk);
                 chunk_count += 1;
                 
@@ -705,37 +713,67 @@ impl AIProvider {
                         log::trace!("Found data prefix: {}", data);
                         
                         if data.trim() == "[DONE]" {
-                            log::info!("Stream completed");
+                            log::info!("Stream completed marker received");
                             break;
                         }
                         
-                        if let Ok(event) = serde_json::from_str::<serde_json::Value>(data) {
-                            log::trace!("Parsed event: {:?}", event);
-                            
-                            if let Some(content_block) = event.get("content_block") {
-                                log::trace!("Found content_block: {:?}", content_block);
-                                if let Some(text) = content_block.get("text").and_then(|t| t.as_str()) {
-                                    log::debug!("Extracted text from content_block: {}", text);
-                                    full_content.push_str(text);
-                                    on_chunk(text.to_string())?;
+                        match serde_json::from_str::<serde_json::Value>(data) {
+                            Ok(event) => {
+                                log::trace!("Parsed event: {:?}", event);
+                                
+                                // 尝试从 content_block 提取
+                                if let Some(content_block) = event.get("content_block") {
+                                    log::debug!("Found content_block: {:?}", content_block);
+                                    if let Some(text) = content_block.get("text").and_then(|t| t.as_str()) {
+                                        log::info!("Extracted text from content_block: {} chars", text.len());
+                                        full_content.push_str(text);
+                                        on_chunk(text.to_string())?;
+                                        sent_chunk_count += 1;
+                                        log::debug!("Sent chunk #{} to callback", sent_chunk_count);
+                                    } else {
+                                        log::warn!("content_block has no text field: {:?}", content_block);
+                                    }
+                                }
+                                
+                                // 尝试从 delta 提取
+                                if let Some(delta) = event.get("delta") {
+                                    log::trace!("Found delta: {:?}", delta);
+                                    if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
+                                        log::info!("Extracted text from delta: {} chars", text.len());
+                                        full_content.push_str(text);
+                                        on_chunk(text.to_string())?;
+                                        sent_chunk_count += 1;
+                                        log::debug!("Sent chunk #{} to callback", sent_chunk_count);
+                                    } else {
+                                        log::trace!("delta has no text field: {:?}", delta);
+                                    }
+                                }
+                                
+                                // 如果没有找到任何内容，记录整个事件以便调试
+                                if event.get("content_block").is_none() && event.get("delta").is_none() {
+                                    log::warn!("Event has neither content_block nor delta: {:?}", event);
+                                    no_data_count += 1;
                                 }
                             }
-                            if let Some(delta) = event.get("delta") {
-                                log::trace!("Found delta: {:?}", delta);
-                                if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
-                                    log::debug!("Extracted text from delta: {}", text);
-                                    full_content.push_str(text);
-                                    on_chunk(text.to_string())?;
-                                }
+                            Err(e) => {
+                                log::error!("Failed to parse JSON: {}. Data: {}", e, data);
+                                parse_error_count += 1;
                             }
-                        } else {
-                            log::warn!("Failed to parse JSON: {}", data);
                         }
+                    } else {
+                        log::trace!("Line does not start with 'data: ': {}", line);
                     }
                 }
             }
             
-            log::info!("Stream finished. Total chunks: {}, Final content length: {}", chunk_count, full_content.len());
+            log::info!(
+                "Stream finished. Total chunks: {}, Final content length: {}, Parse errors: {}, No-data events: {}, Sent chunks: {}", 
+                chunk_count, 
+                full_content.len(), 
+                parse_error_count, 
+                no_data_count,
+                sent_chunk_count
+            );
 
             Ok(full_content)
         } else {
