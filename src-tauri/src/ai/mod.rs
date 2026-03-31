@@ -1127,7 +1127,8 @@ mod tests {
         
         // Kimi 支持的模型列表
         let models = vec![
-            "kimi-k2",
+            "kimi-k2",         // kimi2.5
+            "kimi-code",       // kimi code
             "kimi-k2-0711", 
             "moonshot-v1-8k",
             "moonshot-v1-32k",

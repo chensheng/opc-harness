@@ -135,7 +135,12 @@ impl AISmartRouter {
             ProviderInfo {
                 provider_type: AIProviderType::Kimi,
                 name: "Kimi".to_string(),
-                models: vec!["moonshot-v1-8k".to_string(), "moonshot-v1-32k".to_string()],
+                models: vec![
+                    "kimi-k2".to_string(),       // kimi2.5
+                    "kimi-code".to_string(),     // kimi code
+                    "moonshot-v1-8k".to_string(),
+                    "moonshot-v1-32k".to_string(),
+                ],
                 cost_level: 2,
                 performance_level: 2,
                 quality_level: 2,
