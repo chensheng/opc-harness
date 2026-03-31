@@ -43,7 +43,7 @@ describe('usePRDFeedback', () => {
       success: true,
     }
 
-    ;(invoke as any).mockResolvedValueOnce(mockResponse)
+    vi.mocked(invoke).mockResolvedValueOnce(mockResponse)
 
     const { result } = renderHook(() => usePRDFeedback(mockPrdId))
 
@@ -75,7 +75,7 @@ describe('usePRDFeedback', () => {
 
   it('should handle feedback submission error', async () => {
     const mockError = new Error('评估失败')
-    ;(invoke as any).mockRejectedValueOnce(mockError)
+    vi.mocked(invoke).mockRejectedValueOnce(mockError)
 
     const { result } = renderHook(() => usePRDFeedback(mockPrdId))
 
@@ -99,7 +99,7 @@ describe('usePRDFeedback', () => {
       success: true,
     }
 
-    ;(invoke as any).mockResolvedValueOnce(mockResponse)
+    vi.mocked(invoke).mockResolvedValueOnce(mockResponse)
 
     const { result } = renderHook(() => usePRDFeedback(mockPrdId))
 
@@ -125,7 +125,7 @@ describe('usePRDFeedback', () => {
 
   it('should clear error correctly', async () => {
     const mockError = new Error('测试错误')
-    ;(invoke as any).mockRejectedValueOnce(mockError)
+    vi.mocked(invoke).mockRejectedValueOnce(mockError)
 
     const { result } = renderHook(() => usePRDFeedback(mockPrdId))
 
@@ -162,7 +162,9 @@ describe('usePRDFeedback', () => {
       },
     ]
 
-    ;(invoke as any).mockResolvedValueOnce(mockResponses[0]).mockResolvedValueOnce(mockResponses[1])
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(mockResponses[0])
+      .mockResolvedValueOnce(mockResponses[1])
 
     const { result } = renderHook(() => usePRDFeedback(mockPrdId))
 
