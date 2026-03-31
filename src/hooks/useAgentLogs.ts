@@ -71,12 +71,13 @@ export function useAgentLogs(options: UseAgentLogsOptions): UseAgentLogsReturn {
     onMessage: useCallback(
       (message: WebSocketMessage) => {
         if (message.type === 'log' && message.topic === 'agent-logs') {
+          const payload = message.payload as { level?: string; message?: string; source?: string }
           const logEntry: LogEntry = {
             id: `${message.timestamp}-${Math.random()}`,
             timestamp: message.timestamp || Date.now(),
-            level: message.payload?.level || LogLevel.INFO,
-            message: message.payload?.message || '',
-            source: message.payload?.source,
+            level: (payload.level as LogLevel) || LogLevel.INFO,
+            message: payload.message || '',
+            source: payload.source,
           }
 
           if (!paused) {
