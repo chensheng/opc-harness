@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_realtime_review_result_structure() {
-        use crate::agent::code_review_agent::{ReviewResult, ReviewComment, ReviewDimension, ReviewSeverity};
+        use crate::agent::code_review_agent::ReviewResult;  // 只导入使用的 ReviewResult
 
         let review_result = ReviewResult::new(
             vec![],

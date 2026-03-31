@@ -1440,14 +1440,14 @@ mod tests {
     fn test_kimi_models() {
         let provider = AIProvider::new(AIProviderType::Kimi, "test-key".to_string());
         
-        // Kimi 支持的模型列表
-        let models = vec![
-            "kimi-k2",
-            "kimi-k2-0711", 
-            "moonshot-v1-8k",
-            "moonshot-v1-32k",
-            "moonshot-v1-128k",
-        ];
+        // Kimi 支持的模型列表（已注释未使用的变量）
+        // let models = vec![
+        //     "kimi-k2",
+        //     "kimi-k2-0711", 
+        //     "moonshot-v1-8k",
+        //     "moonshot-v1-32k",
+        //     "moonshot-v1-128k",
+        // ];
         
         // 验证 provider 已就绪（有 API key）
         // 实际验证需要网络请求，这里只检查 provider 类型

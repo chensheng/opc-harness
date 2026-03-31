@@ -633,8 +633,6 @@ mod tests {
 
     #[test]
     fn test_mr_description_generation() {
-        use std::path::PathBuf;
-        
         // 测试 MR 描述生成的逻辑（不实际调用 git）
         let title_single = "Merge branch 'feature/test'";
         let title_multi = "Merge 3 feature branches";
@@ -676,11 +674,7 @@ mod tests {
 
     #[test]
     fn test_regression_test_detection() {
-        use std::path::PathBuf;
-        
         // 测试项目类型检测逻辑
-        let package_json = PathBuf::from("package.json");
-        let cargo_toml = PathBuf::from("Cargo.toml");
         
         // 模拟检测逻辑
         let is_node_project = true; // 假设 package.json 存在

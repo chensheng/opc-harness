@@ -892,7 +892,7 @@ thread 'test_foo' panicked at 'assertion failed', src/lib.rs:10:5
             error_output: "test".to_string(),
         };
 
-        let agent = DebugAgent::new(config);
+        let _agent = DebugAgent::new(config);  // 添加下划线前缀
         // 注意：这里不实际调用 diagnose_error，因为它是 async 且需要 AI API
         // 我们只测试数据结构
         assert_eq!(error.error_type, ErrorType::SyntaxError);

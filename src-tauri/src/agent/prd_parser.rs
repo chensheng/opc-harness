@@ -313,7 +313,7 @@ impl PRDParser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::messages::{Issue, Priority};
+    use crate::agent::messages::Priority;
 
     #[test]
     fn test_prd_parser_creation() {
@@ -327,7 +327,7 @@ mod tests {
             use_streaming: false,
         };
         
-        let parser = PRDParser::new(config);
+        let _parser = PRDParser::new(config);
         
         // 验证解析器创建成功
         assert!(true);
