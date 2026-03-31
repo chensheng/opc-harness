@@ -472,6 +472,13 @@ impl AIProvider {
         
         if is_coding_model {
             log::info!("Using Kimi Coding (Anthropic-compatible) API for model: {}", request.model);
+            
+            // 检查 API Key 格式
+            let api_key = self.get_auth_header().1;
+            if !api_key.starts_with("sk-kimi-") {
+                log::warn!("Kimi Coding API Key 格式可能不正确。期望以 'sk-kimi-' 开头，实际：{}", api_key);
+            }
+            
             // 构建系统消息
             let mut messages = Vec::new();
             messages.push(Message {
@@ -498,6 +505,11 @@ impl AIProvider {
             });
 
             log::info!("Sending Kimi Coding chat request to: {} with model: {}", url, coding_model_name);
+            log::debug!("Request headers:");
+            log::debug!("  Authorization: ***");
+            log::debug!("  anthropic-version: 2023-06-01");
+            log::debug!("  Content-Type: application/json");
+            log::debug!("Request body: {:?}", body);
 
             let response = self.client
                 .post(&url)
@@ -507,14 +519,39 @@ impl AIProvider {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| AIError { message: e.to_string() })?;
+                .map_err(|e| {
+                    log::error!("Kimi Coding request failed: {}", e);
+                    AIError { message: e.to_string() }
+                })?;
 
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_default();
                 log::error!("Kimi Coding API error ({}): {}", status, error_text);
+                
+                // 提供更详细的错误提示
+                let error_message = if status.as_u16() == 404 {
+                    format!(
+                        "Kimi Coding API 未找到 (404)\n\n\
+                         可能的原因:\n\
+                         1. API Key 格式不正确（需要以 'sk-kimi-' 开头）\n\
+                         2. API Key 不是 Kimi Coding 专用的（需要在会员页面生成）\n\
+                         3. 使用了普通的 Moonshot API Key\n\n\
+                         当前配置:\n\
+                         - Base URL: https://api.kimi.com/coding/\n\
+                         - 模型：{}\n\
+                         - API Key 前缀：{}\n\n\
+                         API 响应：{}",
+                        coding_model_name,
+                        if api_key.starts_with("sk-kimi-") { "sk-kimi-..." } else { &api_key[..8.min(api_key.len())] },
+                        error_text
+                    )
+                } else {
+                    format!("Kimi Coding API error ({}): {}", status, error_text)
+                };
+                
                 return Err(AIError {
-                    message: format!("Kimi Coding API error ({}): {}", status, error_text),
+                    message: error_message,
                 });
             }
 
@@ -557,6 +594,13 @@ impl AIProvider {
         
         if is_coding_model {
             log::info!("Using Kimi Coding (Anthropic-compatible) streaming API for model: {}", request.model);
+            
+            // 检查 API Key 格式
+            let api_key = self.get_auth_header().1;
+            if !api_key.starts_with("sk-kimi-") {
+                log::warn!("Kimi Coding API Key 格式可能不正确。期望以 'sk-kimi-' 开头，实际：{}", api_key);
+            }
+            
             // 构建系统消息
             let mut messages = Vec::new();
             messages.push(Message {
@@ -585,6 +629,10 @@ impl AIProvider {
             });
 
             log::info!("Sending Kimi Coding stream request to: {} with model: {}", url, coding_model_name);
+            log::debug!("Request headers:");
+            log::debug!("  Authorization: ***");
+            log::debug!("  anthropic-version: 2023-06-01");
+            log::debug!("  Content-Type: application/json");
             log::debug!("Request body: {:?}", body);
 
             let response = self.client
@@ -605,12 +653,24 @@ impl AIProvider {
                 let error_text = response.text().await.unwrap_or_default();
                 log::error!("Kimi Coding stream API error ({}): {}", status, error_text);
                 
-                // 如果是 404，提示用户可能不支持流式
+                // 如果是 404，提示用户可能不支持流式或 API Key 不正确
                 if status.as_u16() == 404 {
                     return Err(AIError {
                         message: format!(
-                            "Kimi Coding API 未找到 ({}): {}\n\n提示：Kimi Coding 可能不支持流式输出，请尝试使用非流式调用。\n使用的模型：{}\nBase URL: https://api.kimi.com/coding/",
-                            status, error_text, coding_model_name
+                            "Kimi Coding API 未找到 (404)\n\n\
+                             可能的原因:\n\
+                             1. API Key 格式不正确（需要以 'sk-kimi-' 开头）\n\
+                             2. API Key 不是 Kimi Coding 专用的（需要在会员页面生成）\n\
+                             3. 使用了普通的 Moonshot API Key\n\
+                             4. Kimi Coding 可能不支持流式输出\n\n\
+                             当前配置:\n\
+                             - Base URL: https://api.kimi.com/coding/\n\
+                             - 模型：{}\n\
+                             - API Key 前缀：{}\n\n\
+                             API 响应：{}",
+                            coding_model_name,
+                            if api_key.starts_with("sk-kimi-") { "sk-kimi-..." } else { &api_key[..8.min(api_key.len())] },
+                            error_text
                         ),
                     });
                 }
