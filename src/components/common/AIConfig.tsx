@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Play,
   Square,
+  Send,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -18,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAIConfigStore } from '@/stores'
 import { useAIStream } from '@/hooks/useAIStream'
 import { Textarea } from '@/components/ui/textarea'
+import { invoke } from '@tauri-apps/api/core'
 
 export function AIConfig() {
   const { providers, setConfig, removeConfig, getConfig } = useAIConfigStore()
@@ -41,6 +43,12 @@ export function AIConfig() {
     stopStream,
     reset: resetStream,
   } = useAIStream()
+
+  // 非流式测试状态
+  const [nonStreamTesting, setNonStreamTesting] = useState<string | null>(null)
+  const [nonStreamResponse, setNonStreamResponse] = useState<Record<string, string>>({})
+  const [nonStreamLoading, setNonStreamLoading] = useState(false)
+  const [nonStreamError, setNonStreamError] = useState<string | null>(null)
 
   const handleKeyChange = (providerId: string, value: string) => {
     setTempKeys(prev => ({ ...prev, [providerId]: value }))
@@ -111,6 +119,60 @@ export function AIConfig() {
       } catch (err) {
         console.error('[AIConfig] Test stream error:', err)
       }
+    }
+  }
+
+  const handleTestNonStream = async (providerId: string) => {
+    setNonStreamTesting(providerId)
+    setNonStreamLoading(true)
+    setNonStreamError(null)
+    setNonStreamResponse(prev => ({ ...prev, [providerId]: '' }))
+
+    const config = getConfig(providerId)
+    if (!config) return
+
+    try {
+      // 根据 provider 类型调用不同的命令
+      let command = ''
+      switch (providerId) {
+        case 'openai':
+          command = 'chat_openai'
+          break
+        case 'anthropic':
+          command = 'chat_anthropic'
+          break
+        case 'kimi':
+          command = 'chat_kimi'
+          break
+        case 'glm':
+          command = 'chat_glm'
+          break
+        default:
+          throw new Error(`不支持的 provider: ${providerId}`)
+      }
+
+      const response = await invoke<any>(command, {
+        request: {
+          provider: providerId,
+          model: config.model,
+          api_key: config.apiKey,
+          messages: [{ role: 'user', content: testMessage }],
+          temperature: 0.7,
+          max_tokens: 2048,
+        },
+      })
+
+      setNonStreamResponse(prev => ({
+        ...prev,
+        [providerId]: response.content || JSON.stringify(response),
+      }))
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '请求失败'
+      console.error('[AIConfig] Non-stream test error:', err)
+      setNonStreamError(errorMessage)
+    } finally {
+      setNonStreamLoading(false)
+      setNonStreamTesting(null)
     }
   }
 
@@ -255,24 +317,45 @@ export function AIConfig() {
                           rows={2}
                         />
 
-                        <Button
-                          onClick={() => handleTestStream(provider.id)}
-                          disabled={isStreaming && !isTesting}
-                          variant={isTesting ? 'destructive' : 'default'}
-                          size="sm"
-                        >
-                          {isTesting ? (
-                            <>
-                              <Square className="w-4 h-4 mr-2" />
-                              停止
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 mr-2" />
-                              测试流式
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleTestStream(provider.id)}
+                            disabled={isStreaming && !isTesting}
+                            variant={isTesting ? 'destructive' : 'default'}
+                            size="sm"
+                          >
+                            {isTesting ? (
+                              <>
+                                <Square className="w-4 h-4 mr-2" />
+                                停止
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-4 h-4 mr-2" />
+                                测试流式
+                              </>
+                            )}
+                          </Button>
+
+                          <Button
+                            onClick={() => handleTestNonStream(provider.id)}
+                            disabled={nonStreamLoading || nonStreamTesting === provider.id}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {nonStreamTesting === provider.id ? (
+                              <>
+                                <Send className="w-4 h-4 mr-2 animate-spin" />
+                                请求中...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="w-4 h-4 mr-2" />
+                                测试非流式
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
 
                       {/* 流式输出显示 */}
@@ -296,29 +379,38 @@ export function AIConfig() {
                             <div className="mt-2 text-sm text-red-600">
                               <div className="font-semibold mb-1 flex items-center gap-1">
                                 <X className="w-4 h-4" />
-                                测试失败
+                                错误
                               </div>
-                              <div className="break-all">{streamError}</div>
-                              {streamError.includes('401') || streamError.includes('Unauthorized') ? (
-                                <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded text-xs space-y-1">
-                                  <p className="font-semibold">认证失败，请检查：</p>
-                                  <ul className="list-disc list-inside space-y-0.5 ml-1">
-                                    <li>API Key 是否正确（包含完整字符，无空格）</li>
-                                    <li>API Key 是否已过期或被禁用</li>
-                                    <li>
-                                      <a
-                                        href="https://platform.moonshot.cn/console/api-keys"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
-                                      >
-                                        前往 Kimi 开放平台获取 API Key
-                                        <ExternalLink className="w-3 h-3" />
-                                      </a>
-                                    </li>
-                                  </ul>
-                                </div>
-                              ) : null}
+                              <div className="font-mono text-xs">{streamError}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 非流式输出显示 */}
+                      {(nonStreamTesting === provider.id || nonStreamResponse[provider.id]) && (
+                        <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
+                          {nonStreamLoading && nonStreamTesting === provider.id && (
+                            <div className="mb-2 text-xs text-muted-foreground animate-pulse">
+                              AI 正在思考中...
+                            </div>
+                          )}
+                          <div className="text-sm whitespace-pre-wrap">
+                            {nonStreamResponse[provider.id] || '等待响应...'}
+                          </div>
+                          {!nonStreamLoading && nonStreamResponse[provider.id] && (
+                            <Badge className="mt-2 bg-green-500">
+                              <Check className="w-3 h-3 mr-1" />
+                              完成
+                            </Badge>
+                          )}
+                          {nonStreamError && nonStreamTesting === provider.id && (
+                            <div className="mt-2 text-sm text-red-600">
+                              <div className="font-semibold mb-1 flex items-center gap-1">
+                                <X className="w-4 h-4" />
+                                错误
+                              </div>
+                              <div className="font-mono text-xs">{nonStreamError}</div>
                             </div>
                           )}
                         </div>
