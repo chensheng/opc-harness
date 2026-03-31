@@ -261,9 +261,10 @@ pub async fn stream_chat(
 
     log::info!("[stream_chat] Calling provider.stream_chat...");
 
-    // 创建会话感知的 chunk 处理器
+    // 4. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
     let app_clone = app.clone();
+    // let mut full_content = String::new();  // 已注释未使用的变量
     let chunk_handler = move |chunk: String| -> Result<(), crate::ai::AIError> {
         let stream_chunk = StreamChunk {
             session_id: session_id_clone.clone(),
@@ -391,7 +392,7 @@ pub async fn stream_generate_prd(
     // 4. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
     let app_clone = app.clone();
-    let mut full_content = String::new();
+
     
     let chunk_handler = move |chunk: String| -> Result<(), crate::ai::AIError> {
         let stream_chunk = StreamChunk {

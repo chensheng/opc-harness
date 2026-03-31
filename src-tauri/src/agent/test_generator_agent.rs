@@ -301,7 +301,7 @@ impl TestGeneratorAgent {
         }
         
         // 生成测试文件内容
-        let test_content = self.generate_test_content(&test_cases).await?;
+        let _test_content = self.generate_test_content(&test_cases).await?;
         
         // 确定测试文件路径
         let test_file_path = self.get_test_file_path(&analysis.file_path);
@@ -376,7 +376,7 @@ impl TestGeneratorAgent {
     }
 
     /// 运行测试验证（占位符）
-    async fn run_tests(&self, test_files: &[TestFile]) -> Result<(), String> {
+    async fn run_tests(&self, _test_files: &[TestFile]) -> Result<(), String> {
         // TODO: 实现测试运行逻辑
         // 1. 安装测试依赖
         // 2. 运行测试命令

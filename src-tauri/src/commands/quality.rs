@@ -456,10 +456,10 @@ pub async fn iterate_prd(
 /// 回滚到指定版本
 #[tauri::command]
 pub async fn rollback_to_version(
-    request: RollbackRequest,
+    _request: RollbackRequest,  // 添加下划线前缀
 ) -> Result<RollbackResponse, String> {
     
-    let mut manager = PRDIterationManager::new();
+    // let mut manager = PRDIterationManager::new();  // 已注释未使用的变量
     // 简化版本不支持回滚
     Err("简化版本不支持回滚".to_string())
 }

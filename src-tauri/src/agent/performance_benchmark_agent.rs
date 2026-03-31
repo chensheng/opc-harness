@@ -463,7 +463,7 @@ impl PerformanceBenchmarkAgent {
     }
 
     /// 保存基线数据
-    pub async fn save_baseline(&self, report: &BenchmarkReport) -> Result<(), String> {
+    pub async fn save_baseline(&self, _report: &BenchmarkReport) -> Result<(), String> {
         // 简化实现：记录日志
         // 实际应该保存到 .harness/benchmarks/baseline.json
         log::info!("基线数据已保存（模拟实现）");

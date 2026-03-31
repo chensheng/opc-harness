@@ -149,7 +149,7 @@ impl PRDFeedbackProcessor {
     pub fn identify_affected_sections(
         &self,
         feedback: &ParsedFeedback,
-        prd_structure: &PRDStructure,
+        _prd_structure: &PRDStructure,
     ) -> Vec<String> {
         let mut affected_sections = Vec::new();
         

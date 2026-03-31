@@ -209,11 +209,11 @@ impl PrdDeepAnalyzer {
     }
 
     /// 使用 AI 执行深度分析（完整实现）
-    pub async fn analyze_with_ai(&self, prd_content: &str, api_key: &str) -> Result<PrdAnalysis, Box<dyn std::error::Error>> {
+    pub async fn analyze_with_ai(&self, _prd_content: &str, _api_key: &str) -> Result<PrdAnalysis, Box<dyn std::error::Error>> {
         // TODO: 调用 Claude API 进行深度分析
         // 这将在后续实现
         
-        self.analyze(prd_content).await
+        self.analyze(_prd_content).await  // 临时实现，忽略参数
     }
 }
 

@@ -286,7 +286,7 @@ impl CodeReviewAgent {
     }
 
     /// 分析代码（通用入口）
-    async fn analyze_code(&self, code: &str, language: &str) -> Result<Vec<ReviewComment>, String> {
+    async fn analyze_code(&self, code: &str, _language: &str) -> Result<Vec<ReviewComment>, String> {
         let mut comments = Vec::new();
 
         // 根据审查维度执行检查

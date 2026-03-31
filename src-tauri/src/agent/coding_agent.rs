@@ -294,7 +294,7 @@ Follow best practices and coding standards. Include appropriate comments and doc
     }
 
     /// 执行代码质量检查
-    pub async fn run_quality_check(&self, file_path: &str) -> Result<QualityCheckResult, String> {
+    pub async fn run_quality_check(&self, _file_path: &str) -> Result<QualityCheckResult, String> {
         // TODO: 集成真实的 ESLint 和 TypeScript 检查
         // 这里实现基础框架
         

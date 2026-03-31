@@ -830,7 +830,7 @@ pub async fn run_debug_agent(
 #[tauri::command]
 pub async fn generate_commit_message(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     project_path: String,
     use_ai: bool,
     include_file_list: bool,
@@ -861,7 +861,7 @@ pub async fn generate_commit_message(
 #[tauri::command]
 pub async fn create_feature_branch(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     issue_id: String,
     description: String,
 ) -> Result<BranchOperationResult, String> {
@@ -882,7 +882,7 @@ pub async fn create_feature_branch(
 #[tauri::command]
 pub async fn checkout_branch(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     branch_name: String,
 ) -> Result<BranchOperationResult, String> {
     let manager = state.read().await;
@@ -895,7 +895,7 @@ pub async fn checkout_branch(
 #[tauri::command]
 pub async fn delete_branch(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     branch_name: String,
     force: bool,
 ) -> Result<BranchOperationResult, String> {
@@ -909,7 +909,7 @@ pub async fn delete_branch(
 #[tauri::command]
 pub async fn list_branches(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
 ) -> Result<Vec<BranchInfo>, String> {
     let manager = state.read().await;
     let branch_manager = manager.get_branch_manager().await;
@@ -921,7 +921,7 @@ pub async fn list_branches(
 #[tauri::command]
 pub async fn get_current_branch(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
 ) -> Result<Option<String>, String> {
     let manager = state.read().await;
     let branch_manager = manager.get_branch_manager().await;

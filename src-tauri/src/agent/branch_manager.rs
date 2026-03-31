@@ -178,7 +178,7 @@ impl BranchManager {
         &mut self,
         description: &str,
         issue_id: Option<&str>,
-        base_branch: Option<&str>,
+        _base_branch: Option<&str>,
     ) -> Result<BranchOperationResult, String> {
         let branch_name = self.generate_branch_name(BranchType::Feature, description, issue_id);
         

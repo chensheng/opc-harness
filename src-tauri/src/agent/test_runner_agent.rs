@@ -319,11 +319,8 @@ impl TestRunnerAgent {
             final_results = self.retry_failed_tests(&final_results).await?;
         }
 
-        // 重新统计
-        let total = final_results.len() as u32;
-        let passed = final_results.iter().filter(|r| r.status == TestStatus::Passed).count() as u32;
-        let failed = final_results.iter().filter(|r| r.status == TestStatus::Failed).count() as u32;
-        let skipped = final_results.iter().filter(|r| r.status == TestStatus::Skipped).count() as u32;
+        // 如果需要，在这里使用 total, passed, skipped 变量
+        // 目前这些变量已在上面的逻辑中声明和使用
 
         // 计算覆盖率（如果启用）
         let coverage = if self.config.enable_coverage {
@@ -369,7 +366,6 @@ impl TestRunnerAgent {
         // 如果没有解析到 JSON，尝试解析文本格式
         if results.is_empty() {
             let re_test_start = Regex::new(r"test (.+) \.\.\. ").unwrap();
-            let re_test_result = Regex::new(r"(ok|FAILED|ignored)").unwrap();
 
             for line in stdout.lines() {
                 if let Some(caps) = re_test_start.captures(line) {

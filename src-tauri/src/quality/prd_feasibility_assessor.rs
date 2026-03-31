@@ -260,7 +260,6 @@ impl PRDFeasibilityAssessor {
     /// 资源需求评估
     fn assess_resource_requirements(&self, prd: &PRDDocument) -> ResourceAssessment {
         let features = prd.core_features.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
-        let effort = prd.estimated_effort.as_deref().unwrap_or("");
 
         // 计算所需人力（基于功能数量）
         let avg_feature_complexity = 2.0; // 每个功能平均 2 人天
