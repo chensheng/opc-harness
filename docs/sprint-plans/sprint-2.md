@@ -105,21 +105,9 @@
 
 | 类型 | 用户故事 | 任务 ID | 优先级 | 状态 | 验收标准 |
 |------|---------|--------|--------|------|---------|
-| User Story | 作为系统，我希望检查 PRD 的完整性，以便发现遗漏的需求 | US-050 | P1 | ✅ 已完成 | PRDQualityChecker Rust 后端实现
-       - ✅ check_prd_quality Tauri Command
-       - ✅ usePRDQualityCheck Hook
-       - ✅ PRDQualityCheckPanel 组件
-       - ✅ Rust 测试覆盖（7 个测试用例）
-       - ✅ TS 测试覆盖（15 个测试用例）
-       - ✅ Health Score = 100/100
-| User Story | 作为系统，我希望验证 PRD 的一致性，以便发现矛盾的需求 | US-051 | P1 | ✅ 已完成 | PRDConsistencyChecker Rust 后端实现
-       - ✅ check_prd_consistency Tauri Command
-       - ✅ usePRDConsistencyCheck Hook
-       - ✅ PRDConsistencyCheckPanel 组件
-       - ✅ Rust 测试覆盖（7 个测试用例）
-       - ✅ TS 测试覆盖（6 个测试用例）
-       - ✅ Health Score = 100/100
-| User Story | 作为系统，我希望评估 PRD 的可行性，以便提前识别风险 | US-052 | P1 | 📋 待开始 | 可行性评估报告完整 |
+| User Story | 作为系统，我希望检查 PRD 的完整性，以便发现遗漏的需求 | US-050 | P1 | ✅ 已完成 | PRDQualityChecker Rust 后端实现|
+| User Story | 作为系统，我希望验证 PRD 的一致性，以便发现矛盾的需求 | US-051 | P1 | ✅ 已完成 | PRDConsistencyChecker Rust 后端实现|
+| User Story | 作为系统，我希望评估 PRD 的可行性，以便提前识别风险 | US-052 | P1 | ✅ 已完成 | PRDFeasibilityAssessor Rust 后端实现|
 
 ### Feature-01.7: 迭代优化
 
@@ -371,7 +359,14 @@
        - ✅ Rust 测试覆盖（7 个测试用例）
        - ✅ TS 测试覆盖（6 个测试用例）
        - ✅ Health Score = 100/100
-     * US-052: PRD 可行性评估 📋 待开始
+     * US-052: PRD 可行性评估 ✅ 已完成
+       - ✅ PRDFeasibilityAssessor Rust 后端实现
+       - ✅ assess_prd_feasibility Tauri Command
+       - ✅ usePRDFeasibilityCheck Hook
+       - ✅ PRDFeasibilityCheckPanel 组件
+       - ✅ Rust 测试覆盖（9 个测试用例）
+       - ✅ TS 测试覆盖（6 个测试用例）
+       - ✅ Health Score = 100/100
    - 迭代优化流程
      * US-053: 反馈和重新生成 📋 待开始
      * US-054: 历史版本查看 📋 待开始
