@@ -137,13 +137,31 @@ impl AISmartRouter {
                 name: "Kimi".to_string(),
                 models: vec![
                     "kimi-k2".to_string(),       // kimi2.5
-                    "kimi-code".to_string(),     // kimi code
+                    "kimi-k2-0711".to_string(),  // k2 早期版本
                     "moonshot-v1-8k".to_string(),
                     "moonshot-v1-32k".to_string(),
+                    "moonshot-v1-128k".to_string(),
                 ],
                 cost_level: 2,
                 performance_level: 2,
                 quality_level: 2,
+                health_status: ProviderHealthStatus::default(),
+                is_enabled: true,
+            },
+        );
+        
+        // Kimi Code (编程专用)
+        self.providers.insert(
+            AIProviderType::KimiCode,
+            ProviderInfo {
+                provider_type: AIProviderType::KimiCode,
+                name: "Kimi Code".to_string(),
+                models: vec![
+                    "kimi-for-coding".to_string(),  // Kimi Code 专用模型
+                ],
+                cost_level: 2,
+                performance_level: 2,
+                quality_level: 3,  // 代码能力更强
                 health_status: ProviderHealthStatus::default(),
                 is_enabled: true,
             },
