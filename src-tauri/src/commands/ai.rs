@@ -222,6 +222,12 @@ pub async fn stream_chat(
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     let session_id = Uuid::new_v4().to_string();
+    
+    log::info!("[stream_chat] ====== 开始流式调用 ======");
+    log::info!("[stream_chat] Provider: {}, Model: {}", request.provider, request.model);
+    log::info!("[stream_chat] API Key prefix: {}", &request.api_key[..8.min(request.api_key.len())]);
+    log::info!("[stream_chat] Messages count: {}", request.messages.len());
+    
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -229,6 +235,8 @@ pub async fn stream_chat(
         "glm" => AIProviderType::GLM,
         _ => return Err("Unsupported provider".to_string()),
     };
+
+    log::info!("[stream_chat] Provider type resolved: {:?}", provider_type);
 
     let provider = AIProvider::new(provider_type, request.api_key.clone());
 
@@ -241,13 +249,17 @@ pub async fn stream_chat(
         })
         .collect();
 
+    log::info!("[stream_chat] Messages converted successfully");
+
     let chat_request = ChatRequest {
-        model: request.model,
+        model: request.model.clone(),
         messages,
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: true,
     };
+
+    log::info!("[stream_chat] Calling provider.stream_chat...");
 
     // 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
