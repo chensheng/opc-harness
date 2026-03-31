@@ -304,3 +304,76 @@ export interface CheckpointResponse {
   modifications?: Modification[]
   feedback?: string
 }
+
+/**
+ * US-060: 自定义可视化样式类型定义
+ */
+
+/**
+ * 主题模式
+ */
+export type ThemeMode = 'light' | 'dark'
+
+/**
+ * 配色方案
+ */
+export type ColorScheme = 'blue' | 'green' | 'purple' | 'orange'
+
+/**
+ * 字体大小
+ */
+export type FontSize = 'small' | 'medium' | 'large'
+
+/**
+ * 卡片圆角
+ */
+export type CardRadius = 'none' | 'small' | 'medium' | 'large'
+
+/**
+ * 卡片阴影
+ */
+export type CardShadow = 'none' | 'small' | 'medium' | 'large'
+
+/**
+ * 主题配置接口
+ */
+export interface ThemeConfig {
+  /** 主题模式 */
+  mode: ThemeMode
+  /** 配色方案 */
+  colorScheme: ColorScheme
+  /** 字体大小 */
+  fontSize: FontSize
+  /** 卡片圆角 */
+  cardRadius: CardRadius
+  /** 卡片阴影 */
+  cardShadow: CardShadow
+}
+
+/**
+ * 主题上下文值
+ */
+export interface ThemeContextValue {
+  /** 当前主题配置 */
+  theme: ThemeConfig
+  /** 设置主题 */
+  setTheme: (theme: Partial<ThemeConfig>) => void
+  /** 重置主题 */
+  resetTheme: () => void
+}
+
+/**
+ * 默认主题配置
+ */
+export const DEFAULT_THEME: ThemeConfig = {
+  mode: 'light',
+  colorScheme: 'blue',
+  fontSize: 'medium',
+  cardRadius: 'medium',
+  cardShadow: 'medium',
+}
+
+/**
+ * 主题存储键名
+ */
+export const THEME_STORAGE_KEY = 'harness-theme-preferences'
