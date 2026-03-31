@@ -69,7 +69,7 @@ describe('usePRDAnalysis', () => {
   })
 
   it('should handle analysis error', async () => {
-    ;(invoke as any).mockResolvedValue({
+    (invoke as any).mockResolvedValue({
       success: false,
       analysis: {
         features: [],
@@ -103,7 +103,7 @@ describe('usePRDAnalysis', () => {
   })
 
   it('should handle invoke exception', async () => {
-    ;(invoke as any).mockRejectedValue(new Error('Network error'))
+    (invoke as any).mockRejectedValue(new Error('Network error'))
 
     const { result } = renderHook(() => usePRDAnalysis())
 
