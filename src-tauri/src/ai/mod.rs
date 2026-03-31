@@ -467,8 +467,27 @@ impl AIProvider {
     }
 
     async fn chat_kimi(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
-        // Kimi uses OpenAI-compatible API
-        self.chat_openai(request).await
+        // Kimi uses OpenAI-compatible API，需要添加特定的 system prompt
+        let mut messages = Vec::new();
+        
+        // 添加 Kimi 官方的 system prompt
+        messages.push(Message {
+            role: "system".to_string(),
+            content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
+        });
+        
+        // 添加用户的消息
+        messages.extend(request.messages);
+        
+        let kimi_request = ChatRequest {
+            model: request.model,
+            messages,
+            temperature: request.temperature,
+            max_tokens: request.max_tokens,
+            stream: false,
+        };
+        
+        self.chat_openai(kimi_request).await
     }
 
     async fn stream_chat_kimi<F>(
@@ -479,8 +498,27 @@ impl AIProvider {
     where
         F: FnMut(String) -> Result<(), AIError>,
     {
-        // Kimi uses OpenAI-compatible API
-        self.stream_chat_openai(request, on_chunk).await
+        // Kimi uses OpenAI-compatible API，需要添加特定的 system prompt
+        let mut messages = Vec::new();
+        
+        // 添加 Kimi 官方的 system prompt
+        messages.push(Message {
+            role: "system".to_string(),
+            content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
+        });
+        
+        // 添加用户的消息
+        messages.extend(request.messages);
+        
+        let kimi_request = ChatRequest {
+            model: request.model,
+            messages,
+            temperature: request.temperature,
+            max_tokens: request.max_tokens,
+            stream: true,
+        };
+        
+        self.stream_chat_openai(kimi_request, on_chunk).await
     }
 
     async fn chat_glm(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
