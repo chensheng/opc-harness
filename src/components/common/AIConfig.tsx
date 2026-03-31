@@ -21,6 +21,11 @@ import { useAIStream } from '@/hooks/useAIStream'
 import { Textarea } from '@/components/ui/textarea'
 import { invoke } from '@tauri-apps/api/core'
 
+interface AIResponse {
+  content?: string
+  [key: string]: unknown
+}
+
 export function AIConfig() {
   const { providers, setConfig, removeConfig, getConfig } = useAIConfigStore()
 
@@ -151,7 +156,7 @@ export function AIConfig() {
           throw new Error(`不支持的 provider: ${providerId}`)
       }
 
-      const response = await invoke<any>(command, {
+      const response = await invoke<AIResponse>(command, {
         request: {
           provider: providerId,
           model: config.model,
@@ -273,17 +278,17 @@ export function AIConfig() {
                             {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
                           </span>
                         </div>
-                        
+
                         {/* 模型选择 */}
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">当前模型:</span>
                           <select
                             value={existingConfig.model}
-                            onChange={(e) => {
+                            onChange={e => {
                               setConfig(provider.id, {
                                 ...existingConfig,
                                 model: e.target.value,
-                              });
+                              })
                             }}
                             className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
                           >
