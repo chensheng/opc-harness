@@ -5,3 +5,4 @@ pub mod prd_feasibility_assessor;
 pub mod prd_iteration_manager;
 pub mod feedback_processor;
 pub mod prd_deep_analyzer;
+pub mod task_decomposer;

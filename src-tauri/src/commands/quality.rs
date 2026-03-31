@@ -11,6 +11,7 @@ use crate::quality::prd_iteration_manager::{
 use crate::quality::feedback_processor::{FeedbackProcessor, FeedbackRequest as ProcessorFeedbackRequest};
 use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityChecker, PRDQualityReport};
 use crate::quality::prd_deep_analyzer::{PrdDeepAnalyzer, PrdAnalysis};
+use crate::quality::task_decomposer::{TaskDecomposer, TaskDependencyGraph};
 use serde::{Deserialize, Serialize};
 
 /// PRD 一致性检查请求
@@ -663,5 +664,99 @@ mod tests {
         let response = result.unwrap();
         assert!(response.success);
         assert!(response.analysis.estimates.total_features > 0);
+    }
+}
+
+// ============================================================================
+// US-032: 任务分解命令
+// ============================================================================
+
+/// 任务分解请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecomposeTasksRequest {
+    /// PRD 分析结果（功能列表）
+    pub analysis: PrdAnalysis,
+}
+
+/// 任务分解响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecomposeTasksResponse {
+    /// 是否成功
+    pub success: bool,
+    /// 任务依赖图
+    pub task_graph: TaskDependencyGraph,
+    /// 错误消息
+    pub error_message: Option<String>,
+}
+
+/// 分解任务
+#[tauri::command]
+pub async fn decompose_tasks(request: DecomposeTasksRequest) -> Result<DecomposeTasksResponse, String> {
+    log::info!("Starting task decomposition...");
+    
+    let decomposer = TaskDecomposer::new();
+    
+    match decomposer.decompose_features(&request.analysis.features).await {
+        Ok(mut task_graph) => {
+            log::info!("Task decomposition completed. Generated {} tasks", task_graph.statistics.total_tasks);
+            
+            Ok(DecomposeTasksResponse {
+                success: true,
+                task_graph,
+                error_message: None,
+            })
+        }
+        Err(e) => {
+            log::error!("Task decomposition failed: {}", e);
+            
+            Ok(DecomposeTasksResponse {
+                success: false,
+                task_graph: TaskDependencyGraph::empty(),
+                error_message: Some(e.to_string()),
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_us032 {
+    use super::*;
+    use crate::quality::prd_deep_analyzer::{Feature, FeatureType, PrdAnalysis, Estimates};
+
+    #[tokio::test]
+    async fn test_decompose_tasks_basic() {
+        let analysis = PrdAnalysis {
+            features: vec![
+                Feature {
+                    id: "F001".to_string(),
+                    name: "用户管理".to_string(),
+                    description: "用户 CRUD 操作".to_string(),
+                    feature_type: FeatureType::Core,
+                    complexity: 3,
+                    estimated_hours: 6.0,
+                    priority: 8,
+                    dependencies: vec![],
+                }
+            ],
+            dependencies: vec![],
+            risks: vec![],
+            estimates: Estimates {
+                total_features: 1,
+                core_features: 1,
+                auxiliary_features: 0,
+                enhanced_features: 0,
+                average_complexity: 3.0,
+                total_estimated_hours: 6.0,
+                high_risks_count: 0,
+            },
+        };
+        
+        let request = DecomposeTasksRequest { analysis };
+        let result = decompose_tasks(request).await;
+        assert!(result.is_ok());
+        
+        let response = result.unwrap();
+        assert!(response.success);
+        assert!(response.task_graph.statistics.total_tasks > 0);
     }
 }

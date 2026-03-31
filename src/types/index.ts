@@ -379,6 +379,66 @@ export const DEFAULT_THEME: ThemeConfig = {
 export const THEME_STORAGE_KEY = 'harness-theme-preferences'
 
 /**
+ * US-032: 任务分解相关类型
+ */
+export enum TaskType {
+  FRONTEND = 'frontend',
+  BACKEND = 'backend',
+  DATABASE = 'database',
+  TESTING = 'testing',
+  DOCUMENTATION = 'documentation',
+  DEPLOYMENT = 'deployment',
+}
+
+export interface TechnicalTask {
+  id: string
+  title: string
+  description: string
+  taskType: TaskType
+  estimatedHours: number
+  dependencies: string[]
+  priority: number
+  featureId: string
+  complexity: number
+  skills: string[]
+}
+
+export interface DependencyEdge {
+  fromTask: string
+  toTask: string
+  dependencyType: string
+  strength: string
+}
+
+export interface TaskStatistics {
+  totalTasks: number
+  frontendTasks: number
+  backendTasks: number
+  databaseTasks: number
+  testingTasks: number
+  averageHours: number
+  averageComplexity: number
+}
+
+export interface TaskDependencyGraph {
+  tasks: TechnicalTask[]
+  edges: DependencyEdge[]
+  criticalPath: string[]
+  totalEstimatedHours: number
+  statistics: TaskStatistics
+}
+
+export interface DecomposeTasksRequest {
+  analysis: PrdAnalysis
+}
+
+export interface DecomposeTasksResponse {
+  success: boolean
+  taskGraph: TaskDependencyGraph
+  errorMessage?: string
+}
+
+/**
  * PRD 深度分析相关类型
  */
 export enum FeatureType {
