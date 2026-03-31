@@ -488,8 +488,8 @@ impl AIProvider {
     }
 
     async fn chat_kimi_code(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
-        // Kimi Code uses Anthropic-compatible API format
-        self.chat_anthropic(request).await
+        // Kimi Code uses OpenAI-compatible API with different base_url
+        self.chat_openai(request).await
     }
 
     async fn stream_chat_kimi_code<F>(
@@ -500,8 +500,8 @@ impl AIProvider {
     where
         F: FnMut(String) -> Result<(), AIError>,
     {
-        // Kimi Code uses Anthropic-compatible API format
-        self.stream_chat_anthropic(request, on_chunk).await
+        // Kimi Code uses OpenAI-compatible API format (same as regular Kimi)
+        self.stream_chat_openai(request, on_chunk).await
     }
 
     async fn chat_glm(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
