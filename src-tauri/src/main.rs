@@ -146,6 +146,8 @@ fn main() {
             commands::quality::iterate_prd,
             commands::quality::get_iteration_history,
             commands::quality::rollback_to_version,
+            // Streaming Output commands (US-048)
+            commands::ai::stream_generate_prd,
             // User Preference commands (US-055)
             commands::user_preference::get_user_preferences,
             commands::user_preference::update_user_preferences,
