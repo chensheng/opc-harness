@@ -377,3 +377,74 @@ export const DEFAULT_THEME: ThemeConfig = {
  * 主题存储键名
  */
 export const THEME_STORAGE_KEY = 'harness-theme-preferences'
+
+/**
+ * PRD 深度分析相关类型
+ */
+export enum FeatureType {
+  CORE = 'core',
+  AUXILIARY = 'auxiliary',
+  ENHANCED = 'enhanced',
+}
+
+export enum RiskLevel {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+export interface Feature {
+  id: string
+  name: string
+  description: string
+  featureType: FeatureType
+  complexity: number
+  estimatedHours: number
+  priority: number
+  dependencies: string[]
+}
+
+export interface Dependency {
+  fromFeature: string
+  toFeature: string
+  dependencyType: string
+  strength: string
+}
+
+export interface Risk {
+  id: string
+  description: string
+  level: RiskLevel
+  impact: string
+  mitigation?: string
+  relatedFeatures: string[]
+}
+
+export interface Estimates {
+  totalFeatures: number
+  coreFeatures: number
+  auxiliaryFeatures: number
+  enhancedFeatures: number
+  averageComplexity: number
+  totalEstimatedHours: number
+  highRisksCount: number
+}
+
+export interface PrdAnalysis {
+  features: Feature[]
+  dependencies: Dependency[]
+  risks: Risk[]
+  estimates: Estimates
+}
+
+export interface AnalyzePRDDepthRequest {
+  prdContent: string
+  apiKey?: string
+}
+
+export interface AnalyzePRDDepthResponse {
+  success: boolean
+  analysis: PrdAnalysis
+  errorMessage?: string
+}
