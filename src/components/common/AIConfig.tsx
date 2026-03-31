@@ -115,6 +115,12 @@ export function AIConfig() {
       if (!config) return
 
       try {
+        console.log('[AIConfig] Starting stream test:', {
+          provider: providerId,
+          model: config.model,
+          apiKeyPrefix: config.apiKey.substring(0, 8),
+        })
+
         await startStream({
           provider: providerId,
           model: config.model,
@@ -122,7 +128,11 @@ export function AIConfig() {
           messages: [{ role: 'user', content: testMessage }],
         })
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : '未知错误'
         console.error('[AIConfig] Test stream error:', err)
+        alert(
+          `流式测试失败：${errorMessage}\n\n请检查:\n1. API Key 格式是否正确\n2. API Key 是否有访问权限\n3. 网络连接是否正常`
+        )
       }
     }
   }
@@ -231,6 +241,26 @@ export function AIConfig() {
                     ))}
                   </div>
                 </div>
+
+                {/* Kimi 特别提示 */}
+                {provider.id === 'kimi' && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                    <p className="text-xs text-blue-800 font-medium">⚠️ Kimi Code 使用须知：</p>
+                    <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                      <li>
+                        Kimi Code 需要专用的 API Key，格式：
+                        <code className="bg-blue-100 px-1 rounded">sk-kimi-xxxxx</code>
+                      </li>
+                      <li>
+                        普通 Moonshot API Key（以{' '}
+                        <code className="bg-blue-100 px-1 rounded">sk-</code> 开头）无法用于 Kimi
+                        Code
+                      </li>
+                      <li>需要在 Kimi 会员页面生成专用的 Coding API Key</li>
+                      <li>如果使用非 Code 模型（如 kimi-k1.5），可以使用普通 API Key</li>
+                    </ul>
+                  </div>
+                )}
 
                 {/* API Key Input */}
                 {!isConfigured ? (
