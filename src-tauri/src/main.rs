@@ -15,6 +15,7 @@ mod user_preference;
 mod utils;
 pub mod agent;
 pub mod agent_protocol;
+pub mod websocket;
 
 // 导出统一错误类型
 pub use error::{AppError, AppResult, ErrorCode};
