@@ -45,6 +45,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     name: '月之暗面 (Kimi)',
     baseUrl: 'https://api.moonshot.cn/v1',
     models: [
+      { id: 'kimi-code', name: 'Kimi Code', maxTokens: 256000 },
       { id: 'kimi-k1.5', name: 'Kimi K1.5', maxTokens: 256000 },
       { id: 'kimi-k1', name: 'Kimi K1', maxTokens: 128000 },
     ],

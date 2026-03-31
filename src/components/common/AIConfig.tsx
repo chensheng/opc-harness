@@ -204,11 +204,17 @@ export function AIConfig() {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Key className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-mono">
-                          {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
-                        </span>
+                      <div className="space-y-2 w-full">
+                        <div className="flex items-center gap-2">
+                          <Key className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm font-mono">
+                            {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>当前模型:</span>
+                          <Badge variant="secondary">{existingConfig.model}</Badge>
+                        </div>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
                         <X className="w-4 h-4 mr-2" />
