@@ -31,7 +31,7 @@ export const StreamingDisplay: React.FC<StreamingDisplayProps> = ({
   onComplete,
   onError,
 }) => {
-  const { isStreaming, content, progress, error, startStream, stopStream, reset } = useStreaming()
+  const { isStreaming, content, progress, error, startStream, stopStream } = useStreaming()
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevContentRef = useRef('')
 
@@ -72,10 +72,6 @@ export const StreamingDisplay: React.FC<StreamingDisplayProps> = ({
 
   const handleManualStop = () => {
     stopStream()
-  }
-
-  const handleReset = () => {
-    reset()
   }
 
   return (

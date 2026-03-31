@@ -1,22 +1,15 @@
 /**
  * 流式输出展示组件测试
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { StreamingDisplay } from './StreamingDisplay'
 
 // Mock useStreaming hook
+const mockUseStreaming = vi.fn()
 vi.mock('../hooks/useStreaming', () => ({
-  useStreaming: () => ({
-    isStreaming: false,
-    content: '',
-    progress: 0,
-    error: null,
-    startStream: vi.fn(),
-    stopStream: vi.fn(),
-    reset: vi.fn(),
-  }),
+  useStreaming: () => mockUseStreaming(),
 }))
 
 describe('StreamingDisplay', () => {
@@ -32,6 +25,15 @@ describe('StreamingDisplay', () => {
   })
 
   it('should render initial state', () => {
+    mockUseStreaming.mockReturnValue({
+      isStreaming: false,
+      content: '',
+      progress: 0,
+      error: null,
+      startStream: vi.fn(),
+      stopStream: vi.fn(),
+    })
+
     render(<StreamingDisplay {...mockProps} />)
 
     expect(screen.getByText('AI 流式输出')).toBeInTheDocument()
@@ -41,14 +43,13 @@ describe('StreamingDisplay', () => {
 
   it('should show loading state when streaming', async () => {
     // Mock streaming state
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: true,
       content: '',
       progress: 50,
       error: null,
       startStream: vi.fn(),
       stopStream: vi.fn(),
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} />)
@@ -60,33 +61,31 @@ describe('StreamingDisplay', () => {
 
   it('should display streamed content', () => {
     // Mock content state
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: false,
       content: 'This is the generated content',
       progress: 100,
       error: null,
       startStream: vi.fn(),
       stopStream: vi.fn(),
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} />)
 
     expect(screen.getByText(/This is the generated content/)).toBeInTheDocument()
     expect(screen.getByText('生成完成')).toBeInTheDocument()
-    expect(screen.getByText('31 字符')).toBeInTheDocument()
+    expect(screen.getByText('29 字符')).toBeInTheDocument()
   })
 
   it('should show error state', () => {
     // Mock error state
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: false,
       content: '',
       progress: 0,
       error: 'Network error occurred',
       startStream: vi.fn(),
       stopStream: vi.fn(),
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} />)
@@ -98,14 +97,13 @@ describe('StreamingDisplay', () => {
   it('should call startStream when regenerate button clicked', async () => {
     const mockStartStream = vi.fn()
 
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: false,
       content: '',
       progress: 0,
       error: null,
       startStream: mockStartStream,
       stopStream: vi.fn(),
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} />)
@@ -119,14 +117,13 @@ describe('StreamingDisplay', () => {
   it('should call stopStream when stop button clicked', async () => {
     const mockStopStream = vi.fn()
 
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: true,
       content: 'Generating...',
       progress: 50,
       error: null,
       startStream: vi.fn(),
       stopStream: mockStopStream,
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} />)
@@ -140,14 +137,13 @@ describe('StreamingDisplay', () => {
   it('should call onComplete when streaming finishes', () => {
     const mockOnComplete = vi.fn()
 
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: false,
       content: 'Completed content',
       progress: 100,
       error: null,
       startStream: vi.fn(),
       stopStream: vi.fn(),
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} onComplete={mockOnComplete} />)
@@ -158,14 +154,13 @@ describe('StreamingDisplay', () => {
   it('should call onError when error occurs', () => {
     const mockOnError = vi.fn()
 
-    vi.mocked(require('../hooks/useStreaming').useStreaming).mockReturnValue({
+    mockUseStreaming.mockReturnValue({
       isStreaming: false,
       content: '',
       progress: 0,
       error: 'Test error',
       startStream: vi.fn(),
       stopStream: vi.fn(),
-      reset: vi.fn(),
     })
 
     render(<StreamingDisplay {...mockProps} onError={mockOnError} />)
