@@ -211,9 +211,26 @@ export function AIConfig() {
                             {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>当前模型:</span>
-                          <Badge variant="secondary">{existingConfig.model}</Badge>
+                        
+                        {/* 模型选择 */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">当前模型:</span>
+                          <select
+                            value={existingConfig.model}
+                            onChange={(e) => {
+                              setConfig(provider.id, {
+                                ...existingConfig,
+                                model: e.target.value,
+                              });
+                            }}
+                            className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
+                          >
+                            {provider.models.map(model => (
+                              <option key={model.id} value={model.id}>
+                                {model.name} ({model.maxTokens.toLocaleString()} tokens)
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
