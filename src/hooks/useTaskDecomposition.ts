@@ -1,10 +1,6 @@
 import { useState, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import type {
-  PrdAnalysis,
-  TaskDependencyGraph,
-  DecomposeTasksResponse,
-} from '../types'
+import type { PrdAnalysis, TaskDependencyGraph, DecomposeTasksResponse } from '../types'
 
 interface UseTaskDecompositionReturn {
   /** 任务依赖图 */
