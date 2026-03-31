@@ -2,9 +2,8 @@ import React from 'react'
 import { usePRDAnalysis } from '../hooks/usePRDAnalysis'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
-import { Progress } from './ui/progress'
 import { Button } from './ui/button'
-import type { Feature, Risk, Estimates } from '../types'
+import type { Feature, Risk } from '../types'
 
 interface PRDAnalysisPanelProps {
   /** PRD 内容 */
@@ -24,7 +23,7 @@ export function PRDAnalysisPanel({ prdContent, apiKey }: PRDAnalysisPanelProps) 
     if (prdContent && !analysis) {
       analyze(prdContent, apiKey)
     }
-  }, [prdContent, apiKey])
+  }, [prdContent, apiKey, analysis, analyze])
 
   if (loading) {
     return (
@@ -262,7 +261,11 @@ function RiskItem({ risk }: { risk: Risk }) {
 /**
  * 依赖项组件
  */
-function DependencyItem({ dependency }: { dependency: any }) {
+function DependencyItem({
+  dependency,
+}: {
+  dependency: { fromFeature: string; toFeature: string; dependencyType: string }
+}) {
   return (
     <div className="border rounded-lg p-3">
       <div className="flex items-center gap-2">

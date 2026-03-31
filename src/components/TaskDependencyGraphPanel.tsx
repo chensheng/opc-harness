@@ -3,7 +3,7 @@ import { useTaskDecomposition } from '../hooks/useTaskDecomposition'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import type { PrdAnalysis, TechnicalTask, TaskDependencyGraph } from '../types'
+import type { PrdAnalysis, TechnicalTask } from '../types'
 
 interface TaskDependencyGraphPanelProps {
   /** PRD 分析结果 */
@@ -21,7 +21,7 @@ export function TaskDependencyGraphPanel({ analysis }: TaskDependencyGraphPanelP
     if (analysis && !taskGraph) {
       decompose(analysis)
     }
-  }, [analysis])
+  }, [analysis, decompose, taskGraph])
 
   if (loading) {
     return (

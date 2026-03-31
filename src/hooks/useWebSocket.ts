@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 export interface WebSocketMessage {
   type: 'subscribe' | 'unsubscribe' | 'ping' | 'log' | 'notification' | 'pong' | 'error'
   topic?: string
-  payload?: any
+  payload?: unknown
   timestamp?: number
   message?: string
 }

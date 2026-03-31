@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core'
 import type {
   PrdAnalysis,
   TaskDependencyGraph,
-  DecomposeTasksRequest,
   DecomposeTasksResponse,
 } from '../types'
 

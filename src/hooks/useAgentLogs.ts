@@ -65,7 +65,7 @@ export function useAgentLogs(options: UseAgentLogsOptions): UseAgentLogsReturn {
   const logBuffer = useRef<LogEntry[]>([])
 
   // 使用 WebSocket Hook
-  const { connected, subscribe, sendMessage, disconnect } = useWebSocket({
+  const { connected, subscribe } = useWebSocket({
     url: wsUrl,
     autoConnect,
     onMessage: useCallback(

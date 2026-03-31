@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import type { PrdAnalysis, AnalyzePRDDepthRequest, AnalyzePRDDepthResponse } from '../types'
+import type { PrdAnalysis, AnalyzePRDDepthResponse } from '../types'
 
 interface UsePRDAnalysisReturn {
   /** 分析结果 */

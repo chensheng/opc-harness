@@ -99,7 +99,7 @@ describe('useTaskDecomposition', () => {
       },
     }
 
-    ;(invoke as any).mockResolvedValue({
+    ;(invoke as unknown as jest.Mock).mockResolvedValue({
       success: true,
       taskGraph: mockTaskGraph,
     })
@@ -134,7 +134,7 @@ describe('useTaskDecomposition', () => {
       },
     }
 
-    ;(invoke as any).mockResolvedValue({
+    ;(invoke as unknown as jest.Mock).mockResolvedValue({
       success: false,
       taskGraph: {
         tasks: [],
@@ -184,7 +184,7 @@ describe('useTaskDecomposition', () => {
       },
     }
 
-    ;(invoke as any).mockRejectedValue(new Error('Network error'))
+    ;(invoke as unknown as jest.Mock).mockRejectedValue(new Error('Network error'))
 
     const { result } = renderHook(() => useTaskDecomposition())
 

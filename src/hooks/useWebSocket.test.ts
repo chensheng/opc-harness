@@ -13,7 +13,7 @@ const mockWebSocket = vi.hoisted(() => {
     readyState = 0
     onopen: (() => void) | null = null
     onclose: (() => void) | null = null
-    onerror: ((event: any) => void) | null = null
+    onerror: ((event: unknown) => void) | null = null
     onmessage: ((event: { data: string }) => void) | null = null
 
     constructor(public url: string) {
@@ -23,7 +23,7 @@ const mockWebSocket = vi.hoisted(() => {
       }, 10)
     }
 
-    send(data: string) {
+    send(_data: string) {
       // Mock send
     }
 

@@ -49,7 +49,7 @@ describe('usePRDAnalysis', () => {
       },
     }
 
-    ;(invoke as any).mockResolvedValue({
+    ;(invoke as unknown as jest.Mock).mockResolvedValue({
       success: true,
       analysis: mockAnalysis,
     })
@@ -69,7 +69,7 @@ describe('usePRDAnalysis', () => {
   })
 
   it('should handle analysis error', async () => {
-    ;(invoke as any).mockResolvedValue({
+    (invoke as unknown as jest.Mock).mockResolvedValue({
       success: false,
       analysis: {
         features: [],
@@ -103,7 +103,7 @@ describe('usePRDAnalysis', () => {
   })
 
   it('should handle invoke exception', async () => {
-    ;(invoke as any).mockRejectedValue(new Error('Network error'))
+    (invoke as unknown as jest.Mock).mockRejectedValue(new Error('Network error'))
 
     const { result } = renderHook(() => usePRDAnalysis())
 
