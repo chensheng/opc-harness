@@ -488,7 +488,8 @@ impl AIProvider {
             messages.extend(request.messages);
             
             // 使用 Anthropic Claude 兼容 API
-            let url = "https://api.kimi.com/coding/messages".to_string();
+            // 根据官方文档，Kimi Coding 的 Base URL 是 https://api.kimi.com/coding/v1
+            let url = "https://api.kimi.com/coding/v1/messages".to_string();
             
             // Kimi Coding 可能需要特定的模型名称
             let coding_model_name = if request.model == "kimi-code" {
@@ -538,7 +539,7 @@ impl AIProvider {
                          2. API Key 不是 Kimi Coding 专用的（需要在会员页面生成）\n\
                          3. 使用了普通的 Moonshot API Key\n\n\
                          当前配置:\n\
-                         - Base URL: https://api.kimi.com/coding/\n\
+                         - Base URL: https://api.kimi.com/coding/v1/messages\n\
                          - 模型：{}\n\
                          - API Key 前缀：{}\n\n\
                          API 响应：{}",
@@ -610,8 +611,8 @@ impl AIProvider {
             messages.extend(request.messages);
             
             // 使用 Anthropic Claude 兼容流式 API
-            // 注意：Kimi Coding API 可能需要特殊的模型名称格式
-            let url = "https://api.kimi.com/coding/messages".to_string();
+            // 根据官方文档，Kimi Coding 的 Base URL 是 https://api.kimi.com/coding/v1
+            let url = "https://api.kimi.com/coding/v1/messages".to_string();
             
             // Kimi Coding 可能需要特定的模型名称
             let coding_model_name = if request.model == "kimi-code" {
@@ -664,7 +665,7 @@ impl AIProvider {
                              3. 使用了普通的 Moonshot API Key\n\
                              4. Kimi Coding 可能不支持流式输出\n\n\
                              当前配置:\n\
-                             - Base URL: https://api.kimi.com/coding/\n\
+                             - Base URL: https://api.kimi.com/coding/v1/messages\n\
                              - 模型：{}\n\
                              - API Key 前缀：{}\n\n\
                              API 响应：{}",
