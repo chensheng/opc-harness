@@ -45,19 +45,8 @@ export const AI_PROVIDERS: AIProvider[] = [
     name: '月之暗面 (Kimi)',
     baseUrl: 'https://api.moonshot.cn/v1',
     models: [
-      { id: 'kimi-k2', name: 'Kimi K2 (kimi2.5)', maxTokens: 256000 },
-      { id: 'kimi-k2-0711', name: 'Kimi K2 (早期版本)', maxTokens: 256000 },
-      { id: 'moonshot-v1-8k', name: 'Moonshot V1 8K', maxTokens: 8000 },
-      { id: 'moonshot-v1-32k', name: 'Moonshot V1 32K', maxTokens: 32000 },
-      { id: 'moonshot-v1-128k', name: 'Moonshot V1 128K', maxTokens: 128000 },
-    ],
-  },
-  {
-    id: 'kimi-code',
-    name: 'Kimi Code (编程专用)',
-    baseUrl: 'https://api.kimi.com/coding/v1',
-    models: [
-      { id: 'kimi-for-coding', name: 'Kimi For Coding', maxTokens: 256000 },
+      { id: 'kimi-k1.5', name: 'Kimi K1.5', maxTokens: 256000 },
+      { id: 'kimi-k1', name: 'Kimi K1', maxTokens: 128000 },
     ],
   },
   {

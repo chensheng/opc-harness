@@ -14,7 +14,6 @@ pub enum AIProviderType {
     OpenAI,
     Anthropic,  // Claude
     Kimi,
-    KimiCode,   // Kimi Code (编程专用)
     GLM,
     MiniMax,
     DeepL,
@@ -132,7 +131,6 @@ impl AIProvider {
             AIProviderType::OpenAI => "https://api.openai.com/v1".to_string(),
             AIProviderType::Anthropic => "https://api.anthropic.com/v1".to_string(),
             AIProviderType::Kimi => "https://api.moonshot.cn/v1".to_string(),
-            AIProviderType::KimiCode => "https://api.kimi.com/coding/v1".to_string(),
             AIProviderType::GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
             AIProviderType::MiniMax => "https://api.minimax.chat/v1".to_string(),
             AIProviderType::DeepL => "https://api-free.deepl.com/v2".to_string(),
@@ -177,7 +175,6 @@ impl AIProvider {
             AIProviderType::OpenAI => self.chat_openai(request).await,
             AIProviderType::Anthropic => self.chat_anthropic(request).await,
             AIProviderType::Kimi => self.chat_kimi(request).await,
-            AIProviderType::KimiCode => self.chat_kimi_code(request).await,
             AIProviderType::GLM => self.chat_glm(request).await,
             AIProviderType::MiniMax => self.chat_minimax(request).await,
             AIProviderType::DeepL => self.chat_deepl(request).await,
@@ -192,7 +189,6 @@ impl AIProvider {
             AIProviderType::OpenAI => self.stream_chat_openai(request, on_chunk).await,
             AIProviderType::Anthropic => self.stream_chat_anthropic(request, on_chunk).await,
             AIProviderType::Kimi => self.stream_chat_kimi(request, on_chunk).await,
-            AIProviderType::KimiCode => self.stream_chat_kimi_code(request, on_chunk).await,
             AIProviderType::GLM => self.stream_chat_glm(request, on_chunk).await,
             AIProviderType::MiniMax => self.stream_chat_minimax(request, on_chunk).await,
             AIProviderType::DeepL => self.stream_chat_deepl(request, on_chunk).await,
@@ -487,23 +483,6 @@ impl AIProvider {
         self.stream_chat_openai(request, on_chunk).await
     }
 
-    async fn chat_kimi_code(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
-        // Kimi Code uses OpenAI-compatible API with different base_url
-        self.chat_openai(request).await
-    }
-
-    async fn stream_chat_kimi_code<F>(
-        &self,
-        request: ChatRequest,
-        on_chunk: F,
-    ) -> Result<String, AIError>
-    where
-        F: FnMut(String) -> Result<(), AIError>,
-    {
-        // Kimi Code uses OpenAI-compatible API format (same as regular Kimi)
-        self.stream_chat_openai(request, on_chunk).await
-    }
-
     async fn chat_glm(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
         // GLM uses OpenAI-compatible API
         self.chat_openai(request).await
@@ -658,7 +637,6 @@ impl AIProvider {
             AIProviderType::OpenAI => "openai",
             AIProviderType::Anthropic => "anthropic",
             AIProviderType::Kimi => "kimi",
-            AIProviderType::KimiCode => "kimi-code",
             AIProviderType::GLM => "glm",
             AIProviderType::MiniMax => "minimax",
             AIProviderType::DeepL => "deepl",
@@ -1149,8 +1127,7 @@ mod tests {
         
         // Kimi 支持的模型列表
         let models = vec![
-            "kimi-k2",         // kimi2.5
-            "kimi-code",       // kimi code
+            "kimi-k2",
             "kimi-k2-0711", 
             "moonshot-v1-8k",
             "moonshot-v1-32k",

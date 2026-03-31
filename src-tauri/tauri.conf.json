@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "OPC-HARNESS - AI驱动的一人公司操作系统",
+        "title": "OPC-HARNESS - AI 驱动的一人公司操作系统",
         "width": 1400,
         "height": 900,
         "minWidth": 1000,
@@ -22,7 +22,8 @@
         "fullscreen": false,
         "decorations": true,
         "transparent": false,
-        "alwaysOnTop": false
+        "alwaysOnTop": false,
+        "devtools": true
       }
     ],
     "security": {
