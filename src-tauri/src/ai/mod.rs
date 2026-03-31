@@ -649,6 +649,8 @@ impl AIProvider {
                     AIError { message: e.to_string() }
                 })?;
 
+            log::info!("Kimi Coding stream response status: {}", response.status());
+            
             let status = response.status();
             if !status.is_success() {
                 let error_text = response.text().await.unwrap_or_default();
@@ -686,33 +688,54 @@ impl AIProvider {
             let mut stream = response.bytes_stream();
 
             use futures::StreamExt;
+            let mut chunk_count = 0;
+            
             while let Some(chunk_result) = stream.next().await {
                 let chunk = chunk_result.map_err(|e| AIError { message: e.to_string() })?;
                 let text = String::from_utf8_lossy(&chunk);
+                chunk_count += 1;
+                
+                log::debug!("Received chunk {}: {} bytes", chunk_count, chunk.len());
+                log::trace!("Chunk content: {}", text);
                 
                 for line in text.lines() {
+                    log::trace!("Processing line: {}", line);
+                    
                     if let Some(data) = line.strip_prefix("data: ") {
+                        log::trace!("Found data prefix: {}", data);
+                        
                         if data.trim() == "[DONE]" {
+                            log::info!("Stream completed");
                             break;
                         }
                         
                         if let Ok(event) = serde_json::from_str::<serde_json::Value>(data) {
+                            log::trace!("Parsed event: {:?}", event);
+                            
                             if let Some(content_block) = event.get("content_block") {
+                                log::trace!("Found content_block: {:?}", content_block);
                                 if let Some(text) = content_block.get("text").and_then(|t| t.as_str()) {
+                                    log::debug!("Extracted text from content_block: {}", text);
                                     full_content.push_str(text);
                                     on_chunk(text.to_string())?;
                                 }
                             }
                             if let Some(delta) = event.get("delta") {
+                                log::trace!("Found delta: {:?}", delta);
                                 if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
+                                    log::debug!("Extracted text from delta: {}", text);
                                     full_content.push_str(text);
                                     on_chunk(text.to_string())?;
                                 }
                             }
+                        } else {
+                            log::warn!("Failed to parse JSON: {}", data);
                         }
                     }
                 }
             }
+            
+            log::info!("Stream finished. Total chunks: {}, Final content length: {}", chunk_count, full_content.len());
 
             Ok(full_content)
         } else {
