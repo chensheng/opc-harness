@@ -684,7 +684,7 @@ pub async fn analyze_prd_depth(request: AnalyzePRDDepthRequest) -> Result<Analyz
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_prd_analysis {
     use super::*;
 
     #[tokio::test]

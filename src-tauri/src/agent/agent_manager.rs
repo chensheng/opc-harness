@@ -1048,7 +1048,7 @@ pub async fn start_monitoring(
     session_id: String,
     config: MonitoringConfig,
 ) -> Result<(), String> {
-    let mut manager = state.write().await;
+    let _manager = state.write().await;
     
     // 创建 RealtimePerformanceMonitor 并启动监控
     let mut monitor = RealtimePerformanceMonitor::new(config);
@@ -1066,7 +1066,7 @@ pub async fn stop_monitoring(
     state: tauri::State<'_, Arc<tokio::sync::RwLock<AgentManager>>>,
     session_id: String,
 ) -> Result<(), String> {
-    let mut manager = state.write().await;
+    let _manager = state.write().await;
     
     // 停止监控（简化实现）
     log::info!("实时性能监控已停止 for session {}", session_id);
