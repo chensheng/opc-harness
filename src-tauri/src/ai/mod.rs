@@ -467,58 +467,175 @@ impl AIProvider {
     }
 
     async fn chat_kimi(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
-        // Kimi uses OpenAI-compatible API，需要添加特定的 system prompt
-        let mut messages = Vec::new();
+        // Kimi Coding 模型使用 Anthropic Claude 兼容 API，其他模型使用 OpenAI 兼容 API
+        let is_coding_model = request.model.starts_with("kimi-coding") || request.model == "kimi-code";
         
-        // 添加 Kimi 官方的 system prompt
-        messages.push(Message {
-            role: "system".to_string(),
-            content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
-        });
-        
-        // 添加用户的消息
-        messages.extend(request.messages);
-        
-        let kimi_request = ChatRequest {
-            model: request.model,
-            messages,
-            temperature: request.temperature,
-            max_tokens: request.max_tokens,
-            stream: false,
-        };
-        
-        self.chat_openai(kimi_request).await
+        if is_coding_model {
+            log::info!("Using Kimi Coding (Anthropic-compatible) API for model: {}", request.model);
+            // 构建系统消息
+            let mut messages = Vec::new();
+            messages.push(Message {
+                role: "system".to_string(),
+                content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
+            });
+            messages.extend(request.messages);
+            
+            // 使用 Anthropic Claude 兼容 API
+            let url = "https://api.kimi.com/coding/messages".to_string();
+            let body = serde_json::json!({
+                "model": request.model,
+                "messages": messages,
+                "max_tokens": request.max_tokens.unwrap_or(2048),
+                "temperature": request.temperature.unwrap_or(0.7),
+            });
+
+            let response = self.client
+                .post(&url)
+                .header(self.get_auth_header().0, self.get_auth_header().1)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AIError { message: e.to_string() })?;
+
+            let status = response.status();
+            if !status.is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AIError {
+                    message: format!("Kimi Coding API error ({}): {}", status, error_text),
+                });
+            }
+
+            let json: serde_json::Value = response.json().await.map_err(|e| AIError { message: e.to_string() })?;
+            let content = json["content"][0]["text"].as_str().unwrap_or("").to_string();
+
+            Ok(ChatResponse { content, model: request.model, usage: None })
+        } else {
+            log::info!("Using standard Kimi (OpenAI-compatible) API for model: {}", request.model);
+            // 标准 Kimi API - 添加 system prompt
+            let mut messages = Vec::new();
+            messages.push(Message {
+                role: "system".to_string(),
+                content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
+            });
+            messages.extend(request.messages);
+            
+            let kimi_request = ChatRequest {
+                model: request.model,
+                messages,
+                temperature: request.temperature,
+                max_tokens: request.max_tokens,
+                stream: false,
+            };
+            
+            self.chat_openai(kimi_request).await
+        }
     }
 
     async fn stream_chat_kimi<F>(
         &self,
         request: ChatRequest,
-        on_chunk: F,
+        mut on_chunk: F,
     ) -> Result<String, AIError>
     where
         F: FnMut(String) -> Result<(), AIError>,
     {
-        // Kimi uses OpenAI-compatible API，需要添加特定的 system prompt
-        let mut messages = Vec::new();
+        // Kimi Coding 模型使用 Anthropic Claude 兼容 API，其他模型使用 OpenAI 兼容 API
+        let is_coding_model = request.model.starts_with("kimi-coding") || request.model == "kimi-code";
         
-        // 添加 Kimi 官方的 system prompt
-        messages.push(Message {
-            role: "system".to_string(),
-            content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
-        });
-        
-        // 添加用户的消息
-        messages.extend(request.messages);
-        
-        let kimi_request = ChatRequest {
-            model: request.model,
-            messages,
-            temperature: request.temperature,
-            max_tokens: request.max_tokens,
-            stream: true,
-        };
-        
-        self.stream_chat_openai(kimi_request, on_chunk).await
+        if is_coding_model {
+            log::info!("Using Kimi Coding (Anthropic-compatible) streaming API for model: {}", request.model);
+            // 构建系统消息
+            let mut messages = Vec::new();
+            messages.push(Message {
+                role: "system".to_string(),
+                content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
+            });
+            messages.extend(request.messages);
+            
+            // 使用 Anthropic Claude 兼容流式 API
+            let url = "https://api.kimi.com/coding/messages".to_string();
+            let body = serde_json::json!({
+                "model": request.model,
+                "messages": messages,
+                "max_tokens": request.max_tokens.unwrap_or(2048),
+                "temperature": request.temperature.unwrap_or(0.7),
+                "stream": true,
+            });
+
+            let response = self.client
+                .post(&url)
+                .header(self.get_auth_header().0, self.get_auth_header().1)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AIError { message: e.to_string() })?;
+
+            let status = response.status();
+            if !status.is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AIError {
+                    message: format!("Kimi Coding stream API error ({}): {}", status, error_text),
+                });
+            }
+
+            // 处理流式响应 (Anthropic 格式)
+            let mut full_content = String::new();
+            let mut stream = response.bytes_stream();
+
+            use futures::StreamExt;
+            while let Some(chunk_result) = stream.next().await {
+                let chunk = chunk_result.map_err(|e| AIError { message: e.to_string() })?;
+                let text = String::from_utf8_lossy(&chunk);
+                
+                for line in text.lines() {
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if data.trim() == "[DONE]" {
+                            break;
+                        }
+                        
+                        if let Ok(event) = serde_json::from_str::<serde_json::Value>(data) {
+                            if let Some(content_block) = event.get("content_block") {
+                                if let Some(text) = content_block.get("text").and_then(|t| t.as_str()) {
+                                    full_content.push_str(text);
+                                    on_chunk(text.to_string())?;
+                                }
+                            }
+                            if let Some(delta) = event.get("delta") {
+                                if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
+                                    full_content.push_str(text);
+                                    on_chunk(text.to_string())?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(full_content)
+        } else {
+            log::info!("Using standard Kimi (OpenAI-compatible) streaming API for model: {}", request.model);
+            // 标准 Kimi API - 添加 system prompt
+            let mut messages = Vec::new();
+            messages.push(Message {
+                role: "system".to_string(),
+                content: "你是 Kimi，由 Moonshot AI 提供的人工智能助手。你会为用户提供安全，有帮助，准确的回答。同时，你会拒绝一切涉及恐怖主义，种族歧视，黄色暴力等问题的回答。Moonshot AI 为专有名词，不可翻译成其他语言。".to_string(),
+            });
+            messages.extend(request.messages);
+            
+            let kimi_request = ChatRequest {
+                model: request.model,
+                messages,
+                temperature: request.temperature,
+                max_tokens: request.max_tokens,
+                stream: true,
+            };
+            
+            self.stream_chat_openai(kimi_request, on_chunk).await
+        }
     }
 
     async fn chat_glm(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
