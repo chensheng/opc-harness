@@ -57,6 +57,28 @@ export function AIConfig() {
   const [nonStreamLoading, setNonStreamLoading] = useState(false)
   const [nonStreamError, setNonStreamError] = useState<string | null>(null)
 
+  // 对厂商进行排序：已配置的排在前面，按最后修改时间倒序
+  const sortedProviders = [...providers].sort((a, b) => {
+    const configA = getConfig(a.id)
+    const configB = getConfig(b.id)
+    
+    // 如果都未配置，保持原始顺序
+    if (!configA && !configB) return 0
+    
+    // 已配置的排在未配置的前面
+    if (configA && !configB) return -1
+    if (!configA && configB) return 1
+    
+    // 都已配置，按最后修改时间倒序
+    if (configA && configB) {
+      const timeA = configA.lastModified || 0
+      const timeB = configB.lastModified || 0
+      return timeB - timeA
+    }
+    
+    return 0
+  })
+
   const handleKeyChange = (providerId: string, value: string) => {
     setTempKeys(prev => ({ ...prev, [providerId]: value }))
     setValidationStatus(prev => ({ ...prev, [providerId]: null }))
@@ -208,16 +230,16 @@ export function AIConfig() {
         <p className="text-muted-foreground">配置你的AI服务提供商，支持多家厂商切换使用</p>
       </div>
 
-      <Tabs defaultValue={providers[0]?.id} className="w-full">
+      <Tabs defaultValue={sortedProviders[0]?.id} className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-4">
-          {providers.map(provider => (
+          {sortedProviders.map(provider => (
             <TabsTrigger key={provider.id} value={provider.id}>
               {provider.name}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {providers.map(provider => {
+        {sortedProviders.map(provider => {
             const existingConfig = getConfig(provider.id)
             const isConfigured = !!existingConfig
             const isTesting = testProvider === provider.id

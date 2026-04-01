@@ -3,18 +3,22 @@ import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { AIConfig, AIProvider } from '@/types'
 
+interface AIConfigWithTimestamp extends AIConfig {
+  lastModified?: number
+}
+
 interface AIConfigState {
   providers: AIProvider[]
-  configs: Record<string, AIConfig>
+  configs: Record<string, AIConfigWithTimestamp>
   defaultProvider: string
 }
 
 interface AIConfigActions {
-  setConfig: (provider: string, config: AIConfig) => void
+  setConfig: (provider: string, config: AIConfigWithTimestamp) => void
   removeConfig: (provider: string) => void
   setDefaultProvider: (provider: string) => void
-  getConfig: (provider: string) => AIConfig | undefined
-  getActiveConfig: () => AIConfig | undefined
+  getConfig: (provider: string) => AIConfigWithTimestamp | undefined
+  getActiveConfig: () => AIConfigWithTimestamp | undefined
 }
 
 export const AI_PROVIDERS: AIProvider[] = [
@@ -73,6 +77,7 @@ export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(
 
         setConfig: (provider, config) =>
           set(state => {
+            config.lastModified = Date.now()
             state.configs[provider] = config
           }),
 
