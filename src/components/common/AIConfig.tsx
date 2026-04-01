@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Key,
   Check,
@@ -174,6 +174,14 @@ export function AIConfig() {
     setShowKey(prev => ({ ...prev, [providerId]: !prev[providerId] }))
   }
 
+  // 监听流式测试错误，当出现错误时自动重置测试状态
+  useEffect(() => {
+    if (streamError && testProvider) {
+      console.log('[useEffect] 检测到流式测试错误，重置 testProvider')
+      setTestProvider(null)
+    }
+  }, [streamError, testProvider])
+
   const handleTestStream = async (providerId: string) => {
     if (testProvider === providerId) {
       stopStream()
@@ -193,8 +201,8 @@ export function AIConfig() {
           messages: [{ role: 'user', content: testMessage }],
         })
       } catch (err) {
-        // 错误会通过 useAIStream 的 error 状态显示在页面上
-        console.error('[handleTestStream] 流式测试失败:', err)
+        // useAIStream 内部已经处理了错误，这里的 catch 不会执行
+        console.error('[handleTestStream] 注意：这个 catch 块不会执行，因为 useAIStream 已经在内部处理了所有错误')
       }
     }
   }
