@@ -65,10 +65,27 @@ export const AI_PROVIDERS: AIProvider[] = [
     name: '智谱 AI (GLM)',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     models: [
-      { id: 'glm-4-plus', name: 'GLM-4 Plus', maxTokens: 128000 },
-      { id: 'glm-4', name: 'GLM-4', maxTokens: 128000 },
-      { id: 'glm-4-air', name: 'GLM-4 Air', maxTokens: 128000 },
-      { id: 'codegeex-4', name: 'CodeGeeX-4', maxTokens: 128000 },
+      // GLM-5 系列 - 最新旗舰基座
+      { id: 'glm-5', name: 'GLM-5（最新旗舰）', maxTokens: 256000 },
+      { id: 'glm-5-code', name: 'GLM-5 Code（编程增强）', maxTokens: 256000 },
+
+      // GLM-4.7/4.6 系列 - 旗舰文本模型
+      { id: 'glm-4.7', name: 'GLM-4.7（旗舰文本）', maxTokens: 256000 },
+      { id: 'glm-4.6', name: 'GLM-4.6（代码生成）', maxTokens: 128000 },
+
+      // GLM-4.5 系列 - 智能体专用 MoE 架构
+      { id: 'glm-4.5', name: 'GLM-4.5（智能体 MoE）', maxTokens: 256000 },
+      { id: 'glm-4.5-air', name: 'GLM-4.5 Air（经济版）', maxTokens: 256000 },
+      { id: 'glm-4.5-x', name: 'GLM-4.5 X（极速版）', maxTokens: 256000 },
+      { id: 'glm-4.5-air-x', name: 'GLM-4.5 Air X（经济极速）', maxTokens: 256000 },
+
+      // GLM-4 系列 - 经典版本
+      { id: 'glm-4-plus', name: 'GLM-4 Plus（性能增强）', maxTokens: 128000 },
+      { id: 'glm-4', name: 'GLM-4（标准版）', maxTokens: 128000 },
+      { id: 'glm-4-air', name: 'GLM-4 Air（经济版）', maxTokens: 128000 },
+
+      // 专用模型
+      { id: 'codegeex-4', name: 'CodeGeeX-4（代码专用）', maxTokens: 128000 },
     ],
   },
   {
