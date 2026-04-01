@@ -255,13 +255,18 @@ pub fn delete_api_key_from_keychain(request: DeleteApiKeyRequest) -> Result<(), 
 
 #[tauri::command]
 pub async fn chat(request: ChatRequestPayload) -> Result<String, String> {
+    log::info!("[stream_chat] Messages count: {}", request.messages.len());
+    
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
+        "minimax" => AIProviderType::MiniMax,
         _ => return Err("Unsupported provider".to_string()),
     };
+
+    log::info!("[stream_chat] Provider type resolved: {:?}", provider_type);
 
     let provider = AIProvider::new(provider_type, request.api_key);
 

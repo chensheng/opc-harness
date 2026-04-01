@@ -256,6 +256,45 @@ impl AIProvider {
                     })
                 }
             }
+            AIProviderType::MiniMax => {
+                // MiniMax API validation - use a simple text chat request
+                let url = format!("{}/text/chat", self.get_base_url());
+                let body = serde_json::json!({
+                    "model": "abab6.5",
+                    "messages": [
+                        {"sender_type": "USER", "text": "Hi"}
+                    ],
+                    "max_tokens": 1
+                });
+
+                log::info!("Validating MiniMax API key...");
+                log::debug!("MiniMax validation request URL: {}", url);
+                log::debug!("MiniMax validation request body: {:?}", body);
+
+                let response = self
+                    .client
+                    .post(&url)
+                    .header(self.get_auth_header().0, self.get_auth_header().1)
+                    .header("Content-Type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await
+                    .map_err(|e| AIError {
+                        message: format!("MiniMax API 验证请求失败：{}", e),
+                    })?;
+
+                if response.status().is_success() {
+                    log::info!("MiniMax API validation successful!");
+                    Ok(true)
+                } else {
+                    let status = response.status();
+                    let error_text = response.text().await.unwrap_or_default();
+                    log::error!("MiniMax API validation failed ({}): {}", status, error_text);
+                    Err(AIError {
+                        message: format!("MiniMax API 返回错误 ({}): {}", status, error_text),
+                    })
+                }
+            }
             _ => {
                 // For other providers, assume valid for now
                 Ok(true)
