@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::ai::{AIProvider, AIProviderType};
 use std::collections::HashMap;
 

@@ -229,10 +229,10 @@ impl TestRunnerAgent {
             .as_millis() as u64;
 
         // 统计结果
-        let total = results.len() as u32;
-        let passed = results.iter().filter(|r| r.status == TestStatus::Passed).count() as u32;
+        let _total = results.len() as u32;
+        let _passed = results.iter().filter(|r| r.status == TestStatus::Passed).count() as u32;
         let failed = results.iter().filter(|r| r.status == TestStatus::Failed).count() as u32;
-        let skipped = results.iter().filter(|r| r.status == TestStatus::Skipped).count() as u32;
+        let _skipped = results.iter().filter(|r| r.status == TestStatus::Skipped).count() as u32;
 
         // 如果有失败的测试且还有重试次数，尝试重试
         let mut final_results = results;

@@ -728,7 +728,7 @@ pub async fn decompose_tasks(request: DecomposeTasksRequest) -> Result<Decompose
     let decomposer = TaskDecomposer::new();
     
     match decomposer.decompose_features(&request.analysis.features).await {
-        Ok(mut task_graph) => {
+        Ok(task_graph) => {
             log::info!("Task decomposition completed. Generated {} tasks", task_graph.statistics.total_tasks);
             
             Ok(DecomposeTasksResponse {

@@ -177,7 +177,7 @@ async fn handle_connection(
         }
     };
 
-    let (mut write, mut read) = ws_stream.split();
+    let (write, read) = ws_stream.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<WsMessage>();
 
     // 添加客户端到管理器

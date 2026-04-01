@@ -376,6 +376,7 @@ impl TestGeneratorAgent {
     }
 
     /// 运行测试验证（占位符）
+    #[allow(dead_code)]
     async fn run_tests(&self, _test_files: &[TestFile]) -> Result<(), String> {
         // TODO: 实现测试运行逻辑
         // 1. 安装测试依赖

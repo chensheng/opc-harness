@@ -2,6 +2,8 @@
 //!
 //! 提供全应用范围的错误类型定义、错误转换和错误恢复机制
 
+#![allow(non_camel_case_types)]
+
 use std::fmt;
 use std::error::Error as StdError;
 use std::collections::HashMap;

@@ -91,6 +91,7 @@ pub struct StdioChannelStats {
 /// 封装了与子进程的 stdin/stdout 通信
 pub struct StdioChannel {
     /// 通道 ID
+    #[allow(dead_code)]
     channel_id: String,
     /// Agent 配置
     config: AgentConfig,

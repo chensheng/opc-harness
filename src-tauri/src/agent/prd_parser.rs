@@ -143,6 +143,7 @@ pub struct PRDParserConfig {
 
 /// PRD 解析器
 pub struct PRDParser {
+    #[allow(dead_code)]
     config: PRDParserConfig,
 }
 

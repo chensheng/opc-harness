@@ -600,7 +600,7 @@ impl AgentManager {
     }
 
     /// 获取 BranchManager（只读）
-    pub async fn get_branch_manager(&self) -> tokio::sync::RwLockReadGuard<Option<BranchManager>> {
+    pub async fn get_branch_manager(&self) -> tokio::sync::RwLockReadGuard<'_, Option<BranchManager>> {
         self.branch_manager.read().await
     }
 }
@@ -715,17 +715,17 @@ pub async fn get_all_agent_sessions(
 #[tauri::command]
 pub async fn run_initializer_agent(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     project_path: String,
     prd_content: String,
 ) -> Result<crate::agent::initializer_agent::InitializerResult, String> {
     use crate::agent::initializer_agent::InitializerAgentConfig;
     use uuid::Uuid;
     
-    let manager = state.read().await;
+    let _manager = state.read().await;
     
     // 创建 InitializerAgent 配置
-    let config = InitializerAgentConfig {
+    let _config = InitializerAgentConfig {
         agent_id: format!("initializer-{}", Uuid::new_v4()),
         project_path: project_path.clone(),
         ai_config: crate::ai::AIConfig {
@@ -757,7 +757,7 @@ pub async fn run_initializer_agent(
 #[tauri::command]
 pub async fn create_merge_request(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     project_path: String,
     target_branch: String,
     feature_branches: Vec<String>,
@@ -766,7 +766,7 @@ pub async fn create_merge_request(
 ) -> Result<crate::agent::mr_creation_agent::MRCreationResult, String> {
     use crate::agent::mr_creation_agent::{MRCreationAgent, MRCreationConfig};
     
-    let manager = state.read().await;
+    let _manager = state.read().await;
     
     // 创建 MRCreationAgent 配置
     let config = MRCreationConfig {
@@ -788,7 +788,7 @@ pub async fn create_merge_request(
 #[tauri::command]
 pub async fn run_debug_agent(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    session_id: String,
+    _session_id: String,
     project_path: String,
     error_source: String,
     error_output: String,
@@ -797,7 +797,7 @@ pub async fn run_debug_agent(
 ) -> Result<crate::agent::debug_agent::DebugResult, String> {
     use crate::agent::debug_agent::{DebugAgent, DebugAgentConfig, ErrorSource};
     
-    let manager = state.read().await;
+    let _manager = state.read().await;
     
     // 解析错误来源
     let parsed_error_source = match error_source.to_lowercase().as_str() {
@@ -839,7 +839,7 @@ pub async fn generate_commit_message(
 ) -> Result<crate::agent::git_commit_assistant::CommitMessage, String> {
     use crate::agent::git_commit_assistant::{GitCommitAssistant, GitCommitAssistantConfig};
     
-    let manager = state.read().await;
+    let _manager = state.read().await;
     
     // 创建 GitCommitAssistant 配置
     let config = GitCommitAssistantConfig {

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// PRD 反馈和重新生成处理器
 
 use serde::{Deserialize, Serialize};

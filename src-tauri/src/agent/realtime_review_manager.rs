@@ -165,7 +165,7 @@ impl RealtimeReviewManager {
         log::info!("启动实时审查监听：{}", self.config.project_path);
 
         // 创建通道
-        let (tx, mut rx): (Sender<FileChangeEvent>, Receiver<FileChangeEvent>) = mpsc::channel(100);
+        let (tx, rx): (Sender<FileChangeEvent>, Receiver<FileChangeEvent>) = mpsc::channel(100);
         self.event_tx = Some(tx.clone());
 
         // 创建文件监听器

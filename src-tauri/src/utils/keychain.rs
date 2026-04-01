@@ -98,6 +98,7 @@ pub fn delete_api_key(provider: &str) -> Result<(), KeychainError> {
 /// # Returns
 /// * `true` if key exists
 /// * `false` otherwise
+#[allow(dead_code)]
 pub fn has_api_key(provider: &str) -> bool {
     get_api_key(provider).is_ok()
 }

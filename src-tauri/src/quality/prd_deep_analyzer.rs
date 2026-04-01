@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// US-031: 深度 AI 解析 PRD
 /// 
 /// 提供深度的 PRD 分析功能，包括：

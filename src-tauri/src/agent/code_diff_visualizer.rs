@@ -99,6 +99,7 @@ pub struct CodeDiffVisualizerConfig {
 /// Code Diff Visualizer
 #[derive(Debug, Clone)]
 pub struct CodeDiffVisualizer {
+    #[allow(dead_code)]
     config: CodeDiffVisualizerConfig,
     workspace_root: PathBuf,
 }

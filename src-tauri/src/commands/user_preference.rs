@@ -5,7 +5,7 @@ use crate::user_preference::manager::{UserPreferenceManager, Feedback, Preferenc
 /// 获取用户偏好
 #[tauri::command]
 pub async fn get_user_preferences() -> Result<PreferenceModel, String> {
-    let mut manager = UserPreferenceManager::new();
+    let manager = UserPreferenceManager::new();
     manager.load_preferences()
 }
 

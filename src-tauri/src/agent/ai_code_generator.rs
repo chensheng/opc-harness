@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// AI 模型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(non_camel_case_types)]
 pub enum AIModel {
     /// OpenAI GPT-4
     OpenAI_GPT4,
@@ -156,6 +157,7 @@ impl CodeGenerationResponse {
 /// AI Code Generator 结构体
 pub struct AICodeGenerator {
     config: GenerationConfig,
+    #[allow(dead_code)]
     api_key: String,
 }
 
