@@ -165,6 +165,97 @@ impl AIProvider {
 
                 Ok(response.status().is_success())
             }
+            AIProviderType::Kimi => {
+                // Kimi (Moonshot) API validation - use a simple chat request
+                // Kimi API is OpenAI-compatible, so we can test with a minimal request
+                let url = format!("{}/chat/completions", self.get_base_url());
+                let body = serde_json::json!({
+                    "model": "moonshot-v1-8k",
+                    "messages": [
+                        {"role": "user", "content": "Hi"}
+                    ],
+                    "max_tokens": 1
+                });
+
+                let response = self
+                    .client
+                    .post(&url)
+                    .header(self.get_auth_header().0, self.get_auth_header().1)
+                    .header("Content-Type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await
+                    .map_err(|e| AIError {
+                        message: format!("Kimi API 验证请求失败：{}", e),
+                    })?;
+
+                if response.status().is_success() {
+                    Ok(true)
+                } else {
+                    let status = response.status();
+                    let text = response.text().await.unwrap_or_default();
+                    Err(AIError {
+                        message: format!("Kimi API 返回错误 ({}): {}", status, text),
+                    })
+                }
+            }
+            AIProviderType::GLM => {
+                // GLM (Zhipu) API validation - use a simple chat request
+                // GLM API is OpenAI-compatible
+                let url = format!("{}/chat/completions", self.get_base_url());
+                let body = serde_json::json!({
+                    "model": "glm-4-flash",
+                    "messages": [
+                        {"role": "user", "content": "Hi"}
+                    ],
+                    "max_tokens": 1
+                });
+
+                let response = self
+                    .client
+                    .post(&url)
+                    .header(self.get_auth_header().0, self.get_auth_header().1)
+                    .header("Content-Type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await
+                    .map_err(|e| AIError {
+                        message: format!("GLM API 验证请求失败：{}", e),
+                    })?;
+
+                if response.status().is_success() {
+                    Ok(true)
+                } else {
+                    let status = response.status();
+                    let text = response.text().await.unwrap_or_default();
+                    Err(AIError {
+                        message: format!("GLM API 返回错误 ({}): {}", status, text),
+                    })
+                }
+            }
+            AIProviderType::Anthropic => {
+                // Anthropic API validation - use models endpoint
+                let response = self
+                    .client
+                    .get(format!("{}/models", self.get_base_url()))
+                    .header(self.get_auth_header().0, self.get_auth_header().1)
+                    .header("anthropic-version", "2023-06-01")
+                    .send()
+                    .await
+                    .map_err(|e| AIError {
+                        message: format!("Anthropic API 验证失败：{}", e),
+                    })?;
+
+                if response.status().is_success() {
+                    Ok(true)
+                } else {
+                    let status = response.status();
+                    let text = response.text().await.unwrap_or_default();
+                    Err(AIError {
+                        message: format!("Anthropic API 返回错误 ({}): {}", status, text),
+                    })
+                }
+            }
             _ => {
                 // For other providers, assume valid for now
                 Ok(true)

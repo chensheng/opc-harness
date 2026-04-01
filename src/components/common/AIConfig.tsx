@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core'
 import { useState } from 'react'
 import {
   Key,
@@ -36,6 +37,7 @@ export function AIConfig() {
   const [validationStatus, setValidationStatus] = useState<
     Record<string, 'success' | 'error' | null>
   >({})
+  const [validationError, setValidationError] = useState<Record<string, string>>({})
 
   // 流式测试状态
   const [testProvider, setTestProvider] = useState<string | null>(null)
@@ -81,6 +83,7 @@ export function AIConfig() {
   const handleKeyChange = (providerId: string, value: string) => {
     setTempKeys(prev => ({ ...prev, [providerId]: value }))
     setValidationStatus(prev => ({ ...prev, [providerId]: null }))
+    setValidationError(prev => ({ ...prev, [providerId]: '' }))
   }
 
   const handleModelSelect = (providerId: string, modelId: string) => {
@@ -91,16 +94,56 @@ export function AIConfig() {
     const key = tempKeys[providerId]
     if (!key) return
 
+    // 获取当前 provider 的配置
+    const provider = providers.find(p => p.id === providerId)
+    if (!provider) return
+
+    const selectedModel = selectedModels[providerId] || provider.models[0]?.id
+
     setValidating(prev => ({ ...prev, [providerId]: true }))
+    setValidationError(prev => ({ ...prev, [providerId]: '' }))
 
-    // Simulate validation
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      // 调用后端的 validate_ai_key 命令进行真实验证
+      const result = await invoke<boolean>('validate_ai_key', {
+        request: {
+          provider: providerId,
+          api_key: key,
+          model: selectedModel || null,
+        },
+      })
 
-    // Mock validation - in real app, this would call the backend
-    const isValid = key.length > 10
+      if (result) {
+        setValidationStatus(prev => ({ ...prev, [providerId]: 'success' }))
+      } else {
+        setValidationStatus(prev => ({ ...prev, [providerId]: 'error' }))
+        setValidationError(prev => ({
+          ...prev,
+          [providerId]: `API Key 验证失败：${providerId} 服务返回验证未通过。请检查 API Key 是否正确或是否已过期。`,
+        }))
+      }
+    } catch (err) {
+      // 后端验证失败或网络错误
+      setValidationStatus(prev => ({ ...prev, [providerId]: 'error' }))
 
-    setValidationStatus(prev => ({ ...prev, [providerId]: isValid ? 'success' : 'error' }))
-    setValidating(prev => ({ ...prev, [providerId]: false }))
+      // 提取详细的错误信息
+      let errorMessage = '验证请求失败'
+      if (err instanceof Error) {
+        errorMessage = err.message
+      } else if (typeof err === 'string') {
+        errorMessage = err
+      }
+
+      // 存储详细错误信息，并提供可能原因的提示
+      setValidationError(prev => ({
+        ...prev,
+        [providerId]: `${errorMessage}\n\n可能原因:\n1. API Key 格式不正确\n2. API Key 已过期或无效\n3. 网络连接问题\n4. ${providerId} API 服务不可用`,
+      }))
+
+      console.error('API Key validation failed:', err)
+    } finally {
+      setValidating(prev => ({ ...prev, [providerId]: false }))
+    }
   }
 
   const handleSave = (providerId: string) => {
@@ -343,6 +386,26 @@ export function AIConfig() {
                       >
                         {validating[provider.id] ? '验证中...' : '验证'}
                       </Button>
+
+                      {/* 验证状态提示 */}
+                      {validationStatus[provider.id] === 'success' && (
+                        <div className="flex items-center gap-2 text-green-600 text-sm">
+                          <Check className="w-4 h-4" />
+                          <span>API Key 有效</span>
+                        </div>
+                      )}
+                      {validationStatus[provider.id] === 'error' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-red-600 text-sm font-medium">
+                            <X className="w-4 h-4" />
+                            <span>验证失败</span>
+                          </div>
+                          <div className="text-sm text-red-500 bg-red-50 p-3 rounded border border-red-100 whitespace-pre-line">
+                            {validationError[provider.id]}
+                          </div>
+                        </div>
+                      )}
+
                       <Button
                         onClick={() => handleSave(provider.id)}
                         disabled={validationStatus[provider.id] !== 'success'}
