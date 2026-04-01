@@ -256,10 +256,28 @@ export function AIConfig() {
       console.error('[handleTestNonStream] 错误详情:', JSON.stringify(err, null, 2))
       
       // 直接显示，不做任何处理
-      setNonStreamError(String(err))
+      let errorMessage = ''
+      
+      if (err instanceof Error) {
+        errorMessage = err.message
+      } else if (typeof err === 'string') {
+        errorMessage = err
+      } else if (err && typeof err === 'object') {
+        // 如果是对象，尝试转换为 JSON 字符串
+        try {
+          errorMessage = JSON.stringify(err, null, 2)
+        } catch {
+          errorMessage = String(err)
+        }
+      } else {
+        errorMessage = String(err)
+      }
+      
+      setNonStreamError(errorMessage)
     } finally {
       setNonStreamLoading(false)
-      setNonStreamTesting(null)
+      // 注意：不要在这里设置 setNonStreamTesting(null)，否则错误信息无法显示
+      // setNonStreamTesting 会在下次测试开始时被覆盖
     }
   }
 
@@ -489,80 +507,89 @@ export function AIConfig() {
 
                             <Button
                               onClick={() => handleTestNonStream(provider.id)}
-                              disabled={nonStreamLoading || nonStreamTesting === provider.id}
+                              disabled={nonStreamLoading}
                               variant="outline"
-                              size="sm"
                             >
-                              {nonStreamTesting === provider.id ? (
-                                <>
-                                  <Send className="w-4 h-4 mr-2 animate-spin" />
-                                  请求中...
-                                </>
-                              ) : (
-                                <>
-                                  <Send className="w-4 h-4 mr-2" />
-                                  测试非流式
-                                </>
-                              )}
+                              <Send className="w-4 h-4 mr-2" />
+                              测试非流式
                             </Button>
                           </div>
-                        </div>
 
-                        {/* 流式输出显示 */}
-                        {(isTesting || streamContent) && (
-                          <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
-                            {isStreaming && (
-                              <div className="mb-2 text-xs text-muted-foreground animate-pulse">
-                                AI 正在思考中...
+                          {/* 流式输出显示 */}
+                          {(isStreaming || streamContent || streamError) && (
+                            <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
+                              {isStreaming && (
+                                <div className="mb-2 text-xs text-muted-foreground animate-pulse">
+                                  AI 正在思考中...
+                                </div>
+                              )}
+                              <div className="text-sm whitespace-pre-wrap">
+                                {streamContent || '等待响应...'}
                               </div>
-                            )}
-                            <div className="text-sm whitespace-pre-wrap">
-                              {streamContent || '等待响应...'}
-                            </div>
-                            {isComplete && (
-                              <Badge className="mt-2 bg-green-500">
-                                <Check className="w-3 h-3 mr-1" />
-                                完成
-                              </Badge>
-                            )}
-                            {streamError && (
-                              <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
-                                <div className="flex items-start gap-3">
-                                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                  <div className="flex-1">
-                                    <div className="font-semibold text-red-900 mb-2">
-                                      流式测试失败
+                              {isComplete && (
+                                <Badge className="mt-2 bg-green-500">
+                                  <Check className="w-3 h-3 mr-1" />
+                                  完成
+                                </Badge>
+                              )}
+                              {streamError && (
+                                <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3 flex-1">
+                                      <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                      <div className="flex-1">
+                                        <div className="font-semibold text-red-900 mb-2">
+                                          流式测试失败
+                                        </div>
+                                        <div className="text-sm text-red-800 bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-red-200">
+                                          {streamError}
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="text-sm text-red-800 bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-red-200">
-                                      {streamError}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => resetStream()}
+                                      className="text-red-600 hover:text-red-800 hover:bg-red-100"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {nonStreamResponse[provider.id] && (
+                            <div className="mt-3 p-4 bg-white border-2 border-primary rounded-lg">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <MessageSquare className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-primary mb-2">
+                                      非流式测试结果
+                                    </div>
+                                    <div className="text-sm text-primary bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-primary/20">
+                                      {nonStreamResponse[provider.id]}
                                     </div>
                                   </div>
                                 </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setNonStreamResponse(prev => ({ ...prev, [provider.id]: '' }))}
+                                  className="text-primary hover:text-primary-800 hover:bg-primary-100"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* 非流式输出显示 */}
-                        {(nonStreamTesting === provider.id || nonStreamResponse[provider.id]) && (
-                          <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
-                            {nonStreamLoading && nonStreamTesting === provider.id && (
-                              <div className="mb-2 text-xs text-muted-foreground animate-pulse">
-                                AI 正在思考中...
-                              </div>
-                            )}
-                            <div className="text-sm whitespace-pre-wrap">
-                              {nonStreamResponse[provider.id] || '等待响应...'}
                             </div>
-                            {!nonStreamLoading && nonStreamResponse[provider.id] && (
-                              <Badge className="mt-2 bg-green-500">
-                                <Check className="w-3 h-3 mr-1" />
-                                完成
-                              </Badge>
-                            )}
-                            {nonStreamError && nonStreamTesting === provider.id && (
-                              <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
-                                <div className="flex items-start gap-3">
+                          )}
+
+                          {nonStreamError && (
+                            <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 flex-1">
                                   <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                                   <div className="flex-1">
                                     <div className="font-semibold text-red-900 mb-2">
@@ -573,24 +600,21 @@ export function AIConfig() {
                                     </div>
                                   </div>
                                 </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setNonStreamError(null)}
+                                  className="text-red-600 hover:text-red-800 hover:bg-red-100"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               </div>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
-
-                  {/* Documentation Link */}
-                  <a
-                    href={provider.baseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm text-primary hover:underline"
-                  >
-                    查看文档
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </a>
                 </CardContent>
               </Card>
             </TabsContent>
