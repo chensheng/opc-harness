@@ -308,18 +308,6 @@ export function AIConfig() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Available Models */}
-                  <div>
-                    <p className="text-sm font-medium mb-2">可用模型</p>
-                    <div className="flex flex-wrap gap-2">
-                      {provider.models.map(model => (
-                        <Badge key={model.id} variant="outline">
-                          {model.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Kimi 特别提示 */}
                   {provider.id === 'kimi' && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
