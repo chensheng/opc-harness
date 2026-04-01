@@ -90,9 +90,10 @@ export function useAIStream(): UseAIStreamReturn {
         })
         unlistenRef.current.push(unlistenComplete)
 
-        // 监听错误事件
+        // 监听错误事件 - 直接显示后端返回的完整错误信息
         const unlistenError = await listen<StreamError>('ai-stream-error', event => {
-          setError(event.payload.error)
+          console.error('[useAIStream] 收到错误事件:', event.payload)
+          setError(event.payload.error)  // 直接使用后端返回的 error 字段
           setIsLoading(false)
           isStreamingRef.current = false
           cleanup()
@@ -113,8 +114,16 @@ export function useAIStream(): UseAIStreamReturn {
 
         setSessionId(response)
       } catch (err) {
+        // 不要做任何处理，直接显示原始错误
         console.error('[useAIStream] Error starting stream:', err)
-        setError(err instanceof Error ? err.message : '未知错误')
+        // err 可能是 Tauri 的 InvokeError，需要提取其消息
+        if (typeof err === 'string') {
+          setError(err)
+        } else if (err && typeof err === 'object' && 'message' in err) {
+          setError((err as any).message)
+        } else {
+          setError(String(err))
+        }
         setIsLoading(false)
         isStreamingRef.current = false
         cleanup()

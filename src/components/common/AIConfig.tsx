@@ -176,11 +176,9 @@ export function AIConfig() {
 
   const handleTestStream = async (providerId: string) => {
     if (testProvider === providerId) {
-      // 停止当前测试
       stopStream()
       setTestProvider(null)
     } else {
-      // 开始新测试
       resetStream()
       setTestProvider(providerId)
 
@@ -195,10 +193,8 @@ export function AIConfig() {
           messages: [{ role: 'user', content: testMessage }],
         })
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : '未知错误'
-        alert(
-          `流式测试失败：${errorMessage}\n\n请检查:\n1. API Key 格式是否正确\n2. API Key 是否有访问权限\n3. 网络连接是否正常`
-        )
+        // 错误会通过 useAIStream 的 error 状态显示在页面上
+        console.error('[handleTestStream] 流式测试失败:', err)
       }
     }
   }
@@ -254,8 +250,13 @@ export function AIConfig() {
         [providerId]: response.content || JSON.stringify(response),
       }))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '请求失败'
-      setNonStreamError(errorMessage)
+      // 不要做任何处理，直接显示原始错误
+      console.error('[handleTestNonStream] 非流式测试失败:', err)
+      console.error('[handleTestNonStream] 错误类型:', typeof err)
+      console.error('[handleTestNonStream] 错误详情:', JSON.stringify(err, null, 2))
+      
+      // 直接显示，不做任何处理
+      setNonStreamError(String(err))
     } finally {
       setNonStreamLoading(false)
       setNonStreamTesting(null)
@@ -525,12 +526,18 @@ export function AIConfig() {
                               </Badge>
                             )}
                             {streamError && (
-                              <div className="mt-2 text-sm text-red-600">
-                                <div className="font-semibold mb-1 flex items-center gap-1">
-                                  <X className="w-4 h-4" />
-                                  错误
+                              <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-red-900 mb-2">
+                                      流式测试失败
+                                    </div>
+                                    <div className="text-sm text-red-800 bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-red-200">
+                                      {streamError}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="font-mono text-xs">{streamError}</div>
                               </div>
                             )}
                           </div>
@@ -554,12 +561,18 @@ export function AIConfig() {
                               </Badge>
                             )}
                             {nonStreamError && nonStreamTesting === provider.id && (
-                              <div className="mt-2 text-sm text-red-600">
-                                <div className="font-semibold mb-1 flex items-center gap-1">
-                                  <X className="w-4 h-4" />
-                                  错误
+                              <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                                <div className="flex items-start gap-3">
+                                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <div className="font-semibold text-red-900 mb-2">
+                                      非流式测试失败
+                                    </div>
+                                    <div className="text-sm text-red-800 bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-red-200">
+                                      {nonStreamError}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="font-mono text-xs">{nonStreamError}</div>
                               </div>
                             )}
                           </div>
