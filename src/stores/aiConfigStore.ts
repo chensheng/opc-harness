@@ -110,6 +110,17 @@ export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(
       }),
       {
         name: 'opc-harness-ai-config',
+        // 合并策略：确保 providers 始终包含所有最新的厂商
+        merge: (persistedState, currentState) => {
+          // 始终使用最新的 AI_PROVIDERS
+          const mergedState = {
+            ...currentState,
+            ...(persistedState as object),
+            providers: AI_PROVIDERS,
+          }
+          
+          return mergedState as typeof currentState
+        },
       }
     )
   )

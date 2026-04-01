@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Key,
   Check,
@@ -20,7 +20,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAIConfigStore } from '@/stores'
 import { useAIStream } from '@/hooks/useAIStream'
 import { Textarea } from '@/components/ui/textarea'
-import { invoke } from '@tauri-apps/api/core'
 
 interface AIResponse {
   content?: string
@@ -144,12 +143,6 @@ export function AIConfig() {
       if (!config) return
 
       try {
-        console.log('[AIConfig] Starting stream test:', {
-          provider: providerId,
-          model: config.model,
-          apiKeyPrefix: config.apiKey.substring(0, 8),
-        })
-
         await startStream({
           provider: providerId,
           model: config.model,
@@ -158,7 +151,6 @@ export function AIConfig() {
         })
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '未知错误'
-        console.error('[AIConfig] Test stream error:', err)
         alert(
           `流式测试失败：${errorMessage}\n\n请检查:\n1. API Key 格式是否正确\n2. API Key 是否有访问权限\n3. 网络连接是否正常`
         )
@@ -176,6 +168,9 @@ export function AIConfig() {
     if (!config) return
 
     try {
+      // 动态导入 Tauri API
+      const core = await import('@tauri-apps/api/core')
+
       // 根据 provider 类型调用不同的命令
       let command = ''
       switch (providerId) {
@@ -198,7 +193,7 @@ export function AIConfig() {
           throw new Error(`不支持的 provider: ${providerId}`)
       }
 
-      const response = await invoke<AIResponse>(command, {
+      const response = await core.invoke<AIResponse>(command, {
         request: {
           provider: providerId,
           model: config.model,
@@ -215,7 +210,6 @@ export function AIConfig() {
       }))
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '请求失败'
-      console.error('[AIConfig] Non-stream test error:', err)
       setNonStreamError(errorMessage)
     } finally {
       setNonStreamLoading(false)

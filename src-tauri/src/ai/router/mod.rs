@@ -101,6 +101,8 @@ impl AISmartRouter {
     
     /// 初始化 Provider 列表
     fn initialize_providers(&mut self) {
+        info!("[initialize_providers] Starting to initialize AI providers...");
+        
         // OpenAI
         self.providers.insert(
             AIProviderType::OpenAI,
@@ -115,6 +117,7 @@ impl AISmartRouter {
                 is_enabled: true,
             },
         );
+        info!("[initialize_providers] Added OpenAI");
         
         // Claude
         self.providers.insert(
@@ -130,6 +133,7 @@ impl AISmartRouter {
                 is_enabled: true,
             },
         );
+        info!("[initialize_providers] Added Anthropic");
         
         // Kimi
         self.providers.insert(
@@ -145,6 +149,7 @@ impl AISmartRouter {
                 is_enabled: true,
             },
         );
+        info!("[initialize_providers] Added Kimi");
         
         // GLM
         self.providers.insert(
@@ -160,8 +165,32 @@ impl AISmartRouter {
                 is_enabled: true,
             },
         );
+        info!("[initialize_providers] Added GLM");
+        
+        // MiniMax
+        info!("[initialize_providers] Adding MiniMax provider...");
+        self.providers.insert(
+            AIProviderType::MiniMax,
+            ProviderInfo {
+                provider_type: AIProviderType::MiniMax,
+                name: "MiniMax".to_string(),
+                models: vec!["abab6.5".to_string(), "abab5.5".to_string()],
+                cost_level: 2,
+                performance_level: 2,
+                quality_level: 2,
+                health_status: ProviderHealthStatus::default(),
+                is_enabled: true,
+            },
+        );
+        info!("[initialize_providers] Added MiniMax successfully");
         
         info!("Initialized {} AI providers", self.providers.len());
+        
+        // 打印所有已初始化的 provider 列表
+        for (provider_type, provider_info) in &self.providers {
+            info!("[initialize_providers] Provider: {:?} - Name: {}, Models: {:?}", 
+                  provider_type, provider_info.name, provider_info.models);
+        }
     }
     
     /// 设置路由策略
