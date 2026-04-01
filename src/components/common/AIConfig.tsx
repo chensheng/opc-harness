@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Key,
   Check,
@@ -60,21 +60,21 @@ export function AIConfig() {
   const sortedProviders = [...providers].sort((a, b) => {
     const configA = getConfig(a.id)
     const configB = getConfig(b.id)
-    
+
     // 如果都未配置，保持原始顺序
     if (!configA && !configB) return 0
-    
+
     // 已配置的排在未配置的前面
     if (configA && !configB) return -1
     if (!configA && configB) return 1
-    
+
     // 都已配置，按最后修改时间倒序
     if (configA && configB) {
       const timeA = configA.lastModified || 0
       const timeB = configB.lastModified || 0
       return timeB - timeA
     }
-    
+
     return 0
   })
 
@@ -237,290 +237,291 @@ export function AIConfig() {
         </TabsList>
 
         {sortedProviders.map(provider => {
-            const existingConfig = getConfig(provider.id)
-            const isConfigured = !!existingConfig
-            const isTesting = testProvider === provider.id
+          const existingConfig = getConfig(provider.id)
+          const isConfigured = !!existingConfig
+          const isTesting = testProvider === provider.id
 
-            return (
-              <TabsContent key={provider.id} value={provider.id}>
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Key className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{provider.name}</CardTitle>
-                          <CardDescription>{provider.models.length} 个模型可用</CardDescription>
-                        </div>
+          return (
+            <TabsContent key={provider.id} value={provider.id}>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Key className="w-5 h-5 text-primary" />
                       </div>
-                      {isConfigured && (
-                        <Badge className="bg-green-500">
-                          <Check className="w-3 h-3 mr-1" />
-                          已配置
+                      <div>
+                        <CardTitle className="text-lg">{provider.name}</CardTitle>
+                        <CardDescription>{provider.models.length} 个模型可用</CardDescription>
+                      </div>
+                    </div>
+                    {isConfigured && (
+                      <Badge className="bg-green-500">
+                        <Check className="w-3 h-3 mr-1" />
+                        已配置
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {/* Available Models */}
+                  <div>
+                    <p className="text-sm font-medium mb-2">可用模型</p>
+                    <div className="flex flex-wrap gap-2">
+                      {provider.models.map(model => (
+                        <Badge key={model.id} variant="outline">
+                          {model.name}
                         </Badge>
-                      )}
+                      ))}
                     </div>
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="space-y-4">
-                    {/* Available Models */}
-                    <div>
-                      <p className="text-sm font-medium mb-2">可用模型</p>
-                      <div className="flex flex-wrap gap-2">
-                        {provider.models.map(model => (
-                          <Badge key={model.id} variant="outline">
-                            {model.name}
-                          </Badge>
-                        ))}
-                      </div>
+                  {/* Kimi 特别提示 */}
+                  {provider.id === 'kimi' && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                      <p className="text-xs text-blue-800 font-medium">⚠️ Kimi Code 使用须知：</p>
+                      <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                        <li>
+                          Kimi Code 需要专用的 API Key，格式：
+                          <code className="bg-blue-100 px-1 rounded">sk-kimi-xxxxx</code>
+                        </li>
+                        <li>
+                          普通 Moonshot API Key（以{' '}
+                          <code className="bg-blue-100 px-1 rounded">sk-</code> 开头）无法用于 Kimi
+                          Code
+                        </li>
+                        <li>需要在 Kimi 会员页面生成专用的 Coding API Key</li>
+                        <li>如果使用非 Code 模型（如 kimi-k1.5），可以使用普通 API Key</li>
+                      </ul>
                     </div>
+                  )}
 
-                    {/* Kimi 特别提示 */}
-                    {provider.id === 'kimi' && (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-                        <p className="text-xs text-blue-800 font-medium">⚠️ Kimi Code 使用须知：</p>
-                        <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                          <li>
-                            Kimi Code 需要专用的 API Key，格式：
-                            <code className="bg-blue-100 px-1 rounded">sk-kimi-xxxxx</code>
-                          </li>
-                          <li>
-                            普通 Moonshot API Key（以{' '}
-                            <code className="bg-blue-100 px-1 rounded">sk-</code> 开头）无法用于 Kimi
-                            Code
-                          </li>
-                          <li>需要在 Kimi 会员页面生成专用的 Coding API Key</li>
-                          <li>如果使用非 Code 模型（如 kimi-k1.5），可以使用普通 API Key</li>
-                        </ul>
+                  {/* API Key Input */}
+                  {!isConfigured ? (
+                    <div className="space-y-3">
+                      {/* 模型选择 */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">选择模型</label>
+                        <select
+                          value={selectedModels[provider.id] || provider.models[0].id}
+                          onChange={e => handleModelSelect(provider.id, e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        >
+                          {provider.models.map(model => (
+                            <option key={model.id} value={model.id}>
+                              {model.name} ({model.maxTokens.toLocaleString()} tokens)
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
 
-                    {/* API Key Input */}
-                    {!isConfigured ? (
-                      <div className="space-y-3">
-                        {/* 模型选择 */}
+                      <label className="text-sm font-medium">API Key</label>
+                      <div className="relative flex-1">
+                        <Input
+                          type={showKey[provider.id] ? 'text' : 'password'}
+                          value={tempKeys[provider.id] || ''}
+                          onChange={e => handleKeyChange(provider.id, e.target.value)}
+                          placeholder={`输入 ${provider.name} API Key`}
+                        />
+                        <button
+                          onClick={() => toggleShowKey(provider.id)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showKey[provider.id] ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => handleValidate(provider.id)}
+                        disabled={!tempKeys[provider.id] || validating[provider.id]}
+                      >
+                        {validating[provider.id] ? '验证中...' : '验证'}
+                      </Button>
+                      <Button
+                        onClick={() => handleSave(provider.id)}
+                        disabled={validationStatus[provider.id] !== 'success'}
+                      >
+                        保存
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="space-y-2 w-full">
+                          <div className="flex items-center gap-2">
+                            <Key className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm font-mono">
+                              {existingConfig.apiKey.slice(0, 8)}...
+                              {existingConfig.apiKey.slice(-4)}
+                            </span>
+                          </div>
+
+                          {/* 模型选择 */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">当前模型:</span>
+                            <select
+                              value={existingConfig.model}
+                              onChange={e => {
+                                setConfig(provider.id, {
+                                  ...existingConfig,
+                                  model: e.target.value,
+                                })
+                              }}
+                              className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
+                            >
+                              {provider.models.map(model => (
+                                <option key={model.id} value={model.id}>
+                                  {model.name} ({model.maxTokens.toLocaleString()} tokens)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
+                          <X className="w-4 h-4 mr-2" />
+                          删除
+                        </Button>
+                      </div>
+
+                      {/* 流式测试区域 */}
+                      <div className="border-t pt-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <MessageSquare className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">流式测试</span>
+                        </div>
+
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">选择模型</label>
-                          <select
-                            value={selectedModels[provider.id] || provider.models[0].id}
-                            onChange={e => handleModelSelect(provider.id, e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                          >
-                            {provider.models.map(model => (
-                              <option key={model.id} value={model.id}>
-                                {model.name} ({model.maxTokens.toLocaleString()} tokens)
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        
-                        <label className="text-sm font-medium">API Key</label>
-                        <div className="relative flex-1">
-                          <Input
-                            type={showKey[provider.id] ? 'text' : 'password'}
-                            value={tempKeys[provider.id] || ''}
-                            onChange={e => handleKeyChange(provider.id, e.target.value)}
-                            placeholder={`输入 ${provider.name} API Key`}
+                          <Textarea
+                            value={testMessage}
+                            onChange={e => setTestMessage(e.target.value)}
+                            placeholder="输入测试消息..."
+                            disabled={isStreaming}
+                            rows={2}
                           />
-                          <button
-                            onClick={() => toggleShowKey(provider.id)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showKey[provider.id] ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
+
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleTestStream(provider.id)}
+                              disabled={isStreaming && !isTesting}
+                              variant={isTesting ? 'destructive' : 'default'}
+                              size="sm"
+                            >
+                              {isTesting ? (
+                                <>
+                                  <Square className="w-4 h-4 mr-2" />
+                                  停止
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-4 h-4 mr-2" />
+                                  测试流式
+                                </>
+                              )}
+                            </Button>
+
+                            <Button
+                              onClick={() => handleTestNonStream(provider.id)}
+                              disabled={nonStreamLoading || nonStreamTesting === provider.id}
+                              variant="outline"
+                              size="sm"
+                            >
+                              {nonStreamTesting === provider.id ? (
+                                <>
+                                  <Send className="w-4 h-4 mr-2 animate-spin" />
+                                  请求中...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="w-4 h-4 mr-2" />
+                                  测试非流式
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* 流式输出显示 */}
+                        {(isTesting || streamContent) && (
+                          <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
+                            {isStreaming && (
+                              <div className="mb-2 text-xs text-muted-foreground animate-pulse">
+                                AI 正在思考中...
+                              </div>
                             )}
-                          </button>
-                        </div>
-                        
-                        <Button
-                          variant="outline"
-                          onClick={() => handleValidate(provider.id)}
-                          disabled={!tempKeys[provider.id] || validating[provider.id]}
-                        >
-                          {validating[provider.id] ? '验证中...' : '验证'}
-                        </Button>
-                        <Button
-                          onClick={() => handleSave(provider.id)}
-                          disabled={validationStatus[provider.id] !== 'success'}
-                        >
-                          保存
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                          <div className="space-y-2 w-full">
-                            <div className="flex items-center gap-2">
-                              <Key className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm font-mono">
-                                {existingConfig.apiKey.slice(0, 8)}...{existingConfig.apiKey.slice(-4)}
-                              </span>
+                            <div className="text-sm whitespace-pre-wrap">
+                              {streamContent || '等待响应...'}
                             </div>
-
-                            {/* 模型选择 */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">当前模型:</span>
-                              <select
-                                value={existingConfig.model}
-                                onChange={e => {
-                                  setConfig(provider.id, {
-                                    ...existingConfig,
-                                    model: e.target.value,
-                                  })
-                                }}
-                                className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
-                              >
-                                {provider.models.map(model => (
-                                  <option key={model.id} value={model.id}>
-                                    {model.name} ({model.maxTokens.toLocaleString()} tokens)
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
-                            <X className="w-4 h-4 mr-2" />
-                            删除
-                          </Button>
-                        </div>
-
-                        {/* 流式测试区域 */}
-                        <div className="border-t pt-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <MessageSquare className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">流式测试</span>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Textarea
-                              value={testMessage}
-                              onChange={e => setTestMessage(e.target.value)}
-                              placeholder="输入测试消息..."
-                              disabled={isStreaming}
-                              rows={2}
-                            />
-
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => handleTestStream(provider.id)}
-                                disabled={isStreaming && !isTesting}
-                                variant={isTesting ? 'destructive' : 'default'}
-                                size="sm"
-                              >
-                                {isTesting ? (
-                                  <>
-                                    <Square className="w-4 h-4 mr-2" />
-                                    停止
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="w-4 h-4 mr-2" />
-                                    测试流式
-                                  </>
-                                )}
-                              </Button>
-
-                              <Button
-                                onClick={() => handleTestNonStream(provider.id)}
-                                disabled={nonStreamLoading || nonStreamTesting === provider.id}
-                                variant="outline"
-                                size="sm"
-                              >
-                                {nonStreamTesting === provider.id ? (
-                                  <>
-                                    <Send className="w-4 h-4 mr-2 animate-spin" />
-                                    请求中...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Send className="w-4 h-4 mr-2" />
-                                    测试非流式
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* 流式输出显示 */}
-                          {(isTesting || streamContent) && (
-                            <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
-                              {isStreaming && (
-                                <div className="mb-2 text-xs text-muted-foreground animate-pulse">
-                                  AI 正在思考中...
+                            {isComplete && (
+                              <Badge className="mt-2 bg-green-500">
+                                <Check className="w-3 h-3 mr-1" />
+                                完成
+                              </Badge>
+                            )}
+                            {streamError && (
+                              <div className="mt-2 text-sm text-red-600">
+                                <div className="font-semibold mb-1 flex items-center gap-1">
+                                  <X className="w-4 h-4" />
+                                  错误
                                 </div>
-                              )}
-                              <div className="text-sm whitespace-pre-wrap">
-                                {streamContent || '等待响应...'}
+                                <div className="font-mono text-xs">{streamError}</div>
                               </div>
-                              {isComplete && (
-                                <Badge className="mt-2 bg-green-500">
-                                  <Check className="w-3 h-3 mr-1" />
-                                  完成
-                                </Badge>
-                              )}
-                              {streamError && (
-                                <div className="mt-2 text-sm text-red-600">
-                                  <div className="font-semibold mb-1 flex items-center gap-1">
-                                    <X className="w-4 h-4" />
-                                    错误
-                                  </div>
-                                  <div className="font-mono text-xs">{streamError}</div>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            )}
+                          </div>
+                        )}
 
-                          {/* 非流式输出显示 */}
-                          {(nonStreamTesting === provider.id || nonStreamResponse[provider.id]) && (
-                            <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
-                              {nonStreamLoading && nonStreamTesting === provider.id && (
-                                <div className="mb-2 text-xs text-muted-foreground animate-pulse">
-                                  AI 正在思考中...
-                                </div>
-                              )}
-                              <div className="text-sm whitespace-pre-wrap">
-                                {nonStreamResponse[provider.id] || '等待响应...'}
+                        {/* 非流式输出显示 */}
+                        {(nonStreamTesting === provider.id || nonStreamResponse[provider.id]) && (
+                          <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
+                            {nonStreamLoading && nonStreamTesting === provider.id && (
+                              <div className="mb-2 text-xs text-muted-foreground animate-pulse">
+                                AI 正在思考中...
                               </div>
-                              {!nonStreamLoading && nonStreamResponse[provider.id] && (
-                                <Badge className="mt-2 bg-green-500">
-                                  <Check className="w-3 h-3 mr-1" />
-                                  完成
-                                </Badge>
-                              )}
-                              {nonStreamError && nonStreamTesting === provider.id && (
-                                <div className="mt-2 text-sm text-red-600">
-                                  <div className="font-semibold mb-1 flex items-center gap-1">
-                                    <X className="w-4 h-4" />
-                                    错误
-                                  </div>
-                                  <div className="font-mono text-xs">{nonStreamError}</div>
-                                </div>
-                              )}
+                            )}
+                            <div className="text-sm whitespace-pre-wrap">
+                              {nonStreamResponse[provider.id] || '等待响应...'}
                             </div>
-                          )}
-                        </div>
+                            {!nonStreamLoading && nonStreamResponse[provider.id] && (
+                              <Badge className="mt-2 bg-green-500">
+                                <Check className="w-3 h-3 mr-1" />
+                                完成
+                              </Badge>
+                            )}
+                            {nonStreamError && nonStreamTesting === provider.id && (
+                              <div className="mt-2 text-sm text-red-600">
+                                <div className="font-semibold mb-1 flex items-center gap-1">
+                                  <X className="w-4 h-4" />
+                                  错误
+                                </div>
+                                <div className="font-mono text-xs">{nonStreamError}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {/* Documentation Link */}
-                    <a
-                      href={provider.baseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-primary hover:underline"
-                    >
-                      查看文档
-                      <ExternalLink className="w-3 h-3 ml-1" />
-                    </a>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )
-          })}
+                  {/* Documentation Link */}
+                  <a
+                    href={provider.baseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm text-primary hover:underline"
+                  >
+                    查看文档
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )
+        })}
       </Tabs>
     </div>
   )

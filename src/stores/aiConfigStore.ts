@@ -118,7 +118,7 @@ export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(
             ...(persistedState as object),
             providers: AI_PROVIDERS,
           }
-          
+
           return mergedState as typeof currentState
         },
       }
