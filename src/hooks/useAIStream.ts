@@ -93,7 +93,7 @@ export function useAIStream(): UseAIStreamReturn {
         // 监听错误事件 - 直接显示后端返回的完整错误信息
         const unlistenError = await listen<StreamError>('ai-stream-error', event => {
           console.error('[useAIStream] 收到错误事件:', event.payload)
-          setError(event.payload.error)  // 直接使用后端返回的 error 字段
+          setError(event.payload.error) // 直接使用后端返回的 error 字段
           setIsLoading(false)
           isStreamingRef.current = false
           cleanup()
@@ -120,7 +120,7 @@ export function useAIStream(): UseAIStreamReturn {
         if (typeof err === 'string') {
           setError(err)
         } else if (err && typeof err === 'object' && 'message' in err) {
-          setError((err as any).message)
+          setError((err as { message: string }).message)
         } else {
           setError(String(err))
         }

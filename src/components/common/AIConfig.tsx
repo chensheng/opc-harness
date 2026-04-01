@@ -7,7 +7,6 @@ import {
   Eye,
   EyeOff,
   Cpu,
-  ExternalLink,
   MessageSquare,
   Play,
   Square,
@@ -54,8 +53,6 @@ export function AIConfig() {
     reset: resetStream,
   } = useAIStream()
 
-  // 非流式测试状态
-  const [nonStreamTesting, setNonStreamTesting] = useState<string | null>(null)
   const [nonStreamResponse, setNonStreamResponse] = useState<Record<string, string>>({})
   const [nonStreamLoading, setNonStreamLoading] = useState(false)
   const [nonStreamError, setNonStreamError] = useState<string | null>(null)
@@ -200,15 +197,16 @@ export function AIConfig() {
           apiKey: config.apiKey,
           messages: [{ role: 'user', content: testMessage }],
         })
-      } catch (err) {
+      } catch {
         // useAIStream 内部已经处理了错误，这里的 catch 不会执行
-        console.error('[handleTestStream] 注意：这个 catch 块不会执行，因为 useAIStream 已经在内部处理了所有错误')
+        console.error(
+          '[handleTestStream] 注意：这个 catch 块不会执行，因为 useAIStream 已经在内部处理了所有错误'
+        )
       }
     }
   }
 
   const handleTestNonStream = async (providerId: string) => {
-    setNonStreamTesting(providerId)
     setNonStreamLoading(true)
     setNonStreamError(null)
     setNonStreamResponse(prev => ({ ...prev, [providerId]: '' }))
@@ -262,10 +260,10 @@ export function AIConfig() {
       console.error('[handleTestNonStream] 非流式测试失败:', err)
       console.error('[handleTestNonStream] 错误类型:', typeof err)
       console.error('[handleTestNonStream] 错误详情:', JSON.stringify(err, null, 2))
-      
+
       // 直接显示，不做任何处理
       let errorMessage = ''
-      
+
       if (err instanceof Error) {
         errorMessage = err.message
       } else if (typeof err === 'string') {
@@ -280,12 +278,10 @@ export function AIConfig() {
       } else {
         errorMessage = String(err)
       }
-      
+
       setNonStreamError(errorMessage)
     } finally {
       setNonStreamLoading(false)
-      // 注意：不要在这里设置 setNonStreamTesting(null)，否则错误信息无法显示
-      // setNonStreamTesting 会在下次测试开始时被覆盖
     }
   }
 
@@ -358,7 +354,7 @@ export function AIConfig() {
                               }
                               return tokens.toString()
                             }
-                            
+
                             return (
                               <option key={model.id} value={model.id}>
                                 {model.name} ({formatTokens(model.maxTokens)})
@@ -461,7 +457,7 @@ export function AIConfig() {
                                   }
                                   return tokens.toString()
                                 }
-                                
+
                                 return (
                                   <option key={model.id} value={model.id}>
                                     {model.name} ({formatTokens(model.maxTokens)})
@@ -585,7 +581,9 @@ export function AIConfig() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => setNonStreamResponse(prev => ({ ...prev, [provider.id]: '' }))}
+                                  onClick={() =>
+                                    setNonStreamResponse(prev => ({ ...prev, [provider.id]: '' }))
+                                  }
                                   className="text-primary hover:text-primary-800 hover:bg-primary-100"
                                 >
                                   <X className="w-4 h-4" />
