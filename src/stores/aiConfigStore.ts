@@ -79,9 +79,13 @@ export const AI_PROVIDERS: AIProvider[] = [
     name: 'MiniMax',
     baseUrl: 'https://api.minimaxi.com/v1',
     models: [
-      { id: 'speech-2.5-turbo', name: 'Speech 2.5 Turbo', maxTokens: 128000 },
-      { id: 'speech-2-turbo', name: 'Speech 2 Turbo', maxTokens: 128000 },
-      { id: 'speech-v1', name: 'Speech V1', maxTokens: 128000 },
+      // M2.7 系列 - 最新旗舰
+      { id: 'MiniMax-M2.7', name: 'MiniMax-M2.7（最新旗舰）', maxTokens: 256000 },
+      { id: 'MiniMax-M2.7-highspeed', name: 'MiniMax-M2.7 HighSpeed（高速版）', maxTokens: 256000 },
+
+      // M2.5 系列 - 性能与性价比
+      { id: 'MiniMax-M2.5', name: 'MiniMax-M2.5（性能旗舰）', maxTokens: 256000 },
+      { id: 'MiniMax-M2.5-highspeed', name: 'MiniMax-M2.5 HighSpeed（高速版）', maxTokens: 256000 },
     ],
   },
 ]
