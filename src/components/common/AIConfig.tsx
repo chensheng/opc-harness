@@ -12,6 +12,8 @@ import {
   Play,
   Square,
   Send,
+  ShieldCheck,
+  Save,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -367,13 +369,24 @@ export function AIConfig() {
                         </button>
                       </div>
 
-                      <Button
-                        variant="outline"
-                        onClick={() => handleValidate(provider.id)}
-                        disabled={!tempKeys[provider.id] || validating[provider.id]}
-                      >
-                        {validating[provider.id] ? '验证中...' : '验证'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleValidate(provider.id)}
+                          disabled={!tempKeys[provider.id] || validating[provider.id]}
+                        >
+                          <ShieldCheck className="w-4 h-4 mr-2" />
+                          {validating[provider.id] ? '验证中...' : '验证'}
+                        </Button>
+
+                        <Button
+                          onClick={() => handleSave(provider.id)}
+                          disabled={validationStatus[provider.id] !== 'success'}
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          保存
+                        </Button>
+                      </div>
 
                       {/* 验证状态提示 */}
                       {validationStatus[provider.id] === 'success' && (
@@ -393,13 +406,6 @@ export function AIConfig() {
                           </div>
                         </div>
                       )}
-
-                      <Button
-                        onClick={() => handleSave(provider.id)}
-                        disabled={validationStatus[provider.id] !== 'success'}
-                      >
-                        保存
-                      </Button>
                     </div>
                   ) : (
                     <div className="space-y-4">
