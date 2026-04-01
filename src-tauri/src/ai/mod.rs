@@ -745,7 +745,7 @@ impl AIProvider {
                                 if let Some(delta) = event.get("delta") {
                                     log::trace!("Found delta: {:?}", delta);
                                     if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
-                                        log::info!("Extracted text from delta: {} chars", text.len());
+                                        log::debug!("Extracted text from delta: {} chars", text.len());
                                         full_content.push_str(text);
                                         on_chunk(text.to_string())?;
                                         sent_chunk_count += 1;
