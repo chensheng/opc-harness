@@ -476,7 +476,9 @@ impl AIProvider {
             log::info!("Using Kimi Coding (Anthropic-compatible) API for model: {}", request.model);
             
             // 检查 API Key 格式
-            let api_key = self.get_auth_header().1;
+            let auth_header_value = self.get_auth_header().1;
+            // 去掉 "Bearer " 前缀再检查
+            let api_key = auth_header_value.strip_prefix("Bearer ").unwrap_or(&auth_header_value);
             if !api_key.starts_with("sk-kimi-") {
                 log::warn!("Kimi Coding API Key 格式可能不正确。期望以 'sk-kimi-' 开头，实际：{}", api_key);
             }
@@ -599,7 +601,9 @@ impl AIProvider {
             log::info!("Using Kimi Coding (Anthropic-compatible) streaming API for model: {}", request.model);
             
             // 检查 API Key 格式
-            let api_key = self.get_auth_header().1;
+            let auth_header_value = self.get_auth_header().1;
+            // 去掉 "Bearer " 前缀再检查
+            let api_key = auth_header_value.strip_prefix("Bearer ").unwrap_or(&auth_header_value);
             if !api_key.starts_with("sk-kimi-") {
                 log::warn!("Kimi Coding API Key 格式可能不正确。期望以 'sk-kimi-' 开头，实际：{}", api_key);
             }
