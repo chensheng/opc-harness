@@ -321,11 +321,23 @@ export function AIConfig() {
                           onChange={e => handleModelSelect(provider.id, e.target.value)}
                           className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                         >
-                          {provider.models.map(model => (
-                            <option key={model.id} value={model.id}>
-                              {model.name} ({model.maxTokens.toLocaleString()} tokens)
-                            </option>
-                          ))}
+                          {provider.models.map(model => {
+                            // 格式化 token 数为更易读的单位
+                            const formatTokens = (tokens: number) => {
+                              if (tokens >= 1000000) {
+                                return `${(tokens / 1000000).toFixed(1)}M`
+                              } else if (tokens >= 1000) {
+                                return `${(tokens / 1000).toFixed(0)}K`
+                              }
+                              return tokens.toString()
+                            }
+                            
+                            return (
+                              <option key={model.id} value={model.id}>
+                                {model.name} ({formatTokens(model.maxTokens)})
+                              </option>
+                            )
+                          })}
                         </select>
                       </div>
 
@@ -412,11 +424,23 @@ export function AIConfig() {
                               }}
                               className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
                             >
-                              {provider.models.map(model => (
-                                <option key={model.id} value={model.id}>
-                                  {model.name} ({model.maxTokens.toLocaleString()} tokens)
-                                </option>
-                              ))}
+                              {provider.models.map(model => {
+                                // 格式化 token 数为更易读的单位
+                                const formatTokens = (tokens: number) => {
+                                  if (tokens >= 1000000) {
+                                    return `${(tokens / 1000000).toFixed(1)}M`
+                                  } else if (tokens >= 1000) {
+                                    return `${(tokens / 1000).toFixed(0)}K`
+                                  }
+                                  return tokens.toString()
+                                }
+                                
+                                return (
+                                  <option key={model.id} value={model.id}>
+                                    {model.name} ({formatTokens(model.maxTokens)})
+                                  </option>
+                                )
+                              })}
                             </select>
                           </div>
                         </div>
