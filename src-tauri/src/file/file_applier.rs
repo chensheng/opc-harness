@@ -2,6 +2,8 @@
 //! 
 //! 实现安全的文件修改、备份和回滚机制
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;

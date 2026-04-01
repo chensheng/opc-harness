@@ -42,6 +42,7 @@ impl AIConfig {
     }
 
     /// Create a new AIConfig with API key (for runtime use only)
+    #[allow(dead_code)]
     pub fn with_key(provider: String, model: String, api_key: String) -> Self {
         Self {
             provider,

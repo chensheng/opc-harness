@@ -1,5 +1,7 @@
 //! AI 模块 - 提供 AI Provider 和智能路由功能
 
+#![allow(dead_code)]
+
 pub mod router;
 
 use log::{debug, error, info, warn};

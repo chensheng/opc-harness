@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// ESLint 质量检查器
 /// 
 /// 用于运行 ESLint 检查 TypeScript/JavaScript 代码质量

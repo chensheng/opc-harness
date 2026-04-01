@@ -81,10 +81,12 @@ pub struct CreateInitialVersionResponse {
 
 /// 获取历史请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct GetIterationHistoryRequest {}
 
 /// 获取历史响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct GetIterationHistoryResponse {
     /// 迭代历史
     pub history: IterationHistory,
@@ -187,6 +189,7 @@ impl PRDIterationManager {
     }
 
     /// 获取迭代历史
+    #[allow(dead_code)]
     pub fn get_history(&self) -> &IterationHistory {
         &self.history
     }
@@ -252,6 +255,7 @@ impl PRDIterationManager {
     }
 
     /// 回滚到指定版本
+    #[allow(dead_code)]
     pub fn rollback_to_version(&mut self, version_id: &str) -> Result<&PRDVersion, String> {
         let version = self.history.versions.iter()
             .find(|v| v.version_id == version_id)

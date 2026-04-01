@@ -388,6 +388,7 @@ impl From<BusinessError> for AppError {
 // ==================== 辅助函数 ====================
 
 /// 创建验证错误的快捷函数
+#[allow(dead_code)]
 pub fn validation_error(field: impl Into<String>, message: impl Into<String>) -> AppError {
     ValidationError {
         field: field.into(),
@@ -396,6 +397,7 @@ pub fn validation_error(field: impl Into<String>, message: impl Into<String>) ->
 }
 
 /// 创建资源未找到错误的快捷函数
+#[allow(dead_code)]
 pub fn not_found(resource_type: &str, id: &str) -> AppError {
     AppError::new(ErrorCode::RESOURCE_NOT_FOUND, format!("{} not found: {}", resource_type, id))
         .with_context("resource_type", resource_type)
@@ -403,6 +405,7 @@ pub fn not_found(resource_type: &str, id: &str) -> AppError {
 }
 
 /// 创建操作失败错误的快捷函数
+#[allow(dead_code)]
 pub fn operation_failed(operation: &str, reason: &str) -> AppError {
     AppError::new(ErrorCode::OPERATION_FAILED, format!("{} failed: {}", operation, reason))
         .with_context("operation", operation)

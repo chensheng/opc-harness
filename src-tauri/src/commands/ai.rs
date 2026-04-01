@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::ai::{
     AIProvider, AIProviderType, ChatRequest, ChatResponse, Message as AIMessage, StreamChunk, StreamComplete, StreamError,
 };

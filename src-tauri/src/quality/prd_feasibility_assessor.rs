@@ -189,6 +189,7 @@ impl PRDFeasibilityAssessor {
     }
 
     /// 创建带自定义配置的评估器
+    #[allow(dead_code)]
     pub fn with_config(team_skills: Vec<String>, team_size: usize) -> Self {
         Self {
             team_skills,

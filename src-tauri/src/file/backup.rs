@@ -2,6 +2,8 @@
 //! 
 //! 提供文件备份、恢复和清理功能
 
+#![allow(dead_code)]
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};

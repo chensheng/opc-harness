@@ -468,6 +468,7 @@ pub async fn rollback_to_version(
 
 /// 提交反馈并重新生成请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct SubmitFeedbackRequest {
     /// PRD ID
     pub prd_id: String,
@@ -483,6 +484,7 @@ pub struct SubmitFeedbackRequest {
 
 /// 提交反馈并重新生成响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct SubmitFeedbackResponse {
     /// 新的 PRD 内容
     pub new_prd_content: String,
@@ -500,6 +502,7 @@ pub struct SubmitFeedbackResponse {
 
 /// 提交反馈并重新生成 PRD
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn submit_feedback_and_regenerate(
     request: SubmitFeedbackRequest,
 ) -> Result<SubmitFeedbackResponse, String> {
@@ -617,6 +620,7 @@ mod feedback_tests {
 
 /// PRD 深度分析请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct AnalyzePRDDepthRequest {
     /// PRD 内容（Markdown 格式）
     pub prd_content: String,
@@ -626,6 +630,7 @@ pub struct AnalyzePRDDepthRequest {
 
 /// PRD 深度分析响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct AnalyzePRDDepthResponse {
     /// 是否成功
     pub success: bool,
@@ -637,6 +642,7 @@ pub struct AnalyzePRDDepthResponse {
 
 /// PRD 深度分析
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn analyze_prd_depth(request: AnalyzePRDDepthRequest) -> Result<AnalyzePRDDepthResponse, String> {
     log::info!("Starting PRD deep analysis...");
     
@@ -704,6 +710,7 @@ mod tests_prd_analysis {
 
 /// 任务分解请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct DecomposeTasksRequest {
     /// PRD 分析结果（功能列表）
     pub analysis: PrdAnalysis,
@@ -711,6 +718,7 @@ pub struct DecomposeTasksRequest {
 
 /// 任务分解响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct DecomposeTasksResponse {
     /// 是否成功
     pub success: bool,
@@ -722,6 +730,7 @@ pub struct DecomposeTasksResponse {
 
 /// 分解任务
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn decompose_tasks(request: DecomposeTasksRequest) -> Result<DecomposeTasksResponse, String> {
     log::info!("Starting task decomposition...");
     

@@ -2,6 +2,8 @@
 //! 
 //! AI-005: 实现 AI 智能路由系统，根据任务类型、成本、性能等因素自动选择最佳 AI Provider
 
+#![allow(dead_code)]
+
 use crate::ai::AIProviderType;
 use log::info;
 use std::collections::HashMap;
