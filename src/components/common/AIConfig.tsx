@@ -310,26 +310,6 @@ export function AIConfig() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Kimi 特别提示 */}
-                  {provider.id === 'kimi' && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-                      <p className="text-xs text-blue-800 font-medium">⚠️ Kimi Code 使用须知：</p>
-                      <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                        <li>
-                          Kimi Code 需要专用的 API Key，格式：
-                          <code className="bg-blue-100 px-1 rounded">sk-kimi-xxxxx</code>
-                        </li>
-                        <li>
-                          普通 Moonshot API Key（以{' '}
-                          <code className="bg-blue-100 px-1 rounded">sk-</code> 开头）无法用于 Kimi
-                          Code
-                        </li>
-                        <li>需要在 Kimi 会员页面生成专用的 Coding API Key</li>
-                        <li>如果使用非 Code 模型（如 kimi-k1.5），可以使用普通 API Key</li>
-                      </ul>
-                    </div>
-                  )}
-
                   {/* API Key Input */}
                   {!isConfigured ? (
                     <div className="space-y-3">
