@@ -51,20 +51,13 @@ export const AI_PROVIDERS: AIProvider[] = [
     models: [
       // Kimi K2.5 - 最新全能旗舰模型
       { id: 'kimi-k2.5', name: 'Kimi K2.5（全能旗舰）', maxTokens: 256000 },
-      
-      // Kimi K2 系列 - 代码和 Agent 能力（稳定版）
-      { id: 'kimi-k2-turbo', name: 'Kimi K2 Turbo（高速版）', maxTokens: 256000 },
-      { id: 'kimi-k2-thinking-turbo', name: 'Kimi K2 Thinking Turbo（长思考高速）', maxTokens: 256000 },
-      { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking（长思考）', maxTokens: 256000 },
-      
+
+      // Kimi K2 - 高性能模型
+      { id: 'kimi-k2', name: 'Kimi K2（高性能）', maxTokens: 256000 },
+      { id: 'kimi-k2-thinking', name: 'Kimi K2 Thinking（深度思考）', maxTokens: 256000 },
+
       // Kimi Code - 专用编程模型
       { id: 'kimi-code', name: 'Kimi Code（编程专用）', maxTokens: 256000 },
-      
-      // Moonshot V1 系列 - 经典模型
-      { id: 'moonshot-v1-128k', name: 'Moonshot V1 128K', maxTokens: 128000 },
-      { id: 'moonshot-v1-32k', name: 'Moonshot V1 32K', maxTokens: 32000 },
-      { id: 'moonshot-v1-8k', name: 'Moonshot V1 8K', maxTokens: 8000 },
-      { id: 'moonshot-v1-auto', name: 'Moonshot V1 Auto', maxTokens: 128000 },
     ],
   },
   {
