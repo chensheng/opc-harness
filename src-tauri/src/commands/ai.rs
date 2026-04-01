@@ -133,6 +133,7 @@ pub async fn validate_ai_key(request: ValidateKeyRequest) -> Result<bool, String
         "anthropic" => AIProviderType::Anthropic,
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
+        "minimax" => AIProviderType::MiniMax,
         _ => return Err("Unsupported provider".to_string()),
     };
 

@@ -934,17 +934,154 @@ impl AIProvider {
         }
     }
 
+    // =====================================================================
+    // GLM (Zhipu) API 实现
+    // =====================================================================
+    // GLM API is OpenAI-compatible, using the same request/response format
+    // =====================================================================
+
     async fn chat_glm(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
-        // GLM uses OpenAI-compatible API
-        self.chat_openai(request).await
+        let url = format!("{}/chat/completions", self.get_base_url());
+
+        let body = serde_json::json!({
+            "model": request.model,
+            "messages": request.messages,
+            "temperature": request.temperature.unwrap_or(0.7),
+            "max_tokens": request.max_tokens.unwrap_or(1024),
+        });
+
+        log::info!("Sending GLM chat request to: {}", url);
+        log::debug!("Request body: {:?}", body);
+
+        let response = self
+            .client
+            .post(&url)
+            .header(self.get_auth_header().0, self.get_auth_header().1)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                log::error!("GLM request failed: {}", e);
+                AIError {
+                    message: e.to_string(),
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            log::error!("GLM API error ({}): {}", status, error_text);
+            return Err(AIError {
+                message: format!("GLM API error ({}): {}", status, error_text),
+            });
+        }
+
+        let json: OpenAIChatResponse = response.json().await.map_err(|e| {
+            log::error!("Failed to parse GLM response: {}", e);
+            AIError {
+                message: e.to_string(),
+            }
+        })?;
+
+        log::info!(
+            "GLM chat response received, tokens used: {:?}",
+            json.usage
+        );
+
+        let content = json.choices[0].message.content.clone();
+
+        Ok(ChatResponse {
+            content,
+            model: request.model,
+            usage: json.usage.map(|u| Usage {
+                prompt_tokens: u.prompt_tokens,
+                completion_tokens: u.completion_tokens,
+                total_tokens: u.total_tokens,
+            }),
+        })
     }
 
-    async fn stream_chat_glm<F>(&self, request: ChatRequest, on_chunk: F) -> Result<String, AIError>
+    async fn stream_chat_glm<F>(
+        &self,
+        request: ChatRequest,
+        mut on_chunk: F,
+    ) -> Result<String, AIError>
     where
         F: FnMut(String) -> Result<(), AIError>,
     {
-        // GLM uses OpenAI-compatible API
-        self.stream_chat_openai(request, on_chunk).await
+        let url = format!("{}/chat/completions", self.get_base_url());
+
+        let body = serde_json::json!({
+            "model": request.model,
+            "messages": request.messages,
+            "temperature": request.temperature.unwrap_or(0.7),
+            "max_tokens": request.max_tokens.unwrap_or(1024),
+            "stream": true,
+        });
+
+        log::info!("Sending GLM stream chat request to: {}", url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header(self.get_auth_header().0, self.get_auth_header().1)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                log::error!("GLM stream request failed: {}", e);
+                AIError {
+                    message: e.to_string(),
+                }
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            log::error!("GLM stream API error ({}): {}", status, error_text);
+            return Err(AIError {
+                message: format!("GLM stream API error ({}): {}", status, error_text),
+            });
+        }
+
+        // 处理流式响应
+        let mut full_content = String::new();
+        let mut stream = response.bytes_stream();
+
+        use futures::StreamExt;
+        let mut chunk_count = 0;
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| {
+                log::error!("Failed to read stream chunk: {}", e);
+                AIError {
+                    message: e.to_string(),
+                }
+            })?;
+
+            // 解析 SSE 数据
+            let text = String::from_utf8_lossy(&chunk);
+            for line in text.lines() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if data.trim() == "[DONE]" {
+                        continue;
+                    }
+
+                    if let Ok(delta) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(content) = delta["choices"][0]["delta"]["content"].as_str() {
+                            full_content.push_str(content);
+                            on_chunk(content.to_string())?;
+                            chunk_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        log::info!("GLM streaming completed, processed {} chunks", chunk_count);
+        Ok(full_content)
     }
 
     async fn chat_minimax(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
