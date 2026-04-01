@@ -31,6 +31,7 @@ export function AIConfig() {
 
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
   const [tempKeys, setTempKeys] = useState<Record<string, string>>({})
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({})
   const [validating, setValidating] = useState<Record<string, boolean>>({})
   const [validationStatus, setValidationStatus] = useState<
     Record<string, 'success' | 'error' | null>
@@ -60,6 +61,10 @@ export function AIConfig() {
     setValidationStatus(prev => ({ ...prev, [providerId]: null }))
   }
 
+  const handleModelSelect = (providerId: string, modelId: string) => {
+    setSelectedModels(prev => ({ ...prev, [providerId]: modelId }))
+  }
+
   const handleValidate = async (providerId: string) => {
     const key = tempKeys[providerId]
     if (!key) return
@@ -85,12 +90,13 @@ export function AIConfig() {
 
     setConfig(providerId, {
       provider: providerId,
-      model: provider.models[0].id,
+      model: selectedModels[providerId] || provider.models[0].id,
       apiKey: key,
     })
 
     setValidationStatus(prev => ({ ...prev, [providerId]: null }))
     setTempKeys(prev => ({ ...prev, [providerId]: '' }))
+    setSelectedModels(prev => ({ ...prev, [providerId]: '' }))
   }
 
   const handleRemove = (providerId: string) => {
@@ -265,6 +271,22 @@ export function AIConfig() {
                 {/* API Key Input */}
                 {!isConfigured ? (
                   <div className="space-y-3">
+                    {/* 模型选择 */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">选择模型</label>
+                      <select
+                        value={selectedModels[provider.id] || provider.models[0].id}
+                        onChange={e => handleModelSelect(provider.id, e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      >
+                        {provider.models.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name} ({model.maxTokens.toLocaleString()} tokens)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
                     <label className="text-sm font-medium">API Key</label>
                     <div className="relative flex-1">
                       <Input
@@ -284,6 +306,7 @@ export function AIConfig() {
                         )}
                       </button>
                     </div>
+                    
                     <Button
                       variant="outline"
                       onClick={() => handleValidate(provider.id)}
