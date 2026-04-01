@@ -56,13 +56,23 @@ export const AI_PROVIDERS: AIProvider[] = [
   },
   {
     id: 'glm',
-    name: '智谱AI (GLM)',
+    name: '智谱 AI (GLM)',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     models: [
       { id: 'glm-4-plus', name: 'GLM-4 Plus', maxTokens: 128000 },
       { id: 'glm-4', name: 'GLM-4', maxTokens: 128000 },
       { id: 'glm-4-air', name: 'GLM-4 Air', maxTokens: 128000 },
       { id: 'codegeex-4', name: 'CodeGeeX-4', maxTokens: 128000 },
+    ],
+  },
+  {
+    id: 'minimax',
+    name: 'MiniMax',
+    baseUrl: 'https://api.minimaxi.com/v1',
+    models: [
+      { id: 'speech-2.5-turbo', name: 'Speech 2.5 Turbo', maxTokens: 128000 },
+      { id: 'speech-2-turbo', name: 'Speech 2 Turbo', maxTokens: 128000 },
+      { id: 'speech-v1', name: 'Speech V1', maxTokens: 128000 },
     ],
   },
 ]
