@@ -49,3 +49,4 @@ temp
 
 # Test Reports
 test-results
+*.txt
