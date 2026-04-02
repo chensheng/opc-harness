@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAIConfigStore } from '@/stores'
 import { useAIStream } from '@/hooks/useAIStream'
 import { Textarea } from '@/components/ui/textarea'
+import { ask } from '@tauri-apps/plugin-dialog'
 
 interface AIResponse {
   content?: string
@@ -163,7 +164,17 @@ export function AIConfig() {
     setSelectedModels(prev => ({ ...prev, [providerId]: '' }))
   }
 
-  const handleRemove = (providerId: string) => {
+  const handleRemove = async (providerId: string) => {
+    // 显示确认对话框
+    const confirmed = await ask('确定要删除此配置吗？此操作无法撤销。', {
+      title: '确认删除',
+      kind: 'warning',
+    })
+
+    if (!confirmed) {
+      return
+    }
+
     removeConfig(providerId)
   }
 
