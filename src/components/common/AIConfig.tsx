@@ -165,11 +165,16 @@ export function AIConfig() {
   }
 
   const handleRemove = async (providerId: string) => {
-    // 显示确认对话框
-    const confirmed = await ask('确定要删除此配置吗？此操作无法撤销。', {
-      title: '确认删除',
-      kind: 'warning',
-    })
+    // 显示确认对话框 - 使用更友好的文案和样式
+    const confirmed = await ask(
+      '删除配置后需要重新输入 API Key 才能使用该服务。\n\n确定要删除此配置吗？',
+      {
+        title: '确认删除配置',
+        kind: 'warning',
+        okLabel: '删除',
+        cancelLabel: '取消',
+      }
+    )
 
     if (!confirmed) {
       return
