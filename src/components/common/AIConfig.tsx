@@ -13,6 +13,7 @@ import {
   Send,
   ShieldCheck,
   Save,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -22,7 +23,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAIConfigStore } from '@/stores'
 import { useAIStream } from '@/hooks/useAIStream'
 import { Textarea } from '@/components/ui/textarea'
-import { ask } from '@tauri-apps/plugin-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 interface AIResponse {
   content?: string
@@ -57,6 +65,10 @@ export function AIConfig() {
   const [nonStreamResponse, setNonStreamResponse] = useState<Record<string, string>>({})
   const [nonStreamLoading, setNonStreamLoading] = useState(false)
   const [nonStreamError, setNonStreamError] = useState<string | null>(null)
+
+  // 删除确认对话框状态
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [providerToDelete, setProviderToDelete] = useState<string | null>(null)
 
   // 对厂商进行排序：已配置的排在前面，按最后修改时间倒序
   const sortedProviders = [...providers].sort((a, b) => {
@@ -164,23 +176,23 @@ export function AIConfig() {
     setSelectedModels(prev => ({ ...prev, [providerId]: '' }))
   }
 
-  const handleRemove = async (providerId: string) => {
-    // 显示确认对话框 - 使用更友好的文案和样式
-    const confirmed = await ask(
-      '删除配置后需要重新输入 API Key 才能使用该服务。\n\n确定要删除此配置吗？',
-      {
-        title: '确认删除配置',
-        kind: 'warning',
-        okLabel: '删除',
-        cancelLabel: '取消',
-      }
-    )
+  const handleRemove = (providerId: string) => {
+    // 打开删除确认对话框
+    setProviderToDelete(providerId)
+    setDeleteDialogOpen(true)
+  }
 
-    if (!confirmed) {
-      return
+  const handleConfirmDelete = () => {
+    if (providerToDelete) {
+      removeConfig(providerToDelete)
+      setDeleteDialogOpen(false)
+      setProviderToDelete(null)
     }
+  }
 
-    removeConfig(providerId)
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false)
+    setProviderToDelete(null)
   }
 
   const toggleShowKey = (providerId: string) => {
@@ -643,6 +655,25 @@ export function AIConfig() {
           )
         })}
       </Tabs>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除配置</DialogTitle>
+            <DialogDescription>
+              删除配置后需要重新输入 API Key 才能使用该服务。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelDelete}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
