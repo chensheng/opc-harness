@@ -13,7 +13,6 @@ import {
   Send,
   ShieldCheck,
   Save,
-  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -660,9 +659,7 @@ export function AIConfig() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>确认删除配置</DialogTitle>
-            <DialogDescription>
-              删除配置后需要重新输入 API Key 才能使用该服务。
-            </DialogDescription>
+            <DialogDescription>删除配置后需要重新输入 API Key 才能使用该服务。</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelDelete}>
