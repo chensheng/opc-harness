@@ -77,8 +77,8 @@ fn main() {
             // GLM API commands (AI-004)
             commands::ai::chat_glm,
             commands::ai::stream_chat_glm,
-            // CLI commands - 暂时注释（尚未实现）
-            // commands::cli::detect_tools,
+            // CLI commands
+            commands::cli::detect_tools,
             // commands::cli::create_cli_session,
             // commands::cli::send_cli_prompt,
             // commands::cli::read_cli_output,
