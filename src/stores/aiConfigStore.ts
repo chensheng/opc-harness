@@ -118,7 +118,31 @@ export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(
 
         getActiveConfig: () => {
           const { defaultProvider, configs } = get()
-          return configs[defaultProvider]
+          
+          // 1. 优先返回 defaultProvider 的配置
+          if (configs[defaultProvider]?.apiKey) {
+            return configs[defaultProvider]
+          }
+          
+          // 2. 如果 defaultProvider 没有配置，查找所有已配置的 provider
+          const configuredProviders = Object.entries(configs)
+            .filter(([_, config]) => config?.apiKey)
+            .sort(([_, configA], [__, configB]) => {
+              // 按 lastModified 降序排序，最新的在前
+              const timeA = configA?.lastModified || 0
+              const timeB = configB?.lastModified || 0
+              return timeB - timeA
+            })
+          
+          if (configuredProviders.length > 0) {
+            // 返回最新配置的那个 provider
+            const [latestProvider, latestConfig] = configuredProviders[0]
+            console.log('[AIConfig] Using provider:', latestProvider, 'configured at:', new Date(latestConfig.lastModified || 0).toLocaleString())
+            return latestConfig
+          }
+          
+          // 3. 没有任何配置，返回 undefined
+          return undefined
         },
       }),
       {
