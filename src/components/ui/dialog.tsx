@@ -1,6 +1,6 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
+import { X, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const Dialog = DialogPrimitive.Root
@@ -87,6 +87,81 @@ const DialogDescription = React.forwardRef<
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 
+// ==================== Alert Dialog ====================
+
+const AlertDialogContext = React.createContext<{
+  type?: 'info' | 'warning' | 'error' | 'success'
+}>({ type: 'info' })
+
+const AlertDialog = ({ 
+  open, 
+  onOpenChange, 
+  type = 'info',
+  children 
+}: { 
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  type?: 'info' | 'warning' | 'error' | 'success'
+  children: React.ReactNode
+}) => {
+  return (
+    <AlertDialogContext.Provider value={{ type }}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {children}
+      </Dialog>
+    </AlertDialogContext.Provider>
+  )
+}
+
+const AlertDialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    'aria-label'?: string
+  }
+>(({ className, children, ...props }, ref) => {
+  const { type } = React.useContext(AlertDialogContext)
+  
+  const typeStyles: Record<string, string> = {
+    info: 'border-blue-500',
+    warning: 'border-yellow-500',
+    error: 'border-red-500',
+    success: 'border-green-500',
+  }
+
+  const iconStyles: Record<string, string> = {
+    info: 'text-blue-500',
+    warning: 'text-yellow-500',
+    error: 'text-red-500',
+    success: 'text-green-500',
+  }
+
+  const icons: Record<string, JSX.Element> = {
+    info: <AlertCircle className="h-6 w-6" />,
+    warning: <AlertCircle className="h-6 w-6" />,
+    error: <AlertCircle className="h-6 w-6" />,
+    success: <CheckCircle2 className="h-6 w-6" />,
+  }
+
+  const currentType = type || 'info'
+
+  return (
+    <DialogContent 
+      ref={ref} 
+      className={cn(typeStyles[currentType], className)} 
+      {...props} 
+    >
+      <div className={cn('flex items-center gap-3', iconStyles[currentType])}>
+        {icons[currentType]}
+        <DialogTitle className="text-lg font-semibold">
+          {props['aria-label'] || '提示'}
+        </DialogTitle>
+      </div>
+      {children}
+    </DialogContent>
+  )
+})
+AlertDialogContent.displayName = 'AlertDialogContent'
+
 export {
   Dialog,
   DialogPortal,
@@ -98,4 +173,6 @@ export {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  AlertDialog,
+  AlertDialogContent,
 }

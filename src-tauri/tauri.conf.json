@@ -40,6 +40,7 @@
             "dialog:allow-open",
             "dialog:allow-save",
             "dialog:allow-ask",
+            "dialog:allow-message",
             "core:app:allow-app-show",
             "core:window:allow-create",
             "core:window:allow-close",
