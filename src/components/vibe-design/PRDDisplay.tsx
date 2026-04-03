@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowRight, Users, Target, Zap, Clock, Download, Edit, Sparkles, Save, X, Eye, Pencil, PanelLeftClose, Columns } from 'lucide-react'
+import {
+  Users,
+  Target,
+  Zap,
+  Clock,
+  Download,
+  Edit,
+  Sparkles,
+  Save,
+  X,
+  Eye,
+  Pencil,
+  Columns,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import { useProjectStore, useAppStore } from '@/stores'
 import type { PRD } from '@/types'
 import { usePRDStream } from '@/hooks/usePRDStream'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { save } from '@tauri-apps/plugin-dialog'
 import { writeTextFile } from '@tauri-apps/plugin-fs'
@@ -25,99 +37,113 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 
-// Markdown 表格自定义组件，确保边框显示并增加上下间距
-const TableComponent = ({ node, ...props }: any) => (
+// Markdown 表自定义组件，确保边框显示并增加上下间距
+const TableComponent = ({ ...props }) => (
   <div className="overflow-x-auto my-6 first:mt-4 last:mb-4">
     <table className="w-full border-collapse border border-border" {...props} />
   </div>
 )
 
-const ThComponent = ({ node, ...props }: any) => (
-  <th className="border border-border px-4 py-3 bg-muted/80 text-left font-semibold text-sm" {...props} />
+const ThComponent = ({ ...props }) => (
+  <th
+    className="border border-border px-4 py-3 bg-muted/80 text-left font-semibold text-sm"
+    {...props}
+  />
 )
 
-const TdComponent = ({ node, ...props }: any) => (
+const TdComponent = ({ ...props }) => (
   <td className="border border-border px-4 py-3 text-left text-sm" {...props} />
 )
 
-const TrComponent = ({ node, ...props }: any) => (
+const TrComponent = ({ ...props }) => (
   <tr className="even:bg-muted/30 hover:bg-muted/50 transition-colors" {...props} />
 )
 
 // 段落组件，确保与表格有适当间距
-const ParagraphComponent = ({ node, ...props }: any) => (
+const ParagraphComponent = ({ ...props }) => (
   <p className="text-base leading-relaxed mb-4 last:mb-0 text-foreground/90" {...props} />
 )
 
 // 完整文档视图的自定义组件 - 更美观的排版
 const FullDocComponents = {
   // 标题层级
-  h1: ({ node, ...props }: any) => (
-    <h1 className="text-3xl font-bold mb-6 mt-8 pb-2 border-b border-border text-primary" {...props} />
+  h1: ({ ...props }) => (
+    <h1
+      className="text-3xl font-bold mb-6 mt-8 pb-2 border-b border-border text-primary"
+      {...props}
+    />
   ),
-  h2: ({ node, ...props }: any) => (
-    <h2 className="text-2xl font-semibold mb-4 mt-7 pb-1.5 border-b border-border/50 text-foreground" {...props} />
+  h2: ({ ...props }) => (
+    <h2
+      className="text-2xl font-semibold mb-4 mt-7 pb-1.5 border-b border-border/50 text-foreground"
+      {...props}
+    />
   ),
-  h3: ({ node, ...props }: any) => (
+  h3: ({ ...props }) => (
     <h3 className="text-xl font-medium mb-3 mt-5 text-foreground/90" {...props} />
   ),
-  h4: ({ node, ...props }: any) => (
+  h4: ({ ...props }) => (
     <h4 className="text-lg font-medium mb-2 mt-4 text-foreground/80" {...props} />
   ),
-  
+
   // 段落和文本
   p: ParagraphComponent,
-  
+
   // 列表
-  ul: ({ node, ...props }: any) => (
-    <ul className="list-disc list-outside pl-6 mb-4 space-y-2" {...props} />
-  ),
-  ol: ({ node, ...props }: any) => (
-    <ol className="list-decimal list-outside pl-6 mb-4 space-y-2" {...props} />
-  ),
-  li: ({ node, ...props }: any) => (
-    <li className="text-base leading-relaxed text-foreground/90" {...props} />
-  ),
-  
+  ul: ({ ...props }) => <ul className="list-disc list-outside pl-6 mb-4 space-y-2" {...props} />,
+  ol: ({ ...props }) => <ol className="list-decimal list-outside pl-6 mb-4 space-y-2" {...props} />,
+  li: ({ ...props }) => <li className="text-base leading-relaxed text-foreground/90" {...props} />,
+
   // 强调
-  strong: ({ node, ...props }: any) => (
-    <strong className="font-bold text-foreground" {...props} />
-  ),
-  em: ({ node, ...props }: any) => (
-    <em className="italic text-foreground/80" {...props} />
-  ),
-  
+  strong: ({ ...props }) => <strong className="font-bold text-foreground" {...props} />,
+  em: ({ ...props }) => <em className="italic text-foreground/80" {...props} />,
+
   // 代码
-  code: ({ node, inline, className, children, ...props }: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  code: (props: any) => {
+    const { inline, children } = props
     return inline ? (
-      <code className="bg-muted/80 px-2 py-0.5 rounded-md text-sm font-mono text-primary border border-border/30" {...props}>
+      <code
+        className="bg-muted/80 px-2 py-0.5 rounded-md text-sm font-mono text-primary border border-border/30"
+        {...props}
+      >
         {children}
       </code>
     ) : (
-      <code className="block bg-muted p-4 rounded-lg my-4 overflow-x-auto border border-border/50" {...props}>
+      <code
+        className="block bg-muted p-3 rounded-lg my-3 overflow-x-auto border border-border/50"
+        {...props}
+      >
         {children}
       </code>
     )
   },
-  pre: ({ node, ...props }: any) => (
-    <pre className="bg-gradient-to-br from-muted to-muted/80 p-0 rounded-lg my-4 overflow-hidden border border-border/50 shadow-sm" {...props} />
+  pre: ({ ...props }) => (
+    <pre
+      className="bg-gradient-to-br from-muted to-muted/80 p-0 rounded-lg my-4 overflow-hidden border border-border/50 shadow-sm"
+      {...props}
+    />
   ),
-  
+
   // 引用块
-  blockquote: ({ node, ...props }: any) => (
-    <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 bg-muted/20 rounded-r-lg italic text-foreground/80" {...props} />
+  blockquote: ({ ...props }) => (
+    <blockquote
+      className="border-l-4 border-primary pl-4 py-2 my-4 bg-muted/20 rounded-r-lg italic text-foreground/80"
+      {...props}
+    />
   ),
-  
+
   // 链接
-  a: ({ node, ...props }: any) => (
-    <a className="text-primary hover:text-primary/80 underline decoration-primary/50 hover:decoration-primary transition-all font-medium" {...props} />
+  a: ({ ...props }) => (
+    <a
+      className="text-primary hover:text-primary/80 underline decoration-primary/50 hover:decoration-primary transition-all font-medium"
+      {...props}
+    />
   ),
-  
+
   // 分隔线
-  hr: ({ node, ...props }: any) => (
-    <hr className="border-border my-8" {...props} />
-  ),
-  
+  hr: ({ ...props }) => <hr className="border-border my-8" {...props} />,
+
   // 表格
   table: TableComponent,
   th: ThComponent,
@@ -157,7 +183,7 @@ export function PRDDisplay() {
   const [isEditing, setIsEditing] = useState(false)
   const [editedMarkdown, setEditedMarkdown] = useState<string>('')
   const [previewMode, setPreviewMode] = useState<'edit' | 'preview' | 'split'>('split')
-  
+
   // 导出状态
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
@@ -267,46 +293,48 @@ export function PRDDisplay() {
       // 步骤 1: 准备内容 (进度 10%)
       setExportProgress(10)
       await new Promise(resolve => setTimeout(resolve, 300))
-      
+
       const content =
         editedMarkdown ||
         `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}`
 
       // 生成默认文件名
       const defaultFilename = `${prd?.title || editedMarkdown ? 'PRD' : '产品需求文档'}-PRD.md`
-      
+
       console.log('[PRD Export] Starting export...')
       console.log('[PRD Export] Default filename:', defaultFilename)
       console.log('[PRD Export] Content length:', content.length)
-      
+
       // 步骤 2: 打开保存对话框 (进度 30%)
       setExportProgress(30)
       await new Promise(resolve => setTimeout(resolve, 400))
-      
+
       const filePath = await save({
         defaultPath: defaultFilename,
-        filters: [{
-          name: 'Markdown Files',
-          extensions: ['md']
-        }]
+        filters: [
+          {
+            name: 'Markdown Files',
+            extensions: ['md'],
+          },
+        ],
       })
-      
+
       console.log('[PRD Export] Selected path:', filePath)
-      
+
       if (filePath) {
         // 步骤 3: 写入文件 (进度 50% -> 90%)
         setExportProgress(50)
         await new Promise(resolve => setTimeout(resolve, 300))
-        
+
         await writeTextFile(filePath, content)
-        
+
         setExportProgress(90)
         await new Promise(resolve => setTimeout(resolve, 300))
-        
+
         setExportProgress(100)
         setExportMessage(`文件已成功保存到：${filePath}`)
         console.log('[PRD Export] File saved successfully to:', filePath)
-        
+
         // 延迟关闭对话框
         setTimeout(() => {
           setShowExportDialog(false)
@@ -338,10 +366,10 @@ export function PRDDisplay() {
 
   const handleSaveEdit = () => {
     if (!editedMarkdown || !projectId) return
-    
+
     // 从 markdown 内容解析回 PRD 对象
     const updatedPrd = parseMarkdownToPRD(editedMarkdown)
-    
+
     setProjectPRD(projectId, updatedPrd)
     setPrd(updatedPrd)
     setIsEditing(false)
@@ -367,44 +395,44 @@ export function PRDDisplay() {
   // 将 PRD 对象转换为 Markdown 格式
   const convertPRDToMarkdown = (prdData: PRD): string => {
     let markdown = `# ${prdData.title}\n\n`
-    
+
     markdown += `## 产品概述\n\n${prdData.overview}\n\n`
-    
+
     markdown += `## 目标用户\n\n`
     prdData.targetUsers.forEach(user => {
       markdown += `- ${user}\n`
     })
     markdown += `\n`
-    
+
     markdown += `## 核心功能\n\n`
     prdData.coreFeatures.forEach(feature => {
       markdown += `- ${feature}\n`
     })
     markdown += `\n`
-    
+
     markdown += `## 技术栈\n\n`
     prdData.techStack.forEach(tech => {
       markdown += `- ${tech}\n`
     })
     markdown += `\n`
-    
+
     markdown += `## 预估工作量\n\n${prdData.estimatedEffort}\n\n`
-    
+
     if (prdData.businessModel) {
       markdown += `## 商业模式\n\n${prdData.businessModel}\n\n`
     }
-    
+
     if (prdData.pricing) {
       markdown += `## 定价策略\n\n${prdData.pricing}\n\n`
     }
-    
+
     return markdown.trim()
   }
 
   // 从 Markdown 内容解析回 PRD 对象
   const parseMarkdownToPRD = (markdown: string): PRD => {
     const lines = markdown.split('\n')
-    const prd: any = {
+    const prd: Partial<PRD> = {
       title: '',
       overview: '',
       targetUsers: [],
@@ -414,14 +442,14 @@ export function PRDDisplay() {
       businessModel: '',
       pricing: '',
     }
-    
+
     let currentSection = ''
     let currentContent: string[] = []
-    
+
     const saveCurrentSection = () => {
       const content = currentContent.join('\n').trim()
       if (!content) return
-      
+
       switch (currentSection.toLowerCase()) {
         case '产品概述':
           prd.overview = content
@@ -455,44 +483,44 @@ export function PRDDisplay() {
           break
       }
     }
-    
+
     for (const line of lines) {
       const trimmedLine = line.trim()
-      
+
       // 检测标题 (# 开头)
       if (trimmedLine.startsWith('# ') && !currentSection) {
         // 第一个 # 标题是产品标题
         prd.title = trimmedLine.replace(/^# /, '').trim()
         continue
       }
-      
+
       // 检测章节 (## 开头)
       if (trimmedLine.startsWith('## ')) {
         // 保存之前的章节内容
         saveCurrentSection()
-        
+
         // 开始新章节
         currentSection = trimmedLine.replace(/^## /, '').trim()
         currentContent = []
         continue
       }
-      
+
       // 收集内容（跳过空行和标题）
       if (trimmedLine && !trimmedLine.startsWith('#')) {
         currentContent.push(trimmedLine)
       }
     }
-    
+
     // 保存最后一个章节
     if (currentSection) {
       saveCurrentSection()
     }
-    
+
     // 如果标题为空，使用默认值
     if (!prd.title) {
       prd.title = '产品需求文档'
     }
-    
+
     return prd as PRD
   }
 
@@ -540,49 +568,81 @@ export function PRDDisplay() {
                       th: ThComponent,
                       td: TdComponent,
                       tr: TrComponent,
-                      h1: ({ node, ...props }: any) => (
-                        <h1 className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-border text-primary" {...props} />
+                      h1: ({ ...props }) => (
+                        <h1
+                          className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-border text-primary"
+                          {...props}
+                        />
                       ),
-                      h2: ({ node, ...props }: any) => (
-                        <h2 className="text-xl font-semibold mb-3 mt-5 pb-1.5 border-b border-border/50 text-foreground" {...props} />
+                      h2: ({ ...props }) => (
+                        <h2
+                          className="text-xl font-semibold mb-3 mt-5 pb-1.5 border-b border-border/50 text-foreground"
+                          {...props}
+                        />
                       ),
-                      h3: ({ node, ...props }: any) => (
-                        <h3 className="text-lg font-medium mb-2 mt-4 text-foreground/90" {...props} />
+                      h3: ({ ...props }) => (
+                        <h3
+                          className="text-lg font-medium mb-2 mt-4 text-foreground/90"
+                          {...props}
+                        />
                       ),
-                      p: ({ node, ...props }: any) => (
-                        <p className="text-base leading-relaxed mb-3 last:mb-0 text-foreground/90" {...props} />
+                      p: ({ ...props }) => (
+                        <p
+                          className="text-base leading-relaxed mb-3 last:mb-0 text-foreground/90"
+                          {...props}
+                        />
                       ),
-                      ul: ({ node, ...props }: any) => (
+                      ul: ({ ...props }) => (
                         <ul className="list-disc list-outside pl-6 mb-3 space-y-1.5" {...props} />
                       ),
-                      ol: ({ node, ...props }: any) => (
-                        <ol className="list-decimal list-outside pl-6 mb-3 space-y-1.5" {...props} />
+                      ol: ({ ...props }) => (
+                        <ol
+                          className="list-decimal list-outside pl-6 mb-3 space-y-1.5"
+                          {...props}
+                        />
                       ),
-                      li: ({ node, ...props }: any) => (
+                      li: ({ ...props }) => (
                         <li className="text-sm leading-relaxed text-foreground/90" {...props} />
                       ),
-                      strong: ({ node, ...props }: any) => (
+                      strong: ({ ...props }) => (
                         <strong className="font-bold text-foreground" {...props} />
                       ),
-                      code: ({ node, inline, className, children, ...props }: any) => {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      code: (props: any) => {
+                        const { inline, children } = props
                         return inline ? (
-                          <code className="bg-muted/80 px-2 py-0.5 rounded-md text-sm font-mono text-primary border border-border/30" {...props}>
+                          <code
+                            className="bg-muted/80 px-2 py-0.5 rounded-md text-sm font-mono text-primary border border-border/30"
+                            {...props}
+                          >
                             {children}
                           </code>
                         ) : (
-                          <code className="block bg-muted p-3 rounded-lg my-3 overflow-x-auto border border-border/50" {...props}>
+                          <code
+                            className="block bg-muted p-3 rounded-lg my-3 overflow-x-auto border border-border/50"
+                            {...props}
+                          >
                             {children}
                           </code>
                         )
                       },
-                      pre: ({ node, ...props }: any) => (
-                        <pre className="bg-gradient-to-br from-muted to-muted/80 p-0 rounded-lg my-3 overflow-hidden border border-border/50 shadow-sm" {...props} />
+                      pre: ({ ...props }) => (
+                        <pre
+                          className="bg-gradient-to-br from-muted to-muted/80 p-0 rounded-lg my-3 overflow-hidden border border-border/50 shadow-sm"
+                          {...props}
+                        />
                       ),
-                      blockquote: ({ node, ...props }: any) => (
-                        <blockquote className="border-l-4 border-primary pl-4 py-2 my-3 bg-muted/20 rounded-r-lg italic text-foreground/80" {...props} />
+                      blockquote: ({ ...props }) => (
+                        <blockquote
+                          className="border-l-4 border-primary pl-4 py-2 my-3 bg-muted/20 rounded-r-lg italic text-foreground/80"
+                          {...props}
+                        />
                       ),
-                      a: ({ node, ...props }: any) => (
-                        <a className="text-primary hover:text-primary/80 underline decoration-primary/50 hover:decoration-primary transition-all font-medium" {...props} />
+                      a: ({ ...props }) => (
+                        <a
+                          className="text-primary hover:text-primary/80 underline decoration-primary/50 hover:decoration-primary transition-all font-medium"
+                          {...props}
+                        />
                       ),
                     }}
                   >
@@ -608,7 +668,9 @@ export function PRDDisplay() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">生成进度</span>
-                <span className="text-muted-foreground">{Math.min((markdownContent.length / 2000) * 100, 100).toFixed(0)}%</span>
+                <span className="text-muted-foreground">
+                  {Math.min((markdownContent.length / 2000) * 100, 100).toFixed(0)}%
+                </span>
               </div>
               <div className="h-2 bg-accent rounded-full overflow-hidden">
                 <div
@@ -718,7 +780,9 @@ export function PRDDisplay() {
                 size="sm"
                 onClick={() => setPreviewMode('preview')}
                 title="仅预览"
-                className={previewMode === 'preview' ? 'bg-secondary text-secondary-foreground' : ''}
+                className={
+                  previewMode === 'preview' ? 'bg-secondary text-secondary-foreground' : ''
+                }
               >
                 <Eye className="w-4 h-4 mr-1" />
                 预览
@@ -726,11 +790,7 @@ export function PRDDisplay() {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${
-            previewMode === 'split' 
-              ? 'grid-cols-2' 
-              : 'grid-cols-1'
-          }`}>
+          <div className={`grid gap-4 ${previewMode === 'split' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {/* 编辑器面板 */}
             {(previewMode === 'edit' || previewMode === 'split') && (
               <Card>
@@ -742,7 +802,7 @@ export function PRDDisplay() {
                 <CardContent>
                   <Textarea
                     value={editedMarkdown}
-                    onChange={(e) => setEditedMarkdown(e.target.value)}
+                    onChange={e => setEditedMarkdown(e.target.value)}
                     className="w-full min-h-[600px] font-mono text-sm leading-relaxed resize-y"
                     placeholder="在此编辑 Markdown 格式的 PRD 内容..."
                   />
@@ -765,7 +825,7 @@ export function PRDDisplay() {
                   <div className="prose prose-slate max-w-none bg-muted/30 p-4 rounded-lg border border-border min-h-[600px] overflow-auto">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
-                      components={FullDocComponents as any}
+                      components={FullDocComponents as Partial<Components>}
                     >
                       {editedMarkdown}
                     </ReactMarkdown>
@@ -806,7 +866,7 @@ export function PRDDisplay() {
                 <div className="prose prose-slate max-w-none">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    components={FullDocComponents as any}
+                    components={FullDocComponents as Partial<Components>}
                   >
                     {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
                   </ReactMarkdown>
@@ -877,7 +937,7 @@ export function PRDDisplay() {
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            p: ({node, ...props}) => <span {...props} />,
+                            p: ({ ...props }) => <span {...props} />,
                             br: () => null,
                             table: TableComponent,
                             th: ThComponent,
@@ -990,13 +1050,14 @@ export function PRDDisplay() {
               {exportStatus === 'success' ? '📦 导出产品需求文档' : '❌ 导出失败'}
             </DialogTitle>
             <DialogDescription>
-              {exportStatus === 'success' 
-                ? (isExporting ? '正在导出您的 PRD 文档...' : exportMessage)
-                : exportMessage
-              }
+              {exportStatus === 'success'
+                ? isExporting
+                  ? '正在导出您的 PRD 文档...'
+                  : exportMessage
+                : exportMessage}
             </DialogDescription>
           </DialogHeader>
-          
+
           {isExporting && (
             <div className="py-4">
               <div className="flex items-center justify-between mb-2">
@@ -1004,20 +1065,22 @@ export function PRDDisplay() {
                 <span className="text-sm text-muted-foreground">{exportProgress}%</span>
               </div>
               <Progress value={exportProgress} className="w-full" />
-              
+
               <div className="mt-4 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             </div>
           )}
-          
+
           {!isExporting && exportStatus === 'error' && (
             <DialogFooter>
               <Button onClick={() => setShowExportDialog(false)}>关闭</Button>
-              <Button onClick={handleExport} variant="outline">重试</Button>
+              <Button onClick={handleExport} variant="outline">
+                重试
+              </Button>
             </DialogFooter>
           )}
-          
+
           {!isExporting && exportStatus === 'success' && (
             <DialogFooter>
               <Button onClick={() => setShowExportDialog(false)}>确定</Button>

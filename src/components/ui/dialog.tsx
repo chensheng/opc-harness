@@ -93,12 +93,12 @@ const AlertDialogContext = React.createContext<{
   type?: 'info' | 'warning' | 'error' | 'success'
 }>({ type: 'info' })
 
-const AlertDialog = ({ 
-  open, 
-  onOpenChange, 
+const AlertDialog = ({
+  open,
+  onOpenChange,
   type = 'info',
-  children 
-}: { 
+  children,
+}: {
   open: boolean
   onOpenChange: (open: boolean) => void
   type?: 'info' | 'warning' | 'error' | 'success'
@@ -120,7 +120,7 @@ const AlertDialogContent = React.forwardRef<
   }
 >(({ className, children, ...props }, ref) => {
   const { type } = React.useContext(AlertDialogContext)
-  
+
   const typeStyles: Record<string, string> = {
     info: 'border-blue-500',
     warning: 'border-yellow-500',
@@ -145,16 +145,10 @@ const AlertDialogContent = React.forwardRef<
   const currentType = type || 'info'
 
   return (
-    <DialogContent 
-      ref={ref} 
-      className={cn(typeStyles[currentType], className)} 
-      {...props} 
-    >
+    <DialogContent ref={ref} className={cn(typeStyles[currentType], className)} {...props}>
       <div className={cn('flex items-center gap-3', iconStyles[currentType])}>
         {icons[currentType]}
-        <DialogTitle className="text-lg font-semibold">
-          {props['aria-label'] || '提示'}
-        </DialogTitle>
+        <DialogTitle className="text-lg font-semibold">{props['aria-label'] || '提示'}</DialogTitle>
       </div>
       {children}
     </DialogContent>

@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
   DialogFooter,
   AlertDialog,
@@ -21,13 +19,14 @@ import { invoke } from '@tauri-apps/api/core'
 
 export function IdeaInput() {
   const navigate = useNavigate()
-  const { createProject, setProjectPRD, updateProjectStatus, updateProjectProgress } = useProjectStore()
+  const { createProject, setProjectPRD, updateProjectStatus, updateProjectProgress } =
+    useProjectStore()
   const { setLoading } = useAppStore()
   const aiConfigStore = useAIConfigStore()
 
   const [projectName, setProjectName] = useState('')
   const [idea, setIdea] = useState('')
-  
+
   // Dialog states
   const [showNoApiKeyDialog, setShowNoApiKeyDialog] = useState(false)
   const [errorDialog, setErrorDialog] = useState<{
@@ -41,7 +40,7 @@ export function IdeaInput() {
 
     // 检查 AI 配置
     const activeConfig = aiConfigStore.getActiveConfig()
-    
+
     if (!activeConfig?.apiKey) {
       // 没有 API Key，显示提示对话框
       setShowNoApiKeyDialog(true)
@@ -55,7 +54,8 @@ export function IdeaInput() {
       const project = createProject(projectName, idea.slice(0, 100), idea)
 
       // 2. 调用真实 AI 生成 PRD
-      const prdResponse = await invoke<any>('generate_prd', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const prdResponse = await invoke<Record<string, any>>('generate_prd', {
         request: {
           idea: idea,
           provider: activeConfig.provider,
@@ -66,14 +66,22 @@ export function IdeaInput() {
 
       // 3. 转换后端返回的 PRD 格式为前端格式
       const generatedPRD = {
-        title: prdResponse.title || projectName,
-        overview: prdResponse.overview || '',
-        targetUsers: prdResponse.target_users || [],
-        coreFeatures: prdResponse.core_features || [],
-        techStack: prdResponse.tech_stack || [],
-        estimatedEffort: prdResponse.estimated_effort || '待评估',
-        businessModel: prdResponse.business_model || undefined,
-        pricing: prdResponse.pricing || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        title: (prdResponse as any).title || projectName,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        overview: (prdResponse as any).overview || '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        targetUsers: (prdResponse as any).target_users || [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        coreFeatures: (prdResponse as any).core_features || [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        techStack: (prdResponse as any).tech_stack || [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        estimatedEffort: (prdResponse as any).estimated_effort || '待评估',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        businessModel: (prdResponse as any).business_model || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pricing: (prdResponse as any).pricing || undefined,
       }
 
       // 4. 保存 PRD 到项目
@@ -84,11 +92,10 @@ export function IdeaInput() {
       setLoading(false)
       // 5. 跳转到 PRD 编辑页面
       navigate(`/prd/${project.id}`)
-      
     } catch (err) {
       console.error('AI 生成 PRD 失败:', err)
       const errorMessage = err instanceof Error ? err.message : 'AI 调用失败'
-      
+
       let errorDetail = ''
       if (errorMessage.includes('API key') || errorMessage.includes('invalid')) {
         errorDetail = '可能原因：API Key 无效或已过期'
@@ -97,7 +104,7 @@ export function IdeaInput() {
       } else if (errorMessage.includes('quota') || errorMessage.includes('balance')) {
         errorDetail = '可能原因：API 额度不足或余额不足'
       }
-      
+
       setErrorDialog({
         show: true,
         message: errorMessage,
@@ -127,17 +134,14 @@ export function IdeaInput() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* No API Key Dialog */}
-      <AlertDialog 
-        open={showNoApiKeyDialog} 
-        onOpenChange={setShowNoApiKeyDialog}
-        type="warning"
-      >
+      <AlertDialog open={showNoApiKeyDialog} onOpenChange={setShowNoApiKeyDialog} type="warning">
         <AlertDialogContent aria-label="未配置 API Key">
           <DialogHeader>
             <DialogTitle>⚠️ 未检测到 AI API Key 配置</DialogTitle>
             <DialogDescription className="text-sm mt-2">
               请先前往 AI 配置页面设置 API Key，然后才能开始分析。
-              <br /><br />
+              <br />
+              <br />
               <strong>支持的服务商：</strong>
               <br />
               • OpenAI
@@ -147,25 +151,22 @@ export function IdeaInput() {
               • Kimi
               <br />
               • GLM
-              <br />
-              • MiniMax
+              <br />• MiniMax
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setShowNoApiKeyDialog(false)}>
               取消
             </Button>
-            <Button onClick={handleGoToSettings}>
-              前往配置
-            </Button>
+            <Button onClick={handleGoToSettings}>前往配置</Button>
           </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Error Dialog */}
-      <AlertDialog 
-        open={errorDialog.show} 
-        onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, show: open }))}
+      <AlertDialog
+        open={errorDialog.show}
+        onOpenChange={open => setErrorDialog(prev => ({ ...prev, show: open }))}
         type="error"
       >
         <AlertDialogContent aria-label="AI 调用失败">
@@ -173,9 +174,7 @@ export function IdeaInput() {
             <DialogTitle>❌ AI 生成 PRD 失败</DialogTitle>
             <DialogDescription className="text-sm mt-2 space-y-2">
               <p className="font-medium text-red-600">{errorDialog.message}</p>
-              {errorDialog.detail && (
-                <p className="text-muted-foreground">{errorDialog.detail}</p>
-              )}
+              {errorDialog.detail && <p className="text-muted-foreground">{errorDialog.detail}</p>}
               <div className="mt-3 p-3 bg-red-50 rounded-md">
                 <p className="text-sm font-semibold mb-2">请检查：</p>
                 <ol className="text-sm list-decimal list-inside space-y-1">
@@ -187,9 +186,7 @@ export function IdeaInput() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={handleErrorDialogClose}>
-              前往 AI 配置重新配置
-            </Button>
+            <Button onClick={handleErrorDialogClose}>前往 AI 配置重新配置</Button>
           </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
