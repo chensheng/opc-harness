@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowRight, Users, Target, Zap, Clock, Download, Edit, Sparkles, Save, X, Eye, Pencil } from 'lucide-react'
+import { ArrowRight, Users, Target, Zap, Clock, Download, Edit, Sparkles, Save, X, Eye, Pencil, PanelLeftClose, Columns } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -694,29 +694,34 @@ export function PRDDisplay() {
             </div>
             <div className="flex gap-2">
               <Button
-                variant={previewMode === 'edit' ? 'default' : 'outline'}
+                variant={previewMode === 'edit' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setPreviewMode('edit')}
                 title="仅编辑"
+                className={previewMode === 'edit' ? 'bg-secondary text-secondary-foreground' : ''}
               >
-                <Pencil className="w-4 h-4" />
+                <Pencil className="w-4 h-4 mr-1" />
+                编辑
               </Button>
               <Button
-                variant={previewMode === 'split' ? 'default' : 'outline'}
+                variant={previewMode === 'split' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setPreviewMode('split')}
                 title="分屏预览"
+                className={previewMode === 'split' ? 'bg-secondary text-secondary-foreground' : ''}
               >
-                <Eye className="w-4 h-4" />
-                <span className="ml-1">分屏</span>
+                <Columns className="w-4 h-4 mr-1" />
+                分屏
               </Button>
               <Button
-                variant={previewMode === 'preview' ? 'default' : 'outline'}
+                variant={previewMode === 'preview' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => setPreviewMode('preview')}
                 title="仅预览"
+                className={previewMode === 'preview' ? 'bg-secondary text-secondary-foreground' : ''}
               >
-                <Eye className="w-4 h-4" />
+                <Eye className="w-4 h-4 mr-1" />
+                预览
               </Button>
             </div>
           </div>
