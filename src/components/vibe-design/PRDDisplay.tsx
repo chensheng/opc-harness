@@ -15,22 +15,100 @@ import remarkGfm from 'remark-gfm'
 
 // Markdown 表格自定义组件，确保边框显示
 const TableComponent = ({ node, ...props }: any) => (
-  <div className="overflow-x-auto">
-    <table className="w-full border-collapse my-4" {...props} />
+  <div className="overflow-x-auto my-6">
+    <table className="w-full border-collapse border border-border" {...props} />
   </div>
 )
 
 const ThComponent = ({ node, ...props }: any) => (
-  <th className="border border-border px-4 py-2 bg-muted text-left font-medium" {...props} />
+  <th className="border border-border px-4 py-3 bg-muted/80 text-left font-semibold text-sm" {...props} />
 )
 
 const TdComponent = ({ node, ...props }: any) => (
-  <td className="border border-border px-4 py-2 text-left" {...props} />
+  <td className="border border-border px-4 py-3 text-left text-sm" {...props} />
 )
 
 const TrComponent = ({ node, ...props }: any) => (
   <tr className="even:bg-muted/30 hover:bg-muted/50 transition-colors" {...props} />
 )
+
+// 完整文档视图的自定义组件 - 更美观的排版
+const FullDocComponents = {
+  // 标题层级
+  h1: ({ node, ...props }: any) => (
+    <h1 className="text-3xl font-bold mb-6 mt-8 pb-2 border-b border-border text-primary" {...props} />
+  ),
+  h2: ({ node, ...props }: any) => (
+    <h2 className="text-2xl font-semibold mb-4 mt-7 pb-1.5 border-b border-border/50 text-foreground" {...props} />
+  ),
+  h3: ({ node, ...props }: any) => (
+    <h3 className="text-xl font-medium mb-3 mt-5 text-foreground/90" {...props} />
+  ),
+  h4: ({ node, ...props }: any) => (
+    <h4 className="text-lg font-medium mb-2 mt-4 text-foreground/80" {...props} />
+  ),
+  
+  // 段落和文本
+  p: ({ node, ...props }: any) => (
+    <p className="text-base leading-relaxed mb-4 text-foreground/90" {...props} />
+  ),
+  
+  // 列表
+  ul: ({ node, ...props }: any) => (
+    <ul className="list-disc list-outside pl-6 mb-4 space-y-2" {...props} />
+  ),
+  ol: ({ node, ...props }: any) => (
+    <ol className="list-decimal list-outside pl-6 mb-4 space-y-2" {...props} />
+  ),
+  li: ({ node, ...props }: any) => (
+    <li className="text-base leading-relaxed text-foreground/90" {...props} />
+  ),
+  
+  // 强调
+  strong: ({ node, ...props }: any) => (
+    <strong className="font-bold text-foreground" {...props} />
+  ),
+  em: ({ node, ...props }: any) => (
+    <em className="italic text-foreground/80" {...props} />
+  ),
+  
+  // 代码
+  code: ({ node, inline, className, children, ...props }: any) => {
+    return inline ? (
+      <code className="bg-muted/80 px-2 py-0.5 rounded-md text-sm font-mono text-primary border border-border/30" {...props}>
+        {children}
+      </code>
+    ) : (
+      <code className="block bg-muted p-4 rounded-lg my-4 overflow-x-auto border border-border/50" {...props}>
+        {children}
+      </code>
+    )
+  },
+  pre: ({ node, ...props }: any) => (
+    <pre className="bg-gradient-to-br from-muted to-muted/80 p-0 rounded-lg my-4 overflow-hidden border border-border/50 shadow-sm" {...props} />
+  ),
+  
+  // 引用块
+  blockquote: ({ node, ...props }: any) => (
+    <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 bg-muted/20 rounded-r-lg italic text-foreground/80" {...props} />
+  ),
+  
+  // 链接
+  a: ({ node, ...props }: any) => (
+    <a className="text-primary hover:text-primary/80 underline decoration-primary/50 hover:decoration-primary transition-all font-medium" {...props} />
+  ),
+  
+  // 分隔线
+  hr: ({ node, ...props }: any) => (
+    <hr className="border-border my-8" {...props} />
+  ),
+  
+  // 表格
+  table: TableComponent,
+  th: ThComponent,
+  td: TdComponent,
+  tr: TrComponent,
+}
 
 // Simulated AI-generated PRD (fallback)
 function generateMockPRD(idea: string): PRD {
@@ -202,19 +280,27 @@ export function PRDDisplay() {
           <CardContent>
             <div className="prose prose-sm max-w-none">
               {markdownContent ? (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    table: TableComponent,
-                    th: ThComponent,
-                    td: TdComponent,
-                    tr: TrComponent,
-                  }}
-                >
-                  {markdownContent}
-                </ReactMarkdown>
+                <div className="text-sm leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: TableComponent,
+                      th: ThComponent,
+                      td: TdComponent,
+                      tr: TrComponent,
+                    }}
+                  >
+                    {markdownContent}
+                  </ReactMarkdown>
+                  <span className="inline-block w-2 h-4 bg-primary ml-1 animate-pulse" />
+                </div>
               ) : (
-                <p className="text-muted-foreground">正在生成内容...</p>
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                    <p className="mt-4 text-muted-foreground">正在连接 AI...</p>
+                  </div>
+                </div>
               )}
             </div>
           </CardContent>
@@ -299,36 +385,26 @@ export function PRDDisplay() {
         <TabsContent value="full" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>产品需求文档</CardTitle>
+              <CardTitle className="text-xl font-semibold">📄 产品需求文档</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="prose prose-slate max-w-none">
                 {markdownContent ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    components={{
-                      table: TableComponent,
-                      th: ThComponent,
-                      td: TdComponent,
-                      tr: TrComponent,
-                    }}
+                    components={FullDocComponents as any}
                   >
                     {markdownContent}
                   </ReactMarkdown>
                 ) : prd ? (
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    components={{
-                      table: TableComponent,
-                      th: ThComponent,
-                      td: TdComponent,
-                      tr: TrComponent,
-                    }}
+                    components={FullDocComponents as any}
                   >
                     {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
                   </ReactMarkdown>
                 ) : (
-                  <p className="text-muted-foreground">暂无文档内容</p>
+                  <p className="text-muted-foreground text-center py-8">暂无文档内容</p>
                 )}
               </div>
             </CardContent>
