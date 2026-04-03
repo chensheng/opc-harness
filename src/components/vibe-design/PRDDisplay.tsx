@@ -15,9 +15,9 @@ import { useAIConfigStore } from '@/stores/aiConfigStore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-// Markdown 表格自定义组件，确保边框显示
+// Markdown 表格自定义组件，确保边框显示并增加上下间距
 const TableComponent = ({ node, ...props }: any) => (
-  <div className="overflow-x-auto my-6">
+  <div className="overflow-x-auto my-6 first:mt-4 last:mb-4">
     <table className="w-full border-collapse border border-border" {...props} />
   </div>
 )
@@ -32,6 +32,11 @@ const TdComponent = ({ node, ...props }: any) => (
 
 const TrComponent = ({ node, ...props }: any) => (
   <tr className="even:bg-muted/30 hover:bg-muted/50 transition-colors" {...props} />
+)
+
+// 段落组件，确保与表格有适当间距
+const ParagraphComponent = ({ node, ...props }: any) => (
+  <p className="text-base leading-relaxed mb-4 last:mb-0 text-foreground/90" {...props} />
 )
 
 // 完整文档视图的自定义组件 - 更美观的排版
@@ -51,9 +56,7 @@ const FullDocComponents = {
   ),
   
   // 段落和文本
-  p: ({ node, ...props }: any) => (
-    <p className="text-base leading-relaxed mb-4 text-foreground/90" {...props} />
-  ),
+  p: ParagraphComponent,
   
   // 列表
   ul: ({ node, ...props }: any) => (
