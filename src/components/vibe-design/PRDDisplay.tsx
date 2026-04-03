@@ -8,12 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { useProjectStore, useAppStore } from '@/stores'
-import { downloadFile } from '@/lib/utils'
 import type { PRD } from '@/types'
 import { usePRDStream } from '@/hooks/usePRDStream'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { save } from '@tauri-apps/plugin-dialog'
+import { writeTextFile } from '@tauri-apps/plugin-fs'
 
 // Markdown 表格自定义组件，确保边框显示并增加上下间距
 const TableComponent = ({ node, ...props }: any) => (
@@ -234,7 +235,7 @@ export function PRDDisplay() {
     setLoading,
   ])
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!prd && !markdownContent) {
       alert('暂无可导出的内容，请先生成产品需求文档')
       return
@@ -244,13 +245,37 @@ export function PRDDisplay() {
       // 优先导出 Markdown 原文
       const content =
         markdownContent ||
-        `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}\n`
+        `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}`
 
-      const filename = `${prd?.title || markdownContent ? 'PRD' : '产品需求文档'}-PRD.md`
-      downloadFile(content, filename, 'text/markdown')
+      // 生成默认文件名
+      const defaultFilename = `${prd?.title || markdownContent ? 'PRD' : '产品需求文档'}-PRD.md`
+      
+      console.log('[PRD Export] Starting export...')
+      console.log('[PRD Export] Default filename:', defaultFilename)
+      console.log('[PRD Export] Content length:', content.length)
+      
+      // 打开保存对话框
+      const filePath = await save({
+        defaultPath: defaultFilename,
+        filters: [{
+          name: 'Markdown Files',
+          extensions: ['md']
+        }]
+      })
+      
+      console.log('[PRD Export] Selected path:', filePath)
+      
+      if (filePath) {
+        // 用户选择了保存位置，写入文件
+        await writeTextFile(filePath, content)
+        console.log('[PRD Export] File saved successfully to:', filePath)
+        alert(`✅ 文件已成功保存到：\n${filePath}`)
+      } else {
+        console.log('[PRD Export] User cancelled save dialog')
+      }
     } catch (error) {
-      console.error('导出失败:', error)
-      alert('导出失败，请稍后重试')
+      console.error('[PRD Export] Error during export:', error)
+      alert(`❌ 导出失败：${error instanceof Error ? error.message : error}`)
     }
   }
 
