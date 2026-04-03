@@ -10,6 +10,8 @@ import { downloadFile } from '@/lib/utils'
 import type { PRD } from '@/types'
 import { usePRDStream } from '@/hooks/usePRDStream'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 // Simulated AI-generated PRD (fallback)
 function generateMockPRD(idea: string): PRD {
@@ -181,17 +183,11 @@ export function PRDDisplay() {
           <CardContent>
             <div className="prose prose-sm max-w-none">
               {markdownContent ? (
-                <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {markdownContent}
-                  <span className="inline-block w-2 h-4 bg-primary ml-1 animate-pulse" />
-                </div>
+                </ReactMarkdown>
               ) : (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-                    <p className="mt-4 text-muted-foreground">正在连接 AI...</p>
-                  </div>
-                </div>
+                <p className="text-muted-foreground">正在生成内容...</p>
               )}
             </div>
           </CardContent>
@@ -203,7 +199,7 @@ export function PRDDisplay() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">生成进度</span>
-                <span className="text-muted-foreground">{markdownContent.length} 字符</span>
+                <span className="text-muted-foreground">{Math.min((markdownContent.length / 2000) * 100, 100).toFixed(2)}%</span>
               </div>
               <div className="h-2 bg-accent rounded-full overflow-hidden">
                 <div
@@ -263,14 +259,40 @@ export function PRDDisplay() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="full" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="full">完整文档</TabsTrigger>
           <TabsTrigger value="overview">概述</TabsTrigger>
           <TabsTrigger value="features">功能</TabsTrigger>
           <TabsTrigger value="tech">技术</TabsTrigger>
           <TabsTrigger value="business">商业</TabsTrigger>
         </TabsList>
 
+        {/* 完整文档视图 - 使用 Markdown 渲染 */}
+        <TabsContent value="full" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>产品需求文档</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-slate max-w-none">
+                {markdownContent ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {markdownContent}
+                  </ReactMarkdown>
+                ) : prd ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
+                  </ReactMarkdown>
+                ) : (
+                  <p className="text-muted-foreground">暂无文档内容</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 概述视图 */}
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
@@ -280,7 +302,11 @@ export function PRDDisplay() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">{prd.overview}</p>
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {prd.overview}
+                </ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
 
@@ -316,7 +342,14 @@ export function PRDDisplay() {
                 {prd.coreFeatures.map((feature, index) => (
                   <li key={index} className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
-                    <span>{feature}</span>
+                    <span className="flex-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+                        p: ({node, ...props}) => <span {...props} />,
+                        br: () => null,
+                      }}>
+                        {feature}
+                      </ReactMarkdown>
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -348,7 +381,11 @@ export function PRDDisplay() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-lg font-medium">{prd.estimatedEffort}</p>
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {prd.estimatedEffort}
+                </ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -359,7 +396,11 @@ export function PRDDisplay() {
               <CardTitle>商业模式</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{prd.businessModel}</p>
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {prd.businessModel}
+                </ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
 
@@ -368,7 +409,11 @@ export function PRDDisplay() {
               <CardTitle>定价策略</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{prd.pricing}</p>
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {prd.pricing}
+                </ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
