@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowRight, Users, Target, Zap, Clock, Download, Edit, Sparkles, Save, X } from 'lucide-react'
+import { ArrowRight, Users, Target, Zap, Clock, Download, Edit, Sparkles, Save, X, Eye, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -155,7 +155,8 @@ export function PRDDisplay() {
 
   const [prd, setPrd] = useState<PRD | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [editedPrd, setEditedPrd] = useState<PRD | null>(null)
+  const [editedMarkdown, setEditedMarkdown] = useState<string>('')
+  const [previewMode, setPreviewMode] = useState<'edit' | 'preview' | 'split'>('split')
   
   // 导出状态
   const [isExporting, setIsExporting] = useState(false)
@@ -252,7 +253,7 @@ export function PRDDisplay() {
   ])
 
   const handleExport = async () => {
-    if (!prd && !markdownContent) {
+    if (!prd && !editedMarkdown) {
       alert('暂无可导出的内容，请先生成产品需求文档')
       return
     }
@@ -268,11 +269,11 @@ export function PRDDisplay() {
       await new Promise(resolve => setTimeout(resolve, 300))
       
       const content =
-        markdownContent ||
+        editedMarkdown ||
         `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}`
 
       // 生成默认文件名
-      const defaultFilename = `${prd?.title || markdownContent ? 'PRD' : '产品需求文档'}-PRD.md`
+      const defaultFilename = `${prd?.title || editedMarkdown ? 'PRD' : '产品需求文档'}-PRD.md`
       
       console.log('[PRD Export] Starting export...')
       console.log('[PRD Export] Default filename:', defaultFilename)
@@ -336,24 +337,163 @@ export function PRDDisplay() {
   }
 
   const handleSaveEdit = () => {
-    if (!editedPrd || !projectId) return
+    if (!editedMarkdown || !projectId) return
     
-    setProjectPRD(projectId, editedPrd)
-    setPrd(editedPrd)
+    // 从 markdown 内容解析回 PRD 对象
+    const updatedPrd = parseMarkdownToPRD(editedMarkdown)
+    
+    setProjectPRD(projectId, updatedPrd)
+    setPrd(updatedPrd)
     setIsEditing(false)
+    setEditedMarkdown('')
     setLoading(false)
   }
 
   const handleCancelEdit = () => {
     setIsEditing(false)
-    setEditedPrd(null)
+    setEditedMarkdown('')
   }
 
   const startEditing = () => {
     if (prd) {
-      setEditedPrd({ ...prd })
+      // 将 PRD 对象转换为 markdown 格式
+      const markdownContent = convertPRDToMarkdown(prd)
+      setEditedMarkdown(markdownContent)
       setIsEditing(true)
+      setPreviewMode('split') // 默认分屏模式
     }
+  }
+
+  // 将 PRD 对象转换为 Markdown 格式
+  const convertPRDToMarkdown = (prdData: PRD): string => {
+    let markdown = `# ${prdData.title}\n\n`
+    
+    markdown += `## 产品概述\n\n${prdData.overview}\n\n`
+    
+    markdown += `## 目标用户\n\n`
+    prdData.targetUsers.forEach(user => {
+      markdown += `- ${user}\n`
+    })
+    markdown += `\n`
+    
+    markdown += `## 核心功能\n\n`
+    prdData.coreFeatures.forEach(feature => {
+      markdown += `- ${feature}\n`
+    })
+    markdown += `\n`
+    
+    markdown += `## 技术栈\n\n`
+    prdData.techStack.forEach(tech => {
+      markdown += `- ${tech}\n`
+    })
+    markdown += `\n`
+    
+    markdown += `## 预估工作量\n\n${prdData.estimatedEffort}\n\n`
+    
+    if (prdData.businessModel) {
+      markdown += `## 商业模式\n\n${prdData.businessModel}\n\n`
+    }
+    
+    if (prdData.pricing) {
+      markdown += `## 定价策略\n\n${prdData.pricing}\n\n`
+    }
+    
+    return markdown.trim()
+  }
+
+  // 从 Markdown 内容解析回 PRD 对象
+  const parseMarkdownToPRD = (markdown: string): PRD => {
+    const lines = markdown.split('\n')
+    const prd: any = {
+      title: '',
+      overview: '',
+      targetUsers: [],
+      coreFeatures: [],
+      techStack: [],
+      estimatedEffort: '',
+      businessModel: '',
+      pricing: '',
+    }
+    
+    let currentSection = ''
+    let currentContent: string[] = []
+    
+    const saveCurrentSection = () => {
+      const content = currentContent.join('\n').trim()
+      if (!content) return
+      
+      switch (currentSection.toLowerCase()) {
+        case '产品概述':
+          prd.overview = content
+          break
+        case '目标用户':
+          prd.targetUsers = content
+            .split('\n')
+            .filter(line => line.startsWith('-'))
+            .map(line => line.replace(/^- /, '').trim())
+          break
+        case '核心功能':
+          prd.coreFeatures = content
+            .split('\n')
+            .filter(line => line.startsWith('-'))
+            .map(line => line.replace(/^- /, '').trim())
+          break
+        case '技术栈':
+          prd.techStack = content
+            .split('\n')
+            .filter(line => line.startsWith('-'))
+            .map(line => line.replace(/^- /, '').trim())
+          break
+        case '预估工作量':
+          prd.estimatedEffort = content
+          break
+        case '商业模式':
+          prd.businessModel = content
+          break
+        case '定价策略':
+          prd.pricing = content
+          break
+      }
+    }
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      
+      // 检测标题 (# 开头)
+      if (trimmedLine.startsWith('# ') && !currentSection) {
+        // 第一个 # 标题是产品标题
+        prd.title = trimmedLine.replace(/^# /, '').trim()
+        continue
+      }
+      
+      // 检测章节 (## 开头)
+      if (trimmedLine.startsWith('## ')) {
+        // 保存之前的章节内容
+        saveCurrentSection()
+        
+        // 开始新章节
+        currentSection = trimmedLine.replace(/^## /, '').trim()
+        currentContent = []
+        continue
+      }
+      
+      // 收集内容（跳过空行和标题）
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        currentContent.push(trimmedLine)
+      }
+    }
+    
+    // 保存最后一个章节
+    if (currentSection) {
+      saveCurrentSection()
+    }
+    
+    // 如果标题为空，使用默认值
+    if (!prd.title) {
+      prd.title = '产品需求文档'
+    }
+    
+    return prd as PRD
   }
 
   if (!project) {
@@ -400,6 +540,50 @@ export function PRDDisplay() {
                       th: ThComponent,
                       td: TdComponent,
                       tr: TrComponent,
+                      h1: ({ node, ...props }: any) => (
+                        <h1 className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-border text-primary" {...props} />
+                      ),
+                      h2: ({ node, ...props }: any) => (
+                        <h2 className="text-xl font-semibold mb-3 mt-5 pb-1.5 border-b border-border/50 text-foreground" {...props} />
+                      ),
+                      h3: ({ node, ...props }: any) => (
+                        <h3 className="text-lg font-medium mb-2 mt-4 text-foreground/90" {...props} />
+                      ),
+                      p: ({ node, ...props }: any) => (
+                        <p className="text-base leading-relaxed mb-3 last:mb-0 text-foreground/90" {...props} />
+                      ),
+                      ul: ({ node, ...props }: any) => (
+                        <ul className="list-disc list-outside pl-6 mb-3 space-y-1.5" {...props} />
+                      ),
+                      ol: ({ node, ...props }: any) => (
+                        <ol className="list-decimal list-outside pl-6 mb-3 space-y-1.5" {...props} />
+                      ),
+                      li: ({ node, ...props }: any) => (
+                        <li className="text-sm leading-relaxed text-foreground/90" {...props} />
+                      ),
+                      strong: ({ node, ...props }: any) => (
+                        <strong className="font-bold text-foreground" {...props} />
+                      ),
+                      code: ({ node, inline, className, children, ...props }: any) => {
+                        return inline ? (
+                          <code className="bg-muted/80 px-2 py-0.5 rounded-md text-sm font-mono text-primary border border-border/30" {...props}>
+                            {children}
+                          </code>
+                        ) : (
+                          <code className="block bg-muted p-3 rounded-lg my-3 overflow-x-auto border border-border/50" {...props}>
+                            {children}
+                          </code>
+                        )
+                      },
+                      pre: ({ node, ...props }: any) => (
+                        <pre className="bg-gradient-to-br from-muted to-muted/80 p-0 rounded-lg my-3 overflow-hidden border border-border/50 shadow-sm" {...props} />
+                      ),
+                      blockquote: ({ node, ...props }: any) => (
+                        <blockquote className="border-l-4 border-primary pl-4 py-2 my-3 bg-muted/20 rounded-r-lg italic text-foreground/80" {...props} />
+                      ),
+                      a: ({ node, ...props }: any) => (
+                        <a className="text-primary hover:text-primary/80 underline decoration-primary/50 hover:decoration-primary transition-all font-medium" {...props} />
+                      ),
                     }}
                   >
                     {markdownContent}
@@ -424,7 +608,7 @@ export function PRDDisplay() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">生成进度</span>
-                <span className="text-muted-foreground">{Math.min((markdownContent.length / 2000) * 100, 100).toFixed(2)}%</span>
+                <span className="text-muted-foreground">{Math.min((markdownContent.length / 2000) * 100, 100).toFixed(0)}%</span>
               </div>
               <div className="h-2 bg-accent rounded-full overflow-hidden">
                 <div
@@ -500,98 +684,103 @@ export function PRDDisplay() {
         </div>
       </div>
 
-      {/* 编辑模式 */}
-      {isEditing && editedPrd ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5" />
-              编辑产品需求文档
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">产品标题</label>
-              <Input
-                value={editedPrd.title}
-                onChange={(e) => setEditedPrd({ ...editedPrd, title: e.target.value })}
-                className="w-full"
-              />
+      {/* 编辑模式 - Markdown 编辑器 */}
+      {isEditing && editedMarkdown ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-bold">编辑产品需求文档</h2>
             </div>
+            <div className="flex gap-2">
+              <Button
+                variant={previewMode === 'edit' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('edit')}
+                title="仅编辑"
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={previewMode === 'split' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('split')}
+                title="分屏预览"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="ml-1">分屏</span>
+              </Button>
+              <Button
+                variant={previewMode === 'preview' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('preview')}
+                title="仅预览"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">产品概述</label>
-              <Textarea
-                value={editedPrd.overview}
-                onChange={(e) => setEditedPrd({ ...editedPrd, overview: e.target.value })}
-                className="w-full min-h-[150px]"
-              />
-            </div>
+          <div className={`grid gap-4 ${
+            previewMode === 'split' 
+              ? 'grid-cols-2' 
+              : 'grid-cols-1'
+          }`}>
+            {/* 编辑器面板 */}
+            {(previewMode === 'edit' || previewMode === 'split') && (
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Markdown 编辑器
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    value={editedMarkdown}
+                    onChange={(e) => setEditedMarkdown(e.target.value)}
+                    className="w-full min-h-[600px] font-mono text-sm leading-relaxed resize-y"
+                    placeholder="在此编辑 Markdown 格式的 PRD 内容..."
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    💡 提示：支持标准 Markdown 语法，包括表格、列表、代码块等
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">目标用户（每行一个）</label>
-              <Textarea
-                value={editedPrd.targetUsers.join('\n')}
-                onChange={(e) => setEditedPrd({ 
-                  ...editedPrd, 
-                  targetUsers: e.target.value.split('\n').filter(u => u.trim()) 
-                })}
-                className="w-full min-h-[100px]"
-              />
-            </div>
+            {/* 预览面板 */}
+            {(previewMode === 'preview' || previewMode === 'split') && (
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    实时预览
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-slate max-w-none bg-muted/30 p-4 rounded-lg border border-border min-h-[600px] overflow-auto">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={FullDocComponents as any}
+                    >
+                      {editedMarkdown}
+                    </ReactMarkdown>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">核心功能（每行一个）</label>
-              <Textarea
-                value={editedPrd.coreFeatures.join('\n')}
-                onChange={(e) => setEditedPrd({ 
-                  ...editedPrd, 
-                  coreFeatures: e.target.value.split('\n').filter(f => f.trim()) 
-                })}
-                className="w-full min-h-[150px]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">技术栈（每行一个）</label>
-              <Textarea
-                value={editedPrd.techStack.join('\n')}
-                onChange={(e) => setEditedPrd({ 
-                  ...editedPrd, 
-                  techStack: e.target.value.split('\n').filter(t => t.trim()) 
-                })}
-                className="w-full min-h-[100px]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">预估工作量</label>
-              <Textarea
-                value={editedPrd.estimatedEffort}
-                onChange={(e) => setEditedPrd({ ...editedPrd, estimatedEffort: e.target.value })}
-                className="w-full min-h-[80px]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">商业模式</label>
-              <Textarea
-                value={editedPrd.businessModel || ''}
-                onChange={(e) => setEditedPrd({ ...editedPrd, businessModel: e.target.value })}
-                className="w-full min-h-[80px]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">定价策略</label>
-              <Textarea
-                value={editedPrd.pricing || ''}
-                onChange={(e) => setEditedPrd({ ...editedPrd, pricing: e.target.value })}
-                className="w-full min-h-[80px]"
-              />
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleCancelEdit}>
+              <X className="w-4 h-4 mr-2" />
+              取消
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              <Save className="w-4 h-4 mr-2" />
+              保存更改
+            </Button>
+          </div>
+        </div>
       ) : (
         <Tabs defaultValue="full" className="w-full">
           <TabsList className="grid w-full grid-cols-5">
@@ -610,23 +799,12 @@ export function PRDDisplay() {
               </CardHeader>
               <CardContent>
                 <div className="prose prose-slate max-w-none">
-                  {markdownContent ? (
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={FullDocComponents as any}
-                    >
-                      {markdownContent}
-                    </ReactMarkdown>
-                  ) : prd ? (
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={FullDocComponents as any}
-                    >
-                      {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
-                    </ReactMarkdown>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">暂无文档内容</p>
-                  )}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={FullDocComponents as any}
+                  >
+                    {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
+                  </ReactMarkdown>
                 </div>
               </CardContent>
             </Card>
@@ -798,70 +976,6 @@ export function PRDDisplay() {
           </TabsContent>
         </Tabs>
       )}
-
-      {/* 非编辑模式下显示导航按钮 */}
-      {!isEditing && (
-        <div className="flex justify-end gap-4">
-          <Button variant="outline" onClick={() => navigate(`/personas/${projectId}`)}>
-            查看用户画像
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-          <Button onClick={() => navigate(`/coding/${projectId}`)}>
-            开始开发
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      )}
-
-      {/* 导出进度对话框 */}
-      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {exportStatus === 'success' ? (
-                <>
-                  <span className="text-green-500">✓</span>
-                  导出 PRD
-                </>
-              ) : (
-                <>
-                  <span className="text-red-500">✕</span>
-                  导出失败
-                </>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {/* 进度条 */}
-            {isExporting && (
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">正在导出...</span>
-                  <span className="font-medium">{exportProgress}%</span>
-                </div>
-                <Progress value={exportProgress} className="h-2" />
-              </div>
-            )}
-            
-            {/* 状态消息 */}
-            <DialogDescription className={`text-center py-4 ${
-              exportStatus === 'success' ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {exportMessage}
-            </DialogDescription>
-          </div>
-          
-          {/* 底部按钮 */}
-          <DialogFooter>
-            {exportStatus === 'error' && (
-              <Button onClick={() => setShowExportDialog(false)} variant="outline">
-                关闭
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
