@@ -148,14 +148,22 @@
 }
 
 .markdown-content table {
-  @apply w-full border-collapse mb-4;
+  @apply w-full border-collapse mb-4 border border-border;
 }
 
 .markdown-content th,
 .markdown-content td {
-  @apply border border-border px-4 py-2;
+  @apply border border-border px-4 py-2 text-left;
 }
 
 .markdown-content th {
   @apply bg-muted font-medium;
+}
+
+.markdown-content tr:nth-child(even) {
+  @apply bg-muted/30;
+}
+
+.markdown-content tr:hover {
+  @apply bg-muted/50;
 }

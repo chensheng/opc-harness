@@ -13,6 +13,25 @@ import { useAIConfigStore } from '@/stores/aiConfigStore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+// Markdown 表格自定义组件，确保边框显示
+const TableComponent = ({ node, ...props }: any) => (
+  <div className="overflow-x-auto">
+    <table className="w-full border-collapse my-4" {...props} />
+  </div>
+)
+
+const ThComponent = ({ node, ...props }: any) => (
+  <th className="border border-border px-4 py-2 bg-muted text-left font-medium" {...props} />
+)
+
+const TdComponent = ({ node, ...props }: any) => (
+  <td className="border border-border px-4 py-2 text-left" {...props} />
+)
+
+const TrComponent = ({ node, ...props }: any) => (
+  <tr className="even:bg-muted/30 hover:bg-muted/50 transition-colors" {...props} />
+)
+
 // Simulated AI-generated PRD (fallback)
 function generateMockPRD(idea: string): PRD {
   return {
@@ -183,7 +202,15 @@ export function PRDDisplay() {
           <CardContent>
             <div className="prose prose-sm max-w-none">
               {markdownContent ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: TableComponent,
+                    th: ThComponent,
+                    td: TdComponent,
+                    tr: TrComponent,
+                  }}
+                >
                   {markdownContent}
                 </ReactMarkdown>
               ) : (
@@ -277,11 +304,27 @@ export function PRDDisplay() {
             <CardContent>
               <div className="prose prose-slate max-w-none">
                 {markdownContent ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: TableComponent,
+                      th: ThComponent,
+                      td: TdComponent,
+                      tr: TrComponent,
+                    }}
+                  >
                     {markdownContent}
                   </ReactMarkdown>
                 ) : prd ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: TableComponent,
+                      th: ThComponent,
+                      td: TdComponent,
+                      tr: TrComponent,
+                    }}
+                  >
                     {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
                   </ReactMarkdown>
                 ) : (
@@ -303,7 +346,15 @@ export function PRDDisplay() {
             </CardHeader>
             <CardContent>
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: TableComponent,
+                    th: ThComponent,
+                    td: TdComponent,
+                    tr: TrComponent,
+                  }}
+                >
                   {prd.overview}
                 </ReactMarkdown>
               </div>
@@ -343,10 +394,17 @@ export function PRDDisplay() {
                   <li key={index} className="flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
                     <span className="flex-1">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-                        p: ({node, ...props}) => <span {...props} />,
-                        br: () => null,
-                      }}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({node, ...props}) => <span {...props} />,
+                          br: () => null,
+                          table: TableComponent,
+                          th: ThComponent,
+                          td: TdComponent,
+                          tr: TrComponent,
+                        }}
+                      >
                         {feature}
                       </ReactMarkdown>
                     </span>
@@ -382,7 +440,15 @@ export function PRDDisplay() {
             </CardHeader>
             <CardContent>
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: TableComponent,
+                    th: ThComponent,
+                    td: TdComponent,
+                    tr: TrComponent,
+                  }}
+                >
                   {prd.estimatedEffort}
                 </ReactMarkdown>
               </div>
@@ -397,7 +463,15 @@ export function PRDDisplay() {
             </CardHeader>
             <CardContent>
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: TableComponent,
+                    th: ThComponent,
+                    td: TdComponent,
+                    tr: TrComponent,
+                  }}
+                >
                   {prd.businessModel}
                 </ReactMarkdown>
               </div>
@@ -410,7 +484,15 @@ export function PRDDisplay() {
             </CardHeader>
             <CardContent>
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    table: TableComponent,
+                    th: ThComponent,
+                    td: TdComponent,
+                    tr: TrComponent,
+                  }}
+                >
                   {prd.pricing}
                 </ReactMarkdown>
               </div>
