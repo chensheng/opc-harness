@@ -235,14 +235,23 @@ export function PRDDisplay() {
   ])
 
   const handleExport = () => {
-    if (!prd && !markdownContent) return
+    if (!prd && !markdownContent) {
+      alert('暂无可导出的内容，请先生成产品需求文档')
+      return
+    }
 
-    // 优先导出 Markdown 原文
-    const content =
-      markdownContent ||
-      `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}\n`
+    try {
+      // 优先导出 Markdown 原文
+      const content =
+        markdownContent ||
+        `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}\n`
 
-    downloadFile(content, `${prd?.title || 'PRD'}-PRD.md`, 'text/markdown')
+      const filename = `${prd?.title || markdownContent ? 'PRD' : '产品需求文档'}-PRD.md`
+      downloadFile(content, filename, 'text/markdown')
+    } catch (error) {
+      console.error('导出失败:', error)
+      alert('导出失败，请稍后重试')
+    }
   }
 
   const handleStopGeneration = () => {
