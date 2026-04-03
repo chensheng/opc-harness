@@ -15,6 +15,15 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { save } from '@tauri-apps/plugin-dialog'
 import { writeTextFile } from '@tauri-apps/plugin-fs'
+import { Progress } from '@/components/ui/progress'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // Markdown 表格自定义组件，确保边框显示并增加上下间距
 const TableComponent = ({ node, ...props }: any) => (
@@ -147,6 +156,13 @@ export function PRDDisplay() {
   const [prd, setPrd] = useState<PRD | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editedPrd, setEditedPrd] = useState<PRD | null>(null)
+  
+  // 导出状态
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportStatus, setExportStatus] = useState<'success' | 'error'>('success')
+  const [exportMessage, setExportMessage] = useState('')
 
   // 使用 PRD 流式生成 Hook
   const {
@@ -241,8 +257,16 @@ export function PRDDisplay() {
       return
     }
 
+    setIsExporting(true)
+    setExportProgress(0)
+    setShowExportDialog(true)
+    setExportStatus('success')
+
     try {
-      // 优先导出 Markdown 原文
+      // 步骤 1: 准备内容 (进度 10%)
+      setExportProgress(10)
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
       const content =
         markdownContent ||
         `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}`
@@ -254,7 +278,10 @@ export function PRDDisplay() {
       console.log('[PRD Export] Default filename:', defaultFilename)
       console.log('[PRD Export] Content length:', content.length)
       
-      // 打开保存对话框
+      // 步骤 2: 打开保存对话框 (进度 30%)
+      setExportProgress(30)
+      await new Promise(resolve => setTimeout(resolve, 400))
+      
       const filePath = await save({
         defaultPath: defaultFilename,
         filters: [{
@@ -266,16 +293,40 @@ export function PRDDisplay() {
       console.log('[PRD Export] Selected path:', filePath)
       
       if (filePath) {
-        // 用户选择了保存位置，写入文件
+        // 步骤 3: 写入文件 (进度 50% -> 90%)
+        setExportProgress(50)
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
         await writeTextFile(filePath, content)
+        
+        setExportProgress(90)
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        setExportProgress(100)
+        setExportMessage(`文件已成功保存到：${filePath}`)
         console.log('[PRD Export] File saved successfully to:', filePath)
-        alert(`✅ 文件已成功保存到：\n${filePath}`)
+        
+        // 延迟关闭对话框
+        setTimeout(() => {
+          setShowExportDialog(false)
+          setIsExporting(false)
+        }, 1500)
       } else {
-        console.log('[PRD Export] User cancelled save dialog')
+        // 用户取消
+        setExportMessage('已取消导出')
+        setExportProgress(0)
+        setTimeout(() => {
+          setShowExportDialog(false)
+          setIsExporting(false)
+        }, 800)
       }
     } catch (error) {
       console.error('[PRD Export] Error during export:', error)
-      alert(`❌ 导出失败：${error instanceof Error ? error.message : error}`)
+      setExportStatus('error')
+      setExportMessage(`导出失败：${error instanceof Error ? error.message : error}`)
+      setExportProgress(0)
+      // 错误时不自动关闭对话框，让用户手动关闭
+      setIsExporting(false)
     }
   }
 
@@ -761,6 +812,56 @@ export function PRDDisplay() {
           </Button>
         </div>
       )}
+
+      {/* 导出进度对话框 */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {exportStatus === 'success' ? (
+                <>
+                  <span className="text-green-500">✓</span>
+                  导出 PRD
+                </>
+              ) : (
+                <>
+                  <span className="text-red-500">✕</span>
+                  导出失败
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {/* 进度条 */}
+            {isExporting && (
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">正在导出...</span>
+                  <span className="font-medium">{exportProgress}%</span>
+                </div>
+                <Progress value={exportProgress} className="h-2" />
+              </div>
+            )}
+            
+            {/* 状态消息 */}
+            <DialogDescription className={`text-center py-4 ${
+              exportStatus === 'success' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {exportMessage}
+            </DialogDescription>
+          </div>
+          
+          {/* 底部按钮 */}
+          <DialogFooter>
+            {exportStatus === 'error' && (
+              <Button onClick={() => setShowExportDialog(false)} variant="outline">
+                关闭
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
