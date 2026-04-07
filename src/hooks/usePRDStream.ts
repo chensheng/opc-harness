@@ -23,193 +23,48 @@ export interface UsePRDStreamReturn {
 }
 
 /**
- * 解析 Markdown 格式的 PRD 内容为结构化数据
- */
-function parsePRDFromMarkdown(markdown: string): Partial<PRD> {
-  const result: Partial<PRD> = {}
-
-  // 提取标题
-  const titleMatch = markdown.match(/^#\s+(.+)$/m)
-  if (titleMatch) {
-    result.title = titleMatch[1].trim()
-  }
-
-  // 提取产品概述
-  const overviewMatch = markdown.match(/##\s+产品概述\s*\n([\s\S]*?)(?=##|$)/)
-  if (overviewMatch) {
-    result.overview = overviewMatch[1].trim().replace(/\n/g, ' ')
-  }
-
-  // 提取目标用户
-  const targetUsersMatch = markdown.match(/##\s+目标用户\s*\n([\s\S]*?)(?=##|$)/)
-  if (targetUsersMatch) {
-    const usersText = targetUsersMatch[1]
-    const users = usersText
-      .split('\n')
-      .filter(line => line.trim().startsWith('- ') || line.trim().startsWith('* '))
-      .map(line => line.replace(/^[-*]\s+/, '').trim())
-    if (users.length > 0) {
-      result.targetUsers = users
-    }
-  }
-
-  // 提取核心功能
-  const featuresMatch = markdown.match(/##\s+核心功能\s*\n([\s\S]*?)(?=##|$)/)
-  if (featuresMatch) {
-    const featuresText = featuresMatch[1]
-    const features = featuresText
-      .split('\n')
-      .filter(line => line.trim().startsWith('- ') || line.trim().startsWith('* '))
-      .map(line => line.replace(/^[-*]\s+/, '').trim())
-    if (features.length > 0) {
-      result.coreFeatures = features
-    }
-  }
-
-  // 提取技术栈
-  const techStackMatch = markdown.match(/##\s+技术栈\s*\n([\s\S]*?)(?=##|$)/)
-  if (techStackMatch) {
-    const techText = techStackMatch[1]
-    const techs = techText
-      .split('\n')
-      .filter(line => line.trim().startsWith('- ') || line.trim().startsWith('* '))
-      .map(line => line.replace(/^[-*]\s+/, '').trim())
-    if (techs.length > 0) {
-      result.techStack = techs
-    }
-  }
-
-  // 提取预估工作量
-  const effortMatch = markdown.match(/##\s+(?:预估工作量 | 时间估算)\s*\n([\s\S]*?)(?=##|$)/)
-  if (effortMatch) {
-    result.estimatedEffort = effortMatch[1].trim()
-  }
-
-  // 提取商业模式
-  const businessMatch = markdown.match(/##\s+商业模式\s*\n([\s\S]*?)(?=##|$)/)
-  if (businessMatch) {
-    result.businessModel = businessMatch[1].trim()
-  }
-
-  // 提取定价策略
-  const pricingMatch = markdown.match(/##\s+定价策略\s*\n([\s\S]*?)(?=##|$)/)
-  if (pricingMatch) {
-    result.pricing = pricingMatch[1].trim()
-  }
-
-  return result
-}
-
-/**
  * PRD 流式生成 Hook（打字机效果）
  */
 export function usePRDStream(): UsePRDStreamReturn {
   const [prd, setPrd] = useState<PRD | null>(null)
-  const [markdownContent, setMarkdownContent] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [accumulatedContent, setAccumulatedContent] = useState('')
+  const [markdownContent, setMarkdownContent] = useState('')
 
-  const unlistenRef = useRef<UnlistenFn[]>([])
   const isStreamingRef = useRef(false)
-  // 使用 ref 存储累积的 Markdown 内容，避免闭包问题
   const accumulatedContentRef = useRef('')
-  // 防抖定时器引用
-  const parseTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const unlistenRef = useRef<UnlistenFn[]>([])
 
-  // 清理所有订阅
   const cleanup = useCallback(() => {
-    // 清除防抖定时器
-    if (parseTimerRef.current) {
-      clearTimeout(parseTimerRef.current)
-      parseTimerRef.current = null
-    }
-    
-    unlistenRef.current.forEach(unlisten => {
-      try {
-        unlisten()
-      } catch (err) {
-        console.error('[usePRDStream] Cleanup error:', err)
-      }
-    })
+    unlistenRef.current.forEach(unlisten => unlisten())
     unlistenRef.current = []
   }, [])
 
-  // 停止流式
-  const stopStream = useCallback(() => {
-    cleanup()
-    isStreamingRef.current = false
-    setIsStreaming(false)
-  }, [cleanup])
-
-  // 重置状态
-  const reset = useCallback(() => {
-    stopStream()
-    accumulatedContentRef.current = ''
-    setPrd(null)
-    setMarkdownContent('')
-    setIsComplete(false)
-    setError(null)
-    setSessionId(null)
-  }, [stopStream])
-
-  // 解析并更新 PRD 状态（带防抖）
-  const parseAndUpdatePRD = useCallback((content: string, isFinal = false) => {
-    // 如果是最终更新或距离上次解析超过 100ms，则立即解析
-    const shouldParseImmediately = isFinal || !parseTimerRef.current
+  // 更新 PRD 状态（只保存 markdown 内容）
+  const updatePRDState = useCallback((content: string) => {
+    setMarkdownContent(content)
     
-    if (shouldParseImmediately) {
-      // 清除之前的定时器
-      if (parseTimerRef.current) {
-        clearTimeout(parseTimerRef.current)
-        parseTimerRef.current = null
-      }
-      
-      // 同步更新 markdown content
-      setMarkdownContent(content)
-      
-      // 解析为结构化 PRD
-      const parsed = parsePRDFromMarkdown(content)
-      setPrd(prevPRD => ({
-        title: parsed.title || prevPRD?.title || '生成中...',
-        overview: parsed.overview || prevPRD?.overview || '',
-        targetUsers: parsed.targetUsers || prevPRD?.targetUsers || [],
-        coreFeatures: parsed.coreFeatures || prevPRD?.coreFeatures || [],
-        techStack: parsed.techStack || prevPRD?.techStack || [],
-        estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
-        businessModel: parsed.businessModel || prevPRD?.businessModel,
-        pricing: parsed.pricing || prevPRD?.pricing,
-        markdownContent: content, // 保存完整的 Markdown 内容
-      }))
-    } else {
-      // 否则设置防抖，等待更多数据
-      parseTimerRef.current = setTimeout(() => {
-        setMarkdownContent(content)
-        const parsed = parsePRDFromMarkdown(content)
-        setPrd(prevPRD => ({
-          title: parsed.title || prevPRD?.title || '生成中...',
-          overview: parsed.overview || prevPRD?.overview || '',
-          targetUsers: parsed.targetUsers || prevPRD?.targetUsers || [],
-          coreFeatures: parsed.coreFeatures || prevPRD?.coreFeatures || [],
-          techStack: parsed.techStack || prevPRD?.techStack || [],
-          estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
-          businessModel: parsed.businessModel || prevPRD?.businessModel,
-          pricing: parsed.pricing || prevPRD?.pricing,
-          markdownContent: content, // 保存完整的 Markdown 内容
-        }))
-        parseTimerRef.current = null
-      }, 100)
-    }
+    setPrd(prevPRD => ({
+      title: prevPRD?.title || '生成中...',
+      overview: prevPRD?.overview || '',
+      targetUsers: prevPRD?.targetUsers || [],
+      coreFeatures: prevPRD?.coreFeatures || [],
+      techStack: prevPRD?.techStack || [],
+      estimatedEffort: prevPRD?.estimatedEffort || '',
+      businessModel: prevPRD?.businessModel,
+      pricing: prevPRD?.pricing,
+      markdownContent: content,
+    }))
   }, [])
 
   // 开始流式生成 PRD
   const startStream = useCallback(
     async (request: PRDStreamRequest) => {
-      // 清理之前的订阅
       cleanup()
 
-      // 重置状态和累积内容
       accumulatedContentRef.current = ''
       setMarkdownContent('')
       setPrd(null)
@@ -219,7 +74,6 @@ export function usePRDStream(): UsePRDStreamReturn {
       isStreamingRef.current = true
 
       try {
-        // 监听 PRD 流式 chunk 事件
         const unlistenChunk = await listen<{
           session_id: string
           content: string
@@ -227,15 +81,12 @@ export function usePRDStream(): UsePRDStreamReturn {
         }>('prd-stream-chunk', event => {
           console.log('[usePRDStream] Received PRD chunk:', event.payload.content.length, 'chars')
 
-          // 使用 ref 累积内容，确保原子性
           accumulatedContentRef.current += event.payload.content
           
-          // 基于 ref 中的最新内容进行解析和更新
-          parseAndUpdatePRD(accumulatedContentRef.current)
+          updatePRDState(accumulatedContentRef.current)
         })
         unlistenRef.current.push(unlistenChunk)
 
-        // 监听完成事件
         const unlistenComplete = await listen<{ session_id: string; content: string }>(
           'prd-stream-complete',
           event => {
@@ -244,51 +95,55 @@ export function usePRDStream(): UsePRDStreamReturn {
             setIsStreaming(false)
             isStreamingRef.current = false
             
-            // 使用后端返回的最终完整内容
             accumulatedContentRef.current = event.payload.content
-            parseAndUpdatePRD(event.payload.content, true)
+            updatePRDState(event.payload.content)
             
             cleanup()
           }
         )
         unlistenRef.current.push(unlistenComplete)
 
-        // 监听错误事件
-        const unlistenError = await listen<{ session_id: string; error: string }>(
-          'prd-stream-error',
-          event => {
-            console.error('[usePRDStream] PRD stream error:', event.payload.error)
-            setError(event.payload.error)
-            setIsStreaming(false)
-            isStreamingRef.current = false
-            cleanup()
-          }
-        )
-        unlistenRef.current.push(unlistenError)
-
-        // 调用后端流式命令
-        const response = await invoke<string>('stream_generate_prd', {
-          request: {
-            idea: request.idea,
-            provider: request.provider,
-            model: request.model,
-            api_key: request.apiKey,
-          },
+        const { session_id } = await invoke<{ session_id: string }>('start_prd_stream', {
+          idea: request.idea,
+          provider: request.provider,
+          model: request.model,
+          api_key: request.apiKey,
         })
 
-        setSessionId(response)
+        setSessionId(session_id)
       } catch (err) {
-        console.error('[usePRDStream] Error starting stream:', err)
-        setError(err instanceof Error ? err.message : '未知错误')
+        console.error('[usePRDStream] Error starting PRD stream:', err)
+        setError(err instanceof Error ? err.message : String(err))
         setIsStreaming(false)
         isStreamingRef.current = false
-        cleanup()
       }
     },
-    [cleanup, parseAndUpdatePRD]
+    [cleanup, updatePRDState]
   )
 
-  // 组件卸载时清理
+  // 停止流式生成 PRD
+  const stopStream = useCallback(() => {
+    if (isStreamingRef.current) {
+      invoke('stop_prd_stream', { session_id: sessionId }).catch(err => {
+        console.error('[usePRDStream] Error stopping PRD stream:', err)
+      })
+      setIsStreaming(false)
+      isStreamingRef.current = false
+      cleanup()
+    }
+  }, [sessionId, cleanup])
+
+  // 重置状态
+  const reset = useCallback(() => {
+    cleanup()
+    accumulatedContentRef.current = ''
+    setPrd(null)
+    setIsComplete(false)
+    setError(null)
+    setIsStreaming(false)
+    isStreamingRef.current = false
+  }, [cleanup])
+
   useEffect(() => {
     return () => {
       cleanup()
