@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import { invoke } from '@tauri-apps/api/core'
 import type { Project, PRD, UserPersona, CompetitorAnalysis } from '@/types'
 
 interface ProjectState {
@@ -20,6 +21,7 @@ interface ProjectActions {
   setProjectCompetitorAnalysis: (id: string, analysis: CompetitorAnalysis) => void
   updateProjectProgress: (id: string, progress: number) => void
   updateProjectStatus: (id: string, status: Project['status']) => void
+  syncProjectToDatabase: (id: string) => Promise<void>
 }
 
 export const useProjectStore = create<ProjectState & ProjectActions>()(
@@ -121,6 +123,40 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
               project.updatedAt = new Date().toISOString()
             }
           }),
+
+        // 新增：同步项目到数据库
+        syncProjectToDatabase: async (id) => {
+          const project = get().projects.find(p => p.id === id)
+          if (!project) {
+            console.warn('[ProjectStore] Project not found for sync:', id)
+            return
+          }
+
+          try {
+            console.log('[ProjectStore] Syncing project to database:', id)
+            
+            // 将复杂对象序列化为 JSON 字符串
+            const projectForDb = {
+              id: project.id,
+              name: project.name,
+              description: project.description,
+              status: project.status,
+              progress: project.progress,
+              created_at: project.createdAt,
+              updated_at: project.updatedAt,
+              idea: project.idea || null,
+              prd: project.prd ? JSON.stringify(project.prd) : null,
+              user_personas: project.userPersonas ? JSON.stringify(project.userPersonas) : null,
+              competitor_analysis: project.competitorAnalysis ? JSON.stringify(project.competitorAnalysis) : null,
+            }
+
+            await invoke('update_project', { project: projectForDb })
+            console.log('[ProjectStore] Project synced successfully')
+          } catch (error) {
+            console.error('[ProjectStore] Failed to sync project to database:', error)
+            // 不抛出错误，避免影响用户体验，但记录日志
+          }
+        },
       }),
       {
         name: 'opc-harness-projects',

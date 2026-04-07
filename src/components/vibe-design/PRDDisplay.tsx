@@ -174,7 +174,7 @@ function generateMockPRD(idea: string): PRD {
 export function PRDDisplay() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress } =
+  const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress, syncProjectToDatabase } =
     useProjectStore()
   const { setLoading } = useAppStore()
   const aiConfigStore = useAIConfigStore()
@@ -267,6 +267,11 @@ export function PRDDisplay() {
       updateProjectStatus(projectId, 'design')
       updateProjectProgress(projectId, 25)
       setLoading(false)
+      
+      // 同步到数据库
+      syncProjectToDatabase(projectId).catch(err => {
+        console.error('[PRDDisplay] Failed to sync PRD to database:', err)
+      })
     }
   }, [
     isComplete,
@@ -276,6 +281,7 @@ export function PRDDisplay() {
     updateProjectStatus,
     updateProjectProgress,
     setLoading,
+    syncProjectToDatabase,
   ])
 
   const handleExport = async () => {

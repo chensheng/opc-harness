@@ -9,7 +9,7 @@ import { usePersonaStream } from '@/hooks/usePersonaStream'
 export function UserPersonas() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, setProjectPersonas } = useProjectStore()
+  const { getProjectById, setProjectPersonas, syncProjectToDatabase } = useProjectStore()
   const { setLoading } = useAppStore()
   const aiConfigStore = useAIConfigStore()
 
@@ -67,8 +67,13 @@ export function UserPersonas() {
     if (isComplete && personas.length > 0 && projectId) {
       setProjectPersonas(projectId, personas)
       console.log('[UserPersonas] Saved personas to project:', personas.length)
+      
+      // 同步到数据库
+      syncProjectToDatabase(projectId).catch(err => {
+        console.error('[UserPersonas] Failed to sync personas to database:', err)
+      })
     }
-  }, [isComplete, personas, projectId, setProjectPersonas])
+  }, [isComplete, personas, projectId, setProjectPersonas, syncProjectToDatabase])
 
   if (!project) {
     return (

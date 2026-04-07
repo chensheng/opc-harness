@@ -58,7 +58,7 @@ function generateMockCompetitorAnalysis(): CompetitorAnalysisType {
 export function CompetitorAnalysis() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, setProjectCompetitorAnalysis } = useProjectStore()
+  const { getProjectById, setProjectCompetitorAnalysis, syncProjectToDatabase } = useProjectStore()
   const { setLoading } = useAppStore()
 
   const [_useFallback, setUseFallback] = useState(false)
@@ -127,8 +127,13 @@ export function CompetitorAnalysis() {
   useEffect(() => {
     if (isComplete && analysis && projectId) {
       setProjectCompetitorAnalysis(projectId, analysis)
+      
+      // 同步到数据库
+      syncProjectToDatabase(projectId).catch(err => {
+        console.error('[CompetitorAnalysis] Failed to sync competitor analysis to database:', err)
+      })
     }
-  }, [isComplete, analysis, projectId, setProjectCompetitorAnalysis])
+  }, [isComplete, analysis, projectId, setProjectCompetitorAnalysis, syncProjectToDatabase])
 
   if (!project) {
     return (
