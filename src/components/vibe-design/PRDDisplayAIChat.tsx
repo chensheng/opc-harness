@@ -38,12 +38,29 @@ export function PRDDisplayAIChat({
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // 自动滚动到底部
+  // 自动滚动到底部 - 在消息内容变化或流式输出时触发
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      // 使用 requestAnimationFrame 确保 DOM 更新后再滚动
+      requestAnimationFrame(() => {
+        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight
+      })
     }
-  }, [messages])
+  }, [messages, isStreaming])
+
+  // 专门监听最后一条消息的内容变化(用于流式输出时的实时滚动)
+  useEffect(() => {
+    if (isStreaming && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage?.role === 'assistant' && lastMessage.content) {
+        requestAnimationFrame(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+          }
+        })
+      }
+    }
+  }, [messages[messages.length - 1]?.content, isStreaming])
 
   // 自动聚焦输入框
   useEffect(() => {
@@ -78,7 +95,7 @@ export function PRDDisplayAIChat({
   }
 
   return (
-    <Card className="h-full flex flex-col border-l border-border">
+    <Card className="h-[600px] max-h-[calc(100vh-200px)] flex flex-col border-l border-border">
       <CardHeader className="py-3 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
