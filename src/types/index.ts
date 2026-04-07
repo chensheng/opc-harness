@@ -72,6 +72,7 @@ export interface PRD {
   estimatedEffort: string
   businessModel?: string
   pricing?: string
+  markdownContent?: string // 完整的 Markdown 文档内容
 }
 
 export interface UserPersona {

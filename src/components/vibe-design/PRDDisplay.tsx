@@ -311,8 +311,10 @@ export function PRDDisplay() {
       setExportProgress(10)
       await new Promise(resolve => setTimeout(resolve, 300))
 
+      // 优先使用完整的 Markdown 内容，如果没有则从结构化数据生成
       const content =
         editedMarkdown ||
+        prd?.markdownContent ||
         `# ${prd?.title}\n\n## 产品概述\n\n${prd?.overview}\n\n## 目标用户\n\n${prd?.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd?.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd?.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd?.estimatedEffort}\n\n## 商业模式\n\n${prd?.businessModel || '待定'}\n\n## 定价策略\n\n${prd?.pricing || '待定'}`
 
       // 生成默认文件名
@@ -401,6 +403,9 @@ export function PRDDisplay() {
       
       const updatedPrd = parseMarkdownToPRD(editedMarkdown)
       
+      // 添加完整的 Markdown 内容到 PRD 对象
+      updatedPrd.markdownContent = editedMarkdown
+      
       console.log('[PRD Save] Parsed PRD object:', updatedPrd)
       
       // 步骤 2: 更新本地状态 (进度 40%)
@@ -454,8 +459,8 @@ export function PRDDisplay() {
 
   const startEditing = () => {
     if (prd) {
-      // 将 PRD 对象转换为 markdown 格式
-      const markdownContent = convertPRDToMarkdown(prd)
+      // 优先使用保存的完整 Markdown 内容，如果没有则从结构化数据转换
+      const markdownContent = prd.markdownContent || convertPRDToMarkdown(prd)
       setEditedMarkdown(markdownContent)
       setIsEditing(true)
       setPreviewMode('split') // 默认分屏模式
@@ -938,7 +943,7 @@ export function PRDDisplay() {
                     remarkPlugins={[remarkGfm]}
                     components={FullDocComponents as Partial<Components>}
                   >
-                    {`# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
+                    {prd.markdownContent || `# ${prd.title}\n\n## 产品概述\n\n${prd.overview}\n\n## 目标用户\n\n${prd.targetUsers.map(u => `- ${u}`).join('\n')}\n\n## 核心功能\n\n${prd.coreFeatures.map(f => `- ${f}`).join('\n')}\n\n## 技术栈\n\n${prd.techStack.map(t => `- ${t}`).join('\n')}\n\n## 预估工作量\n\n${prd.estimatedEffort}\n\n## 商业模式\n\n${prd.businessModel || '待定'}\n\n## 定价策略\n\n${prd.pricing || '待定'}`}
                   </ReactMarkdown>
                 </div>
               </CardContent>

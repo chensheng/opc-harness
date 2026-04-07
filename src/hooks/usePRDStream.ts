@@ -180,6 +180,7 @@ export function usePRDStream(): UsePRDStreamReturn {
         estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
         businessModel: parsed.businessModel || prevPRD?.businessModel,
         pricing: parsed.pricing || prevPRD?.pricing,
+        markdownContent: content, // 保存完整的 Markdown 内容
       }))
     } else {
       // 否则设置防抖，等待更多数据
@@ -195,6 +196,7 @@ export function usePRDStream(): UsePRDStreamReturn {
           estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
           businessModel: parsed.businessModel || prevPRD?.businessModel,
           pricing: parsed.pricing || prevPRD?.pricing,
+          markdownContent: content, // 保存完整的 Markdown 内容
         }))
         parseTimerRef.current = null
       }, 100)
