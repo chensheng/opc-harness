@@ -12,6 +12,7 @@ interface AIOptimizationViewProps {
   currentPRDContent: string
   onApplyOptimization: (content: string) => void
   onBack: () => void
+  onSaveToDatabase?: (content: string) => Promise<void>
 }
 
 // 快捷提示词列表
@@ -27,6 +28,7 @@ export function PRDDisplayAIOptimizationView({
   currentPRDContent,
   onApplyOptimization,
   onBack,
+  onSaveToDatabase,
 }: AIOptimizationViewProps) {
   const [inputMessage, setInputMessage] = useState('')
   const contentEndRef = useRef<HTMLDivElement>(null)
@@ -94,11 +96,23 @@ export function PRDDisplayAIOptimizationView({
     }
   }
 
-  const handleApplyOptimization = () => {
+  const handleApplyOptimization = async () => {
     // 获取最后一条助手消息
     const lastAssistantMessage = [...messages].reverse().find(msg => msg.role === 'assistant')
     if (lastAssistantMessage?.content) {
+      // 先应用优化内容
       onApplyOptimization(lastAssistantMessage.content)
+      
+      // 如果提供了保存函数，则自动保存到数据库
+      if (onSaveToDatabase) {
+        try {
+          await onSaveToDatabase(lastAssistantMessage.content)
+          console.log('[AI Optimization] Content saved to database successfully')
+        } catch (error) {
+          console.error('[AI Optimization] Failed to save to database:', error)
+          // 即使保存失败，也不影响应用优化内容
+        }
+      }
     }
   }
 

@@ -15,6 +15,7 @@ interface EditorProps {
   onPreviewModeChange: (mode: 'edit' | 'preview' | 'split') => void
   onCancel: () => void
   onSave: () => void
+  onSaveToDatabase?: (content: string) => Promise<void>
 }
 
 export function PRDDEditor({
@@ -24,6 +25,7 @@ export function PRDDEditor({
   onPreviewModeChange,
   onCancel,
   onSave,
+  onSaveToDatabase,
 }: EditorProps) {
   const [showAIOptimization, setShowAIOptimization] = useState(false)
 
@@ -41,6 +43,7 @@ export function PRDDEditor({
         currentPRDContent={editedMarkdown}
         onApplyOptimization={handleApplyOptimization}
         onBack={() => setShowAIOptimization(false)}
+        onSaveToDatabase={onSaveToDatabase}
       />
     )
   }

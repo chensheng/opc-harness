@@ -12,6 +12,7 @@ import { FullDocTab } from './PRDDisplayTabs'
 import { usePRDExport } from './usePRDExport'
 import { usePRDSave } from './usePRDSave'
 import { usePRDGeneration } from './usePRDGeneration'
+import { parseMarkdownToPRD } from './PRDDisplayUtils'
 
 export function PRDDisplay() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -123,6 +124,30 @@ export function PRDDisplay() {
     }
   }
 
+  // 为 AI 优化助手创建简化版保存函数（不显示对话框）
+  const handleSaveToDatabase = async (content: string) => {
+    if (!content || !projectId) return
+
+    try {
+      console.log('[AI Optimization Save] Starting save to database...')
+      
+      // 解析 Markdown 内容
+      const updatedPrd = parseMarkdownToPRD(content)
+      updatedPrd.markdownContent = content
+
+      // 更新本地状态
+      setProjectPRD(projectId, updatedPrd)
+      setPrd(updatedPrd)
+
+      // 同步到数据库
+      await syncProjectToDatabase(projectId)
+      console.log('[AI Optimization Save] Successfully saved to database')
+    } catch (error) {
+      console.error('[AI Optimization Save] Failed to save:', error)
+      throw error
+    }
+  }
+
   if (!project) {
     return (
       <div className="text-center py-12">
@@ -199,6 +224,7 @@ export function PRDDisplay() {
           onPreviewModeChange={setPreviewMode}
           onCancel={handleCancelEdit}
           onSave={() => handleSaveEdit(editedMarkdown, setPrd)}
+          onSaveToDatabase={handleSaveToDatabase}
         />
       ) : (
         <FullDocTab prd={prd} />
