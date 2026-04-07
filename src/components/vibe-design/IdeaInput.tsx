@@ -50,8 +50,8 @@ export function IdeaInput() {
     setLoading(true, 'AI 正在分析你的想法并生成 PRD...')
 
     try {
-      // 1. 创建项目
-      const project = createProject(projectName, idea.slice(0, 100), idea)
+      // 1. 创建项目（现在是异步的）
+      const project = await createProject(projectName, idea.slice(0, 100), idea)
 
       // 2. 调用真实 AI 生成 PRD
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

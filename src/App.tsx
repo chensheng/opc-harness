@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { AppLayout } from './components/common/AppLayout'
 import { Dashboard } from './components/common/Dashboard'
@@ -16,8 +17,16 @@ import { CheckpointReview } from './components/vibe-coding/CheckpointReview'
 import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy'
 import { AIConfig } from './components/common/AIConfig'
 import { Settings } from './components/common/Settings'
+import { useProjectStore } from './stores'
 
 function App() {
+  const { loadProjectsFromDatabase } = useProjectStore()
+
+  // 应用启动时从数据库加载项目
+  useEffect(() => {
+    loadProjectsFromDatabase()
+  }, [loadProjectsFromDatabase])
+
   return (
     <AppLayout>
       <Routes>

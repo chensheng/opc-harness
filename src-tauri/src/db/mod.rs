@@ -173,7 +173,7 @@ pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
             &project.name,
             &project.description,
             &project.status,
-            &project.progress.to_string(),
+            project.progress,
             &project.created_at,
             &project.updated_at,
             // 使用 as_deref() 将 Option<String> 转换为 Option<&str>
@@ -196,7 +196,7 @@ pub fn get_all_projects(conn: &Connection) -> Result<Vec<Project>> {
             name: row.get(1)?,
             description: row.get(2)?,
             status: row.get(3)?,
-            progress: row.get::<_, String>(4)?.parse::<i32>().unwrap_or(0),
+            progress: row.get(4)?,
             created_at: row.get(5)?,
             updated_at: row.get(6)?,
             idea: row.get(7)?,
@@ -222,7 +222,7 @@ pub fn get_project_by_id(conn: &Connection, id: &str) -> Result<Option<Project>>
             name: row.get(1)?,
             description: row.get(2)?,
             status: row.get(3)?,
-            progress: row.get::<_, String>(4)?.parse::<i32>().unwrap_or(0),
+            progress: row.get(4)?,
             created_at: row.get(5)?,
             updated_at: row.get(6)?,
             idea: row.get(7)?,
@@ -251,7 +251,7 @@ pub fn update_project(conn: &Connection, project: &Project) -> Result<()> {
             &project.name,
             &project.description,
             &project.status,
-            &project.progress.to_string(),
+            project.progress,
             &updated_at,
             // 使用 as_deref() 将 Option<String> 转换为 Option<&str>
             // rusqlite 可以正确处理 Option<&str> (NULL 或字符串)

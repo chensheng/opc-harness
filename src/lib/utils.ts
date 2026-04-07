@@ -5,7 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | undefined | null): string {
+  if (!date) {
+    return '未知日期'
+  }
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleDateString('zh-CN', {
     year: 'numeric',
@@ -14,7 +17,10 @@ export function formatDate(date: string | Date): string {
   })
 }
 
-export function formatDateTime(date: string | Date): string {
+export function formatDateTime(date: string | Date | undefined | null): string {
+  if (!date) {
+    return '未知时间'
+  }
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleString('zh-CN', {
     year: 'numeric',
