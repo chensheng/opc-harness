@@ -13,15 +13,12 @@ import {
   AlertDialog,
   AlertDialogContent,
 } from '@/components/ui/dialog'
-import { useProjectStore, useAppStore } from '@/stores'
+import { useProjectStore } from '@/stores'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
-import { invoke } from '@tauri-apps/api/core'
 
 export function IdeaInput() {
   const navigate = useNavigate()
-  const { createProject, setProjectPRD, updateProjectStatus, updateProjectProgress } =
-    useProjectStore()
-  const { setLoading } = useAppStore()
+  const { createProject } = useProjectStore()
   const aiConfigStore = useAIConfigStore()
 
   const [projectName, setProjectName] = useState('')
@@ -47,71 +44,30 @@ export function IdeaInput() {
       return
     }
 
-    setLoading(true, 'AI 正在分析你的想法并生成 PRD...')
-
     try {
       // 1. 创建项目（现在是异步的）
       const project = await createProject(projectName, idea.slice(0, 100), idea)
 
-      // 2. 调用真实 AI 生成 PRD
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const prdResponse = await invoke<Record<string, any>>('generate_prd', {
-        request: {
-          idea: idea,
-          provider: activeConfig.provider,
-          model: activeConfig.model,
-          api_key: activeConfig.apiKey,
-        },
+      // 2. 直接跳转到 PRD 页面，由 PRDDisplay 组件处理流式生成
+      // 通过 URL 参数传递想法和 AI 配置信息
+      const params = new URLSearchParams({
+        mode: 'streaming',
+        idea: encodeURIComponent(idea),
+        provider: activeConfig.provider,
+        model: activeConfig.model,
+        apiKey: activeConfig.apiKey,
       })
-
-      // 3. 转换后端返回的 PRD 格式为前端格式
-      const generatedPRD = {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        title: (prdResponse as any).title || projectName,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        overview: (prdResponse as any).overview || '',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        targetUsers: (prdResponse as any).target_users || [],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        coreFeatures: (prdResponse as any).core_features || [],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        techStack: (prdResponse as any).tech_stack || [],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        estimatedEffort: (prdResponse as any).estimated_effort || '待评估',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        businessModel: (prdResponse as any).business_model || undefined,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        pricing: (prdResponse as any).pricing || undefined,
-      }
-
-      // 4. 保存 PRD 到项目
-      setProjectPRD(project.id, generatedPRD)
-      updateProjectStatus(project.id, 'design')
-      updateProjectProgress(project.id, 25)
-
-      setLoading(false)
-      // 5. 跳转到 PRD 编辑页面
-      navigate(`/prd/${project.id}`)
+      
+      navigate(`/prd/${project.id}?${params.toString()}`)
     } catch (err) {
-      console.error('AI 生成 PRD 失败:', err)
-      const errorMessage = err instanceof Error ? err.message : 'AI 调用失败'
-
-      let errorDetail = ''
-      if (errorMessage.includes('API key') || errorMessage.includes('invalid')) {
-        errorDetail = '可能原因：API Key 无效或已过期'
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        errorDetail = '可能原因：网络连接问题，请检查网络后重试'
-      } else if (errorMessage.includes('quota') || errorMessage.includes('balance')) {
-        errorDetail = '可能原因：API 额度不足或余额不足'
-      }
+      console.error('创建项目失败:', err)
+      const errorMessage = err instanceof Error ? err.message : '创建项目失败'
 
       setErrorDialog({
         show: true,
         message: errorMessage,
-        detail: errorDetail,
+        detail: '请重试或检查网络连接',
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -169,24 +125,16 @@ export function IdeaInput() {
         onOpenChange={open => setErrorDialog(prev => ({ ...prev, show: open }))}
         type="error"
       >
-        <AlertDialogContent aria-label="AI 调用失败">
+        <AlertDialogContent aria-label="创建项目失败">
           <DialogHeader>
-            <DialogTitle>❌ AI 生成 PRD 失败</DialogTitle>
+            <DialogTitle>❌ 创建项目失败</DialogTitle>
             <DialogDescription className="text-sm mt-2 space-y-2">
               <p className="font-medium text-red-600">{errorDialog.message}</p>
               {errorDialog.detail && <p className="text-muted-foreground">{errorDialog.detail}</p>}
-              <div className="mt-3 p-3 bg-red-50 rounded-md">
-                <p className="text-sm font-semibold mb-2">请检查：</p>
-                <ol className="text-sm list-decimal list-inside space-y-1">
-                  <li>API Key 是否正确配置</li>
-                  <li>网络连接是否正常</li>
-                  <li>API 账户余额是否充足</li>
-                </ol>
-              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={handleErrorDialogClose}>前往 AI 配置重新配置</Button>
+            <Button onClick={handleErrorDialogClose}>关闭</Button>
           </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>

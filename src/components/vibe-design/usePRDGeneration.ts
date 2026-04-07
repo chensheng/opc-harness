@@ -12,6 +12,7 @@ interface UsePRDGenerationParams {
   updateProjectProgress: (projectId: string, progress: number) => void
   syncProjectToDatabase: (projectId: string) => Promise<void>
   setLoading: (loading: boolean, message?: string) => void
+  urlParams?: URLSearchParams // 从 URL 读取的参数
 }
 
 export function usePRDGeneration({
@@ -22,6 +23,7 @@ export function usePRDGeneration({
   updateProjectProgress,
   syncProjectToDatabase,
   setLoading,
+  urlParams,
 }: UsePRDGenerationParams) {
   const aiConfigStore = useAIConfigStore()
 
@@ -38,6 +40,35 @@ export function usePRDGeneration({
   } = usePRDStream()
 
   const generatePRD = async () => {
+    // 检查是否有 URL 参数（来自 IdeaInput 的流式生成请求）
+    const mode = urlParams?.get('mode')
+    
+    if (mode === 'streaming') {
+      // 从 URL 参数中获取 AI 配置
+      const idea = decodeURIComponent(urlParams.get('idea') || projectIdea)
+      const provider = urlParams.get('provider') || ''
+      const model = urlParams.get('model') || ''
+      const apiKey = urlParams.get('apiKey') || ''
+      
+      if (!apiKey || !provider || !model) {
+        console.error('[usePRDGeneration] Missing AI config from URL params')
+        return
+      }
+      
+      console.log('[usePRDGeneration] Starting streaming generation from URL params')
+      
+      // 直接使用 URL 中的配置进行流式生成
+      reset()
+      await startStream({
+        idea,
+        provider,
+        model,
+        apiKey,
+      })
+      return
+    }
+    
+    // 原有的逻辑：从 store 获取 AI 配置
     const activeConfig = aiConfigStore.getActiveConfig()
 
     if (activeConfig?.apiKey) {

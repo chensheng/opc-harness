@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Download, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -24,9 +24,13 @@ import { usePRDGeneration } from './usePRDGeneration'
 export function PRDDisplay() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress, syncProjectToDatabase } =
     useProjectStore()
   const { setLoading } = useAppStore()
+
+  // 解析 URL 参数
+  const urlParams = new URLSearchParams(location.search)
 
   const [prd, setPrd] = useState<PRD | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -55,6 +59,7 @@ export function PRDDisplay() {
     updateProjectProgress,
     syncProjectToDatabase,
     setLoading,
+    urlParams, // 传递 URL 参数
   })
 
   // 使用导出 Hook
