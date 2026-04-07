@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Users,
@@ -198,6 +198,9 @@ export function PRDDisplay() {
   const [saveStatus, setSaveStatus] = useState<'success' | 'error'>('success')
   const [saveMessage, setSaveMessage] = useState('')
 
+  // 防止重复生成 PRD 的标志
+  const hasStartedGenerationRef = useRef(false)
+
   // 使用 PRD 流式生成 Hook
   const {
     prd: streamingPRD,
@@ -214,11 +217,12 @@ export function PRDDisplay() {
   const project = projectId ? getProjectById(projectId) : undefined
 
   useEffect(() => {
-    if (project) {
+    if (project && !hasStartedGenerationRef.current) {
       if (project.prd) {
         setPrd(project.prd)
       } else {
         // Generate PRD if not exists
+        hasStartedGenerationRef.current = true
         generatePRD()
       }
     }

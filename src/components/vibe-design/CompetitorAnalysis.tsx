@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -65,6 +65,9 @@ export function CompetitorAnalysis() {
   const [showRadar, setShowRadar] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [showExplorer, setShowExplorer] = useState(false)
+  
+  // 防止重复启动流式生成的标志
+  const hasStartedGenerationRef = useRef(false)
 
   // 使用流式 Hook
   const { analysis, isStreaming, isComplete, error, sessionId, startStream, reset } =
@@ -73,12 +76,13 @@ export function CompetitorAnalysis() {
   const project = projectId ? getProjectById(projectId) : undefined
 
   useEffect(() => {
-    if (project && !sessionId) {
+    if (project && !hasStartedGenerationRef.current) {
       if (project.competitorAnalysis && !isStreaming) {
         // 已有缓存数据，直接使用
         reset()
       } else if (!isStreaming && !error) {
         // 启动流式生成
+        hasStartedGenerationRef.current = true
         startStreamWithIdea(project)
       }
     }

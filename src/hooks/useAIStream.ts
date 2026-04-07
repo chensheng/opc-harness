@@ -32,6 +32,8 @@ export function useAIStream(): UseAIStreamReturn {
 
   const unlistenRef = useRef<UnlistenFn[]>([])
   const isStreamingRef = useRef(false)
+  // 使用 ref 存储累积的内容，避免闭包问题
+  const accumulatedContentRef = useRef('')
 
   // 清理所有订阅
   const cleanup = useCallback(() => {
@@ -55,6 +57,7 @@ export function useAIStream(): UseAIStreamReturn {
   // 重置状态
   const reset = useCallback(() => {
     stopStream()
+    accumulatedContentRef.current = ''
     setContent('')
     setIsComplete(false)
     setError(null)
@@ -67,7 +70,8 @@ export function useAIStream(): UseAIStreamReturn {
       // 清理之前的订阅
       cleanup()
 
-      // 重置状态
+      // 重置状态和累积内容
+      accumulatedContentRef.current = ''
       setContent('')
       setIsComplete(false)
       setError(null)
@@ -77,7 +81,10 @@ export function useAIStream(): UseAIStreamReturn {
       try {
         // 监听流式数据块事件
         const unlistenChunk = await listen<StreamChunk>('ai-stream-chunk', event => {
-          setContent(prev => prev + event.payload.content)
+          // 使用 ref 累积内容，确保原子性
+          accumulatedContentRef.current += event.payload.content
+          // 基于 ref 中的最新内容更新状态
+          setContent(accumulatedContentRef.current)
         })
         unlistenRef.current.push(unlistenChunk)
 

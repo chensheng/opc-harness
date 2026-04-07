@@ -113,9 +113,19 @@ export function usePRDStream(): UsePRDStreamReturn {
 
   const unlistenRef = useRef<UnlistenFn[]>([])
   const isStreamingRef = useRef(false)
+  // 使用 ref 存储累积的 Markdown 内容，避免闭包问题
+  const accumulatedContentRef = useRef('')
+  // 防抖定时器引用
+  const parseTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 清理所有订阅
   const cleanup = useCallback(() => {
+    // 清除防抖定时器
+    if (parseTimerRef.current) {
+      clearTimeout(parseTimerRef.current)
+      parseTimerRef.current = null
+    }
+    
     unlistenRef.current.forEach(unlisten => {
       try {
         unlisten()
@@ -136,6 +146,7 @@ export function usePRDStream(): UsePRDStreamReturn {
   // 重置状态
   const reset = useCallback(() => {
     stopStream()
+    accumulatedContentRef.current = ''
     setPrd(null)
     setMarkdownContent('')
     setIsComplete(false)
@@ -143,13 +154,61 @@ export function usePRDStream(): UsePRDStreamReturn {
     setSessionId(null)
   }, [stopStream])
 
+  // 解析并更新 PRD 状态（带防抖）
+  const parseAndUpdatePRD = useCallback((content: string, isFinal = false) => {
+    // 如果是最终更新或距离上次解析超过 100ms，则立即解析
+    const shouldParseImmediately = isFinal || !parseTimerRef.current
+    
+    if (shouldParseImmediately) {
+      // 清除之前的定时器
+      if (parseTimerRef.current) {
+        clearTimeout(parseTimerRef.current)
+        parseTimerRef.current = null
+      }
+      
+      // 同步更新 markdown content
+      setMarkdownContent(content)
+      
+      // 解析为结构化 PRD
+      const parsed = parsePRDFromMarkdown(content)
+      setPrd(prevPRD => ({
+        title: parsed.title || prevPRD?.title || '生成中...',
+        overview: parsed.overview || prevPRD?.overview || '',
+        targetUsers: parsed.targetUsers || prevPRD?.targetUsers || [],
+        coreFeatures: parsed.coreFeatures || prevPRD?.coreFeatures || [],
+        techStack: parsed.techStack || prevPRD?.techStack || [],
+        estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
+        businessModel: parsed.businessModel || prevPRD?.businessModel,
+        pricing: parsed.pricing || prevPRD?.pricing,
+      }))
+    } else {
+      // 否则设置防抖，等待更多数据
+      parseTimerRef.current = setTimeout(() => {
+        setMarkdownContent(content)
+        const parsed = parsePRDFromMarkdown(content)
+        setPrd(prevPRD => ({
+          title: parsed.title || prevPRD?.title || '生成中...',
+          overview: parsed.overview || prevPRD?.overview || '',
+          targetUsers: parsed.targetUsers || prevPRD?.targetUsers || [],
+          coreFeatures: parsed.coreFeatures || prevPRD?.coreFeatures || [],
+          techStack: parsed.techStack || prevPRD?.techStack || [],
+          estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
+          businessModel: parsed.businessModel || prevPRD?.businessModel,
+          pricing: parsed.pricing || prevPRD?.pricing,
+        }))
+        parseTimerRef.current = null
+      }, 100)
+    }
+  }, [])
+
   // 开始流式生成 PRD
   const startStream = useCallback(
     async (request: PRDStreamRequest) => {
       // 清理之前的订阅
       cleanup()
 
-      // 重置状态
+      // 重置状态和累积内容
+      accumulatedContentRef.current = ''
       setMarkdownContent('')
       setPrd(null)
       setIsComplete(false)
@@ -166,25 +225,11 @@ export function usePRDStream(): UsePRDStreamReturn {
         }>('prd-stream-chunk', event => {
           console.log('[usePRDStream] Received PRD chunk:', event.payload.content.length, 'chars')
 
-          // 追加内容
-          setMarkdownContent(prev => {
-            const newContent = prev + event.payload.content
-
-            // 实时解析 Markdown 为结构化 PRD
-            const parsed = parsePRDFromMarkdown(newContent)
-            setPrd(prevPRD => ({
-              title: parsed.title || prevPRD?.title || '生成中...',
-              overview: parsed.overview || prevPRD?.overview || '',
-              targetUsers: parsed.targetUsers || prevPRD?.targetUsers || [],
-              coreFeatures: parsed.coreFeatures || prevPRD?.coreFeatures || [],
-              techStack: parsed.techStack || prevPRD?.techStack || [],
-              estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
-              businessModel: parsed.businessModel || prevPRD?.businessModel,
-              pricing: parsed.pricing || prevPRD?.pricing,
-            }))
-
-            return newContent
-          })
+          // 使用 ref 累积内容，确保原子性
+          accumulatedContentRef.current += event.payload.content
+          
+          // 基于 ref 中的最新内容进行解析和更新
+          parseAndUpdatePRD(accumulatedContentRef.current)
         })
         unlistenRef.current.push(unlistenChunk)
 
@@ -196,21 +241,12 @@ export function usePRDStream(): UsePRDStreamReturn {
             setIsComplete(true)
             setIsStreaming(false)
             isStreamingRef.current = false
+            
+            // 使用后端返回的最终完整内容
+            accumulatedContentRef.current = event.payload.content
+            parseAndUpdatePRD(event.payload.content, true)
+            
             cleanup()
-
-            // 确保最终内容完整
-            setMarkdownContent(event.payload.content)
-            const parsed = parsePRDFromMarkdown(event.payload.content)
-            setPrd(prevPRD => ({
-              title: parsed.title || prevPRD?.title || 'PRD',
-              overview: parsed.overview || prevPRD?.overview || '',
-              targetUsers: parsed.targetUsers || prevPRD?.targetUsers || [],
-              coreFeatures: parsed.coreFeatures || prevPRD?.coreFeatures || [],
-              techStack: parsed.techStack || prevPRD?.techStack || [],
-              estimatedEffort: parsed.estimatedEffort || prevPRD?.estimatedEffort || '',
-              businessModel: parsed.businessModel || prevPRD?.businessModel,
-              pricing: parsed.pricing || prevPRD?.pricing,
-            }))
           }
         )
         unlistenRef.current.push(unlistenComplete)
@@ -247,7 +283,7 @@ export function usePRDStream(): UsePRDStreamReturn {
         cleanup()
       }
     },
-    [cleanup]
+    [cleanup, parseAndUpdatePRD]
   )
 
   // 组件卸载时清理

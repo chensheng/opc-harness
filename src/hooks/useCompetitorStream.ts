@@ -127,9 +127,19 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
 
   const unlistenRef = useRef<UnlistenFn[]>([])
   const isStreamingRef = useRef(false)
+  // 使用 ref 存储累积的内容，避免闭包问题
+  const accumulatedContentRef = useRef('')
+  // 防抖定时器引用
+  const parseTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 清理所有订阅
   const cleanup = useCallback(() => {
+    // 清除防抖定时器
+    if (parseTimerRef.current) {
+      clearTimeout(parseTimerRef.current)
+      parseTimerRef.current = null
+    }
+
     unlistenRef.current.forEach(unlisten => {
       try {
         unlisten()
@@ -150,11 +160,57 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
   // 重置状态
   const reset = useCallback(() => {
     stopStream()
+    accumulatedContentRef.current = ''
     setAnalysis(null)
     setIsComplete(false)
     setError(null)
     setSessionId(null)
   }, [stopStream])
+
+  // 解析并更新竞品分析状态（带防抖）
+  const parseAndUpdateAnalysis = useCallback((content: string, isFinal = false) => {
+    // 如果是最终更新或距离上次解析超过 100ms，则立即解析
+    const shouldParseImmediately = isFinal || !parseTimerRef.current
+
+    if (shouldParseImmediately) {
+      // 清除之前的定时器
+      if (parseTimerRef.current) {
+        clearTimeout(parseTimerRef.current)
+        parseTimerRef.current = null
+      }
+
+      // 解析为结构化竞品分析
+      const parsed = parseCompetitorFromChunk(content)
+      setAnalysis(prevAnalysis => ({
+        competitors:
+          parsed.competitors && parsed.competitors.length > 0
+            ? parsed.competitors
+            : prevAnalysis?.competitors || [],
+        differentiation: parsed.differentiation || prevAnalysis?.differentiation || '',
+        opportunities:
+          parsed.opportunities && parsed.opportunities.length > 0
+            ? parsed.opportunities
+            : prevAnalysis?.opportunities || [],
+      }))
+    } else {
+      // 否则设置防抖，等待更多数据
+      parseTimerRef.current = setTimeout(() => {
+        const parsed = parseCompetitorFromChunk(content)
+        setAnalysis(prevAnalysis => ({
+          competitors:
+            parsed.competitors && parsed.competitors.length > 0
+              ? parsed.competitors
+              : prevAnalysis?.competitors || [],
+          differentiation: parsed.differentiation || prevAnalysis?.differentiation || '',
+          opportunities:
+            parsed.opportunities && parsed.opportunities.length > 0
+              ? parsed.opportunities
+              : prevAnalysis?.opportunities || [],
+        }))
+        parseTimerRef.current = null
+      }, 100)
+    }
+  }, [])
 
   // 开始流式生成竞品分析
   const startStream = useCallback(
@@ -162,7 +218,8 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
       // 清理之前的订阅
       cleanup()
 
-      // 重置状态
+      // 重置状态和累积内容
+      accumulatedContentRef.current = ''
       setAnalysis(null)
       setIsComplete(false)
       setError(null)
@@ -171,8 +228,6 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
 
       try {
         // 监听竞品分析流式 chunk 事件
-        let accumulatedContent = ''
-
         const unlistenChunk = await listen<{
           session_id: string
           content: string
@@ -184,24 +239,11 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
             'chars'
           )
 
-          // 累积内容
-          accumulatedContent += event.payload.content
+          // 使用 ref 累积内容，确保原子性
+          accumulatedContentRef.current += event.payload.content
 
-          // 实时解析 Markdown 为结构化竞品分析
-          const parsed = parseCompetitorFromChunk(accumulatedContent)
-
-          // 渐进式更新分析结果
-          setAnalysis(prevAnalysis => ({
-            competitors:
-              parsed.competitors && parsed.competitors.length > 0
-                ? parsed.competitors
-                : prevAnalysis?.competitors || [],
-            differentiation: parsed.differentiation || prevAnalysis?.differentiation || '',
-            opportunities:
-              parsed.opportunities && parsed.opportunities.length > 0
-                ? parsed.opportunities
-                : prevAnalysis?.opportunities || [],
-          }))
+          // 基于 ref 中的最新内容进行解析和更新
+          parseAndUpdateAnalysis(accumulatedContentRef.current)
         })
         unlistenRef.current.push(unlistenChunk)
 
@@ -213,15 +255,12 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
             setIsComplete(true)
             setIsStreaming(false)
             isStreamingRef.current = false
-            cleanup()
 
-            // 确保最终内容完整
-            const parsed = parseCompetitorFromChunk(event.payload.content)
-            setAnalysis({
-              competitors: parsed.competitors || [],
-              differentiation: parsed.differentiation || '',
-              opportunities: parsed.opportunities || [],
-            })
+            // 使用后端返回的最终完整内容
+            accumulatedContentRef.current = event.payload.content
+            parseAndUpdateAnalysis(event.payload.content, true)
+
+            cleanup()
           }
         )
         unlistenRef.current.push(unlistenComplete)
@@ -258,7 +297,7 @@ export function useCompetitorStream(): UseCompetitorStreamReturn {
         cleanup()
       }
     },
-    [cleanup]
+    [cleanup, parseAndUpdateAnalysis]
   )
 
   // 组件卸载时清理

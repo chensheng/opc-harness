@@ -138,9 +138,19 @@ export function usePersonaStream(): UsePersonaStreamReturn {
 
   const unlistenRef = useRef<UnlistenFn[]>([])
   const isStreamingRef = useRef(false)
+  // 使用 ref 存储累积的 Markdown 内容，避免闭包问题
+  const accumulatedContentRef = useRef('')
+  // 防抖定时器引用
+  const parseTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 清理所有订阅
   const cleanup = useCallback(() => {
+    // 清除防抖定时器
+    if (parseTimerRef.current) {
+      clearTimeout(parseTimerRef.current)
+      parseTimerRef.current = null
+    }
+
     unlistenRef.current.forEach(unlisten => {
       try {
         unlisten()
@@ -161,6 +171,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
   // 重置状态
   const reset = useCallback(() => {
     stopStream()
+    accumulatedContentRef.current = ''
     setPersonas([])
     setMarkdownContent('')
     setIsComplete(false)
@@ -168,13 +179,43 @@ export function usePersonaStream(): UsePersonaStreamReturn {
     setSessionId(null)
   }, [stopStream])
 
+  // 解析并更新用户画像状态（带防抖）
+  const parseAndUpdatePersonas = useCallback((content: string, isFinal = false) => {
+    // 如果是最终更新或距离上次解析超过 100ms，则立即解析
+    const shouldParseImmediately = isFinal || !parseTimerRef.current
+
+    if (shouldParseImmediately) {
+      // 清除之前的定时器
+      if (parseTimerRef.current) {
+        clearTimeout(parseTimerRef.current)
+        parseTimerRef.current = null
+      }
+
+      // 同步更新 markdown content
+      setMarkdownContent(content)
+
+      // 解析为用户画像
+      const parsed = parsePersonasFromMarkdown(content)
+      setPersonas(parsed)
+    } else {
+      // 否则设置防抖，等待更多数据
+      parseTimerRef.current = setTimeout(() => {
+        setMarkdownContent(content)
+        const parsed = parsePersonasFromMarkdown(content)
+        setPersonas(parsed)
+        parseTimerRef.current = null
+      }, 100)
+    }
+  }, [])
+
   // 开始流式生成用户画像
   const startStream = useCallback(
     async (request: PersonaStreamRequest) => {
       // 清理之前的订阅
       cleanup()
 
-      // 重置状态
+      // 重置状态和累积内容
+      accumulatedContentRef.current = ''
       setMarkdownContent('')
       setPersonas([])
       setIsComplete(false)
@@ -195,16 +236,11 @@ export function usePersonaStream(): UsePersonaStreamReturn {
             'chars'
           )
 
-          // 追加内容
-          setMarkdownContent(prev => {
-            const newContent = prev + event.payload.content
+          // 使用 ref 累积内容，确保原子性
+          accumulatedContentRef.current += event.payload.content
 
-            // 实时解析 Markdown 为结构化用户画像
-            const parsed = parsePersonasFromMarkdown(newContent)
-            setPersonas(parsed)
-
-            return newContent
-          })
+          // 基于 ref 中的最新内容进行解析和更新
+          parseAndUpdatePersonas(accumulatedContentRef.current)
         })
         unlistenRef.current.push(unlistenChunk)
 
@@ -216,12 +252,12 @@ export function usePersonaStream(): UsePersonaStreamReturn {
             setIsComplete(true)
             setIsStreaming(false)
             isStreamingRef.current = false
-            cleanup()
 
-            // 确保最终内容完整
-            setMarkdownContent(event.payload.content)
-            const parsed = parsePersonasFromMarkdown(event.payload.content)
-            setPersonas(parsed)
+            // 使用后端返回的最终完整内容
+            accumulatedContentRef.current = event.payload.content
+            parseAndUpdatePersonas(event.payload.content, true)
+
+            cleanup()
           }
         )
         unlistenRef.current.push(unlistenComplete)
@@ -258,7 +294,7 @@ export function usePersonaStream(): UsePersonaStreamReturn {
         cleanup()
       }
     },
-    [cleanup]
+    [cleanup, parseAndUpdatePersonas]
   )
 
   // 组件卸载时清理

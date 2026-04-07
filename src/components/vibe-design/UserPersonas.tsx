@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowRight, ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,9 @@ export function UserPersonas() {
   const { setLoading } = useAppStore()
   const aiConfigStore = useAIConfigStore()
 
+  // 防止重复启动流式生成的标志
+  const hasStartedGenerationRef = useRef(false)
+
   const project = projectId ? getProjectById(projectId) : undefined
 
   // 使用流式生成 Hook
@@ -22,12 +25,13 @@ export function UserPersonas() {
 
   // 初始化时加载已有的用户画像或触发生成
   useEffect(() => {
-    if (project) {
+    if (project && !hasStartedGenerationRef.current) {
       if (hasExistingPersonas && project.userPersonas) {
         // 已有数据，直接使用
         console.log('[UserPersonas] Using existing personas:', project.userPersonas.length)
       } else {
         // 无数据，触发流式生成
+        hasStartedGenerationRef.current = true
         triggerStreamGeneration()
       }
     }
