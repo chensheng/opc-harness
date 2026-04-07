@@ -14,6 +14,18 @@ interface AIOptimizationViewProps {
   onBack: () => void
 }
 
+// 快捷提示词列表
+const QUICK_PROMPTS = [
+  '完善目标用户画像',
+  '补充技术实现细节',
+  '优化产品功能描述',
+  '增强商业模式说明',
+  '细化用户体验流程',
+  '补充竞品分析内容',
+  '完善产品愿景和目标',
+  '优化需求优先级排序',
+]
+
 export function PRDDisplayAIOptimizationView({
   currentPRDContent,
   onApplyOptimization,
@@ -73,6 +85,15 @@ export function PRDDisplayAIOptimizationView({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+  }
+
+  const handleQuickPrompt = (prompt: string) => {
+    if (isStreaming) return
+    setInputMessage(prompt)
+    // 自动聚焦到输入框
+    if (textareaRef.current) {
+      textareaRef.current.focus()
     }
   }
 
@@ -188,6 +209,27 @@ export function PRDDisplayAIOptimizationView({
       {/* 底部输入区域 */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
         <div className="max-w-4xl mx-auto">
+          {/* 快捷提示词按钮 */}
+          {!lastAssistantMessage?.content && (
+            <div className="mb-3">
+              <p className="text-xs text-muted-foreground mb-2">💡 快捷优化建议：</p>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_PROMPTS.map((prompt, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => handleQuickPrompt(prompt)}
+                    disabled={isStreaming}
+                  >
+                    {prompt}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Textarea
               ref={textareaRef}
@@ -195,14 +237,14 @@ export function PRDDisplayAIOptimizationView({
               onChange={e => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入优化需求，如：请帮我完善目标用户部分..."
-              className="min-h-[80px] resize-none text-sm"
+              className="min-h-[60px] resize-none text-sm"
               disabled={isStreaming}
             />
             <Button
               size="lg"
               onClick={handleSend}
               disabled={!inputMessage.trim() || isStreaming}
-              className="h-[80px] px-6"
+              className="h-[60px] px-6"
             >
               <Send className="w-5 h-5" />
             </Button>
