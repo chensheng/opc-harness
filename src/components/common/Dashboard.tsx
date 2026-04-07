@@ -1,9 +1,18 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Folder, TrendingUp, Code, Lightbulb } from 'lucide-react'
+import { Folder, TrendingUp, Code, Lightbulb, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useProjectStore } from '@/stores'
 import { formatDate } from '@/lib/utils'
 
@@ -25,12 +34,38 @@ const statusColors: Record<string, string> = {
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const { projects } = useProjectStore()
+  const { projects, deleteProject } = useProjectStore()
+  
+  // 删除确认状态
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null)
 
   const stats = {
     total: projects.length,
     inProgress: projects.filter(p => p.status !== 'completed').length,
     completed: projects.filter(p => p.status === 'completed').length,
+  }
+
+  // 打开删除确认对话框
+  const handleDeleteClick = (e: React.MouseEvent, projectId: string, projectName: string) => {
+    e.stopPropagation() // 阻止触发卡片点击事件
+    setProjectToDelete({ id: projectId, name: projectName })
+    setDeleteDialogOpen(true)
+  }
+
+  // 确认删除
+  const handleConfirmDelete = async () => {
+    if (projectToDelete) {
+      try {
+        await deleteProject(projectToDelete.id)
+        console.log(`[Dashboard] Project "${projectToDelete.name}" deleted successfully`)
+      } catch (error) {
+        console.error('[Dashboard] Failed to delete project:', error)
+      } finally {
+        setDeleteDialogOpen(false)
+        setProjectToDelete(null)
+      }
+    }
   }
 
   return (
@@ -96,7 +131,7 @@ export function Dashboard() {
               {projects.slice(0, 5).map(project => (
                 <div
                   key={project.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer"
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer group"
                   onClick={() => navigate(`/prd/${project.id}`)}
                 >
                   <div className="flex-1">
@@ -115,8 +150,19 @@ export function Dashboard() {
                       <span>进度: {project.progress}%</span>
                     </div>
                   </div>
-                  <div className="w-32">
-                    <Progress value={project.progress} />
+                  <div className="flex items-center gap-4">
+                    <div className="w-32">
+                      <Progress value={project.progress} />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => handleDeleteClick(e, project.id, project.name)}
+                      title="删除项目"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -124,6 +170,29 @@ export function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除项目</DialogTitle>
+            <DialogDescription>
+              您确定要删除项目 "{projectToDelete?.name}" 吗？此操作不可撤销，所有相关数据都将被永久删除。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+            >
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
