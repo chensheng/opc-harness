@@ -191,6 +191,13 @@ export function PRDDisplay() {
   const [exportStatus, setExportStatus] = useState<'success' | 'error'>('success')
   const [exportMessage, setExportMessage] = useState('')
 
+  // 保存状态
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveProgress, setSaveProgress] = useState(0)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'success' | 'error'>('success')
+  const [saveMessage, setSaveMessage] = useState('')
+
   // 使用 PRD 流式生成 Hook
   const {
     prd: streamingPRD,
@@ -376,31 +383,64 @@ export function PRDDisplay() {
     console.log('[PRD Save] Starting save process...')
     console.log('[PRD Save] Edited markdown length:', editedMarkdown.length)
     
-    // 从 markdown 内容解析回 PRD 对象
-    const updatedPrd = parseMarkdownToPRD(editedMarkdown)
+    // 显示保存对话框并开始进度
+    setIsSaving(true)
+    setSaveProgress(0)
+    setShowSaveDialog(true)
+    setSaveStatus('success')
+    setSaveMessage('正在保存产品需求文档...')
     
-    console.log('[PRD Save] Parsed PRD object:', updatedPrd)
-    
-    setProjectPRD(projectId, updatedPrd)
-    setPrd(updatedPrd)
-    setIsEditing(false)
-    setEditedMarkdown('')
-    setLoading(false)
-    
-    // 验证保存是否成功
-    const savedProject = getProjectById(projectId)
-    console.log('[PRD Save] Saved project PRD:', savedProject?.prd)
-    
-    // 同步到数据库
     try {
+      // 步骤 1: 解析 Markdown 内容 (进度 20%)
+      setSaveProgress(20)
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      const updatedPrd = parseMarkdownToPRD(editedMarkdown)
+      
+      console.log('[PRD Save] Parsed PRD object:', updatedPrd)
+      
+      // 步骤 2: 更新本地状态 (进度 40%)
+      setSaveProgress(40)
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      setProjectPRD(projectId, updatedPrd)
+      setPrd(updatedPrd)
+      
+      // 步骤 3: 验证保存是否成功 (进度 60%)
+      setSaveProgress(60)
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      const savedProject = getProjectById(projectId)
+      console.log('[PRD Save] Saved project PRD:', savedProject?.prd)
+      
+      // 步骤 4: 同步到数据库 (进度 80%)
+      setSaveProgress(80)
+      setSaveMessage('正在同步到数据库...')
       await syncProjectToDatabase(projectId)
       console.log('[PRD Save] Successfully synced to database')
+      
+      // 步骤 5: 完成 (进度 100%)
+      setSaveProgress(100)
+      setSaveStatus('success')
+      setSaveMessage('✅ 产品需求文档已成功保存！')
+      
+      // 延迟关闭对话框
+      setTimeout(() => {
+        setShowSaveDialog(false)
+        setIsSaving(false)
+        setIsEditing(false)
+        setEditedMarkdown('')
+        setLoading(false)
+      }, 1500)
+      
     } catch (error) {
-      console.error('[PRD Save] Failed to sync to database:', error)
+      console.error('[PRD Save] Failed to save:', error)
+      setSaveStatus('error')
+      setSaveMessage(`❌ 保存失败：${error instanceof Error ? error.message : '未知错误'}`)
+      setSaveProgress(0)
+      setIsSaving(false)
+      // 错误时不自动关闭对话框，让用户手动关闭
     }
-    
-    // 添加用户友好的提示
-    alert('✅ 产品需求文档已保存成功！')
   }
 
   const handleCancelEdit = () => {
@@ -1067,6 +1107,49 @@ export function PRDDisplay() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* 保存进度对话框 */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {saveStatus === 'success' ? '💾 保存产品需求文档' : '❌ 保存失败'}
+            </DialogTitle>
+            <DialogDescription>
+              {saveMessage}
+            </DialogDescription>
+          </DialogHeader>
+
+          {isSaving && (
+            <div className="py-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">保存进度</span>
+                <span className="text-sm text-muted-foreground">{saveProgress}%</span>
+              </div>
+              <Progress value={saveProgress} className="w-full" />
+
+              <div className="mt-4 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            </div>
+          )}
+
+          {!isSaving && saveStatus === 'error' && (
+            <DialogFooter>
+              <Button onClick={() => setShowSaveDialog(false)}>关闭</Button>
+              <Button onClick={handleSaveEdit} variant="outline">
+                重试
+              </Button>
+            </DialogFooter>
+          )}
+
+          {!isSaving && saveStatus === 'success' && (
+            <DialogFooter>
+              <Button onClick={() => setShowSaveDialog(false)}>确定</Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* 导出进度对话框 */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
