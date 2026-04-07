@@ -370,17 +370,37 @@ export function PRDDisplay() {
     setLoading(false)
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editedMarkdown || !projectId) return
-
+    
+    console.log('[PRD Save] Starting save process...')
+    console.log('[PRD Save] Edited markdown length:', editedMarkdown.length)
+    
     // 从 markdown 内容解析回 PRD 对象
     const updatedPrd = parseMarkdownToPRD(editedMarkdown)
-
+    
+    console.log('[PRD Save] Parsed PRD object:', updatedPrd)
+    
     setProjectPRD(projectId, updatedPrd)
     setPrd(updatedPrd)
     setIsEditing(false)
     setEditedMarkdown('')
     setLoading(false)
+    
+    // 验证保存是否成功
+    const savedProject = getProjectById(projectId)
+    console.log('[PRD Save] Saved project PRD:', savedProject?.prd)
+    
+    // 同步到数据库
+    try {
+      await syncProjectToDatabase(projectId)
+      console.log('[PRD Save] Successfully synced to database')
+    } catch (error) {
+      console.error('[PRD Save] Failed to sync to database:', error)
+    }
+    
+    // 添加用户友好的提示
+    alert('✅ 产品需求文档已保存成功！')
   }
 
   const handleCancelEdit = () => {
@@ -511,9 +531,9 @@ export function PRDDisplay() {
         continue
       }
 
-      // 收集内容（跳过空行和标题）
-      if (trimmedLine && !trimmedLine.startsWith('#')) {
-        currentContent.push(trimmedLine)
+      // 收集内容（保留空行，只跳过标题）
+      if (!trimmedLine.startsWith('#')) {
+        currentContent.push(line)
       }
     }
 
