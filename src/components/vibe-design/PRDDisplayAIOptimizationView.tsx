@@ -19,11 +19,8 @@ const QUICK_PROMPTS = [
   '完善目标用户画像',
   '补充技术实现细节',
   '优化产品功能描述',
-  '增强商业模式说明',
   '细化用户体验流程',
   '补充竞品分析内容',
-  '完善产品愿景和目标',
-  '优化需求优先级排序',
 ]
 
 export function PRDDisplayAIOptimizationView({
@@ -146,6 +143,17 @@ export function PRDDisplayAIOptimizationView({
               返回编辑
             </Button>
           )}
+          {/* 应用优化按钮 - 有优化内容时始终显示 */}
+          {hasOptimizedContent && !isStreaming && (
+            <Button
+              onClick={handleApplyOptimization}
+              size="lg"
+              className="gap-2"
+            >
+              <Check className="w-4 h-4" />
+              应用优化
+            </Button>
+          )}
         </div>
       </div>
 
@@ -192,20 +200,6 @@ export function PRDDisplayAIOptimizationView({
         </Card>
       )}
 
-      {/* 应用优化按钮 - 流式完成后显示 */}
-      {hasOptimizedContent && (
-        <div className="fixed bottom-24 right-8 z-20">
-          <Button
-            onClick={handleApplyOptimization}
-            size="lg"
-            className="gap-2 shadow-lg"
-          >
-            <Check className="w-5 h-5" />
-            应用优化
-          </Button>
-        </div>
-      )}
-
       {/* 底部输入区域 */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
         <div className="max-w-4xl mx-auto">
@@ -237,14 +231,14 @@ export function PRDDisplayAIOptimizationView({
               onChange={e => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入优化需求，如：请帮我完善目标用户部分..."
-              className="min-h-[60px] resize-none text-sm"
+              className="min-h-[45px] resize-none text-sm"
               disabled={isStreaming}
             />
             <Button
               size="lg"
               onClick={handleSend}
               disabled={!inputMessage.trim() || isStreaming}
-              className="h-[60px] px-6"
+              className="h-[45px] px-6"
             >
               <Send className="w-5 h-5" />
             </Button>
