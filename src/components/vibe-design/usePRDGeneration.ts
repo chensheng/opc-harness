@@ -72,9 +72,7 @@ export function usePRDGeneration({
     const activeConfig = aiConfigStore.getActiveConfig()
 
     if (activeConfig?.apiKey) {
-      setLoading(true, 'AI 正在生成产品需求文档...')
-
-      // 使用流式生成
+      // 使用流式生成（不显示加载遮罩）
       reset()
       await startStream({
         idea: projectIdea,
@@ -84,7 +82,6 @@ export function usePRDGeneration({
       })
     } else {
       // 降级到模拟生成
-      setLoading(true, '正在生成产品需求文档...')
       try {
         await new Promise(resolve => setTimeout(resolve, 2000))
         const generatedPRD = generateMockPRD(projectIdea)
@@ -94,8 +91,8 @@ export function usePRDGeneration({
           updateProjectStatus(projectId, 'design')
           updateProjectProgress(projectId, 25)
         }
-      } finally {
-        setLoading(false)
+      } catch (err) {
+        console.error('[usePRDGeneration] Mock generation failed:', err)
       }
     }
   }
@@ -106,7 +103,6 @@ export function usePRDGeneration({
       setProjectPRD(projectId, streamingPRD)
       updateProjectStatus(projectId, 'design')
       updateProjectProgress(projectId, 25)
-      setLoading(false)
       
       // 同步到数据库
       syncProjectToDatabase(projectId).catch(err => {
@@ -120,7 +116,6 @@ export function usePRDGeneration({
     setProjectPRD,
     updateProjectStatus,
     updateProjectProgress,
-    setLoading,
     syncProjectToDatabase,
   ])
 
