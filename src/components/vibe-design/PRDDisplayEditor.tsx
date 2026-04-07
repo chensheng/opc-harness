@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Pencil, Columns, Eye, X, Save, Sparkles } from 'lucide-react'
 import { FullDocComponents } from './PRDDisplayMarkdownComponents'
-import { PRDDisplayAIChat } from './PRDDisplayAIChat'
-import { usePRDAIChat } from '@/hooks/usePRDAIChat'
+import { PRDDisplayAIOptimizationView } from './PRDDisplayAIOptimizationView'
 
 interface EditorProps {
   editedMarkdown: string
@@ -26,28 +25,24 @@ export function PRDDEditor({
   onCancel,
   onSave,
 }: EditorProps) {
-  const [showAIChat, setShowAIChat] = useState(false)
-  
-  const {
-    messages,
-    isStreaming,
-    error,
-    sendMessage,
-    stopStream,
-    reset,
-  } = usePRDAIChat()
-
-  const handleSendMessage = async (userMessage: string) => {
-    await sendMessage(userMessage, editedMarkdown)
-  }
+  const [showAIOptimization, setShowAIOptimization] = useState(false)
 
   const handleApplyOptimization = (content: string) => {
     // 应用 AI 优化后的内容
     onMarkdownChange(content)
-    // 关闭 AI 聊天面板
-    setShowAIChat(false)
-    // 重置对话历史
-    reset()
+    // 关闭 AI 优化界面
+    setShowAIOptimization(false)
+  }
+
+  // 如果显示 AI 优化界面，则渲染独立视图
+  if (showAIOptimization) {
+    return (
+      <PRDDisplayAIOptimizationView
+        currentPRDContent={editedMarkdown}
+        onApplyOptimization={handleApplyOptimization}
+        onBack={() => setShowAIOptimization(false)}
+      />
+    )
   }
 
   return (
@@ -89,11 +84,10 @@ export function PRDDEditor({
             预览
           </Button>
           <Button
-            variant={showAIChat ? 'secondary' : 'outline'}
+            variant="outline"
             size="sm"
-            onClick={() => setShowAIChat(!showAIChat)}
+            onClick={() => setShowAIOptimization(true)}
             title="AI 优化助手"
-            className={showAIChat ? 'bg-secondary text-secondary-foreground' : ''}
           >
             <Sparkles className="w-4 h-4 mr-1" />
             AI 助手
@@ -101,10 +95,10 @@ export function PRDDEditor({
         </div>
       </div>
 
-      <div className={`grid gap-4 ${showAIChat ? 'grid-cols-3' : previewMode === 'split' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`grid gap-4 ${previewMode === 'split' ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {/* 编辑器面板 */}
         {(previewMode === 'edit' || previewMode === 'split') && (
-          <Card className={showAIChat ? 'col-span-2' : ''}>
+          <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Markdown 编辑器
@@ -125,7 +119,7 @@ export function PRDDEditor({
         )}
 
         {/* 预览面板 */}
-        {(previewMode === 'preview' || previewMode === 'split') && !showAIChat && (
+        {(previewMode === 'preview' || previewMode === 'split') && (
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">实时预览</CardTitle>
@@ -141,21 +135,6 @@ export function PRDDEditor({
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* AI 聊天面板 */}
-        {showAIChat && (
-          <div className="col-span-1">
-            <PRDDisplayAIChat
-              messages={messages}
-              isStreaming={isStreaming}
-              error={error}
-              onSendMessage={handleSendMessage}
-              onStopStream={stopStream}
-              onApplyOptimization={handleApplyOptimization}
-              onClose={() => setShowAIChat(false)}
-            />
-          </div>
         )}
       </div>
 
