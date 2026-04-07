@@ -21,10 +21,7 @@ interface TabsContentProps {
 export function FullDocTab({ prd }: TabsContentProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">📄 产品需求文档</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <div className="prose prose-slate max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
