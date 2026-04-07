@@ -12,23 +12,23 @@ interface ProjectState {
 interface ProjectActions {
   // 从数据库加载所有项目
   loadProjectsFromDatabase: () => Promise<void>
-  
+
   // 创建项目并保存到数据库
   createProject: (name: string, description: string, idea?: string) => Promise<Project>
-  
+
   updateProject: (id: string, updates: Partial<Project>) => void
   deleteProject: (id: string) => Promise<void>
   setCurrentProject: (id: string | null) => void
   getCurrentProject: () => Project | undefined
   getProjectById: (id: string) => Project | undefined
-  
+
   setProjectPRD: (id: string, prd: PRD) => Promise<void>
   setProjectPersonas: (id: string, personas: UserPersona[]) => Promise<void>
   setProjectCompetitorAnalysis: (id: string, analysis: CompetitorAnalysis) => Promise<void>
-  
+
   updateProjectProgress: (id: string, progress: number) => void
   updateProjectStatus: (id: string, status: Project['status']) => void
-  
+
   // 手动同步到数据库（保留作为备用）
   syncProjectToDatabase: (id: string) => Promise<void>
 }
@@ -44,28 +44,30 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       try {
         set({ isLoading: true })
         console.log('[ProjectStore] Loading projects from database...')
-        
-        const dbProjects = await invoke<any[]>('get_all_projects')
-        
+
+        const dbProjects = await invoke<Array<Record<string, unknown>>>('get_all_projects')
+
         // 转换数据库格式为前端格式
         const projects: Project[] = dbProjects.map(dbProj => ({
-          id: dbProj.id,
-          name: dbProj.name,
-          description: dbProj.description || '',
+          id: String(dbProj.id),
+          name: String(dbProj.name),
+          description: String(dbProj.description || ''),
           status: (dbProj.status as Project['status']) || 'idea',
-          progress: dbProj.progress || 0,
-          createdAt: dbProj.created_at || new Date().toISOString(),
-          updatedAt: dbProj.updated_at || new Date().toISOString(),
-          idea: dbProj.idea || undefined,
-          prd: dbProj.prd ? JSON.parse(dbProj.prd) : undefined,
-          userPersonas: dbProj.user_personas ? JSON.parse(dbProj.user_personas) : undefined,
-          competitorAnalysis: dbProj.competitor_analysis ? JSON.parse(dbProj.competitor_analysis) : undefined,
+          progress: Number(dbProj.progress) || 0,
+          createdAt: String(dbProj.created_at || new Date().toISOString()),
+          updatedAt: String(dbProj.updated_at || new Date().toISOString()),
+          idea: dbProj.idea ? String(dbProj.idea) : undefined,
+          prd: dbProj.prd ? JSON.parse(String(dbProj.prd)) : undefined,
+          userPersonas: dbProj.user_personas ? JSON.parse(String(dbProj.user_personas)) : undefined,
+          competitorAnalysis: dbProj.competitor_analysis
+            ? JSON.parse(String(dbProj.competitor_analysis))
+            : undefined,
         }))
-        
+
         set(state => {
           state.projects = projects
         })
-        
+
         console.log(`[ProjectStore] Loaded ${projects.length} projects from database`)
       } catch (error) {
         console.error('[ProjectStore] Failed to load projects from database:', error)
@@ -82,7 +84,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           name,
           description,
         })
-        
+
         // 创建项目对象，使用后端返回的 ID
         const project: Project = {
           id: projectId,
@@ -94,13 +96,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           updatedAt: new Date().toISOString(),
           idea,
         }
-        
+
         // 添加到本地状态
         set(state => {
           state.projects.push(project)
           state.currentProjectId = project.id
         })
-        
+
         console.log('[ProjectStore] Project created and saved to database:', projectId)
         return project
       } catch (error) {
@@ -117,14 +119,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         }
       }),
 
-    deleteProject: async (id) => {
+    deleteProject: async id => {
       set(state => {
         state.projects = state.projects.filter(p => p.id !== id)
         if (state.currentProjectId === id) {
           state.currentProjectId = null
         }
       })
-      
+
       // 异步删除数据库记录
       try {
         await invoke('delete_project', { id })
@@ -156,7 +158,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           project.updatedAt = new Date().toISOString()
         }
       })
-      
+
       // 异步保存到数据库
       try {
         await get().syncProjectToDatabase(id)
@@ -173,7 +175,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           project.updatedAt = new Date().toISOString()
         }
       })
-      
+
       // 异步保存到数据库
       try {
         await get().syncProjectToDatabase(id)
@@ -190,7 +192,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           project.updatedAt = new Date().toISOString()
         }
       })
-      
+
       // 异步保存到数据库
       try {
         await get().syncProjectToDatabase(id)
@@ -218,7 +220,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       }),
 
     // 同步项目到数据库
-    syncProjectToDatabase: async (id) => {
+    syncProjectToDatabase: async id => {
       const project = get().projects.find(p => p.id === id)
       if (!project) {
         console.warn('[ProjectStore] Project not found for sync:', id)
@@ -227,7 +229,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
 
       try {
         console.log('[ProjectStore] Syncing project to database:', id)
-        
+
         // 将复杂对象序列化为 JSON 字符串，并使用 camelCase 格式与后端交互
         const projectForDb = {
           id: project.id,
@@ -240,7 +242,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           idea: project.idea || null,
           prd: project.prd ? JSON.stringify(project.prd) : null,
           userPersonas: project.userPersonas ? JSON.stringify(project.userPersonas) : null,
-          competitorAnalysis: project.competitorAnalysis ? JSON.stringify(project.competitorAnalysis) : null,
+          competitorAnalysis: project.competitorAnalysis
+            ? JSON.stringify(project.competitorAnalysis)
+            : null,
         }
 
         await invoke('update_project', { project: projectForDb })

@@ -92,9 +92,7 @@ export function PRDDEditor({
         {(previewMode === 'preview' || previewMode === 'split') && (
           <Card>
             <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                实时预览
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">实时预览</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="prose prose-slate max-w-none bg-muted/30 p-4 rounded-lg border border-border min-h-[600px] overflow-auto">

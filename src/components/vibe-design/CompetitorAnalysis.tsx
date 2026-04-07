@@ -65,13 +65,20 @@ export function CompetitorAnalysis() {
   const [showRadar, setShowRadar] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [showExplorer, setShowExplorer] = useState(false)
-  
+
   // 防止重复启动流式生成的标志
   const hasStartedGenerationRef = useRef(false)
 
   // 使用流式 Hook
-  const { analysis, isStreaming, isComplete, error, sessionId, startStream, reset } =
-    useCompetitorStream()
+  const {
+    analysis,
+    isStreaming,
+    isComplete,
+    error,
+    sessionId: _sessionId,
+    startStream,
+    reset,
+  } = useCompetitorStream()
 
   const project = projectId ? getProjectById(projectId) : undefined
 
@@ -131,7 +138,7 @@ export function CompetitorAnalysis() {
   useEffect(() => {
     if (isComplete && analysis && projectId) {
       setProjectCompetitorAnalysis(projectId, analysis)
-      
+
       // 同步到数据库
       syncProjectToDatabase(projectId).catch(err => {
         console.error('[CompetitorAnalysis] Failed to sync competitor analysis to database:', err)

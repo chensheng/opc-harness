@@ -57,7 +57,7 @@ export function IdeaInput() {
         model: activeConfig.model,
         apiKey: activeConfig.apiKey,
       })
-      
+
       navigate(`/prd/${project.id}?${params.toString()}`)
     } catch (err) {
       console.error('创建项目失败:', err)

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { PRD } from '@/types'
+import { useEffect } from 'react'
+import type { PRD, ProjectStatus } from '@/types'
 import { usePRDStream } from '@/hooks/usePRDStream'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { generateMockPRD } from './PRDDisplayUtils'
@@ -8,7 +8,7 @@ interface UsePRDGenerationParams {
   projectId: string | undefined
   projectIdea: string
   setProjectPRD: (projectId: string, prd: PRD) => void
-  updateProjectStatus: (projectId: string, status: any) => void
+  updateProjectStatus: (projectId: string, status: ProjectStatus) => void
   updateProjectProgress: (projectId: string, progress: number) => void
   syncProjectToDatabase: (projectId: string) => Promise<void>
   setLoading: (loading: boolean, message?: string) => void
@@ -42,21 +42,21 @@ export function usePRDGeneration({
   const generatePRD = async () => {
     // 检查是否有 URL 参数（来自 IdeaInput 的流式生成请求）
     const mode = urlParams?.get('mode')
-    
+
     if (mode === 'streaming') {
       // 从 URL 参数中获取 AI 配置
-      const idea = decodeURIComponent(urlParams.get('idea') || projectIdea)
-      const provider = urlParams.get('provider') || ''
-      const model = urlParams.get('model') || ''
-      const apiKey = urlParams.get('apiKey') || ''
-      
+      const idea = decodeURIComponent(urlParams?.get('idea') || projectIdea)
+      const provider = urlParams?.get('provider') || ''
+      const model = urlParams?.get('model') || ''
+      const apiKey = urlParams?.get('apiKey') || ''
+
       if (!apiKey || !provider || !model) {
         console.error('[usePRDGeneration] Missing AI config from URL params')
         return
       }
-      
+
       console.log('[usePRDGeneration] Starting streaming generation from URL params')
-      
+
       // 直接使用 URL 中的配置进行流式生成
       reset()
       await startStream({
@@ -67,7 +67,7 @@ export function usePRDGeneration({
       })
       return
     }
-    
+
     // 原有的逻辑：从 store 获取 AI 配置
     const activeConfig = aiConfigStore.getActiveConfig()
 
@@ -103,7 +103,7 @@ export function usePRDGeneration({
       setProjectPRD(projectId, streamingPRD)
       updateProjectStatus(projectId, 'design')
       updateProjectProgress(projectId, 25)
-      
+
       // 同步到数据库
       syncProjectToDatabase(projectId).catch(err => {
         console.error('[PRDDisplay] Failed to sync PRD to database:', err)

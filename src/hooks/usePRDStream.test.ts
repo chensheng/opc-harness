@@ -40,7 +40,7 @@ describe('usePRDStream', () => {
     const mockChunks = ['# 产品需求文档\n\n', '## 产品概述\n\n', '这是一个测试产品']
 
     // Mock invoke to return session ID
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
+    mockInvoke.mockResolvedValueOnce({ session_id: mockSessionId })
 
     // Mock listen for chunk events
     let chunkCallback:
@@ -72,7 +72,11 @@ describe('usePRDStream', () => {
     })
 
     expect(result.current.isStreaming).toBe(true)
-    expect(result.current.sessionId).toBe(mockSessionId)
+
+    // Wait for sessionId to be set
+    await waitFor(() => {
+      expect(result.current.sessionId).toBe(mockSessionId)
+    })
 
     // Simulate receiving chunks
     await act(async () => {
@@ -101,7 +105,7 @@ describe('usePRDStream', () => {
     const mockSessionId = 'test-session-id'
     const mockFinalContent = '# 完整 PRD 内容'
 
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
+    mockInvoke.mockResolvedValueOnce({ session_id: mockSessionId })
 
     let completeCallback:
       | ((event: { payload: { session_id: string; content: string } }) => void)
@@ -151,7 +155,7 @@ describe('usePRDStream', () => {
     const mockSessionId = 'test-session-id'
     const mockError = 'AI 调用失败'
 
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
+    mockInvoke.mockResolvedValueOnce({ session_id: mockSessionId })
 
     let errorCallback:
       | ((event: { payload: { session_id: string; error: string } }) => void)
@@ -199,8 +203,11 @@ describe('usePRDStream', () => {
     const mockSessionId = 'test-session-id'
     const mockUnlisten = vi.fn()
 
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
-    mockListen.mockResolvedValueOnce(mockUnlisten as any)
+    mockInvoke.mockResolvedValueOnce({ session_id: mockSessionId })
+    // Mock listen to return mockUnlisten for all calls
+    mockListen.mockResolvedValue(mockUnlisten as any)
+    // Mock invoke for stop_prd_stream
+    mockInvoke.mockResolvedValueOnce(undefined)
 
     const { result } = renderHook(() => usePRDStream())
 
@@ -263,7 +270,7 @@ describe('usePRDStream', () => {
 - TypeScript
 `
 
-    mockInvoke.mockResolvedValueOnce(mockSessionId)
+    mockInvoke.mockResolvedValueOnce({ session_id: mockSessionId })
 
     let completeCallback: ((event: any) => void) | null = null
     mockListen.mockImplementation(((event: string, callback: (event: any) => void) => {

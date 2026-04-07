@@ -35,7 +35,7 @@ const statusColors: Record<string, string> = {
 export function Dashboard() {
   const navigate = useNavigate()
   const { projects, deleteProject } = useProjectStore()
-  
+
   // 删除确认状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null)
@@ -158,7 +158,7 @@ export function Dashboard() {
                       variant="ghost"
                       size="icon"
                       className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={(e) => handleDeleteClick(e, project.id, project.name)}
+                      onClick={e => handleDeleteClick(e, project.id, project.name)}
                       title="删除项目"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -177,17 +177,15 @@ export function Dashboard() {
           <DialogHeader>
             <DialogTitle>确认删除项目</DialogTitle>
             <DialogDescription>
-              您确定要删除项目 "{projectToDelete?.name}" 吗？此操作不可撤销，所有相关数据都将被永久删除。
+              您确定要删除项目 "{projectToDelete?.name}"
+              吗？此操作不可撤销，所有相关数据都将被永久删除。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
               取消
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-            >
+            <Button variant="destructive" onClick={handleConfirmDelete}>
               删除
             </Button>
           </DialogFooter>

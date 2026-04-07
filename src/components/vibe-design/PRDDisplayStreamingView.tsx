@@ -43,8 +43,8 @@ export function PRDDisplayStreamingView({
             {markdownContent ? `已生成 ${markdownContent.length} 字符` : '产品需求文档生成中'}
           </p>
         </div>
-        <Button 
-          variant="destructive" 
+        <Button
+          variant="destructive"
           onClick={onStopGeneration}
           size="lg"
           className="gap-2 shrink-0"
@@ -60,7 +60,7 @@ export function PRDDisplayStreamingView({
           <CardTitle>实时生成预览</CardTitle>
         </CardHeader>
         <CardContent>
-          <div 
+          <div
             ref={scrollContainerRef}
             className="prose prose-sm max-w-none overflow-y-auto max-h-[calc(100vh-280px)] scroll-smooth"
           >

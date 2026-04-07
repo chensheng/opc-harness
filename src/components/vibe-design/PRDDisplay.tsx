@@ -17,8 +17,13 @@ export function PRDDisplay() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const { getProjectById, setProjectPRD, updateProjectStatus, updateProjectProgress, syncProjectToDatabase } =
-    useProjectStore()
+  const {
+    getProjectById,
+    setProjectPRD,
+    updateProjectStatus,
+    updateProjectProgress,
+    syncProjectToDatabase,
+  } = useProjectStore()
   const { setLoading } = useAppStore()
 
   // 解析 URL 参数
@@ -39,7 +44,7 @@ export function PRDDisplay() {
     streamingPRD,
     markdownContent,
     isStreaming,
-    isComplete,
+    isComplete: _isComplete,
     error,
     generatePRD,
     handleStopGeneration,
@@ -179,9 +184,7 @@ export function PRDDisplay() {
               <Button variant="outline" onClick={handleCancelEdit}>
                 取消
               </Button>
-              <Button onClick={() => handleSaveEdit(editedMarkdown, setPrd)}>
-                保存
-              </Button>
+              <Button onClick={() => handleSaveEdit(editedMarkdown, setPrd)}>保存</Button>
             </>
           )}
         </div>

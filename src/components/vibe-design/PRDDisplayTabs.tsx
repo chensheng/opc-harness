@@ -59,7 +59,10 @@ export function OverviewTab({ prd }: TabsContentProps) {
         </CardHeader>
         <CardContent>
           <div className="prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={tableComponents as Partial<Components>}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={tableComponents as Partial<Components>}
+            >
               {prd.overview}
             </ReactMarkdown>
           </div>
@@ -160,7 +163,10 @@ export function TechTab({ prd }: TabsContentProps) {
         </CardHeader>
         <CardContent>
           <div className="prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={tableComponents as Partial<Components>}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={tableComponents as Partial<Components>}
+            >
               {prd.estimatedEffort}
             </ReactMarkdown>
           </div>
@@ -187,7 +193,10 @@ export function BusinessTab({ prd }: TabsContentProps) {
         </CardHeader>
         <CardContent>
           <div className="prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={tableComponents as Partial<Components>}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={tableComponents as Partial<Components>}
+            >
               {prd.businessModel}
             </ReactMarkdown>
           </div>
@@ -200,7 +209,10 @@ export function BusinessTab({ prd }: TabsContentProps) {
         </CardHeader>
         <CardContent>
           <div className="prose prose-sm max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={tableComponents as Partial<Components>}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={tableComponents as Partial<Components>}
+            >
               {prd.pricing}
             </ReactMarkdown>
           </div>

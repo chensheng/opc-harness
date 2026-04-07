@@ -71,7 +71,7 @@ export function UserPersonas() {
     if (isComplete && personas.length > 0 && projectId) {
       setProjectPersonas(projectId, personas)
       console.log('[UserPersonas] Saved personas to project:', personas.length)
-      
+
       // 同步到数据库
       syncProjectToDatabase(projectId).catch(err => {
         console.error('[UserPersonas] Failed to sync personas to database:', err)

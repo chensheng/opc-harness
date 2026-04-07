@@ -139,9 +139,7 @@ export const StreamingComponents: Partial<Components> = {
   p: ({ ...props }) => (
     <p className="text-base leading-relaxed mb-3 last:mb-0 text-foreground/90" {...props} />
   ),
-  ul: ({ ...props }) => (
-    <ul className="list-disc list-outside pl-6 mb-3 space-y-1.5" {...props} />
-  ),
+  ul: ({ ...props }) => <ul className="list-disc list-outside pl-6 mb-3 space-y-1.5" {...props} />,
   ol: ({ ...props }) => (
     <ol className="list-decimal list-outside pl-6 mb-3 space-y-1.5" {...props} />
   ),
