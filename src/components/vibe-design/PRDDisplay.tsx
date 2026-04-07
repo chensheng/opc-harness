@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Download, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useProjectStore, useAppStore } from '@/stores'
 import type { PRD } from '@/types'
 import { convertPRDToMarkdown } from './PRDDisplayUtils'
@@ -10,13 +9,7 @@ import { ExportDialog } from './PRDDisplayExportDialog'
 import { SaveDialog } from './PRDDisplaySaveDialog'
 import { PRDDEditor } from './PRDDisplayEditor'
 import { PRDDisplayStreamingView } from './PRDDisplayStreamingView'
-import {
-  FullDocTab,
-  OverviewTab,
-  FeaturesTab,
-  TechTab,
-  BusinessTab,
-} from './PRDDisplayTabs'
+import { FullDocTab } from './PRDDisplayTabs'
 import { usePRDExport } from './usePRDExport'
 import { usePRDSave } from './usePRDSave'
 import { usePRDGeneration } from './usePRDGeneration'
@@ -166,8 +159,8 @@ export function PRDDisplay() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">📋 产品需求文档</h1>
-          <p className="text-muted-foreground">{project.name}</p>
+          <h1 className="text-2xl font-bold">{project.name}</h1>
+          <p className="text-muted-foreground">产品需求文档</p>
         </div>
         <div className="flex gap-2">
           {!isEditing && (
@@ -206,40 +199,7 @@ export function PRDDisplay() {
           onSave={() => handleSaveEdit(editedMarkdown, setPrd)}
         />
       ) : (
-        <Tabs defaultValue="full" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="full">完整文档</TabsTrigger>
-            <TabsTrigger value="overview">概述</TabsTrigger>
-            <TabsTrigger value="features">功能</TabsTrigger>
-            <TabsTrigger value="tech">技术</TabsTrigger>
-            <TabsTrigger value="business">商业</TabsTrigger>
-          </TabsList>
-
-          {/* 完整文档视图 */}
-          <TabsContent value="full">
-            <FullDocTab prd={prd} />
-          </TabsContent>
-
-          {/* 概述视图 */}
-          <TabsContent value="overview">
-            <OverviewTab prd={prd} />
-          </TabsContent>
-
-          {/* 功能视图 */}
-          <TabsContent value="features">
-            <FeaturesTab prd={prd} />
-          </TabsContent>
-
-          {/* 技术视图 */}
-          <TabsContent value="tech">
-            <TechTab prd={prd} />
-          </TabsContent>
-
-          {/* 商业视图 */}
-          <TabsContent value="business">
-            <BusinessTab prd={prd} />
-          </TabsContent>
-        </Tabs>
+        <FullDocTab prd={prd} />
       )}
 
       {/* 保存进度对话框 */}
