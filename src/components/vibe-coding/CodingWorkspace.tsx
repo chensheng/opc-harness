@@ -36,6 +36,13 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useProjectStore } from '@/stores'
 import type { FileNode, CLIOutputLine } from '@/types'
 import { FileExplorer } from './FileExplorer'
@@ -1220,11 +1227,43 @@ export function CodingWorkspace() {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold">💻 Vibe Coding</h1>
-          <p className="text-sm text-muted-foreground">{project.name}</p>
+      <div className="flex items-center justify-between mb-4 gap-4">
+        <div className="flex items-center gap-4 flex-1">
+          <div>
+            <h1 className="text-xl font-bold">💻 Vibe Coding</h1>
+            <p className="text-sm text-muted-foreground">{project.name}</p>
+          </div>
+
+          {/* Project Selector */}
+          {projects.length > 1 && (
+            <Select value={projectId} onValueChange={value => navigate(`/coding/${value}`)}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="选择项目" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{p.name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {p.status === 'idea'
+                          ? '构思中'
+                          : p.status === 'design'
+                            ? '设计中'
+                            : p.status === 'coding'
+                              ? '开发中'
+                              : p.status === 'marketing'
+                                ? '运营中'
+                                : '已完成'}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
+
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleStartServer}>
             {isRunning ? (
