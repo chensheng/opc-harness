@@ -59,9 +59,9 @@ export function ProjectListFloatingButton({ className = '' }: ProjectListFloatin
       <DialogTrigger asChild>
         <Button
           size="icon"
-          className={`fixed bottom-8 right-8 z-50 rounded-full shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-xl ${className}`}
+          className={`fixed z-50 rounded-full shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-xl ${className}`}
           style={{
-            bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+            bottom: 'calc(8rem + env(safe-area-inset-bottom, 0px))',
             right: 'calc(2rem + env(safe-area-inset-right, 0px))',
           }}
           aria-label="项目列表"
