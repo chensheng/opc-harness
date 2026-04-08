@@ -14,6 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useProjectStore, useAppStore } from '@/stores'
 import type { MarketingStrategy as MarketingStrategyType, MarketingCopy } from '@/types'
 
@@ -215,9 +222,41 @@ export function MarketingStrategy() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">📈 Vibe Marketing</h1>
-        <p className="text-muted-foreground">{project.name}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 flex-1">
+          <div>
+            <h1 className="text-2xl font-bold">📈 Vibe Marketing</h1>
+          </div>
+
+          {/* Project Selector */}
+          {projects.length > 1 && (
+            <Select value={projectId} onValueChange={value => navigate(`/marketing/${value}`)}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="选择项目" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{p.name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {p.status === 'idea'
+                          ? '构思中'
+                          : p.status === 'design'
+                            ? '设计中'
+                            : p.status === 'coding'
+                              ? '开发中'
+                              : p.status === 'marketing'
+                                ? '运营中'
+                                : '已完成'}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="strategy" className="w-full">
