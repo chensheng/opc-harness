@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Download, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ScrollToTop } from '@/components/ui/ScrollToTop'
 import { useProjectStore, useAppStore } from '@/stores'
 import type { PRD } from '@/types'
 import { ExportDialog } from './PRDDisplayExportDialog'
@@ -251,6 +252,9 @@ export function PRDDisplay() {
         exportMessage={exportMessage}
         onRetry={() => handleExport(prd, editedMarkdown)}
       />
+
+      {/* 回到顶部按钮 */}
+      <ScrollToTop />
     </div>
   )
 }
