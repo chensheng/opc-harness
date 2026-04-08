@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useProjectStore } from '@/stores'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { ProjectListFloatingButton } from './ProjectListFloatingButton'
 
 export function IdeaInput() {
   const navigate = useNavigate()
@@ -203,6 +204,9 @@ export function IdeaInput() {
         开始分析（AI 驱动）
         <ArrowRight className="w-4 h-4 ml-2" />
       </Button>
+
+      {/* 项目列表悬浮按钮 */}
+      <ProjectListFloatingButton />
     </div>
   )
 }

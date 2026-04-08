@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { UserPersonasDisplay } from '@/components/UserPersonasDisplay'
 import { useProjectStore, useAppStore, useAIConfigStore } from '@/stores'
 import { usePersonaStream } from '@/hooks/usePersonaStream'
+import { ProjectListFloatingButton } from './ProjectListFloatingButton'
 
 export function UserPersonas() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -163,6 +164,9 @@ export function UserPersonas() {
           <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
+
+      {/* 项目列表悬浮按钮 */}
+      <ProjectListFloatingButton />
     </div>
   )
 }

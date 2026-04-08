@@ -14,6 +14,7 @@ import { usePRDExport } from './usePRDExport'
 import { usePRDSave } from './usePRDSave'
 import { usePRDGeneration } from './usePRDGeneration'
 import { parseMarkdownToPRD } from './PRDDisplayUtils'
+import { ProjectListFloatingButton } from './ProjectListFloatingButton'
 
 export function PRDDisplay() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -260,6 +261,9 @@ export function PRDDisplay() {
 
       {/* 回到顶部按钮 */}
       <ScrollToTop />
+
+      {/* 项目列表悬浮按钮 */}
+      <ProjectListFloatingButton />
     </div>
   )
 }

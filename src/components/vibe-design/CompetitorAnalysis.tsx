@@ -20,6 +20,7 @@ import { CompetitorRadarChart } from '@/components/CompetitorRadarChart'
 import { CompetitorTimeline } from '@/components/CompetitorTimeline'
 import { InteractiveDataExplorer } from '@/components/InteractiveDataExplorer'
 import type { CompetitorAnalysis as CompetitorAnalysisType } from '@/types'
+import { ProjectListFloatingButton } from './ProjectListFloatingButton'
 
 // Simulated AI-generated competitor analysis (fallback)
 function generateMockCompetitorAnalysis(): CompetitorAnalysisType {
@@ -382,6 +383,9 @@ export function CompetitorAnalysis() {
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>
+
+      {/* 项目列表悬浮按钮 */}
+      <ProjectListFloatingButton />
     </div>
   )
 }
