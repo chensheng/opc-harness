@@ -60,6 +60,7 @@ export function PRDDisplayAIChat({
         })
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages[messages.length - 1]?.content, isStreaming])
 
   // 自动聚焦输入框
@@ -129,11 +130,7 @@ export function PRDDisplayAIChat({
                     msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   }`}
                 >
-                  {msg.role === 'user' ? (
-                    <User className="w-4 h-4" />
-                  ) : (
-                    <Bot className="w-4 h-4" />
-                  )}
+                  {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                 </div>
 
                 <div
@@ -250,9 +247,7 @@ export function PRDDisplayAIChat({
               )}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            💡 按 Enter 发送，Shift + Enter 换行
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">💡 按 Enter 发送，Shift + Enter 换行</p>
         </div>
       </CardContent>
     </Card>

@@ -35,14 +35,7 @@ export function PRDDisplayAIOptimizationView({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const {
-    messages,
-    isStreaming,
-    error,
-    sendMessage,
-    stopStream,
-    reset,
-  } = usePRDAIChat()
+  const { messages, isStreaming, error, sendMessage, stopStream } = usePRDAIChat()
 
   // 自动滚动到底部
   useEffect(() => {
@@ -65,6 +58,7 @@ export function PRDDisplayAIOptimizationView({
         })
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages[messages.length - 1]?.content, isStreaming])
 
   // 自动聚焦输入框
@@ -102,7 +96,7 @@ export function PRDDisplayAIOptimizationView({
     if (lastAssistantMessage?.content) {
       // 先应用优化内容
       onApplyOptimization(lastAssistantMessage.content)
-      
+
       // 如果提供了保存函数，则自动保存到数据库
       if (onSaveToDatabase) {
         try {
@@ -130,40 +124,26 @@ export function PRDDisplayAIOptimizationView({
             AI 优化助手
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {lastAssistantMessage?.content 
-              ? `已生成 ${lastAssistantMessage.content.length} 字符` 
+            {lastAssistantMessage?.content
+              ? `已生成 ${lastAssistantMessage.content.length} 字符`
               : '输入优化需求，AI 将帮您完善 PRD'}
           </p>
         </div>
         <div className="flex gap-2 shrink-0">
           {isStreaming ? (
-            <Button
-              variant="destructive"
-              onClick={stopStream}
-              size="lg"
-              className="gap-2"
-            >
+            <Button variant="destructive" onClick={stopStream} size="lg" className="gap-2">
               <StopCircle className="w-4 h-4" />
               停止生成
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              onClick={onBack}
-              size="lg"
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={onBack} size="lg" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
               返回编辑
             </Button>
           )}
           {/* 应用优化按钮 - 有优化内容时始终显示 */}
           {hasOptimizedContent && !isStreaming && (
-            <Button
-              onClick={handleApplyOptimization}
-              size="lg"
-              className="gap-2"
-            >
+            <Button onClick={handleApplyOptimization} size="lg" className="gap-2">
               <Check className="w-4 h-4" />
               应用优化
             </Button>

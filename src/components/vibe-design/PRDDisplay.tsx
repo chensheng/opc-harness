@@ -131,7 +131,7 @@ export function PRDDisplay() {
 
     try {
       console.log('[AI Optimization Save] Starting save to database...')
-      
+
       // 解析 Markdown 内容
       const updatedPrd = parseMarkdownToPRD(content)
       updatedPrd.markdownContent = content

@@ -8,10 +8,10 @@ interface ScrollToTopProps {
   scrollContainerRef?: React.RefObject<HTMLElement>
 }
 
-export function ScrollToTop({ 
-  className = '', 
+export function ScrollToTop({
+  className = '',
   threshold = 300,
-  scrollContainerRef 
+  scrollContainerRef,
 }: ScrollToTopProps) {
   const [isVisible, setIsVisible] = useState(false)
   const containerRef = useRef<HTMLElement | null>(null)
@@ -28,7 +28,7 @@ export function ScrollToTop({
 
     const toggleVisibility = () => {
       if (!target) return
-      
+
       const scrollTop = target.scrollTop
       if (scrollTop > threshold) {
         setIsVisible(true)
@@ -48,7 +48,7 @@ export function ScrollToTop({
 
   const scrollToTop = () => {
     const target = containerRef.current
-    
+
     if (target) {
       target.scrollTo({
         top: 0,

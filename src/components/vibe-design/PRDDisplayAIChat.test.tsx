@@ -40,7 +40,7 @@ describe('PRDDisplayAIChat', () => {
     render(<PRDDisplayAIChat {...mockProps} />)
     const textarea = screen.getByPlaceholderText(/输入优化需求/)
     fireEvent.change(textarea, { target: { value: '测试消息' } })
-    
+
     // 找到包含Send图标的按钮
     const allButtons = screen.getAllByRole('button')
     // 发送按钮在输入区域，是最后一个有SVG子元素的按钮
@@ -48,7 +48,7 @@ describe('PRDDisplayAIChat', () => {
       const svg = btn.querySelector('svg')
       return svg && btn.parentElement?.classList.contains('flex-col')
     })
-    
+
     expect(sendButton).toBeDefined()
     if (sendButton) {
       fireEvent.click(sendButton)
