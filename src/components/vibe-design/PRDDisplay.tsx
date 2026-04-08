@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { Download, Edit } from 'lucide-react'
+import { Download, Edit, ArrowRight, Code } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollToTop } from '@/components/ui/ScrollToTop'
 import { useProjectStore, useAppStore } from '@/stores'
@@ -195,6 +195,11 @@ export function PRDDisplay() {
         <div className="flex gap-2">
           {!isEditing && (
             <>
+              <Button variant="default" onClick={() => navigate(`/coding/${projectId}`)}>
+                <Code className="w-4 h-4 mr-2" />
+                开始开发
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
               <Button variant="outline" onClick={() => handleExport(prd, editedMarkdown)}>
                 <Download className="w-4 h-4 mr-2" />
                 导出
