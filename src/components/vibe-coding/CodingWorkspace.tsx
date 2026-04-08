@@ -1231,7 +1231,6 @@ export function CodingWorkspace() {
         <div className="flex items-center gap-4 flex-1">
           <div>
             <h1 className="text-xl font-bold">💻 Vibe Coding</h1>
-            <p className="text-sm text-muted-foreground">{project.name}</p>
           </div>
 
           {/* Project Selector */}
