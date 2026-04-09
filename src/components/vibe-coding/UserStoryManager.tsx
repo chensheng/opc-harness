@@ -16,13 +16,14 @@ import {
   Lightbulb,
   Edit2,
   Trash2,
+  MessageSquare,
 } from 'lucide-react'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
 import type { UserStory } from '@/types'
 
 interface UserStoryManagerProps {
-  /** PRD 内容或功能描述 */
-  prdContent?: string
+  /** 项目 PRD 内容（必需） */
+  prdContent: string
   /** AI API Key（可选） */
   apiKey?: string
   /** 拆分完成后的回调 */
@@ -50,21 +51,20 @@ const statusIcons: Record<string, React.ReactNode> = {
  * 提供通过 AI 拆分 PRD 为用户故事的功能，并支持故事的查看、编辑和管理
  */
 export function UserStoryManager({
-  prdContent = '',
+  prdContent,
   apiKey,
   onStoriesGenerated,
 }: UserStoryManagerProps) {
-  const [inputContent, setInputContent] = useState(prdContent)
+  const [prompt, setPrompt] = useState('')
   const [activeTab, setActiveTab] = useState<'input' | 'stories'>('input')
 
   const { userStories, loading, error, decompose, reset } = useUserStoryDecomposition()
 
   const handleDecompose = async () => {
-    if (!inputContent.trim()) {
-      return
-    }
+    // 组合 PRD 内容和用户提示词
+    const fullContent = prompt.trim() ? `${prdContent}\n\n---\n\n用户要求：${prompt}` : prdContent
 
-    await decompose(inputContent, apiKey)
+    await decompose(fullContent, apiKey)
 
     if (userStories.length > 0 && onStoriesGenerated) {
       onStoriesGenerated(userStories)
@@ -111,7 +111,7 @@ export function UserStoryManager({
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="input">
             <FileText className="w-4 h-4 mr-2" />
-            输入 PRD
+            拆分配置
           </TabsTrigger>
           <TabsTrigger value="stories" disabled={userStories.length === 0}>
             <Target className="w-4 h-4 mr-2" />
@@ -121,19 +121,39 @@ export function UserStoryManager({
 
         {/* Input Tab */}
         <TabsContent value="input" className="space-y-4">
+          {/* PRD Preview Card */}
           <Card>
             <CardHeader>
-              <CardTitle>PRD 内容或功能描述</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                项目 PRD
+              </CardTitle>
+              <CardDescription>AI 将基于以下 PRD 内容拆分用户故事</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                <pre className="text-sm whitespace-pre-wrap">{prdContent || '暂无 PRD 内容'}</pre>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Prompt Input Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                拆分要求（可选）
+              </CardTitle>
               <CardDescription>
-                粘贴您的产品需求文档或详细描述，AI 将自动识别并拆分为用户故事
+                输入额外的拆分要求或关注点，AI 会根据您的要求优化拆分结果
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
-                placeholder="例如：&#10;我们需要一个任务管理系统，包含以下功能：&#10;1. 用户可以创建、编辑、删除任务&#10;2. 任务可以设置优先级和截止日期&#10;3. 支持任务分类和标签&#10;4. 提供任务统计报表..."
-                value={inputContent}
-                onChange={e => setInputContent(e.target.value)}
-                className="min-h-[300px] font-mono text-sm"
+                placeholder="例如：&#10;- 重点关注用户认证和权限管理相关的故事&#10;- 优先拆分核心业务流程&#10;- 考虑技术债务和重构需求&#10;- 需要包含单元测试和文档编写任务..."
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                className="min-h-[150px]"
               />
 
               {error && (
@@ -145,7 +165,7 @@ export function UserStoryManager({
 
               <Button
                 onClick={handleDecompose}
-                disabled={!inputContent.trim() || loading}
+                disabled={!prdContent || loading}
                 className="w-full"
                 size="lg"
               >
@@ -165,9 +185,10 @@ export function UserStoryManager({
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>💡 提示：</p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>提供详细的功能描述可以获得更准确的拆分结果</li>
-                  <li>AI 会遵循 INVEST 原则生成用户故事</li>
-                  <li>每个故事都会包含验收标准和优先级评估</li>
+                  <li>AI 会自动基于项目 PRD 进行拆分</li>
+                  <li>可以输入额外要求来指导拆分方向</li>
+                  <li>遵循 INVEST 原则生成高质量用户故事</li>
+                  <li>每个故事包含验收标准和优先级评估</li>
                 </ul>
               </div>
             </CardContent>
