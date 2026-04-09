@@ -1795,7 +1795,13 @@ pub async fn save_user_stories(
     app_handle: tauri::AppHandle,
     request: SaveUserStoriesRequest,
 ) -> Result<SaveUserStoriesResponse, String> {
-    let conn = db::get_connection(&app_handle).map_err(|e| format!("Failed to get DB connection: {}", e))?;
+    println!("[save_user_stories] Received request for project_id: {}, stories count: {}", 
+             request.project_id, request.user_stories.len());
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        eprintln!("[save_user_stories] Failed to get DB connection: {}", e);
+        format!("Failed to get DB connection: {}", e)
+    })?;
     
     // 转换前端UserStory为数据库UserStory
     let db_stories: Vec<DbUserStory> = request.user_stories.iter().map(|story| {
@@ -1821,9 +1827,19 @@ pub async fn save_user_stories(
         }
     }).collect();
     
+    println!("[save_user_stories] Converted {} stories to DB format", db_stories.len());
+    
     // 批量保存到数据库
-    db::upsert_user_stories(&conn, &request.project_id, &db_stories)
-        .map_err(|e| format!("Failed to save user stories: {}", e))?;
+    match db::upsert_user_stories(&conn, &request.project_id, &db_stories) {
+        Ok(_) => {
+            println!("[save_user_stories] Successfully saved {} stories to database for project {}", 
+                     db_stories.len(), request.project_id);
+        },
+        Err(e) => {
+            eprintln!("[save_user_stories] Failed to save user stories: {}", e);
+            return Err(format!("Failed to save user stories: {}", e));
+        }
+    }
     
     Ok(SaveUserStoriesResponse {
         success: true,
@@ -1857,11 +1873,25 @@ pub async fn get_user_stories(
     app_handle: tauri::AppHandle,
     request: GetUserStoriesRequest,
 ) -> Result<GetUserStoriesResponse, String> {
-    let conn = db::get_connection(&app_handle).map_err(|e| format!("Failed to get DB connection: {}", e))?;
+    println!("[get_user_stories] Querying stories for project_id: {}", request.project_id);
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        eprintln!("[get_user_stories] Failed to get DB connection: {}", e);
+        format!("Failed to get DB connection: {}", e)
+    })?;
     
     // 从数据库查询
-    let db_stories = db::get_user_stories_by_project(&conn, &request.project_id)
-        .map_err(|e| format!("Failed to get user stories: {}", e))?;
+    let db_stories = match db::get_user_stories_by_project(&conn, &request.project_id) {
+        Ok(stories) => {
+            println!("[get_user_stories] Found {} stories in database for project {}", 
+                     stories.len(), request.project_id);
+            stories
+        },
+        Err(e) => {
+            eprintln!("[get_user_stories] Failed to query user stories: {}", e);
+            return Err(format!("Failed to get user stories: {}", e));
+        }
+    };
     
     // 转换数据库UserStory为前端UserStory
     let user_stories: Vec<UserStory> = db_stories.iter().map(|story| {
@@ -1884,6 +1914,8 @@ pub async fn get_user_stories(
             updated_at: story.updated_at.clone(),
         }
     }).collect();
+    
+    println!("[get_user_stories] Returning {} stories to frontend", user_stories.len());
     
     Ok(GetUserStoriesResponse {
         success: true,

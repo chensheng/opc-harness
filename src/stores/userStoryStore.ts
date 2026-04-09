@@ -40,7 +40,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
     loadProjectStories: async projectId => {
       try {
         set({ isLoading: true })
-        console.log(`[UserStoryStore] Loading stories for project ${projectId}...`)
+        console.log(`[UserStoryStore] 📥 Loading stories for project ${projectId}...`)
 
         const response = await invoke<{ success: boolean; userStories: UserStory[] }>(
           'get_user_stories',
@@ -54,11 +54,18 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             state.storiesByProject[projectId] = response.userStories
           })
           console.log(
-            `[UserStoryStore] Loaded ${response.userStories.length} stories from database`
+            `✅ [UserStoryStore] Loaded ${response.userStories.length} stories from database for project ${projectId}`
           )
+          if (response.userStories.length > 0) {
+            console.log(
+              `   First story: ${response.userStories[0].storyNumber} - ${response.userStories[0].title}`
+            )
+          }
+        } else {
+          console.warn('⚠️ [UserStoryStore] Load response not successful')
         }
       } catch (error) {
-        console.error('[UserStoryStore] Failed to load stories:', error)
+        console.error('❌ [UserStoryStore] Failed to load stories:', error)
       } finally {
         set({ isLoading: false })
       }
@@ -67,24 +74,35 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
     setProjectStories: async (projectId, stories) => {
       try {
         set({ isLoading: true })
-        console.log(`[UserStoryStore] Saving ${stories.length} stories for project ${projectId}...`)
+        console.log(
+          `💾 [UserStoryStore] Saving ${stories.length} stories for project ${projectId}...`
+        )
+        if (stories.length > 0) {
+          console.log(`   First story: ${stories[0].storyNumber} - ${stories[0].title}`)
+        }
 
         // 保存到数据库
-        await invoke<{ success: boolean; count: number }>('save_user_stories', {
+        const response = await invoke<{ success: boolean; count: number }>('save_user_stories', {
           request: {
             projectId,
             userStories: stories,
           },
         })
 
+        if (response.success) {
+          console.log(`✅ [UserStoryStore] Saved ${response.count} stories to database`)
+        } else {
+          console.error(`❌ [UserStoryStore] Save failed`)
+        }
+
         // 更新本地状态
         set(state => {
           state.storiesByProject[projectId] = stories
         })
 
-        console.log(`[UserStoryStore] Saved ${stories.length} stories to database`)
+        console.log(`🔄 [UserStoryStore] Updated local store with ${stories.length} stories`)
       } catch (error) {
-        console.error('[UserStoryStore] Failed to save stories:', error)
+        console.error('❌ [UserStoryStore] Failed to save stories:', error)
         throw error
       } finally {
         set({ isLoading: false })

@@ -160,18 +160,32 @@ export function UserStoryManager({
   // 获取当前项目ID和用户故事Store
   const currentProjectId = useProjectStore(state => state.currentProjectId)
   const loadProjectStories = useUserStoryStore(state => state.loadProjectStories)
-  const getProjectStories = useUserStoryStore(state => state.getProjectStories)
+  const isLoadingFromDB = useUserStoryStore(state => state.isLoading)
 
-  // 从 Store 加载已保存的用户故事
-  const savedStories = currentProjectId ? getProjectStories(currentProjectId) : []
+  // 直接从 Store 订阅用户故事(响应式)
+  const savedStories = useUserStoryStore(state =>
+    currentProjectId ? state.storiesByProject[currentProjectId] || [] : []
+  )
 
   // 组件挂载时加载用户故事
   React.useEffect(() => {
     if (currentProjectId) {
-      console.log(`[UserStoryManager] Loading stories for project ${currentProjectId}`)
+      console.log(
+        `🔍 [UserStoryManager] Component mounted, loading stories for project ${currentProjectId}`
+      )
       loadProjectStories(currentProjectId)
+    } else {
+      console.warn('⚠️ [UserStoryManager] No currentProjectId, skipping story load')
     }
   }, [currentProjectId, loadProjectStories])
+
+  // 监听savedStories变化
+  React.useEffect(() => {
+    console.log(`📊 [UserStoryManager] savedStories updated: ${savedStories.length} stories`)
+    if (savedStories.length > 0) {
+      console.log(`   First: ${savedStories[0].storyNumber} - ${savedStories[0].title}`)
+    }
+  }, [savedStories])
 
   // 优先使用流式的用户故事，否则使用保存的故事
   const displayLoading = isStreaming || _loading
@@ -277,9 +291,21 @@ export function UserStoryManager({
             <FileText className="w-4 h-4 mr-2" />
             拆分配置
           </TabsTrigger>
-          <TabsTrigger value="stories" disabled={!displayStories || displayStories.length === 0}>
-            <FileText className="w-4 h-4" />
-            用户故事 ({displayStories?.length || 0})
+          <TabsTrigger
+            value="stories"
+            disabled={(!displayStories || displayStories.length === 0) && !isLoadingFromDB}
+          >
+            {isLoadingFromDB ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                加载中...
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4 mr-2" />
+                用户故事 ({displayStories?.length || 0})
+              </>
+            )}
           </TabsTrigger>
         </TabsList>
 

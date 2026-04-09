@@ -831,16 +831,21 @@ use crate::models::UserStory;
 
 /// 批量创建或更新用户故事（Upsert）
 pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserStory]) -> Result<()> {
+    println!("[DB::upsert_user_stories] Starting upsert for project_id: {}, count: {}", 
+             project_id, stories.len());
+    
     // 使用事务确保原子性
     let tx = conn.unchecked_transaction()?;
     
     // 先删除该项目的旧故事
-    tx.execute(
+    let deleted = tx.execute(
         "DELETE FROM user_stories WHERE project_id = ?1",
         [project_id],
     )?;
+    println!("[DB::upsert_user_stories] Deleted {} old stories", deleted);
 
     // 批量插入新故事
+    let mut inserted_count = 0;
     for story in stories {
         tx.execute(
             "INSERT INTO user_stories (
@@ -868,14 +873,19 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
                 story.updated_at
             ],
         )?;
+        inserted_count += 1;
     }
+    println!("[DB::upsert_user_stories] Inserted {} new stories", inserted_count);
 
     tx.commit()?;
+    println!("[DB::upsert_user_stories] Transaction committed successfully");
     Ok(())
 }
 
 /// 获取项目的所有用户故事
 pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Result<Vec<UserStory>> {
+    println!("[DB::get_user_stories_by_project] Querying for project_id: {}", project_id);
+    
     let mut stmt = conn.prepare(
         "SELECT * FROM user_stories WHERE project_id = ?1 ORDER BY story_number ASC"
     )?;
@@ -888,6 +898,8 @@ pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Resul
     for story_result in stories {
         result.push(story_result?);
     }
+    
+    println!("[DB::get_user_stories_by_project] Retrieved {} stories", result.len());
 
     Ok(result)
 }
