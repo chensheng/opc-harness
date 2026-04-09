@@ -59,15 +59,8 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
 
     loadProjectStories: async projectId => {
       try {
-        console.log('\n' + '='.repeat(80))
-        console.log('📥 [UserStoryStore] loadProjectStories CALLED')
-        console.log('   Timestamp:', new Date().toISOString())
-        console.log(`   Project ID: ${projectId}`)
-        console.log('='.repeat(80))
-
         set({ isLoading: true })
 
-        console.log('   Invoking Rust backend get_user_stories command...')
         const response = await invoke<{ success: boolean; user_stories: BackendUserStory[] }>(
           'get_user_stories',
           {
@@ -75,19 +68,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
           }
         )
 
-        console.log('\n📥 [UserStoryStore] Received response from Rust backend')
-        console.log('   Response success:', response.success)
-        console.log('   Response user_stories count:', response.user_stories?.length || 0)
-        if (response.user_stories && response.user_stories.length > 0) {
-          console.log('   First loaded story:', {
-            id: response.user_stories[0].id,
-            storyNumber: response.user_stories[0].story_number,
-            title: response.user_stories[0].title,
-          })
-        }
-
         if (response.success) {
-          console.log('   Converting stories from snake_case to camelCase...')
           // 将 Rust 后端的 snake_case UserStory 转换为前端的 camelCase 格式
           const frontendStories = response.user_stories.map(story => ({
             id: story.id,
@@ -108,28 +89,12 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             updatedAt: story.updated_at,
           })) as UserStory[]
 
-          console.log('   Updating local store state...')
           set(state => {
             state.storiesByProject[projectId] = frontendStories
           })
-          console.log('   Local state updated')
-          console.log(
-            `✅ [UserStoryStore] Loaded ${frontendStories.length} stories from database for project ${projectId}`
-          )
-          if (frontendStories.length > 0) {
-            console.log(
-              `   First story: ${frontendStories[0].storyNumber} - ${frontendStories[0].title}`
-            )
-          }
-        } else {
-          console.warn('⚠️ [UserStoryStore] Load response not successful')
         }
-        console.log('='.repeat(80) + '\n')
       } catch (error) {
-        console.error('\n❌ [UserStoryStore] loadProjectStories FAILED')
-        console.error('   Error:', error)
-        console.error('   Error message:', error instanceof Error ? error.message : String(error))
-        console.error('='.repeat(80) + '\n')
+        console.error('[UserStoryStore] Failed to load stories:', error)
       } finally {
         set({ isLoading: false })
       }
@@ -137,20 +102,6 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
 
     setProjectStories: async (projectId, stories) => {
       try {
-        console.log('\n' + '='.repeat(80))
-        console.log('💾 [UserStoryStore] setProjectStories CALLED')
-        console.log('   Timestamp:', new Date().toISOString())
-        console.log(`   Project ID: ${projectId}`)
-        console.log(`   Stories count: ${stories.length}`)
-        if (stories.length > 0) {
-          console.log('   First story to save:', {
-            id: stories[0].id,
-            storyNumber: stories[0].storyNumber,
-            title: stories[0].title,
-          })
-        }
-        console.log('='.repeat(80))
-
         set({ isLoading: true })
 
         // 将前端的 camelCase UserStory 转换为 Rust 后端期望的 snake_case 格式
@@ -173,38 +124,19 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
           updated_at: story.updatedAt,
         }))
 
-        console.log('   Converted stories to snake_case format for Rust backend')
-        console.log('   Invoking Rust backend save_user_stories command...')
-        const response = await invoke<{ success: boolean; count: number }>('save_user_stories', {
+        await invoke<{ success: boolean; count: number }>('save_user_stories', {
           request: {
             project_id: projectId,
             user_stories: rustStories,
           },
         })
 
-        console.log('\n📥 [UserStoryStore] Received response from Rust backend')
-        console.log('   Response:', response)
-
-        if (response.success) {
-          console.log(
-            `✅ [UserStoryStore] Backend reported success: saved ${response.count} stories`
-          )
-        } else {
-          console.error(`❌ [UserStoryStore] Backend reported failure`)
-        }
-
         // 更新本地状态
-        console.log('   Updating local store state...')
         set(state => {
           state.storiesByProject[projectId] = stories
         })
-        console.log('   Local state updated')
-        console.log('='.repeat(80) + '\n')
       } catch (error) {
-        console.error('\n❌ [UserStoryStore] setProjectStories FAILED')
-        console.error('   Error:', error)
-        console.error('   Error message:', error instanceof Error ? error.message : String(error))
-        console.error('='.repeat(80) + '\n')
+        console.error('[UserStoryStore] Failed to save stories:', error)
         throw error
       } finally {
         set({ isLoading: false })

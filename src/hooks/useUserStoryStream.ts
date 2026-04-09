@@ -236,7 +236,7 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
         unlistenRef.current.push(unlistenError)
 
         // 调用后端流式 API
-        const response = await invoke<string>('decompose_user_stories_streaming', {
+        await invoke<string>('decompose_user_stories_streaming', {
           request: {
             prdContent: request.prdContent,
             provider: request.provider,
@@ -246,7 +246,6 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
         })
 
         // 响应已在事件中处理
-        console.log('Stream completed with response:', response)
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '流式请求失败'
         setError(errorMessage)
