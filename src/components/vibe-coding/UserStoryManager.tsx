@@ -184,25 +184,6 @@ export function UserStoryManager({
         ? _userStories
         : savedStories
 
-  // 调试日志：检查接收到的 PRD 内容
-  React.useEffect(() => {
-    if (prdContent) {
-      console.log('[UserStoryManager] Received PRD content:', {
-        length: prdContent.length,
-        hasTableSyntax: prdContent.includes('|'),
-        preview: prdContent.substring(0, 300),
-      })
-
-      // 如果包含表格，输出表格部分
-      if (prdContent.includes('|')) {
-        const tableMatch = prdContent.match(/\|.*\|[\s\S]*?\|[-|\s]+\|[\s\S]*?\|.*\|/m)
-        if (tableMatch) {
-          console.log('[UserStoryManager] Table content preview:', tableMatch[0].substring(0, 400))
-        }
-      }
-    }
-  }, [prdContent])
-
   const handleDecompose = async () => {
     // 组合 PRD 内容和用户提示词
     const fullContent = prompt.trim() ? `${prdContent}\n\n---\n\n用户要求：${prompt}` : prdContent
