@@ -294,6 +294,10 @@ export interface UserStory {
 export interface DecomposeUserStoriesRequest {
   /** PRD 内容或功能描述 */
   prdContent: string
+  /** AI 提供商 (openai, anthropic, kimi, glm, minimax) */
+  provider?: string
+  /** AI 模型名称 */
+  model?: string
   /** 可选：AI API Key */
   apiKey?: string
 }

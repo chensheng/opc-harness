@@ -848,9 +848,23 @@ pub struct DecomposeUserStoriesRequest {
     /// PRD 内容或功能描述
     #[serde(alias = "prdContent")]
     pub prd_content: String,
+    /// AI 提供商 (openai, anthropic, kimi, glm, minimax)
+    #[serde(alias = "provider", default = "default_provider")]
+    pub provider: String,
+    /// AI 模型名称
+    #[serde(alias = "model", default = "default_model")]
+    pub model: String,
     /// 可选的 AI API Key
     #[serde(alias = "apiKey")]
     pub api_key: Option<String>,
+}
+
+fn default_provider() -> String {
+    "openai".to_string()
+}
+
+fn default_model() -> String {
+    "gpt-4-turbo-preview".to_string()
 }
 
 /// 用户故事拆分响应
@@ -869,354 +883,732 @@ pub struct DecomposeUserStoriesResponse {
 pub async fn decompose_user_stories(
     request: DecomposeUserStoriesRequest,
 ) -> Result<DecomposeUserStoriesResponse, String> {
-    log::info!("Starting user story decomposition...");
+    log::info!("Starting user story decomposition with AI (provider: {}, model: {})...", 
+               request.provider, request.model);
     
-    // TODO: 实现实际的 AI 驱动的用户故事拆分逻辑
-    // 目前返回 Mock 数据用于前端开发和测试
+    // 使用 AI 进行用户故事拆分
+    match decompose_with_ai(&request.prd_content, &request.provider, &request.model, request.api_key.as_deref()).await {
+        Ok(user_stories) => {
+            log::info!("User story decomposition completed. Generated {} stories", user_stories.len());
+            
+            Ok(DecomposeUserStoriesResponse {
+                success: true,
+                user_stories,
+                error_message: None,
+            })
+        }
+        Err(e) => {
+            log::error!("User story decomposition failed: {}", e);
+            
+            // 降级策略：如果 AI 调用失败，返回错误信息
+            Ok(DecomposeUserStoriesResponse {
+                success: false,
+                user_stories: vec![],
+                error_message: Some(format!("AI 拆分失败：{}", e)),
+            })
+        }
+    }
+}
+
+/// 使用 AI 进行用户故事拆分
+async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, api_key: Option<&str>) -> Result<Vec<UserStory>, String> {
+    use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
+    use crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt;
+    use chrono::Utc;
     
-    let mock_stories = generate_mock_user_stories(&request.prd_content);
+    // 获取 API Key - 支持多种环境变量名
+    let api_key = api_key
+        .map(|k| k.to_string())
+        .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+        .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+        .or_else(|| std::env::var("MOONSHOT_API_KEY").ok())
+        .or_else(|| std::env::var("ZHIPU_API_KEY").ok())
+        .or_else(|| std::env::var("KIMI_API_KEY").ok())
+        .or_else(|| std::env::var("GLM_API_KEY").ok())
+        .ok_or_else(|| {
+            "未提供 API Key，请在参数中传入或设置以下任一环境变量：\n\
+             - OPENAI_API_KEY\n\
+             - ANTHROPIC_API_KEY\n\
+             - MOONSHOT_API_KEY (Kimi)\n\
+             - ZHIPU_API_KEY (GLM)\n\
+             - KIMI_API_KEY\n\
+             - GLM_API_KEY"
+                .to_string()
+        })?;
     
-    log::info!("User story decomposition completed. Generated {} stories", mock_stories.len());
+    // 生成提示词
+    let prompt = generate_user_story_decomposition_prompt(prd_content);
     
-    Ok(DecomposeUserStoriesResponse {
-        success: true,
-        user_stories: mock_stories,
-        error_message: None,
+    log::info!("Calling AI service for user story decomposition...");
+    log::debug!("Prompt length: {} characters", prompt.len());
+    
+    // 根据 provider 字符串创建对应的 AI Provider
+    let provider_type = match provider {
+        "openai" => AIProviderType::OpenAI,
+        "anthropic" => AIProviderType::Anthropic,
+        "kimi" => AIProviderType::Kimi,
+        "glm" => AIProviderType::GLM,
+        "minimax" => AIProviderType::MiniMax,
+        _ => {
+            return Err(format!("不支持的 AI 提供商：{}", provider));
+        }
+    };
+    
+    // 创建 AI Provider
+    let ai_provider = AIProvider::new(provider_type, api_key);
+    
+    // 构建聊天请求
+    let chat_request = ChatRequest {
+        model: model.to_string(),
+        messages: vec![
+            Message {
+                role: "system".to_string(),
+                content: "你是一位经验丰富的敏捷开发专家和产品经理。请严格按照要求的 JSON 格式输出用户故事列表，不要添加任何额外的解释或说明。".to_string(),
+            },
+            Message {
+                role: "user".to_string(),
+                content: prompt,
+            },
+        ],
+        temperature: Some(0.7),
+        max_tokens: Some(4096),
+        stream: false,
+    };
+    
+    // 调用 AI 服务
+    let response = ai_provider.chat(chat_request).await
+        .map_err(|e| format!("AI 服务调用失败：{}", e.message))?;
+    
+    log::info!("AI response received, length: {} characters", response.content.len());
+    
+    // 检查响应是否有效
+    let trimmed_content = response.content.trim();
+    if trimmed_content.is_empty() {
+        return Err("AI 返回了空响应".to_string());
+    }
+    
+    // 检测异常响应模式
+    if let Some(error_msg) = detect_abnormal_response(trimmed_content) {
+        log::error!("检测到异常AI响应: {}", error_msg);
+        log::error!("响应预览(前500字符): {}", 
+                    if trimmed_content.len() > 500 { &trimmed_content[..500] } else { trimmed_content });
+        return Err(format!(
+            "AI 返回了无效响应：{}\n\n\
+             响应预览：{}\n\n\
+             建议解决方案：\n\
+             1. 检查 PRD 内容是否过长（建议精简到3000字以内）\n\
+             2. 尝试切换到其他 AI 提供商（如 OpenAI GPT-4）\n\
+             3. 检查 API Key 是否有足够配额且未过期\n\
+             4. 确认使用的模型支持此任务（Kimi for Coding 可能不适合）\n\
+             5. 简化 PRD 内容，只保留核心功能需求",
+            error_msg,
+            if trimmed_content.len() > 200 { &trimmed_content[..200] } else { trimmed_content }
+        ));
+    }
+    
+    log::debug!("AI response preview (first 300 chars): {}", 
+                if response.content.len() > 300 { 
+                    &response.content[..300] 
+                } else { 
+                    &response.content 
+                });
+    
+    // 解析 AI 响应中的 JSON
+    let user_stories = parse_ai_response_to_user_stories(&response.content)?;
+    
+    // 补充时间戳和状态
+    let now = Utc::now().to_rfc3339();
+    let mut stories_with_metadata: Vec<UserStory> = user_stories.into_iter().map(|mut story| {
+        story.created_at = now.clone();
+        story.updated_at = now.clone();
+        if story.status.is_empty() {
+            story.status = "draft".to_string();
+        }
+        story
+    }).collect();
+    
+    // 确保故事编号连续
+    for (index, story) in stories_with_metadata.iter_mut().enumerate() {
+        story.story_number = format!("US-{:03}", index + 1);
+        story.id = format!("us-{:03}", index + 1);
+    }
+    
+    Ok(stories_with_metadata)
+}
+
+/// 解析 AI 响应为用户故事列表
+fn parse_ai_response_to_user_stories(response: &str) -> Result<Vec<UserStory>, String> {
+    log::info!("Parsing AI response to user stories...");
+    
+    // 尝试解析 Markdown 表格格式
+    match parse_markdown_table_to_user_stories(response) {
+        Ok(stories) => {
+            if !stories.is_empty() {
+                log::info!("Successfully parsed {} user stories from Markdown table", stories.len());
+                return Ok(stories);
+            }
+        }
+        Err(e) => {
+            log::warn!("Markdown table parsing failed: {}", e);
+        }
+    }
+    
+    // 如果表格解析失败,尝试 JSON 格式(向后兼容)
+    log::info!("Attempting JSON format as fallback...");
+    use serde_json::Value;
+    
+    match extract_json_array(response) {
+        Ok(json_str) => {
+            let parsed: Value = serde_json::from_str(&json_str)
+                .map_err(|e| format!("JSON 解析失败：{}", e))?;
+            
+            let stories_array = parsed.as_array()
+                .ok_or_else(|| "AI 响应不是有效的 JSON 数组".to_string())?;
+            
+            let mut user_stories = Vec::new();
+            for (index, story_value) in stories_array.iter().enumerate() {
+                match parse_single_user_story(story_value, index) {
+                    Ok(story) => user_stories.push(story),
+                    Err(e) => {
+                        log::warn!("跳过无效的用户故事 #{}: {}", index + 1, e);
+                    }
+                }
+            }
+            
+            if !user_stories.is_empty() {
+                log::info!("Successfully parsed {} user stories from JSON", user_stories.len());
+                return Ok(user_stories);
+            }
+        }
+        Err(e) => {
+            log::warn!("JSON extraction failed: {}", e);
+        }
+    }
+    
+    // 所有策略都失败
+    Err(format!(
+        "无法解析 AI 响应。期望 Markdown 表格或 JSON 格式。\n\n\
+         AI 响应预览（前300字符）：\n{}",
+        if response.len() > 300 { &response[..300] } else { response }
+    ))
+}
+
+/// 解析 Markdown 表格格式为用户故事列表
+fn parse_markdown_table_to_user_stories(response: &str) -> Result<Vec<UserStory>, String> {
+    // 查找 Markdown 表格
+    let lines: Vec<&str> = response.lines().collect();
+    
+    // 寻找表格分隔行(包含 |---| 或 |-|-| 的行)
+    let mut table_start = None;
+    for (i, line) in lines.iter().enumerate() {
+        if line.contains('|') && line.contains("---") {
+            table_start = Some(i);
+            break;
+        }
+    }
+    
+    let table_start = table_start.ok_or("未找到 Markdown 表格")?;
+    
+    // 提取表头和数据行
+    if table_start == 0 {
+        return Err("表格缺少表头".to_string());
+    }
+    
+    let header_line = lines[table_start - 1];
+    let data_lines: Vec<&str> = lines[table_start + 1..].iter()
+        .filter(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with('|') && !trimmed.contains("---") && trimmed.len() > 2
+        })
+        .cloned()
+        .collect();
+    
+    if data_lines.is_empty() {
+        return Err("表格没有数据行".to_string());
+    }
+    
+    log::info!("Found Markdown table with {} data rows", data_lines.len());
+    
+    // 解析表头
+    let headers = parse_table_row(header_line);
+    log::debug!("Table headers: {:?}", headers);
+    
+    // 解析每一行数据
+    let mut user_stories = Vec::new();
+    for (index, data_line) in data_lines.iter().enumerate() {
+        let cells = parse_table_row(data_line);
+        
+        if cells.len() != headers.len() {
+            log::warn!("跳过行 #{}: 列数不匹配 (期望 {}, 实际 {})", index + 1, headers.len(), cells.len());
+            continue;
+        }
+        
+        // 将表格行转换为 UserStory
+        match convert_table_row_to_story(&headers, &cells, index) {
+            Ok(story) => {
+                log::debug!("Successfully parsed story #{}: {}", index + 1, story.title);
+                user_stories.push(story);
+            },
+            Err(e) => {
+                log::warn!("转换行 #{} 失败: {}", index + 1, e);
+            }
+        }
+    }
+    
+    if user_stories.is_empty() {
+        return Err("从表格中未能解析出任何有效的用户故事".to_string());
+    }
+    
+    Ok(user_stories)
+}
+
+/// 解析表格行为单元格数组
+fn parse_table_row(line: &str) -> Vec<String> {
+    line.split('|')
+        .skip(1)  // 跳过第一个空单元格
+        .map(|cell| cell.trim().to_string())
+        .filter(|cell| !cell.is_empty())
+        .collect()
+}
+
+/// 将表格行转换为 UserStory
+fn convert_table_row_to_story(headers: &[String], cells: &[String], index: usize) -> Result<UserStory, String> {
+    // 创建字段映射(不区分大小写)
+    let field_map: std::collections::HashMap<String, String> = headers.iter()
+        .zip(cells.iter())
+        .map(|(h, c)| (h.to_lowercase().trim().to_string(), c.clone()))
+        .collect();
+    
+    // 提取字段值,提供默认值
+    let story_number = field_map.get("序号")
+        .or_else(|| field_map.get("story_number"))
+        .or_else(|| field_map.get("编号"))
+        .cloned()
+        .unwrap_or_else(|| format!("US-{:03}", index + 1));
+    
+    let title = field_map.get("标题")
+        .or_else(|| field_map.get("title"))
+        .cloned()
+        .unwrap_or_else(|| format!("用户故事 #{}", index + 1));
+    
+    let role = field_map.get("角色")
+        .or_else(|| field_map.get("role"))
+        .cloned()
+        .unwrap_or_else(|| "用户".to_string());
+    
+    let feature = field_map.get("功能")
+        .or_else(|| field_map.get("feature"))
+        .cloned()
+        .unwrap_or_default();
+    
+    let benefit = field_map.get("价值")
+        .or_else(|| field_map.get("benefit"))
+        .cloned()
+        .unwrap_or_default();
+    
+    let priority = field_map.get("优先级")
+        .or_else(|| field_map.get("priority"))
+        .cloned()
+        .unwrap_or_else(|| "P1".to_string());
+    
+    let story_points_str = field_map.get("故事点")
+        .or_else(|| field_map.get("story_points"))
+        .cloned()
+        .unwrap_or_else(|| "5".to_string());
+    
+    let story_points = story_points_str.parse::<u32>().unwrap_or(5);
+    
+    let acceptance_criteria_str = field_map.get("验收标准")
+        .or_else(|| field_map.get("acceptance_criteria"))
+        .cloned()
+        .unwrap_or_default();
+    
+    // 分号分隔的验收标准
+    let acceptance_criteria: Vec<String> = acceptance_criteria_str
+        .split(';')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    let feature_module = field_map.get("模块")
+        .or_else(|| field_map.get("feature_module"))
+        .or_else(|| field_map.get("module"))
+        .cloned()
+        .unwrap_or_else(|| "通用".to_string());
+    
+    let labels_str = field_map.get("标签")
+        .or_else(|| field_map.get("labels"))
+        .cloned()
+        .unwrap_or_default();
+    
+    // 逗号分隔的标签
+    let labels: Vec<String> = labels_str
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    let dependencies_str = field_map.get("依赖")
+        .or_else(|| field_map.get("dependencies"))
+        .cloned()
+        .unwrap_or_else(|| "无".to_string());
+    
+    // 解析依赖关系
+    let dependencies = if dependencies_str == "无" || dependencies_str.is_empty() {
+        None
+    } else {
+        let deps: Vec<String> = dependencies_str
+            .split(',')
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty() && s != "无")
+            .collect();
+        if deps.is_empty() { None } else { Some(deps) }
+    };
+    
+    // 构建描述
+    let description = format!("作为{},我想要{},以便{}", role, feature, benefit);
+    
+    Ok(UserStory {
+        id: story_number.to_lowercase().replace("us-", "us-"),
+        story_number,
+        title,
+        role,
+        feature,
+        benefit,
+        description,
+        acceptance_criteria,
+        priority: validate_priority(&priority),
+        status: "draft".to_string(),
+        story_points: Some(story_points),
+        dependencies,
+        feature_module: Some(feature_module),
+        labels,
+        created_at: "".to_string(),  // 将在上层补充
+        updated_at: "".to_string(),  // 将在上层补充
     })
 }
 
-/// 生成 Mock 用户故事（临时实现）
-/// 注意：这是一个临时的 Mock 实现，未来会被真实的 AI 调用替换
-fn generate_mock_user_stories(prd_content: &str) -> Vec<UserStory> {
-    use chrono::Utc;
-    
-    let now = Utc::now().to_rfc3339();
-    
-    // 根据 PRD 内容提取关键词，生成更相关的 Mock 数据
-    let prd_lower = prd_content.to_lowercase();
-    
-    // 检测 PRD 中是否包含特定领域的关键词
-    let is_task_management = prd_lower.contains("任务") || prd_lower.contains("task");
-    let is_ecommerce = prd_lower.contains("电商") || prd_lower.contains("购物") || prd_lower.contains("商品");
-    let is_social = prd_lower.contains("社交") || prd_lower.contains("社区") || prd_lower.contains("用户");
-    
-    // 根据领域生成不同的 Mock 故事
-    if is_task_management {
-        // 任务管理系统的用户故事
-        vec![
-            UserStory {
-                id: "us-001".to_string(),
-                story_number: "US-001".to_string(),
-                title: "用户注册与登录".to_string(),
-                role: "新用户".to_string(),
-                feature: "能够通过邮箱或手机号注册账号并登录系统".to_string(),
-                benefit: "我可以访问系统的核心功能并保存我的个人数据".to_string(),
-                description: "实现完整的用户认证流程，包括注册、登录、密码重置等功能".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以通过邮箱注册，收到验证邮件".to_string(),
-                    "用户可以通过手机号注册，收到短信验证码".to_string(),
-                    "登录成功后跳转到首页".to_string(),
-                    "密码强度验证（至少8位，包含字母和数字）".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: None,
-                feature_module: Some("用户认证".to_string()),
-                labels: vec!["认证".to_string(), "核心功能".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-002".to_string(),
-                story_number: "US-002".to_string(),
-                title: "任务创建与管理".to_string(),
-                role: "已登录用户".to_string(),
-                feature: "能够创建、编辑、删除和查看我的任务".to_string(),
-                benefit: "我可以有效地管理我的工作和待办事项".to_string(),
-                description: "提供完整的任务 CRUD 操作，支持富文本编辑和附件上传".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以创建新任务，设置标题、描述、优先级".to_string(),
-                    "用户可以编辑已有任务的所有字段".to_string(),
-                    "用户可以删除任务，删除前有确认提示".to_string(),
-                    "任务列表支持分页和搜索".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(8),
-                dependencies: Some(vec!["us-001".to_string()]),
-                feature_module: Some("任务管理".to_string()),
-                labels: vec!["任务".to_string(), "CRUD".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-003".to_string(),
-                story_number: "US-003".to_string(),
-                title: "任务分类与标签".to_string(),
-                role: "活跃用户".to_string(),
-                feature: "能够为任务添加分类和标签".to_string(),
-                benefit: "我可以更好地组织和筛选我的任务".to_string(),
-                description: "实现任务的分类体系和标签系统，支持多维度筛选".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以创建自定义分类".to_string(),
-                    "一个任务可以属于多个分类".to_string(),
-                    "用户可以为任务添加多个标签".to_string(),
-                    "支持按分类和标签筛选任务".to_string(),
-                ],
-                priority: "P1".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: Some(vec!["us-002".to_string()]),
-                feature_module: Some("任务管理".to_string()),
-                labels: vec!["分类".to_string(), "标签".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-004".to_string(),
-                story_number: "US-004".to_string(),
-                title: "任务统计报表".to_string(),
-                role: "管理者".to_string(),
-                feature: "能够查看任务完成情况的统计报表".to_string(),
-                benefit: "我可以了解团队的工作效率和进度".to_string(),
-                description: "提供可视化的统计图表，展示任务完成率、趋势分析等".to_string(),
-                acceptance_criteria: vec![
-                    "显示任务总数、已完成、进行中的数量".to_string(),
-                    "提供按日/周/月的完成率趋势图".to_string(),
-                    "支持导出报表为 PDF 或 Excel".to_string(),
-                    "报表数据实时更新".to_string(),
-                ],
-                priority: "P2".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(8),
-                dependencies: Some(vec!["us-002".to_string()]),
-                feature_module: Some("统计分析".to_string()),
-                labels: vec!["报表".to_string(), "可视化".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-        ]
-    } else if is_ecommerce {
-        // 电商系统的用户故事
-        vec![
-            UserStory {
-                id: "us-001".to_string(),
-                story_number: "US-001".to_string(),
-                title: "商品浏览与搜索".to_string(),
-                role: "购物用户".to_string(),
-                feature: "能够浏览商品列表并通过关键词搜索商品".to_string(),
-                benefit: "我可以快速找到想要购买的商品".to_string(),
-                description: "实现商品展示、分类浏览和搜索功能".to_string(),
-                acceptance_criteria: vec![
-                    "商品列表支持分页加载".to_string(),
-                    "支持按价格、销量、评分排序".to_string(),
-                    "搜索支持模糊匹配和关键词高亮".to_string(),
-                    "搜索结果可以筛选和排序".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(8),
-                dependencies: None,
-                feature_module: Some("商品中心".to_string()),
-                labels: vec!["商品".to_string(), "搜索".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-002".to_string(),
-                story_number: "US-002".to_string(),
-                title: "购物车管理".to_string(),
-                role: "购物用户".to_string(),
-                feature: "能够将商品添加到购物车并管理购物车内容".to_string(),
-                benefit: "我可以集中管理想要购买的商品并进行批量结算".to_string(),
-                description: "实现购物车的增删改查功能".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以将商品添加到购物车".to_string(),
-                    "可以修改商品数量和规格".to_string(),
-                    "可以删除购物车中的商品".to_string(),
-                    "购物车实时显示总价".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: Some(vec!["us-001".to_string()]),
-                feature_module: Some("购物车".to_string()),
-                labels: vec!["购物车".to_string(), "核心功能".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-003".to_string(),
-                story_number: "US-003".to_string(),
-                title: "订单创建与支付".to_string(),
-                role: "购物用户".to_string(),
-                feature: "能够从购物车创建订单并完成支付".to_string(),
-                benefit: "我可以顺利完成购买流程".to_string(),
-                description: "实现订单创建、地址选择、支付方式选择和支付流程".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以选择收货地址".to_string(),
-                    "支持多种支付方式（微信、支付宝、银行卡）".to_string(),
-                    "支付成功后生成订单号".to_string(),
-                    "支持订单状态追踪".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(13),
-                dependencies: Some(vec!["us-002".to_string()]),
-                feature_module: Some("订单系统".to_string()),
-                labels: vec!["订单".to_string(), "支付".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-        ]
-    } else if is_social {
-        // 社交系统的用户故事
-        vec![
-            UserStory {
-                id: "us-001".to_string(),
-                story_number: "US-001".to_string(),
-                title: "用户个人资料管理".to_string(),
-                role: "注册用户".to_string(),
-                feature: "能够编辑和完善我的个人资料".to_string(),
-                benefit: "其他用户可以更好地了解我".to_string(),
-                description: "实现用户头像、昵称、简介等资料的编辑功能".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以上传和更换头像".to_string(),
-                    "可以编辑昵称和个人简介".to_string(),
-                    "支持添加兴趣爱好标签".to_string(),
-                    "资料修改后实时生效".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: None,
-                feature_module: Some("用户中心".to_string()),
-                labels: vec!["资料".to_string(), "核心功能".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-002".to_string(),
-                story_number: "US-002".to_string(),
-                title: "动态发布与互动".to_string(),
-                role: "活跃用户".to_string(),
-                feature: "能够发布动态并对他人动态进行点赞评论".to_string(),
-                benefit: "我可以分享生活并与朋友互动".to_string(),
-                description: "实现动态的发布、浏览、点赞、评论功能".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以发布文字和图片动态".to_string(),
-                    "动态支持@好友和添加话题标签".to_string(),
-                    "可以对动态进行点赞和取消点赞".to_string(),
-                    "可以发表评论并回复他人评论".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(8),
-                dependencies: Some(vec!["us-001".to_string()]),
-                feature_module: Some("动态系统".to_string()),
-                labels: vec!["动态".to_string(), "互动".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-003".to_string(),
-                story_number: "US-003".to_string(),
-                title: "好友关系管理".to_string(),
-                role: "社交用户".to_string(),
-                feature: "能够添加好友并管理好友列表".to_string(),
-                benefit: "我可以与感兴趣的人建立联系".to_string(),
-                description: "实现好友申请、接受、拒绝和移除功能".to_string(),
-                acceptance_criteria: vec![
-                    "用户可以搜索并发送好友申请".to_string(),
-                    "可以接受或拒绝好友申请".to_string(),
-                    "可以查看好友列表和共同好友".to_string(),
-                    "可以移除好友关系".to_string(),
-                ],
-                priority: "P1".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: Some(vec!["us-001".to_string()]),
-                feature_module: Some("关系链".to_string()),
-                labels: vec!["好友".to_string(), "社交".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-        ]
-    } else {
-        // 通用默认故事（当无法识别领域时）
-        vec![
-            UserStory {
-                id: "us-001".to_string(),
-                story_number: "US-001".to_string(),
-                title: "用户认证系统".to_string(),
-                role: "新用户".to_string(),
-                feature: "能够注册账号并安全登录系统".to_string(),
-                benefit: "我可以访问系统的个性化功能".to_string(),
-                description: "实现基础的用户认证功能".to_string(),
-                acceptance_criteria: vec![
-                    "支持邮箱注册和登录".to_string(),
-                    "密码加密存储".to_string(),
-                    "登录状态持久化".to_string(),
-                    "支持忘记密码找回".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: None,
-                feature_module: Some("用户系统".to_string()),
-                labels: vec!["认证".to_string(), "核心功能".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-002".to_string(),
-                story_number: "US-002".to_string(),
-                title: "核心业务功能".to_string(),
-                role: "已登录用户".to_string(),
-                feature: "能够使用系统的主要业务功能".to_string(),
-                benefit: "我可以完成我的主要工作目标".to_string(),
-                description: "实现系统的核心业务流程".to_string(),
-                acceptance_criteria: vec![
-                    "核心功能可用且稳定".to_string(),
-                    "操作流程清晰易懂".to_string(),
-                    "有适当的错误提示".to_string(),
-                    "支持基本的数据持久化".to_string(),
-                ],
-                priority: "P0".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(8),
-                dependencies: Some(vec!["us-001".to_string()]),
-                feature_module: Some("核心业务".to_string()),
-                labels: vec!["核心功能".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            UserStory {
-                id: "us-003".to_string(),
-                story_number: "US-003".to_string(),
-                title: "数据统计与展示".to_string(),
-                role: "管理者".to_string(),
-                feature: "能够查看系统使用数据和业务统计".to_string(),
-                benefit: "我可以了解系统运行状况和业务趋势".to_string(),
-                description: "实现数据统计和可视化展示功能".to_string(),
-                acceptance_criteria: vec![
-                    "关键指标实时展示".to_string(),
-                    "支持历史数据查询".to_string(),
-                    "图表清晰易读".to_string(),
-                    "支持数据导出".to_string(),
-                ],
-                priority: "P1".to_string(),
-                status: "draft".to_string(),
-                story_points: Some(5),
-                dependencies: Some(vec!["us-002".to_string()]),
-                feature_module: Some("数据分析".to_string()),
-                labels: vec!["统计".to_string(), "可视化".to_string()],
-                created_at: now.clone(),
-                updated_at: now.clone(),
-            },
-        ]
+/// 验证并规范化优先级
+fn validate_priority(priority: &str) -> String {
+    match priority.to_uppercase().as_str() {
+        "P0" => "P0".to_string(),
+        "P1" => "P1".to_string(),
+        "P2" => "P2".to_string(),
+        "P3" => "P3".to_string(),
+        _ => "P1".to_string(),  // 默认 P1
     }
+}
+
+/// 检测异常的AI响应模式
+fn detect_abnormal_response(content: &str) -> Option<String> {
+    // 检查1: 空响应
+    if content.is_empty() {
+        return Some("响应为空".to_string());
+    }
+    
+    // 检查2: 统计唯一字符数
+    let unique_chars: std::collections::HashSet<char> = content.chars().collect();
+    
+    // 如果唯一字符极少（<=3个），可能是异常响应
+    if unique_chars.len() <= 3 {
+        let chars_vec: Vec<char> = unique_chars.iter().cloned().collect();
+        
+        // 全下划线
+        if chars_vec.contains(&'_') && chars_vec.len() == 1 {
+            return Some("响应只包含下划线字符，AI可能遇到错误或限制".to_string());
+        }
+        
+        // 全横线
+        if chars_vec.contains(&'-') && chars_vec.len() == 1 {
+            return Some("响应只包含横线字符，AI可能遇到错误或限制".to_string());
+        }
+        
+        // 全空格
+        if chars_vec.contains(&' ') && chars_vec.len() == 1 {
+            return Some("响应只包含空格".to_string());
+        }
+        
+        // 重复的Base64-like模式 (如 7A7A7A...)
+        if is_repetitive_pattern(content, 2) {
+            return Some("响应包含重复的编码模式，可能是Base64数据损坏或API错误".to_string());
+        }
+    }
+    
+    // 检查3: 检测Base64编码特征（大量字母数字混合，无正常文本结构）
+    if looks_like_corrupted_base64(content) {
+        return Some("响应看起来像损坏的Base64编码数据，API可能返回了二进制内容".to_string());
+    }
+    
+    // 检查4: 检测HTML错误页面
+    if content.starts_with("<!DOCTYPE") || content.starts_with("<html") {
+        return Some("响应是HTML页面，可能是API认证失败或服务不可用".to_string());
+    }
+    
+    // 检查5: 检测JSON错误信息
+    if content.starts_with("{\"error\"") || content.starts_with("{ \"error\"") {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(content) {
+            if let Some(error_obj) = json.get("error") {
+                if let Some(error_msg) = error_obj.get("message").and_then(|m| m.as_str()) {
+                    return Some(format!("API返回错误：{}", error_msg));
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+/// 检测是否为重复模式（检查前N个字符是否在整个字符串中重复）
+fn is_repetitive_pattern(content: &str, pattern_len: usize) -> bool {
+    if content.len() < pattern_len * 10 {
+        return false;  // 内容太短，不判断
+    }
+    
+    let pattern = &content[..pattern_len.min(content.len())];
+    let mut repeat_count = 0;
+    let check_len = (content.len() / pattern_len).min(20);  // 最多检查20次重复
+    
+    for i in 0..check_len {
+        let start = i * pattern_len;
+        let end = (start + pattern_len).min(content.len());
+        if start < content.len() && &content[start..end] == pattern {
+            repeat_count += 1;
+        }
+    }
+    
+    // 如果80%以上的片段都匹配，认为是重复模式
+    repeat_count as f64 / check_len as f64 > 0.8
+}
+
+/// 检测是否像损坏的Base64编码
+fn looks_like_corrupted_base64(content: &str) -> bool {
+    // Base64特征：大量大写字母、小写字母、数字，很少有空格或标点
+    let mut alpha_count = 0;
+    let mut digit_count = 0;
+    let mut other_count = 0;
+    
+    for c in content.chars().take(500) {  // 只检查前500字符
+        if c.is_ascii_alphabetic() {
+            alpha_count += 1;
+        } else if c.is_ascii_digit() {
+            digit_count += 1;
+        } else {
+            other_count += 1;
+        }
+    }
+    
+    let total = alpha_count + digit_count + other_count;
+    if total == 0 {
+        return false;
+    }
+    
+    let alpha_digit_ratio = (alpha_count + digit_count) as f64 / total as f64;
+    
+    // 如果90%以上是字母数字，且长度较长，可能是Base64
+    alpha_digit_ratio > 0.9 && content.len() > 100
+}
+
+// ==================== JSON 格式解析(向后兼容) ====================
+
+/// 从 AI 响应中提取 JSON 数组
+fn extract_json_array(response: &str) -> Result<String, String> {
+    let trimmed = response.trim();
+    
+    // 策略1: 尝试直接解析为 JSON
+    if let Ok(_) = serde_json::from_str::<serde_json::Value>(trimmed) {
+        return Ok(trimmed.to_string());
+    }
+    
+    // 策略2: 查找并提取 JSON 数组（支持嵌套）
+    if let Some(json_str) = find_json_array_smart(trimmed) {
+        return Ok(json_str);
+    }
+    
+    // 策略3: 查找代码块中的 JSON
+    if let Some(json_str) = extract_from_code_block(trimmed) {
+        return Ok(json_str);
+    }
+    
+    Err("无法从 AI 响应中提取有效的 JSON 数组".to_string())
+}
+
+/// 智能查找 JSON 数组（支持嵌套括号匹配）
+fn find_json_array_smart(response: &str) -> Option<String> {
+    let chars: Vec<char> = response.chars().collect();
+    let len = chars.len();
+    
+    for i in 0..len {
+        if chars[i] == '[' {
+            let mut depth = 0;
+            let mut in_string = false;
+            let mut escape_next = false;
+            
+            for j in i..len {
+                let c = chars[j];
+                
+                if escape_next {
+                    escape_next = false;
+                    continue;
+                }
+                
+                if c == '\\' && in_string {
+                    escape_next = true;
+                    continue;
+                }
+                
+                if c == '"' {
+                    in_string = !in_string;
+                    continue;
+                }
+                
+                if !in_string {
+                    if c == '[' {
+                        depth += 1;
+                    } else if c == ']' {
+                        depth -= 1;
+                        if depth == 0 {
+                            let json_str: String = chars[i..=j].iter().collect();
+                            if serde_json::from_str::<serde_json::Value>(&json_str).is_ok() {
+                                return Some(json_str);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+/// 从 Markdown 代码块中提取 JSON
+fn extract_from_code_block(response: &str) -> Option<String> {
+    let patterns = vec![
+        ("```json", "```"),
+        ("```", "```"),
+    ];
+    
+    for (start_marker, end_marker) in patterns {
+        if let Some(start_pos) = response.find(start_marker) {
+            let content_start = start_pos + start_marker.len();
+            if let Some(end_pos) = response[content_start..].find(end_marker) {
+                let json_str = response[content_start..content_start + end_pos].trim();
+                if serde_json::from_str::<serde_json::Value>(json_str).is_ok() {
+                    return Some(json_str.to_string());
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+/// 解析单个用户故事(JSON格式)
+fn parse_single_user_story(value: &serde_json::Value, index: usize) -> Result<UserStory, String> {
+    let obj = value.as_object()
+        .ok_or_else(|| format!("故事 #{} 不是有效的 JSON 对象", index + 1))?;
+    
+    // 提取必填字段
+    let title = obj.get("title")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| format!("故事 #{} 缺少 title 字段", index + 1))?
+        .to_string();
+    
+    let role = obj.get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("用户")
+        .to_string();
+    
+    let feature = obj.get("feature")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    
+    let benefit = obj.get("benefit")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    
+    let description = obj.get("description")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    
+    // 提取验收标准
+    let acceptance_criteria = obj.get("acceptance_criteria")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+    
+    // 提取优先级
+    let priority = obj.get("priority")
+        .and_then(|v| v.as_str())
+        .unwrap_or("P1");
+    
+    let priority = validate_priority(priority);
+    
+    // 提取故事点
+    let story_points = obj.get("story_points")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32);
+    
+    // 提取依赖
+    let dependencies = obj.get("dependencies")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        });
+    
+    // 提取模块
+    let feature_module = obj.get("feature_module")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    
+    // 提取标签
+    let labels = obj.get("labels")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+    
+    // 提取故事编号和ID
+    let story_number = obj.get("story_number")
+        .and_then(|v| v.as_str())
+        .unwrap_or("US-001")
+        .to_string();
+    
+    let id = obj.get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("us-001")
+        .to_string();
+    
+    Ok(UserStory {
+        id,
+        story_number,
+        title,
+        role,
+        feature,
+        benefit,
+        description,
+        acceptance_criteria,
+        priority,
+        status: "draft".to_string(),
+        story_points,
+        dependencies,
+        feature_module,
+        labels,
+        created_at: "".to_string(),
+        updated_at: "".to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -1224,9 +1616,12 @@ mod tests_user_story_decomposition {
     use super::*;
 
     #[tokio::test]
-    async fn test_decompose_user_stories_basic() {
+    async fn test_decompose_user_stories_without_api_key() {
+        // 测试没有 API Key 时的错误处理
         let request = DecomposeUserStoriesRequest {
             prd_content: "我们需要一个任务管理系统".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-4-turbo-preview".to_string(),
             api_key: None,
         };
         
@@ -1234,17 +1629,39 @@ mod tests_user_story_decomposition {
         assert!(result.is_ok());
         
         let response = result.unwrap();
-        assert!(response.success);
-        assert!(!response.user_stories.is_empty());
+        // 没有 API Key 时应该返回失败
+        assert!(!response.success);
+        assert!(response.error_message.is_some());
+    }
+
+    #[tokio::test]
+    #[ignore] // 需要真实的 API Key，默认忽略
+    async fn test_decompose_user_stories_with_api_key() {
+        // 这个测试需要设置 OPENAI_API_KEY 环境变量或在请求中提供 API Key
+        let request = DecomposeUserStoriesRequest {
+            prd_content: "我们需要一个任务管理系统，包含用户注册、登录、任务创建和管理功能".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-4-turbo-preview".to_string(),
+            api_key: None, // 将从环境变量读取
+        };
         
-        // 验证第一个故事的结构
-        let first_story = &response.user_stories[0];
-        assert!(!first_story.id.is_empty());
-        assert!(!first_story.story_number.is_empty());
-        assert!(!first_story.title.is_empty());
-        assert!(!first_story.role.is_empty());
-        assert!(!first_story.feature.is_empty());
-        assert!(!first_story.benefit.is_empty());
-        assert!(!first_story.acceptance_criteria.is_empty());
+        let result = decompose_user_stories(request).await;
+        assert!(result.is_ok());
+        
+        let response = result.unwrap();
+        if response.success {
+            assert!(!response.user_stories.is_empty());
+            
+            // 验证第一个故事的结构
+            let first_story = &response.user_stories[0];
+            assert!(!first_story.id.is_empty());
+            assert!(!first_story.story_number.is_empty());
+            assert!(!first_story.title.is_empty());
+            assert!(!first_story.role.is_empty());
+            assert!(!first_story.feature.is_empty());
+            assert!(!first_story.benefit.is_empty());
+            assert!(!first_story.acceptance_criteria.is_empty());
+            assert!(["P0", "P1", "P2", "P3"].contains(&first_story.priority.as_str()));
+        }
     }
 }
