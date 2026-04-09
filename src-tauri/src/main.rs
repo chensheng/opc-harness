@@ -165,6 +165,8 @@ fn main() {
             commands::quality::iterate_prd,
             // commands::quality::get_iteration_history,  // 暂时注释（尚未实现）
             commands::quality::rollback_to_version,
+            // User Story Decomposition commands (US-XXX)
+            commands::quality::decompose_user_stories,
             // Streaming Output commands (US-048)
             commands::ai::stream_generate_prd,
             // User Preference commands (US-055)

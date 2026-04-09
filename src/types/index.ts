@@ -252,6 +252,64 @@ export interface Milestone {
   dueDate?: string
 }
 
+// User Story Types (用户故事管理)
+export interface UserStory {
+  /** 用户故事 ID */
+  id: string
+  /** 故事编号（如 US-001） */
+  storyNumber: string
+  /** 故事标题 */
+  title: string
+  /** 用户故事描述（As a... I want... So that...） */
+  description: string
+  /** 角色（As a ...） */
+  role: string
+  /** 功能（I want ...） */
+  feature: string
+  /** 价值（So that ...） */
+  benefit: string
+  /** 验收标准 */
+  acceptanceCriteria: string[]
+  /** 优先级 */
+  priority: 'P0' | 'P1' | 'P2' | 'P3'
+  /** 状态 */
+  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed'
+  /** 估算的故事点 */
+  storyPoints?: number
+  /** 依赖的故事 ID */
+  dependencies?: string[]
+  /** 关联的功能模块 */
+  featureModule?: string
+  /** 标签 */
+  labels: string[]
+  /** 创建时间 */
+  createdAt: string
+  /** 更新时间 */
+  updatedAt: string
+}
+
+/**
+ * AI 拆分用户故事的请求
+ */
+export interface DecomposeUserStoriesRequest {
+  /** PRD 内容或功能描述 */
+  prdContent: string
+  /** 可选：AI API Key */
+  apiKey?: string
+}
+
+/**
+ * AI 拆分用户故事的响应
+ */
+export interface DecomposeUserStoriesResponse {
+  /** 是否成功 */
+  success: boolean
+  /** 拆分出的用户故事列表 */
+  userStories: UserStory[]
+  /** 错误消息 */
+  errorMessage?: string
+}
+
 export type CheckpointStatus = 'pending' | 'reviewed' | 'approved' | 'rejected'
 
 export type CheckpointId =

@@ -800,3 +800,217 @@ mod tests_us032 {
         assert!(response.task_graph.statistics.total_tasks > 0);
     }
 }
+
+// ============================================================================
+// US-XXX: 用户故事拆分命令
+// ============================================================================
+
+/// 用户故事数据结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserStory {
+    /// 用户故事 ID
+    pub id: String,
+    /// 故事编号（如 US-001）
+    pub story_number: String,
+    /// 故事标题
+    pub title: String,
+    /// 角色（As a ...）
+    pub role: String,
+    /// 功能（I want ...）
+    pub feature: String,
+    /// 价值（So that ...）
+    pub benefit: String,
+    /// 详细描述
+    pub description: String,
+    /// 验收标准
+    pub acceptance_criteria: Vec<String>,
+    /// 优先级
+    pub priority: String,
+    /// 状态
+    pub status: String,
+    /// 估算的故事点
+    pub story_points: Option<u32>,
+    /// 依赖的故事 ID
+    pub dependencies: Option<Vec<String>>,
+    /// 关联的功能模块
+    pub feature_module: Option<String>,
+    /// 标签
+    pub labels: Vec<String>,
+    /// 创建时间
+    pub created_at: String,
+    /// 更新时间
+    pub updated_at: String,
+}
+
+/// 用户故事拆分请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecomposeUserStoriesRequest {
+    /// PRD 内容或功能描述
+    pub prd_content: String,
+    /// 可选的 AI API Key
+    pub api_key: Option<String>,
+}
+
+/// 用户故事拆分响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecomposeUserStoriesResponse {
+    /// 是否成功
+    pub success: bool,
+    /// 拆分出的用户故事列表
+    pub user_stories: Vec<UserStory>,
+    /// 错误消息
+    pub error_message: Option<String>,
+}
+
+/// 分解用户故事
+#[tauri::command]
+pub async fn decompose_user_stories(
+    request: DecomposeUserStoriesRequest,
+) -> Result<DecomposeUserStoriesResponse, String> {
+    log::info!("Starting user story decomposition...");
+    
+    // TODO: 实现实际的 AI 驱动的用户故事拆分逻辑
+    // 目前返回 Mock 数据用于前端开发和测试
+    
+    let mock_stories = generate_mock_user_stories(&request.prd_content);
+    
+    log::info!("User story decomposition completed. Generated {} stories", mock_stories.len());
+    
+    Ok(DecomposeUserStoriesResponse {
+        success: true,
+        user_stories: mock_stories,
+        error_message: None,
+    })
+}
+
+/// 生成 Mock 用户故事（临时实现）
+fn generate_mock_user_stories(_prd_content: &str) -> Vec<UserStory> {
+    use chrono::Utc;
+    
+    let now = Utc::now().to_rfc3339();
+    
+    vec![
+        UserStory {
+            id: "us-001".to_string(),
+            story_number: "US-001".to_string(),
+            title: "用户注册与登录".to_string(),
+            role: "新用户".to_string(),
+            feature: "能够通过邮箱或手机号注册账号并登录系统".to_string(),
+            benefit: "我可以访问系统的核心功能并保存我的个人数据".to_string(),
+            description: "实现完整的用户认证流程，包括注册、登录、密码重置等功能".to_string(),
+            acceptance_criteria: vec![
+                "用户可以通过邮箱注册，收到验证邮件".to_string(),
+                "用户可以通过手机号注册，收到短信验证码".to_string(),
+                "登录成功后跳转到首页".to_string(),
+                "密码强度验证（至少8位，包含字母和数字）".to_string(),
+            ],
+            priority: "P0".to_string(),
+            status: "draft".to_string(),
+            story_points: Some(5),
+            dependencies: None,
+            feature_module: Some("用户认证".to_string()),
+            labels: vec!["认证".to_string(), "核心功能".to_string()],
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        },
+        UserStory {
+            id: "us-002".to_string(),
+            story_number: "US-002".to_string(),
+            title: "任务创建与管理".to_string(),
+            role: "已登录用户".to_string(),
+            feature: "能够创建、编辑、删除和查看我的任务".to_string(),
+            benefit: "我可以有效地管理我的工作和待办事项".to_string(),
+            description: "提供完整的任务 CRUD 操作，支持富文本编辑和附件上传".to_string(),
+            acceptance_criteria: vec![
+                "用户可以创建新任务，设置标题、描述、优先级".to_string(),
+                "用户可以编辑已有任务的所有字段".to_string(),
+                "用户可以删除任务，删除前有确认提示".to_string(),
+                "任务列表支持分页和搜索".to_string(),
+            ],
+            priority: "P0".to_string(),
+            status: "draft".to_string(),
+            story_points: Some(8),
+            dependencies: Some(vec!["us-001".to_string()]),
+            feature_module: Some("任务管理".to_string()),
+            labels: vec!["任务".to_string(), "CRUD".to_string()],
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        },
+        UserStory {
+            id: "us-003".to_string(),
+            story_number: "US-003".to_string(),
+            title: "任务分类与标签".to_string(),
+            role: "活跃用户".to_string(),
+            feature: "能够为任务添加分类和标签".to_string(),
+            benefit: "我可以更好地组织和筛选我的任务".to_string(),
+            description: "实现任务的分类体系和标签系统，支持多维度筛选".to_string(),
+            acceptance_criteria: vec![
+                "用户可以创建自定义分类".to_string(),
+                "一个任务可以属于多个分类".to_string(),
+                "用户可以为任务添加多个标签".to_string(),
+                "支持按分类和标签筛选任务".to_string(),
+            ],
+            priority: "P1".to_string(),
+            status: "draft".to_string(),
+            story_points: Some(5),
+            dependencies: Some(vec!["us-002".to_string()]),
+            feature_module: Some("任务管理".to_string()),
+            labels: vec!["分类".to_string(), "标签".to_string()],
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        },
+        UserStory {
+            id: "us-004".to_string(),
+            story_number: "US-004".to_string(),
+            title: "任务统计报表".to_string(),
+            role: "管理者".to_string(),
+            feature: "能够查看任务完成情况的统计报表".to_string(),
+            benefit: "我可以了解团队的工作效率和进度".to_string(),
+            description: "提供可视化的统计图表，展示任务完成率、趋势分析等".to_string(),
+            acceptance_criteria: vec![
+                "显示任务总数、已完成、进行中的数量".to_string(),
+                "提供按日/周/月的完成率趋势图".to_string(),
+                "支持导出报表为 PDF 或 Excel".to_string(),
+                "报表数据实时更新".to_string(),
+            ],
+            priority: "P2".to_string(),
+            status: "draft".to_string(),
+            story_points: Some(8),
+            dependencies: Some(vec!["us-002".to_string()]),
+            feature_module: Some("统计分析".to_string()),
+            labels: vec!["报表".to_string(), "可视化".to_string()],
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        },
+    ]
+}
+
+#[cfg(test)]
+mod tests_user_story_decomposition {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_decompose_user_stories_basic() {
+        let request = DecomposeUserStoriesRequest {
+            prd_content: "我们需要一个任务管理系统".to_string(),
+            api_key: None,
+        };
+        
+        let result = decompose_user_stories(request).await;
+        assert!(result.is_ok());
+        
+        let response = result.unwrap();
+        assert!(response.success);
+        assert!(!response.user_stories.is_empty());
+        
+        // 验证第一个故事的结构
+        let first_story = &response.user_stories[0];
+        assert!(!first_story.id.is_empty());
+        assert!(!first_story.story_number.is_empty());
+        assert!(!first_story.title.is_empty());
+        assert!(!first_story.role.is_empty());
+        assert!(!first_story.feature.is_empty());
+        assert!(!first_story.benefit.is_empty());
+        assert!(!first_story.acceptance_criteria.is_empty());
+    }
+}

@@ -31,6 +31,7 @@ import {
   Download,
   Filter,
   Search,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -46,6 +47,8 @@ import {
 import { useProjectStore } from '@/stores'
 import type { FileNode, CLIOutputLine } from '@/types'
 import { FileExplorer } from './FileExplorer'
+import { UserStoryManager } from './UserStoryManager'
+import type { UserStory, PRD } from '@/types'
 
 interface Milestone {
   id: string
@@ -1123,6 +1126,7 @@ export function CodingWorkspace() {
   const [cliInput, setCliInput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [activeTab, setActiveTab] = useState('code')
+  const [workspaceMode, setWorkspaceMode] = useState<'coding' | 'stories'>('coding')
   const outputEndRef = useRef<HTMLDivElement>(null)
 
   // 如果没有 projectId，重定向到最近的项目
@@ -1200,6 +1204,59 @@ export function CodingWorkspace() {
     setCliInput('')
   }
 
+  const handleStoriesGenerated = useCallback((stories: UserStory[]) => {
+    console.log(`生成了 ${stories.length} 个用户故事`)
+    // TODO: 可以将故事保存到项目状态或后端
+    // 这里可以添加通知或其他业务逻辑
+  }, [])
+
+  /**
+   * 将 PRD 对象转换为 Markdown 字符串
+   */
+  const prdToMarkdown = useCallback((prd: PRD | undefined): string => {
+    if (!prd) return ''
+
+    let markdown = ''
+
+    if (prd.title && prd.title.length > 0) {
+      markdown += `# ${prd.title}\n\n`
+    }
+
+    if (prd.overview) {
+      markdown += `## 产品概述\n\n${prd.overview}\n\n`
+    }
+
+    if (prd.targetUsers && prd.targetUsers.length > 0) {
+      markdown += `## 目标用户\n\n`
+      prd.targetUsers.forEach(user => {
+        markdown += `- ${user}\n`
+      })
+      markdown += '\n'
+    }
+
+    if (prd.coreFeatures && prd.coreFeatures.length > 0) {
+      markdown += `## 核心功能\n\n`
+      prd.coreFeatures.forEach(feature => {
+        markdown += `- ${feature}\n`
+      })
+      markdown += '\n'
+    }
+
+    if (prd.techStack && prd.techStack.length > 0) {
+      markdown += `## 技术栈\n\n`
+      prd.techStack.forEach(tech => {
+        markdown += `- ${tech}\n`
+      })
+      markdown += '\n'
+    }
+
+    if (prd.estimatedEffort) {
+      markdown += `## 预估工作量\n\n${prd.estimatedEffort}\n\n`
+    }
+
+    return markdown
+  }, [])
+
   const handleStartServer = () => {
     setIsRunning(!isRunning)
     if (!isRunning) {
@@ -1232,6 +1289,24 @@ export function CodingWorkspace() {
           <div>
             <h1 className="text-xl font-bold">💻 Vibe Coding</h1>
           </div>
+
+          {/* Workspace Mode Switcher */}
+          <Tabs
+            value={workspaceMode}
+            onValueChange={value => setWorkspaceMode(value as 'coding' | 'stories')}
+            className="w-auto"
+          >
+            <TabsList className="h-9">
+              <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
+                <FileCode className="w-4 h-4" />
+                代码工作区
+              </TabsTrigger>
+              <TabsTrigger value="stories" className="flex items-center gap-2 text-sm">
+                <Users className="w-4 h-4" />
+                用户故事
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* Project Selector */}
           {projects.length > 1 && (
@@ -1284,45 +1359,47 @@ export function CodingWorkspace() {
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
-        {/* File Tree */}
-        <Card className="col-span-3 overflow-hidden flex flex-col">
-          <div className="p-3 border-b flex items-center gap-2">
-            <FolderTree className="w-4 h-4" />
-            <span className="text-sm font-medium">文件</span>
-          </div>
-          <div className="flex-1 overflow-auto p-2">
-            <FileExplorer
-              fileTree={fileTree}
-              selectedFile={selectedFile}
-              onSelectFile={handleFileSelect}
-              onToggleFolder={handleFolderToggle}
-            />
-          </div>
-        </Card>
-
-        {/* Editor / Preview */}
-        <Card className="col-span-6 overflow-hidden flex flex-col">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-            <div className="border-b px-3">
-              <TabsList className="h-10">
-                <TabsTrigger value="code" className="flex items-center gap-2">
-                  <FileCode className="w-4 h-4" />
-                  代码
-                </TabsTrigger>
-                <TabsTrigger value="preview" className="flex items-center gap-2">
-                  <ExternalLink className="w-4 h-4" />
-                  预览
-                </TabsTrigger>
-              </TabsList>
+      {/* Conditional Content Based on Workspace Mode */}
+      {workspaceMode === 'coding' ? (
+        <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+          {/* File Tree */}
+          <Card className="col-span-3 overflow-hidden flex flex-col">
+            <div className="p-3 border-b flex items-center gap-2">
+              <FolderTree className="w-4 h-4" />
+              <span className="text-sm font-medium">文件</span>
             </div>
+            <div className="flex-1 overflow-auto p-2">
+              <FileExplorer
+                fileTree={fileTree}
+                selectedFile={selectedFile}
+                onSelectFile={handleFileSelect}
+                onToggleFolder={handleFolderToggle}
+              />
+            </div>
+          </Card>
 
-            <TabsContent value="code" className="flex-1 m-0 p-4 overflow-auto">
-              {selectedFile ? (
-                <div className="font-mono text-sm">
-                  <div className="text-muted-foreground mb-4">{selectedFile}</div>
-                  <pre className="text-muted-foreground">
-                    {`// Example code for ${selectedFile}
+          {/* Editor / Preview */}
+          <Card className="col-span-6 overflow-hidden flex flex-col">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+              <div className="border-b px-3">
+                <TabsList className="h-10">
+                  <TabsTrigger value="code" className="flex items-center gap-2">
+                    <FileCode className="w-4 h-4" />
+                    代码
+                  </TabsTrigger>
+                  <TabsTrigger value="preview" className="flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4" />
+                    预览
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="code" className="flex-1 m-0 p-4 overflow-auto">
+                {selectedFile ? (
+                  <div className="font-mono text-sm">
+                    <div className="text-muted-foreground mb-4">{selectedFile}</div>
+                    <pre className="text-muted-foreground">
+                      {`// Example code for ${selectedFile}
 import React from 'react'
 
 export function Component() {
@@ -1332,68 +1409,77 @@ export function Component() {
     </div>
   )
 }`}
-                  </pre>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  选择一个文件开始编辑
-                </div>
-              )}
-            </TabsContent>
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    选择一个文件开始编辑
+                  </div>
+                )}
+              </TabsContent>
 
-            <TabsContent value="preview" className="flex-1 m-0 p-0 overflow-hidden">
-              <iframe src="about:blank" className="w-full h-full border-0" title="Preview" />
-            </TabsContent>
-          </Tabs>
-        </Card>
+              <TabsContent value="preview" className="flex-1 m-0 p-0 overflow-hidden">
+                <iframe src="about:blank" className="w-full h-full border-0" title="Preview" />
+              </TabsContent>
+            </Tabs>
+          </Card>
 
-        {/* CLI Console */}
-        <Card className="col-span-3 overflow-hidden flex flex-col bg-slate-950">
-          <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant={isRunning ? 'default' : 'secondary'} className="text-xs">
-                {isRunning ? '运行中' : '已停止'}
-              </Badge>
-            </div>
-            <Button variant="ghost" size="icon" className="h-6 w-6">
-              <RefreshCw className="w-3 h-3" />
-            </Button>
-          </div>
-
-          <div className="flex-1 overflow-auto p-3 font-mono text-xs space-y-1">
-            {cliOutput.map((line, index) => (
-              <div
-                key={index}
-                className={`${
-                  line.type === 'stderr'
-                    ? 'text-red-400'
-                    : line.type === 'input'
-                      ? 'text-blue-400'
-                      : 'text-slate-300'
-                }`}
-              >
-                <span className="text-slate-600 mr-2">[{line.timestamp}]</span>
-                {line.content}
+          {/* CLI Console */}
+          <Card className="col-span-3 overflow-hidden flex flex-col bg-slate-950">
+            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant={isRunning ? 'default' : 'secondary'} className="text-xs">
+                  {isRunning ? '运行中' : '已停止'}
+                </Badge>
               </div>
-            ))}
-            <div ref={outputEndRef} />
-          </div>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <RefreshCw className="w-3 h-3" />
+              </Button>
+            </div>
 
-          <div className="p-3 border-t border-slate-800 flex gap-2">
-            <input
-              type="text"
-              value={cliInput}
-              onChange={e => setCliInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendCommand()}
-              placeholder="输入命令..."
-              className="flex-1 bg-slate-900 border-slate-700 rounded px-3 py-2 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-primary"
-            />
-            <Button size="sm" onClick={handleSendCommand}>
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </Card>
-      </div>
+            <div className="flex-1 overflow-auto p-3 font-mono text-xs space-y-1">
+              {cliOutput.map((line, index) => (
+                <div
+                  key={index}
+                  className={`${
+                    line.type === 'stderr'
+                      ? 'text-red-400'
+                      : line.type === 'input'
+                        ? 'text-blue-400'
+                        : 'text-slate-300'
+                  }`}
+                >
+                  <span className="text-slate-600 mr-2">[{line.timestamp}]</span>
+                  {line.content}
+                </div>
+              ))}
+              <div ref={outputEndRef} />
+            </div>
+
+            <div className="p-3 border-t border-slate-800 flex gap-2">
+              <input
+                type="text"
+                value={cliInput}
+                onChange={e => setCliInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSendCommand()}
+                placeholder="输入命令..."
+                className="flex-1 bg-slate-900 border-slate-700 rounded px-3 py-2 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Button size="sm" onClick={handleSendCommand}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        /* User Story Management */
+        <div className="flex-1 overflow-auto">
+          <UserStoryManager
+            prdContent={prdToMarkdown(project?.prd)}
+            onStoriesGenerated={handleStoriesGenerated}
+          />
+        </div>
+      )}
     </div>
   )
 }
