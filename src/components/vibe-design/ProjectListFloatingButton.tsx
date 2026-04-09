@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FolderOpen, X, ChevronRight, FileText, Calendar, TrendingUp } from 'lucide-react'
+import { FolderOpen, ChevronRight, FileText, Calendar, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -118,7 +124,7 @@ export function ProjectListFloatingButton({ className = '' }: ProjectListFloatin
                               {statusInfo.text}
                             </Badge>
                           </div>
-                          
+
                           {project.description && (
                             <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                               {project.description}
