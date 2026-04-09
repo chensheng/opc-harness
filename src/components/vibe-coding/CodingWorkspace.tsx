@@ -1286,10 +1286,6 @@ export function CodingWorkspace() {
     <div className="h-[calc(100vh-8rem)] flex flex-col">
       <div className="flex items-center justify-between mb-4 gap-4">
         <div className="flex items-center gap-4 flex-1">
-          <div>
-            <h1 className="text-xl font-bold">💻 Vibe Coding</h1>
-          </div>
-
           {/* Workspace Mode Switcher */}
           <Tabs
             value={workspaceMode}
