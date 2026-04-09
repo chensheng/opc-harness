@@ -1286,24 +1286,6 @@ export function CodingWorkspace() {
     <div className="h-[calc(100vh-8rem)] flex flex-col">
       <div className="flex items-center justify-between mb-4 gap-4">
         <div className="flex items-center gap-4 flex-1">
-          {/* Workspace Mode Switcher */}
-          <Tabs
-            value={workspaceMode}
-            onValueChange={value => setWorkspaceMode(value as 'coding' | 'stories')}
-            className="w-auto"
-          >
-            <TabsList className="h-9">
-              <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
-                <FileCode className="w-4 h-4" />
-                代码工作区
-              </TabsTrigger>
-              <TabsTrigger value="stories" className="flex items-center gap-2 text-sm">
-                <Users className="w-4 h-4" />
-                用户故事
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
           {/* Project Selector */}
           {projects.length > 1 && (
             <Select value={projectId} onValueChange={value => navigate(`/coding/${value}`)}>
@@ -1332,6 +1314,24 @@ export function CodingWorkspace() {
               </SelectContent>
             </Select>
           )}
+
+          {/* Workspace Mode Switcher */}
+          <Tabs
+            value={workspaceMode}
+            onValueChange={value => setWorkspaceMode(value as 'coding' | 'stories')}
+            className="w-auto"
+          >
+            <TabsList className="h-9">
+              <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
+                <FileCode className="w-4 h-4" />
+                代码工作区
+              </TabsTrigger>
+              <TabsTrigger value="stories" className="flex items-center gap-2 text-sm">
+                <Users className="w-4 h-4" />
+                用户故事
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="flex gap-2">
