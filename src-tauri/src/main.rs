@@ -168,6 +168,9 @@ fn main() {
             // User Story Decomposition commands (US-XXX)
             commands::quality::decompose_user_stories,
             commands::quality::decompose_user_stories_streaming,
+            // User Story Persistence commands
+            commands::quality::save_user_stories,
+            commands::quality::get_user_stories,
             // Streaming Output commands (US-048)
             commands::ai::stream_generate_prd,
             // User Preference commands (US-055)

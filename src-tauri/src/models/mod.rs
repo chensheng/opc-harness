@@ -255,3 +255,76 @@ pub struct Issue {
     /// 更新时间
     pub updated_at: String,
 }
+
+/// 用户故事
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserStory {
+    /// 故事 ID
+    pub id: String,
+    /// 所属项目 ID
+    pub project_id: String,
+    /// 故事编号 (如 US-001)
+    pub story_number: String,
+    /// 标题
+    pub title: String,
+    /// 角色
+    pub role: String,
+    /// 功能
+    pub feature: String,
+    /// 价值
+    pub benefit: String,
+    /// 描述 (As a... I want... So that...)
+    pub description: String,
+    /// 验收标准 (JSON数组)
+    pub acceptance_criteria: String,
+    /// 优先级: P0/P1/P2/P3
+    pub priority: String,
+    /// 故事点
+    pub story_points: i32,
+    /// 状态: draft/backlog/in_progress/done
+    pub status: String,
+    /// 模块/史诗
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epic: Option<String>,
+    /// 标签 (JSON数组)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<String>,
+    /// 依赖关系 (JSON数组)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependencies: Option<String>,
+    /// 创建时间
+    pub created_at: String,
+    /// 更新时间
+    pub updated_at: String,
+}
+
+impl Entity for UserStory {
+    fn table_name() -> &'static str { "user_stories" }
+    
+    fn primary_key() -> &'static str { "id" }
+    
+    fn get_primary_key(&self) -> &str { &self.id }
+    
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(UserStory {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            story_number: row.get(2)?,
+            title: row.get(3)?,
+            role: row.get(4)?,
+            feature: row.get(5)?,
+            benefit: row.get(6)?,
+            description: row.get(7)?,
+            acceptance_criteria: row.get(8)?,
+            priority: row.get(9)?,
+            story_points: row.get(10)?,
+            status: row.get(11)?,
+            epic: row.get(12)?,
+            labels: row.get(13)?,
+            dependencies: row.get(14)?,
+            created_at: row.get(15)?,
+            updated_at: row.get(16)?,
+        })
+    }
+}

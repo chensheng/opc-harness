@@ -148,6 +148,49 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
+    // Create user_stories table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_stories (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            story_number TEXT NOT NULL,
+            title TEXT NOT NULL,
+            role TEXT NOT NULL,
+            feature TEXT NOT NULL,
+            benefit TEXT NOT NULL,
+            description TEXT NOT NULL,
+            acceptance_criteria TEXT NOT NULL,
+            priority TEXT NOT NULL DEFAULT 'P2',
+            story_points INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'draft',
+            epic TEXT,
+            labels TEXT,
+            dependencies TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Create indexes for user_stories table
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_stories_project_id ON user_stories(project_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_stories_status ON user_stories(status)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_stories_priority ON user_stories(priority)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_stories_story_number ON user_stories(story_number)",
+        [],
+    )?;
+
     Ok(())
 }
 
@@ -779,6 +822,124 @@ pub fn update_issue(conn: &Connection, issue: &Issue) -> Result<()> {
 /// 删除 Issue
 pub fn delete_issue(conn: &Connection, id: &str) -> Result<()> {
     conn.execute("DELETE FROM issues WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+// ==================== User Story CRUD ====================
+
+use crate::models::UserStory;
+
+/// 批量创建或更新用户故事（Upsert）
+pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserStory]) -> Result<()> {
+    // 使用事务确保原子性
+    let tx = conn.unchecked_transaction()?;
+    
+    // 先删除该项目的旧故事
+    tx.execute(
+        "DELETE FROM user_stories WHERE project_id = ?1",
+        [project_id],
+    )?;
+
+    // 批量插入新故事
+    for story in stories {
+        tx.execute(
+            "INSERT INTO user_stories (
+                id, project_id, story_number, title, role, feature, benefit, 
+                description, acceptance_criteria, priority, story_points, status,
+                epic, labels, dependencies, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            rusqlite::params![
+                story.id,
+                story.project_id,
+                story.story_number,
+                story.title,
+                story.role,
+                story.feature,
+                story.benefit,
+                story.description,
+                story.acceptance_criteria,
+                story.priority,
+                story.story_points,
+                story.status,
+                story.epic,
+                story.labels,
+                story.dependencies,
+                story.created_at,
+                story.updated_at
+            ],
+        )?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+/// 获取项目的所有用户故事
+pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Result<Vec<UserStory>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM user_stories WHERE project_id = ?1 ORDER BY story_number ASC"
+    )?;
+    
+    let stories = stmt.query_map([project_id], |row| {
+        UserStory::from_row(row)
+    })?;
+
+    let mut result = Vec::new();
+    for story_result in stories {
+        result.push(story_result?);
+    }
+
+    Ok(result)
+}
+
+/// 更新单个用户故事
+pub fn update_user_story(conn: &Connection, story: &UserStory) -> Result<()> {
+    conn.execute(
+        "UPDATE user_stories SET
+            story_number = ?1,
+            title = ?2,
+            role = ?3,
+            feature = ?4,
+            benefit = ?5,
+            description = ?6,
+            acceptance_criteria = ?7,
+            priority = ?8,
+            story_points = ?9,
+            status = ?10,
+            epic = ?11,
+            labels = ?12,
+            dependencies = ?13,
+            updated_at = ?14
+        WHERE id = ?15",
+        rusqlite::params![
+            story.story_number,
+            story.title,
+            story.role,
+            story.feature,
+            story.benefit,
+            story.description,
+            story.acceptance_criteria,
+            story.priority,
+            story.story_points,
+            story.status,
+            story.epic,
+            story.labels,
+            story.dependencies,
+            story.updated_at,
+            story.id
+        ],
+    )?;
+
+    Ok(())
+}
+
+/// 删除单个用户故事
+pub fn delete_user_story(conn: &Connection, story_id: &str) -> Result<()> {
+    conn.execute(
+        "DELETE FROM user_stories WHERE id = ?1",
+        [story_id],
+    )?;
+
     Ok(())
 }
 

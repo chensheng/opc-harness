@@ -22,9 +22,11 @@ import {
   MessageSquare,
   Loader2,
 } from 'lucide-react'
+import type { UserStory } from '@/types'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
 import { useUserStoryStream } from '@/hooks/useUserStoryStream'
-import type { UserStory } from '@/types'
+import { useProjectStore } from '@/stores/projectStore'
+import { useUserStoryStore } from '@/stores/userStoryStore'
 
 // PRD 预览的自定义 Markdown 组件
 const PRDPreviewComponents = {
@@ -155,10 +157,31 @@ export function UserStoryManager({
     reset: _reset,
   } = useUserStoryDecomposition()
 
-  // 优先使用流式的用户故事
+  // 获取当前项目ID和用户故事Store
+  const currentProjectId = useProjectStore(state => state.currentProjectId)
+  const loadProjectStories = useUserStoryStore(state => state.loadProjectStories)
+  const getProjectStories = useUserStoryStore(state => state.getProjectStories)
+
+  // 从 Store 加载已保存的用户故事
+  const savedStories = currentProjectId ? getProjectStories(currentProjectId) : []
+
+  // 组件挂载时加载用户故事
+  React.useEffect(() => {
+    if (currentProjectId) {
+      console.log(`[UserStoryManager] Loading stories for project ${currentProjectId}`)
+      loadProjectStories(currentProjectId)
+    }
+  }, [currentProjectId, loadProjectStories])
+
+  // 优先使用流式的用户故事，否则使用保存的故事
   const displayLoading = isStreaming || _loading
   const displayError = streamError || _error
-  const displayStories = streamUserStories.length > 0 ? streamUserStories : _userStories
+  const displayStories =
+    streamUserStories.length > 0
+      ? streamUserStories
+      : _userStories.length > 0
+        ? _userStories
+        : savedStories
 
   // 调试日志：检查接收到的 PRD 内容
   React.useEffect(() => {
