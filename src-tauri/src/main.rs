@@ -167,6 +167,7 @@ fn main() {
             commands::quality::rollback_to_version,
             // User Story Decomposition commands (US-XXX)
             commands::quality::decompose_user_stories,
+            commands::quality::decompose_user_stories_streaming,
             // Streaming Output commands (US-048)
             commands::ai::stream_generate_prd,
             // User Preference commands (US-055)

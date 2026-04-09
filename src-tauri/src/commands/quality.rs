@@ -12,6 +12,7 @@ use crate::quality::prd_checker::{PRDDocument as QualityPRDDocument, PRDQualityC
 use crate::quality::prd_deep_analyzer::{PrdDeepAnalyzer, PrdAnalysis};
 use crate::quality::task_decomposer::{TaskDecomposer, TaskDependencyGraph};
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;  // 用于事件发射
 
 /// PRD 一致性检查请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -910,6 +911,101 @@ pub async fn decompose_user_stories(
     }
 }
 
+/// 分解用户故事(流式版本)
+#[tauri::command]
+pub async fn decompose_user_stories_streaming(
+    request: DecomposeUserStoriesRequest,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    use uuid::Uuid;
+    
+    let session_id = Uuid::new_v4().to_string();
+    
+    log::info!("Starting streaming user story decomposition (provider: {}, model: {})", 
+               request.provider, request.model);
+    
+    // 1. 创建 AI Provider
+    let provider_type = match request.provider.as_str() {
+        "openai" => crate::ai::AIProviderType::OpenAI,
+        "anthropic" => crate::ai::AIProviderType::Anthropic,
+        "kimi" => crate::ai::AIProviderType::Kimi,
+        "glm" => crate::ai::AIProviderType::GLM,
+        "minimax" => crate::ai::AIProviderType::MiniMax,
+        _ => return Err(format!("不支持的 AI 提供商：{}", request.provider)),
+    };
+    
+    let api_key = request.api_key.ok_or_else(|| "未提供 API Key".to_string())?;
+    let provider = crate::ai::AIProvider::new(provider_type, api_key);
+    
+    // 2. 生成提示词
+    let prompt = crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt(&request.prd_content);
+    
+    // 3. 构建聊天请求（流式模式）
+    let chat_request = crate::ai::ChatRequest {
+        model: request.model,
+        messages: vec![
+            crate::ai::Message {
+                role: "system".to_string(),
+                content: "你是一位经验丰富的敏捷开发专家和产品经理。请严格按照要求的 Markdown 表格格式输出用户故事列表。".to_string(),
+            },
+            crate::ai::Message {
+                role: "user".to_string(),
+                content: prompt,
+            },
+        ],
+        temperature: Some(0.7),
+        max_tokens: Some(4096),
+        stream: true,
+    };
+    
+    // 4. 创建会话感知的 chunk 处理器
+    let session_id_clone = session_id.clone();
+    let app_clone = app.clone();
+    
+    let chunk_handler = move |chunk: String| -> Result<(), crate::ai::AIError> {
+        let stream_chunk = crate::ai::StreamChunk {
+            session_id: session_id_clone.clone(),
+            content: chunk.clone(),
+            is_complete: false,
+        };
+        
+        // 发送用户故事流式 chunk 事件
+        app_clone
+            .emit("user-story-stream-chunk", stream_chunk)
+            .map_err(|e| crate::ai::AIError {
+                message: e.to_string(),
+            })?;
+        
+        Ok(())
+    };
+    
+    // 5. 执行流式请求
+    match provider.stream_chat(chat_request, chunk_handler).await {
+        Ok(final_content) => {
+            // 发送完成事件
+            let complete_data = crate::ai::StreamComplete {
+                session_id: session_id.clone(),
+                content: final_content.clone(),
+            };
+            let _ = app.emit("user-story-stream-complete", complete_data);
+            
+            log::info!("Streaming user story decomposition completed");
+            Ok(final_content)
+        }
+        Err(e) => {
+            // 发送错误事件
+            let error_data = crate::ai::StreamError {
+                session_id: session_id.clone(),
+                error: e.to_string(),
+            };
+            let _ = app.emit("user-story-stream-error", error_data);
+            
+            log::error!("Streaming user story decomposition failed: {}", e);
+            Err(e.to_string())
+        }
+    }
+}
+
 /// 使用 AI 进行用户故事拆分
 async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, api_key: Option<&str>) -> Result<Vec<UserStory>, String> {
     use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
@@ -1283,8 +1379,8 @@ fn convert_table_row_to_story(headers: &[String], cells: &[String], index: usize
         dependencies,
         feature_module: Some(feature_module),
         labels,
-        created_at: "".to_string(),  // 将在上层补充
-        updated_at: "".to_string(),  // 将在上层补充
+        created_at: "".to_string(),
+        updated_at: "".to_string(),
     })
 }
 

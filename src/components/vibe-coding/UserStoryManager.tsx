@@ -20,8 +20,10 @@ import {
   Edit2,
   Trash2,
   MessageSquare,
+  Loader2,
 } from 'lucide-react'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
+import { useUserStoryStream } from '@/hooks/useUserStoryStream'
 import type { UserStory } from '@/types'
 
 // PRD 预览的自定义 Markdown 组件
@@ -126,13 +128,37 @@ const statusIcons: Record<string, React.ReactNode> = {
  */
 export function UserStoryManager({
   prdContent,
-  apiKey,
+  apiKey: _apiKey, // 保留参数用于未来扩展,当前从 AI 配置 Store 自动获取
   onStoriesGenerated,
 }: UserStoryManagerProps) {
   const [prompt, setPrompt] = useState('')
   const [activeTab, setActiveTab] = useState<'input' | 'stories'>('input')
+  const [showStreamingView, setShowStreamingView] = useState(false)
 
-  const { userStories, loading, error, decompose, reset } = useUserStoryDecomposition()
+  // 使用流式 Hook
+  const {
+    markdownContent,
+    userStories: streamUserStories,
+    isStreaming,
+    isComplete,
+    error: streamError,
+    startStream,
+    reset: resetStream,
+  } = useUserStoryStream()
+
+  // 使用非流式 Hook (作为后备)
+  const {
+    userStories: _userStories,
+    loading: _loading,
+    error: _error,
+    decompose: _decompose,
+    reset: _reset,
+  } = useUserStoryDecomposition()
+
+  // 优先使用流式的用户故事
+  const displayLoading = isStreaming || _loading
+  const displayError = streamError || _error
+  const displayStories = streamUserStories.length > 0 ? streamUserStories : _userStories
 
   // 调试日志：检查接收到的 PRD 内容
   React.useEffect(() => {
@@ -157,25 +183,46 @@ export function UserStoryManager({
     // 组合 PRD 内容和用户提示词
     const fullContent = prompt.trim() ? `${prdContent}\n\n---\n\n用户要求：${prompt}` : prdContent
 
-    const stories = await decompose(fullContent, apiKey)
+    // 从 AI 配置 Store 获取配置
+    const { useAIConfigStore } = await import('@/stores/aiConfigStore')
+    const store = useAIConfigStore.getState()
+    const activeConfig = store.getActiveConfig()
 
-    if (stories && stories.length > 0 && onStoriesGenerated) {
-      onStoriesGenerated(stories)
+    if (!activeConfig?.apiKey) {
+      alert('未配置 AI API Key，请先在设置中配置')
+      return
     }
 
-    setActiveTab('stories')
+    // 显示流式视图
+    setShowStreamingView(true)
+
+    // 开始流式拆分
+    await startStream({
+      prdContent: fullContent,
+      provider: activeConfig.provider,
+      model: activeConfig.model,
+      apiKey: activeConfig.apiKey,
+    })
+
+    // 完成后切换到故事 Tab
+    if (isComplete && streamUserStories.length > 0 && onStoriesGenerated) {
+      onStoriesGenerated(streamUserStories)
+      setActiveTab('stories')
+    }
   }
 
   const handleReset = () => {
-    reset()
+    _reset()
+    resetStream()
+    setShowStreamingView(false)
     setActiveTab('input')
   }
 
   const getStoryStats = () => {
-    const stories = userStories || []
+    const stories = _userStories || []
     const total = stories.length
-    const p0 = stories.filter(s => s.priority === 'P0').length
-    const p1 = stories.filter(s => s.priority === 'P1').length
+    const p0 = stories.filter((s: UserStory) => s.priority === 'P0').length
+    const p1 = stories.filter((s: UserStory) => s.priority === 'P1').length
     const avgPoints = stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0) / total || 0
 
     return { total, p0, p1, avgPoints }
@@ -194,7 +241,7 @@ export function UserStoryManager({
             通过 AI 将 PRD 拆分为符合 INVEST 原则的用户故事
           </p>
         </div>
-        {userStories && userStories.length > 0 && (
+        {_userStories && _userStories.length > 0 && (
           <Button variant="outline" onClick={handleReset}>
             重新拆分
           </Button>
@@ -207,9 +254,9 @@ export function UserStoryManager({
             <FileText className="w-4 h-4 mr-2" />
             拆分配置
           </TabsTrigger>
-          <TabsTrigger value="stories" disabled={!userStories || userStories.length === 0}>
-            <Target className="w-4 h-4 mr-2" />
-            用户故事 ({userStories?.length || 0})
+          <TabsTrigger value="stories" disabled={!_userStories || _userStories.length === 0}>
+            <FileText className="w-4 h-4" />
+            用户故事 ({_userStories?.length || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -263,20 +310,54 @@ export function UserStoryManager({
                 className="min-h-[150px]"
               />
 
-              {error && (
+              {displayError && (
                 <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
                   <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-                  <div className="text-sm text-red-700 dark:text-red-400">{error}</div>
+                  <div className="text-sm text-red-700 dark:text-red-400">{displayError}</div>
                 </div>
+              )}
+
+              {/* 流式响应实时显示 */}
+              {showStreamingView && isStreaming && (
+                <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      AI 正在生成用户故事...
+                    </CardTitle>
+                    <CardDescription>实时查看 AI 拆分的用户故事内容</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-background/50">
+                      {markdownContent ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={PRDPreviewComponents}
+                          >
+                            {markdownContent}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          <div className="text-center space-y-2">
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                            <p className="text-sm">正在连接 AI...</p>
+                          </div>
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
               )}
 
               <Button
                 onClick={handleDecompose}
-                disabled={!prdContent || loading}
+                disabled={!prdContent || displayLoading}
                 className="w-full"
                 size="lg"
               >
-                {loading ? (
+                {displayLoading ? (
                   <>
                     <Sparkles className="w-5 h-5 mr-2 animate-spin" />
                     AI 正在拆分中...
@@ -304,7 +385,7 @@ export function UserStoryManager({
 
         {/* Stories Tab */}
         <TabsContent value="stories">
-          {userStories && userStories.length > 0 && (
+          {displayStories && displayStories.length > 0 && (
             <div className="space-y-4">
               {/* Statistics */}
               <div className="grid grid-cols-4 gap-4">
@@ -337,7 +418,7 @@ export function UserStoryManager({
               {/* Story List */}
               <ScrollArea className="h-[600px]">
                 <div className="space-y-3">
-                  {userStories?.map(story => (
+                  {_userStories?.map((story: UserStory) => (
                     <UserStoryCard key={story.id} story={story} />
                   ))}
                 </div>
