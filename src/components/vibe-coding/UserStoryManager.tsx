@@ -142,7 +142,7 @@ export function UserStoryManager({
     markdownContent,
     userStories: streamUserStories,
     isStreaming,
-    isComplete,
+    isComplete: _isComplete,
     error: streamError,
     startStream,
     reset: resetStream,
@@ -170,22 +170,9 @@ export function UserStoryManager({
   // 组件挂载时加载用户故事
   React.useEffect(() => {
     if (currentProjectId) {
-      console.log(
-        `🔍 [UserStoryManager] Component mounted, loading stories for project ${currentProjectId}`
-      )
       loadProjectStories(currentProjectId)
-    } else {
-      console.warn('⚠️ [UserStoryManager] No currentProjectId, skipping story load')
     }
   }, [currentProjectId, loadProjectStories])
-
-  // 监听savedStories变化
-  React.useEffect(() => {
-    console.log(`📊 [UserStoryManager] savedStories updated: ${savedStories.length} stories`)
-    if (savedStories.length > 0) {
-      console.log(`   First: ${savedStories[0].storyNumber} - ${savedStories[0].title}`)
-    }
-  }, [savedStories])
 
   // 优先使用流式的用户故事，否则使用保存的故事
   const displayLoading = isStreaming || _loading
@@ -243,7 +230,6 @@ export function UserStoryManager({
       },
       stories => {
         // 流式完成后自动调用保存回调
-        console.log(`[UserStoryManager] Stream completed, calling onStoriesGenerated with ${stories.length} stories`)
         if (onStoriesGenerated) {
           onStoriesGenerated(stories)
         }

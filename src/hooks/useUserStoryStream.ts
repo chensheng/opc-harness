@@ -138,7 +138,10 @@ export interface UseUserStoryStreamReturn {
   isComplete: boolean
   error: string | null
   sessionId: string | null
-  startStream: (request: UserStoryStreamRequest, onComplete?: (stories: UserStory[]) => void) => Promise<void>
+  startStream: (
+    request: UserStoryStreamRequest,
+    onComplete?: (stories: UserStory[]) => void
+  ) => Promise<void>
   stopStream: () => void
   reset: () => void
 }

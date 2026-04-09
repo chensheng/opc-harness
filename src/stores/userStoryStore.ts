@@ -3,6 +3,26 @@ import { immer } from 'zustand/middleware/immer'
 import { invoke } from '@tauri-apps/api/core'
 import type { UserStory } from '@/types'
 
+// 后端返回的 snake_case 格式的用户故事类型
+interface BackendUserStory {
+  id: string
+  story_number: string
+  title: string
+  role: string
+  feature: string
+  benefit: string
+  description: string
+  acceptance_criteria: string[]
+  priority: 'P0' | 'P1' | 'P2' | 'P3'
+  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed'
+  story_points?: number
+  dependencies: string[]
+  feature_module?: string
+  labels: string[]
+  created_at: string
+  updated_at: string
+}
+
 interface UserStoryState {
   // 按项目ID存储用户故事
   storiesByProject: Record<string, UserStory[]>
@@ -44,24 +64,24 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
         console.log('   Timestamp:', new Date().toISOString())
         console.log(`   Project ID: ${projectId}`)
         console.log('='.repeat(80))
-        
+
         set({ isLoading: true })
 
         console.log('   Invoking Rust backend get_user_stories command...')
-        const response = await invoke<{ success: boolean; user_stories: UserStory[] }>(
+        const response = await invoke<{ success: boolean; user_stories: BackendUserStory[] }>(
           'get_user_stories',
           {
             request: { project_id: projectId },
           }
         )
-        
+
         console.log('\n📥 [UserStoryStore] Received response from Rust backend')
         console.log('   Response success:', response.success)
         console.log('   Response user_stories count:', response.user_stories?.length || 0)
         if (response.user_stories && response.user_stories.length > 0) {
           console.log('   First loaded story:', {
             id: response.user_stories[0].id,
-            storyNumber: response.user_stories[0].storyNumber,
+            storyNumber: response.user_stories[0].story_number,
             title: response.user_stories[0].title,
           })
         }
@@ -69,7 +89,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
         if (response.success) {
           console.log('   Converting stories from snake_case to camelCase...')
           // 将 Rust 后端的 snake_case UserStory 转换为前端的 camelCase 格式
-          const frontendStories: UserStory[] = response.user_stories.map((story: any) => ({
+          const frontendStories = response.user_stories.map(story => ({
             id: story.id,
             storyNumber: story.story_number,
             title: story.title,
@@ -86,8 +106,8 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             labels: story.labels,
             createdAt: story.created_at,
             updatedAt: story.updated_at,
-          }))
-          
+          })) as UserStory[]
+
           console.log('   Updating local store state...')
           set(state => {
             state.storiesByProject[projectId] = frontendStories
@@ -130,9 +150,9 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
           })
         }
         console.log('='.repeat(80))
-        
+
         set({ isLoading: true })
-        
+
         // 将前端的 camelCase UserStory 转换为 Rust 后端期望的 snake_case 格式
         const rustStories = stories.map(story => ({
           id: story.id,
@@ -152,7 +172,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
           created_at: story.createdAt,
           updated_at: story.updatedAt,
         }))
-        
+
         console.log('   Converted stories to snake_case format for Rust backend')
         console.log('   Invoking Rust backend save_user_stories command...')
         const response = await invoke<{ success: boolean; count: number }>('save_user_stories', {
@@ -161,12 +181,14 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             user_stories: rustStories,
           },
         })
-        
+
         console.log('\n📥 [UserStoryStore] Received response from Rust backend')
         console.log('   Response:', response)
-        
+
         if (response.success) {
-          console.log(`✅ [UserStoryStore] Backend reported success: saved ${response.count} stories`)
+          console.log(
+            `✅ [UserStoryStore] Backend reported success: saved ${response.count} stories`
+          )
         } else {
           console.error(`❌ [UserStoryStore] Backend reported failure`)
         }
