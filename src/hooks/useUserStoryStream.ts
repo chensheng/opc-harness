@@ -138,7 +138,7 @@ export interface UseUserStoryStreamReturn {
   isComplete: boolean
   error: string | null
   sessionId: string | null
-  startStream: (request: UserStoryStreamRequest) => Promise<void>
+  startStream: (request: UserStoryStreamRequest, onComplete?: (stories: UserStory[]) => void) => Promise<void>
   stopStream: () => void
   reset: () => void
 }
@@ -162,7 +162,7 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
   }, [])
 
   const startStream = useCallback(
-    async (request: UserStoryStreamRequest) => {
+    async (request: UserStoryStreamRequest, onComplete?: (stories: UserStory[]) => void) => {
       // 清理之前的事件监听
       cleanup()
 
@@ -205,6 +205,12 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
             console.log(
               `[useUserStoryStream] Stream completed with ${parsedStories.length} user stories`
             )
+
+            // 调用完成回调（如果提供）
+            if (onComplete && parsedStories.length > 0) {
+              console.log('[useUserStoryStream] Calling onComplete callback')
+              onComplete(parsedStories)
+            }
 
             cleanup()
           }

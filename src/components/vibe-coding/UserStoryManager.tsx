@@ -233,19 +233,23 @@ export function UserStoryManager({
     // 显示流式视图
     setShowStreamingView(true)
 
-    // 开始流式拆分
-    await startStream({
-      prdContent: fullContent,
-      provider: activeConfig.provider,
-      model: activeConfig.model,
-      apiKey: activeConfig.apiKey,
-    })
-
-    // 完成后切换到故事 Tab
-    if (isComplete && streamUserStories.length > 0 && onStoriesGenerated) {
-      onStoriesGenerated(streamUserStories)
-      setActiveTab('stories')
-    }
+    // 开始流式拆分，并在完成后自动保存
+    await startStream(
+      {
+        prdContent: fullContent,
+        provider: activeConfig.provider,
+        model: activeConfig.model,
+        apiKey: activeConfig.apiKey,
+      },
+      stories => {
+        // 流式完成后自动调用保存回调
+        console.log(`[UserStoryManager] Stream completed, calling onStoriesGenerated with ${stories.length} stories`)
+        if (onStoriesGenerated) {
+          onStoriesGenerated(stories)
+        }
+        setActiveTab('stories')
+      }
+    )
   }
 
   const handleReset = () => {

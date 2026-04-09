@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useProjectStore } from '@/stores'
+import { useUserStoryStore } from '@/stores/userStoryStore'
 import type { FileNode, CLIOutputLine } from '@/types'
 import { FileExplorer } from './FileExplorer'
 import { UserStoryManager } from './UserStoryManager'
@@ -1118,7 +1119,15 @@ export function InitializerWorkflow() {
 export function CodingWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { getProjectById, updateProjectStatus, updateProjectProgress, projects } = useProjectStore()
+  const { getProjectById, updateProjectStatus, updateProjectProgress, projects, setCurrentProject } = useProjectStore()
+
+  // 当 projectId 变化时，设置当前项目ID
+  useEffect(() => {
+    if (projectId) {
+      console.log(`🔧 [CodingWorkspace] Setting current project ID: ${projectId}`)
+      setCurrentProject(projectId)
+    }
+  }, [projectId, setCurrentProject])
 
   const [fileTree, setFileTree] = useState<FileNode[]>(mockFileTree)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -1205,10 +1214,76 @@ export function CodingWorkspace() {
   }
 
   const handleStoriesGenerated = useCallback((stories: UserStory[]) => {
-    console.log(`生成了 ${stories.length} 个用户故事`)
-    // TODO: 可以将故事保存到项目状态或后端
-    // 这里可以添加通知或其他业务逻辑
-  }, [])
+    console.log('='.repeat(80))
+    console.log('📝 [CodingWorkspace] handleStoriesGenerated CALLED')
+    console.log('   Timestamp:', new Date().toISOString())
+    console.log(`   Stories count: ${stories.length}`)
+    console.log('   ProjectId:', projectId)
+    if (stories.length > 0) {
+      console.log('   First story:', {
+        id: stories[0].id,
+        storyNumber: stories[0].storyNumber,
+        title: stories[0].title,
+      })
+      console.log('   Last story:', {
+        id: stories[stories.length - 1].id,
+        storyNumber: stories[stories.length - 1].storyNumber,
+        title: stories[stories.length - 1].title,
+      })
+    }
+    console.log('='.repeat(80))
+    
+    // 保存用户故事到数据库
+    if (projectId && stories.length > 0) {
+      console.log('\n💾 [CodingWorkspace] STARTING SAVE TO DATABASE')
+      console.log(`   Project ID: ${projectId}`)
+      console.log(`   Stories to save: ${stories.length}`)
+      
+      // 使用 useUserStoryStore 的 setProjectStories 方法
+      const userStoryStore = useUserStoryStore.getState()
+      console.log('   Got userStoryStore instance')
+      console.log('   Calling setProjectStories...')
+      
+      userStoryStore.setProjectStories(projectId, stories)
+        .then(() => {
+          console.log('\n✅ [CodingWorkspace] SAVE COMPLETED SUCCESSFULLY')
+          console.log(`   Successfully saved ${stories.length} user stories to database`)
+          
+          // 重新加载以确认保存成功
+          console.log('   Reloading stories from database to verify...')
+          return userStoryStore.loadProjectStories(projectId)
+        })
+        .then(() => {
+          const loadedStories = userStoryStore.getProjectStories(projectId)
+          console.log('\n✅ [CodingWorkspace] VERIFICATION COMPLETED')
+          console.log(`   Loaded ${loadedStories.length} stories from database after save`)
+          if (loadedStories.length > 0) {
+            console.log('   First loaded story:', {
+              id: loadedStories[0].id,
+              storyNumber: loadedStories[0].storyNumber,
+              title: loadedStories[0].title,
+            })
+          }
+          console.log('='.repeat(80))
+        })
+        .catch(error => {
+          console.error('\n❌ [CodingWorkspace] SAVE FAILED')
+          console.error('   Error message:', error.message || error)
+          console.error('   Error stack:', error.stack)
+          console.error('='.repeat(80))
+        })
+    } else {
+      console.warn('\n⚠️ [CodingWorkspace] SKIP SAVE')
+      if (!projectId) {
+        console.warn('   Reason: No projectId available')
+        console.warn('   Current projectId:', projectId)
+      }
+      if (stories.length === 0) {
+        console.warn('   Reason: No stories to save')
+      }
+      console.log('='.repeat(80))
+    }
+  }, [projectId])
 
   /**
    * 将 PRD 对象转换为 Markdown 字符串
