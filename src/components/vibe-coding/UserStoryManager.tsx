@@ -219,7 +219,7 @@ export function UserStoryManager({
   }
 
   const getStoryStats = () => {
-    const stories = _userStories || []
+    const stories = displayStories || []
     const total = stories.length
     const p0 = stories.filter((s: UserStory) => s.priority === 'P0').length
     const p1 = stories.filter((s: UserStory) => s.priority === 'P1').length
@@ -241,7 +241,7 @@ export function UserStoryManager({
             通过 AI 将 PRD 拆分为符合 INVEST 原则的用户故事
           </p>
         </div>
-        {_userStories && _userStories.length > 0 && (
+        {displayStories.length > 0 && (
           <Button variant="outline" onClick={handleReset}>
             重新拆分
           </Button>
@@ -254,9 +254,9 @@ export function UserStoryManager({
             <FileText className="w-4 h-4 mr-2" />
             拆分配置
           </TabsTrigger>
-          <TabsTrigger value="stories" disabled={!_userStories || _userStories.length === 0}>
+          <TabsTrigger value="stories" disabled={!displayStories || displayStories.length === 0}>
             <FileText className="w-4 h-4" />
-            用户故事 ({_userStories?.length || 0})
+            用户故事 ({displayStories?.length || 0})
           </TabsTrigger>
         </TabsList>
 
