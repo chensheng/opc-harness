@@ -3,6 +3,127 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type { UserStory } from '@/types'
 
+/**
+ * 从 Markdown 表格解析用户故事数组
+ * @param markdownContent AI返回的Markdown表格内容
+ * @returns 解析后的UserStory数组
+ */
+function parseUserStoriesFromMarkdown(markdownContent: string): UserStory[] {
+  const userStories: UserStory[] = []
+
+  try {
+    // 提取表格行
+    const lines = markdownContent.split('\n')
+    const tableRows: string[] = []
+    let inTable = false
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+
+      // 检测表格开始(以|开头)
+      if (trimmed.startsWith('|') && !inTable) {
+        inTable = true
+      }
+
+      if (inTable && trimmed.startsWith('|')) {
+        // 跳过分隔线(如 |---|---|)
+        if (trimmed.match(/^\|[\s\-:|]+\|$/)) {
+          continue
+        }
+        tableRows.push(trimmed)
+      } else if (inTable && !trimmed.startsWith('|')) {
+        // 表格结束
+        break
+      }
+    }
+
+    // 解析每一行(跳过表头)
+    for (let i = 1; i < tableRows.length; i++) {
+      const row = tableRows[i]
+      const cells = row
+        .split('|')
+        .map(cell => cell.trim())
+        .filter((_, index) => index > 0 && index < row.split('|').length)
+
+      if (cells.length < 10) continue // 至少需要10列
+
+      // 映射表格列到UserStory字段
+      // 表格格式: 序号 | 标题 | 角色 | 功能 | 价值 | 优先级 | 故事点 | 验收标准 | 模块 | 标签 | 依赖
+      const [
+        storyNumber,
+        title,
+        role,
+        feature,
+        benefit,
+        priority,
+        storyPointsStr,
+        acceptanceCriteriaStr,
+        featureModule,
+        labelsStr,
+        dependenciesStr,
+      ] = cells
+
+      // 解析验收标准(分号分隔)
+      const acceptanceCriteria = acceptanceCriteriaStr
+        ? acceptanceCriteriaStr
+            .split(/[;；]/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : []
+
+      // 解析标签(逗号分隔)
+      const labels = labelsStr
+        ? labelsStr
+            .split(/[,，]/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : []
+
+      // 解析依赖
+      const dependencies =
+        dependenciesStr && dependenciesStr !== '无'
+          ? dependenciesStr
+              .split(/[,，]/)
+              .map(s => s.trim())
+              .filter(s => s.length > 0)
+          : []
+
+      // 解析故事点
+      const storyPoints = storyPointsStr ? parseInt(storyPointsStr, 10) : undefined
+
+      // 构建UserStory对象
+      const userStory: UserStory = {
+        id: `us-${Date.now()}-${i}`,
+        storyNumber: storyNumber || `US-${String(i).padStart(3, '0')}`,
+        title: title || '未命名故事',
+        description: `As a ${role}, I want ${feature}, so that ${benefit}`,
+        role: role || '',
+        feature: feature || '',
+        benefit: benefit || '',
+        acceptanceCriteria,
+        priority: (priority as 'P0' | 'P1' | 'P2' | 'P3') || 'P2',
+        status: 'draft',
+        storyPoints: isNaN(storyPoints || 0) ? undefined : storyPoints,
+        dependencies,
+        featureModule: featureModule || '',
+        labels,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      userStories.push(userStory)
+    }
+
+    console.log(
+      `[parseUserStoriesFromMarkdown] Parsed ${userStories.length} user stories from markdown`
+    )
+  } catch (error) {
+    console.error('[parseUserStoriesFromMarkdown] Error parsing markdown:', error)
+  }
+
+  return userStories
+}
+
 export interface UserStoryStreamRequest {
   prdContent: string
   provider: string
@@ -77,9 +198,13 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
             setIsStreaming(false)
             setMarkdownContent(content)
 
-            // TODO: 解析 Markdown 表格为用户故事数组
-            // 这里暂时设置空数组,后续需要实现解析逻辑
-            setUserStories([])
+            // 解析 Markdown 表格为用户故事数组
+            const parsedStories = parseUserStoriesFromMarkdown(content)
+            setUserStories(parsedStories)
+
+            console.log(
+              `[useUserStoryStream] Stream completed with ${parsedStories.length} user stories`
+            )
 
             cleanup()
           }
