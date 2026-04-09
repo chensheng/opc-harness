@@ -418,7 +418,7 @@ export function UserStoryManager({
               {/* Story List */}
               <ScrollArea className="h-[600px]">
                 <div className="space-y-3">
-                  {_userStories?.map((story: UserStory) => (
+                  {displayStories.map((story: UserStory) => (
                     <UserStoryCard key={story.id} story={story} />
                   ))}
                 </div>
