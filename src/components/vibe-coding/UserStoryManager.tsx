@@ -157,10 +157,10 @@ export function UserStoryManager({
     // 组合 PRD 内容和用户提示词
     const fullContent = prompt.trim() ? `${prdContent}\n\n---\n\n用户要求：${prompt}` : prdContent
 
-    await decompose(fullContent, apiKey)
+    const stories = await decompose(fullContent, apiKey)
 
-    if (userStories.length > 0 && onStoriesGenerated) {
-      onStoriesGenerated(userStories)
+    if (stories && stories.length > 0 && onStoriesGenerated) {
+      onStoriesGenerated(stories)
     }
 
     setActiveTab('stories')
@@ -172,10 +172,11 @@ export function UserStoryManager({
   }
 
   const getStoryStats = () => {
-    const total = userStories.length
-    const p0 = userStories.filter(s => s.priority === 'P0').length
-    const p1 = userStories.filter(s => s.priority === 'P1').length
-    const avgPoints = userStories.reduce((sum, s) => sum + (s.storyPoints || 0), 0) / total || 0
+    const stories = userStories || []
+    const total = stories.length
+    const p0 = stories.filter(s => s.priority === 'P0').length
+    const p1 = stories.filter(s => s.priority === 'P1').length
+    const avgPoints = stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0) / total || 0
 
     return { total, p0, p1, avgPoints }
   }
@@ -193,7 +194,7 @@ export function UserStoryManager({
             通过 AI 将 PRD 拆分为符合 INVEST 原则的用户故事
           </p>
         </div>
-        {userStories.length > 0 && (
+        {userStories && userStories.length > 0 && (
           <Button variant="outline" onClick={handleReset}>
             重新拆分
           </Button>
@@ -206,9 +207,9 @@ export function UserStoryManager({
             <FileText className="w-4 h-4 mr-2" />
             拆分配置
           </TabsTrigger>
-          <TabsTrigger value="stories" disabled={userStories.length === 0}>
+          <TabsTrigger value="stories" disabled={!userStories || userStories.length === 0}>
             <Target className="w-4 h-4 mr-2" />
-            用户故事 ({userStories.length})
+            用户故事 ({userStories?.length || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -303,7 +304,7 @@ export function UserStoryManager({
 
         {/* Stories Tab */}
         <TabsContent value="stories">
-          {userStories.length > 0 && (
+          {userStories && userStories.length > 0 && (
             <div className="space-y-4">
               {/* Statistics */}
               <div className="grid grid-cols-4 gap-4">
@@ -336,7 +337,7 @@ export function UserStoryManager({
               {/* Story List */}
               <ScrollArea className="h-[600px]">
                 <div className="space-y-3">
-                  {userStories.map(story => (
+                  {userStories?.map(story => (
                     <UserStoryCard key={story.id} story={story} />
                   ))}
                 </div>

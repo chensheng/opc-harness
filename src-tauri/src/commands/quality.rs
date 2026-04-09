@@ -846,8 +846,10 @@ pub struct UserStory {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecomposeUserStoriesRequest {
     /// PRD 内容或功能描述
+    #[serde(alias = "prdContent")]
     pub prd_content: String,
     /// 可选的 AI API Key
+    #[serde(alias = "apiKey")]
     pub api_key: Option<String>,
 }
 
