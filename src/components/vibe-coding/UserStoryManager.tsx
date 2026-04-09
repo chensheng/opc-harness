@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import React from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +23,77 @@ import {
 } from 'lucide-react'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
 import type { UserStory } from '@/types'
+
+// PRD 预览的自定义 Markdown 组件
+const PRDPreviewComponents = {
+  h1: ({ ...props }) => (
+    <h1
+      className="text-2xl font-bold mb-4 mt-6 pb-2 border-b border-border text-primary"
+      {...props}
+    />
+  ),
+  h2: ({ ...props }) => (
+    <h2
+      className="text-xl font-semibold mb-3 mt-5 pb-1 border-b border-border/50 text-foreground"
+      {...props}
+    />
+  ),
+  h3: ({ ...props }) => (
+    <h3 className="text-lg font-medium mb-2 mt-4 text-foreground/90" {...props} />
+  ),
+  p: ({ ...props }) => (
+    <p className="text-base leading-relaxed mb-3 text-foreground/90" {...props} />
+  ),
+  ul: ({ ...props }) => <ul className="list-disc list-outside pl-6 mb-3 space-y-1.5" {...props} />,
+  ol: ({ ...props }) => (
+    <ol className="list-decimal list-outside pl-6 mb-3 space-y-1.5" {...props} />
+  ),
+  li: ({ ...props }) => <li className="text-sm leading-relaxed text-foreground/85" {...props} />,
+  strong: ({ ...props }) => <strong className="font-semibold text-foreground" {...props} />,
+  em: ({ ...props }) => <em className="italic text-foreground/80" {...props} />,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  code: ({ inline, ...props }: any) =>
+    inline ? (
+      <code
+        className="bg-muted/80 px-1.5 py-0.5 rounded text-xs font-mono text-primary"
+        {...props}
+      />
+    ) : (
+      <code
+        className="block bg-muted p-2.5 rounded-md my-2 overflow-x-auto text-xs font-mono"
+        {...props}
+      />
+    ),
+  pre: ({ ...props }) => (
+    <pre
+      className="bg-muted/50 p-3 rounded-md my-3 overflow-x-auto border border-border/30"
+      {...props}
+    />
+  ),
+  blockquote: ({ ...props }) => (
+    <blockquote
+      className="border-l-4 border-primary/50 pl-4 py-2 my-3 bg-muted/20 italic text-foreground/75"
+      {...props}
+    />
+  ),
+  table: ({ ...props }) => (
+    <div className="overflow-x-auto my-6 first:mt-4 last:mb-4">
+      <table className="w-full border-collapse border border-border" {...props} />
+    </div>
+  ),
+  th: ({ ...props }) => (
+    <th
+      className="border border-border px-4 py-3 bg-muted/80 text-left font-semibold text-sm"
+      {...props}
+    />
+  ),
+  td: ({ ...props }) => (
+    <td className="border border-border px-4 py-3 text-left text-sm" {...props} />
+  ),
+  tr: ({ ...props }) => (
+    <tr className="even:bg-muted/30 hover:bg-muted/50 transition-colors" {...props} />
+  ),
+}
 
 interface UserStoryManagerProps {
   /** 项目 PRD 内容（必需） */
@@ -59,6 +133,25 @@ export function UserStoryManager({
   const [activeTab, setActiveTab] = useState<'input' | 'stories'>('input')
 
   const { userStories, loading, error, decompose, reset } = useUserStoryDecomposition()
+
+  // 调试日志：检查接收到的 PRD 内容
+  React.useEffect(() => {
+    if (prdContent) {
+      console.log('[UserStoryManager] Received PRD content:', {
+        length: prdContent.length,
+        hasTableSyntax: prdContent.includes('|'),
+        preview: prdContent.substring(0, 300),
+      })
+
+      // 如果包含表格，输出表格部分
+      if (prdContent.includes('|')) {
+        const tableMatch = prdContent.match(/\|.*\|[\s\S]*?\|[-|\s]+\|[\s\S]*?\|.*\|/m)
+        if (tableMatch) {
+          console.log('[UserStoryManager] Table content preview:', tableMatch[0].substring(0, 400))
+        }
+      }
+    }
+  }, [prdContent])
 
   const handleDecompose = async () => {
     // 组合 PRD 内容和用户提示词
@@ -131,10 +224,21 @@ export function UserStoryManager({
               <CardDescription>AI 将基于以下 PRD 内容拆分用户故事</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/30">
-                <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
-                  {prdContent || '暂无 PRD 内容'}
-                </pre>
+              <ScrollArea className="h-[400px] w-full rounded-md border p-6 bg-card">
+                {prdContent ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={PRDPreviewComponents}>
+                      {prdContent}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">暂无 PRD 内容</p>
+                    </div>
+                  </div>
+                )}
               </ScrollArea>
             </CardContent>
           </Card>

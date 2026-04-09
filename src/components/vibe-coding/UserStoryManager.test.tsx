@@ -38,7 +38,8 @@ describe('UserStoryManager', () => {
   it('displays PRD preview', () => {
     render(<UserStoryManager prdContent={mockPRD} />)
 
-    expect(screen.getByText(/任务管理系统/i)).toBeInTheDocument()
+    // 使用更具体的文本匹配，避免在多个元素中找到
+    expect(screen.getByText(/帮助用户高效管理日常工作/i)).toBeInTheDocument()
   })
 
   it('has prompt input field', () => {

@@ -1294,7 +1294,21 @@ export function CodingWorkspace() {
         title: project.prd.title,
         hasOverview: !!project.prd.overview,
         coreFeaturesCount: project.prd.coreFeatures?.length || 0,
+        // 输出前 500 字符以检查表格格式
+        markdownContentPreview: project.prd.markdownContent?.substring(0, 500),
+        // 检查是否包含表格语法
+        hasTableSyntax: project.prd.markdownContent?.includes('|') || false,
       })
+
+      // 如果包含表格，输出完整的表格部分
+      if (project.prd.markdownContent?.includes('|')) {
+        const tableMatch = project.prd.markdownContent.match(
+          /\|.*\|[\s\S]*?\|[-|\s]+\|[\s\S]*?\|.*\|/m
+        )
+        if (tableMatch) {
+          console.log('[CodingWorkspace] Table found in PRD:', tableMatch[0].substring(0, 300))
+        }
+      }
     } else {
       console.warn('[CodingWorkspace] No PRD found for project:', projectId)
     }
