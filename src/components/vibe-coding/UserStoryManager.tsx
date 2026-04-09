@@ -131,8 +131,10 @@ export function UserStoryManager({
               <CardDescription>AI 将基于以下 PRD 内容拆分用户故事</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                <pre className="text-sm whitespace-pre-wrap">{prdContent || '暂无 PRD 内容'}</pre>
+              <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/30">
+                <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
+                  {prdContent || '暂无 PRD 内容'}
+                </pre>
               </ScrollArea>
             </CardContent>
           </Card>

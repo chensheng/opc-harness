@@ -1216,6 +1216,12 @@ export function CodingWorkspace() {
   const prdToMarkdown = useCallback((prd: PRD | undefined): string => {
     if (!prd) return ''
 
+    // 优先使用完整的 Markdown 内容
+    if (prd.markdownContent && prd.markdownContent.trim().length > 0) {
+      return prd.markdownContent
+    }
+
+    // 如果没有 markdownContent，则从结构化字段生成
     let markdown = ''
 
     if (prd.title && prd.title.length > 0) {
@@ -1250,6 +1256,14 @@ export function CodingWorkspace() {
       markdown += '\n'
     }
 
+    if (prd.businessModel) {
+      markdown += `## 商业模式\n\n${prd.businessModel}\n\n`
+    }
+
+    if (prd.pricing) {
+      markdown += `## 定价策略\n\n${prd.pricing}\n\n`
+    }
+
     if (prd.estimatedEffort) {
       markdown += `## 预估工作量\n\n${prd.estimatedEffort}\n\n`
     }
@@ -1270,6 +1284,21 @@ export function CodingWorkspace() {
       ])
     }
   }
+
+  // 调试日志：检查 PRD 数据
+  useEffect(() => {
+    if (project?.prd) {
+      console.log('[CodingWorkspace] Project PRD loaded:', {
+        hasMarkdownContent: !!project.prd.markdownContent,
+        markdownContentLength: project.prd.markdownContent?.length || 0,
+        title: project.prd.title,
+        hasOverview: !!project.prd.overview,
+        coreFeaturesCount: project.prd.coreFeatures?.length || 0,
+      })
+    } else {
+      console.warn('[CodingWorkspace] No PRD found for project:', projectId)
+    }
+  }, [project, projectId])
 
   if (!project) {
     return (
