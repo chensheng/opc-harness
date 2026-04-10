@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Cpu, Check } from 'lucide-react'
+import { Cpu, Check, Star } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -16,7 +16,15 @@ import { DeleteConfirmDialog } from './ai-config/components/DeleteConfirmDialog'
  * 负责协调各个子组件和状态管理
  */
 export function AIConfig() {
-  const { providers, setConfig, removeConfig, getConfig } = useAIConfigStore()
+  const {
+    providers,
+    setConfig,
+    removeConfig,
+    getConfig,
+    defaultProvider,
+    setDefaultProvider,
+    markAsValidated,
+  } = useAIConfigStore()
 
   // UI 状态
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
@@ -98,6 +106,9 @@ export function AIConfig() {
       apiKey: key || '', // CodeFree 使用空字符串作为 apiKey
     })
 
+    // 保存后自动标记为已验证，允许设为默认
+    markAsValidated(providerId)
+
     clearValidation(providerId)
     setTempKeys(prev => ({ ...prev, [providerId]: '' }))
     setSelectedModels(prev => ({ ...prev, [providerId]: '' }))
@@ -150,6 +161,13 @@ export function AIConfig() {
     }
   }
 
+  const handleSetDefaultProvider = (providerId: string) => {
+    const config = getConfig(providerId)
+    if (config && config.validated) {
+      setDefaultProvider(providerId)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -174,6 +192,7 @@ export function AIConfig() {
           const isConfigured = !!existingConfig
           const isTesting = testProvider === provider.id
           const validationState = validationStatus[provider.id]
+          const isDefault = defaultProvider === provider.id
 
           return (
             <TabsContent key={provider.id} value={provider.id}>
@@ -192,12 +211,20 @@ export function AIConfig() {
                         )}
                       </div>
                     </div>
-                    {isConfigured && (
-                      <Badge className="bg-green-500">
-                        <Check className="w-3 h-3 mr-1" />
-                        已配置
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isConfigured && (
+                        <Badge className="bg-green-500">
+                          <Check className="w-3 h-3 mr-1" />
+                          已配置
+                        </Badge>
+                      )}
+                      {isDefault && isConfigured && (
+                        <Badge className="bg-yellow-500">
+                          <Star className="w-3 h-3 mr-1 fill-current" />
+                          默认
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -227,6 +254,7 @@ export function AIConfig() {
                     <ProviderConfigured
                       provider={provider}
                       existingConfig={existingConfig}
+                      isDefault={isDefault}
                       isTesting={isTesting}
                       testMessage={testMessage}
                       streamContent={streamContent}
@@ -238,6 +266,7 @@ export function AIConfig() {
                       nonStreamError={nonStreamError}
                       onModelChange={model => setConfig(provider.id, { ...existingConfig, model })}
                       onRemove={() => handleRemove(provider.id)}
+                      onSetDefault={() => handleSetDefaultProvider(provider.id)}
                       onTestStream={() => handleTestStream(provider.id)}
                       _onStopStream={() => {
                         stopStream()

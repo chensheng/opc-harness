@@ -5,6 +5,7 @@ import type { AIConfig, AIProvider } from '@/types'
 
 interface AIConfigWithTimestamp extends AIConfig {
   lastModified?: number
+  validated?: boolean // 标记是否已通过验证
 }
 
 interface AIConfigState {
@@ -17,6 +18,7 @@ interface AIConfigActions {
   setConfig: (provider: string, config: AIConfigWithTimestamp) => void
   removeConfig: (provider: string) => void
   setDefaultProvider: (provider: string) => void
+  markAsValidated: (provider: string) => void
   getConfig: (provider: string) => AIConfigWithTimestamp | undefined
   getActiveConfig: () => AIConfigWithTimestamp | undefined
 }
@@ -118,11 +120,30 @@ export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(
         removeConfig: provider =>
           set(state => {
             delete state.configs[provider]
+            // 如果删除的是默认提供商，重置为 openai
+            if (state.defaultProvider === provider) {
+              state.defaultProvider = 'openai'
+            }
           }),
 
         setDefaultProvider: provider =>
           set(state => {
-            state.defaultProvider = provider
+            const config = state.configs[provider]
+            // 只有已配置且验证通过的才能设为默认
+            if (config && config.validated) {
+              state.defaultProvider = provider
+            } else {
+              console.warn(
+                `[AIConfig] Cannot set ${provider} as default: not configured or not validated`
+              )
+            }
+          }),
+
+        markAsValidated: provider =>
+          set(state => {
+            if (state.configs[provider]) {
+              state.configs[provider].validated = true
+            }
           }),
 
         getConfig: provider => get().configs[provider],

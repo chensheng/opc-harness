@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { ProviderValidationStates } from '../types'
 import { generateValidationError } from '../utils'
+import { useAIConfigStore } from '@/stores'
 
 interface UseAIValidationProps {
   providers: Array<{
@@ -17,6 +18,7 @@ interface UseAIValidationProps {
 export function useAIValidation({ providers }: UseAIValidationProps) {
   const [validating, setValidating] = useState<Record<string, boolean>>({})
   const [validationStatus, setValidationStatus] = useState<ProviderValidationStates>({})
+  const { markAsValidated } = useAIConfigStore()
 
   const handleValidate = async (providerId: string, apiKey: string, selectedModel?: string) => {
     // CodeFree CLI 不需要 API Key，其他 provider 需要
@@ -48,6 +50,8 @@ export function useAIValidation({ providers }: UseAIValidationProps) {
           ...prev,
           [providerId]: { status: 'success', error: '' },
         }))
+        // 验证成功后标记为已验证
+        markAsValidated(providerId)
       } else {
         setValidationStatus(prev => ({
           ...prev,

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Key, MessageSquare, Play, Square, Send, Check, X, Terminal } from 'lucide-react'
+import { Key, MessageSquare, Play, Square, Send, Check, X, Terminal, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +14,9 @@ interface ProviderConfiguredProps {
   existingConfig: {
     model: string
     apiKey: string
+    validated?: boolean
   }
+  isDefault: boolean
   isTesting: boolean
   testMessage: string
   streamContent: string
@@ -26,6 +28,7 @@ interface ProviderConfiguredProps {
   nonStreamError: string | null
   onModelChange: (model: string) => void
   onRemove: () => void
+  onSetDefault: () => void
   onTestStream: () => void
   _onStopStream: () => void
   onResetStream: () => void
@@ -41,6 +44,7 @@ interface ProviderConfiguredProps {
 export function ProviderConfigured({
   provider,
   existingConfig,
+  isDefault,
   isTesting,
   testMessage,
   streamContent,
@@ -52,6 +56,7 @@ export function ProviderConfigured({
   nonStreamError,
   onModelChange,
   onRemove,
+  onSetDefault,
   onTestStream,
   _onStopStream,
   onResetStream,
@@ -70,6 +75,7 @@ export function ProviderConfigured({
 
   // CodeFree CLI 不需要显示 API Key
   const isCodeFree = provider.id === 'codefree'
+  const canSetAsDefault = existingConfig.validated
 
   return (
     <div className="space-y-4">
@@ -111,10 +117,36 @@ export function ProviderConfigured({
             </div>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={onRemove}>
-          <X className="w-4 h-4 mr-2" />
-          删除
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* 设置默认厂商按钮 */}
+          {canSetAsDefault ? (
+            <Button
+              variant={isDefault ? 'default' : 'outline'}
+              size="sm"
+              onClick={onSetDefault}
+              disabled={isDefault}
+              className={isDefault ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+            >
+              <Star className={`w-4 h-4 mr-2 ${isDefault ? 'fill-current' : ''}`} />
+              {isDefault ? '默认' : '设为默认'}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="需要先验证通过才能设为默认"
+              className="opacity-50 cursor-not-allowed"
+            >
+              <Star className="w-4 h-4 mr-2" />
+              验证后可设默认
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onRemove}>
+            <X className="w-4 h-4 mr-2" />
+            删除
+          </Button>
+        </div>
       </div>
 
       {/* 流式测试区域 */}

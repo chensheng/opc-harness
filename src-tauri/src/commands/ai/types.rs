@@ -11,13 +11,6 @@ pub struct ValidateKeyRequest {
     pub model: Option<String>,
 }
 
-/// 验证 API Key 的响应结果
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ValidateKeyResponse {
-    pub success: bool,
-    pub cli_path: Option<String>, // CodeFree CLI 等工具的完整路径（如果找到）
-}
-
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SaveApiKeyRequest {
