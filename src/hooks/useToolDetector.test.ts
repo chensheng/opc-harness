@@ -28,6 +28,12 @@ describe('useToolDetector', () => {
       version: null,
       install_url: 'https://www.moonshot.cn/docs/cli',
     },
+    {
+      name: 'CodeFree CLI',
+      is_installed: true,
+      version: '0.3.6',
+      install_url: 'https://codefree.ai',
+    },
   ]
 
   beforeEach(() => {
@@ -56,8 +62,8 @@ describe('useToolDetector', () => {
     expect(result.current.tools).toEqual(mockTools)
     expect(result.current.isLoading).toBe(false)
     expect(result.current.error).toBe(null)
-    expect(result.current.installedCount).toBe(2)
-    expect(result.current.totalCount).toBe(3)
+    expect(result.current.installedCount).toBe(3) // Node.js, Git, CodeFree CLI
+    expect(result.current.totalCount).toBe(4) // 总共4个工具
   })
 
   it('should handle detection error', async () => {

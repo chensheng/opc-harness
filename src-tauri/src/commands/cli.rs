@@ -166,5 +166,22 @@ pub async fn detect_tools() -> Result<DetectToolsResponse, String> {
         ),
     });
 
+    // 8. 检测 CodeFree CLI (新增 AI 厂商工具)
+    let codefree_installed = is_tool_installed("codefree").await;
+    let codefree_version = if codefree_installed {
+        detect_tool_version("codefree", vec!["--version"]).await
+    } else {
+        None
+    };
+
+    tools.push(ToolStatus {
+        name: "CodeFree CLI".to_string(),
+        is_installed: codefree_installed,
+        version: codefree_version,
+        install_url: Some(
+            "https://codefree.ai".to_string(),
+        ),
+    });
+
     Ok(DetectToolsResponse { tools })
 }

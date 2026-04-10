@@ -13,7 +13,7 @@ OPC-HARNESS 是一个为独立创造者整合产品构思 (Vibe Design)、快速
 - 竞品分析和差异化建议
 
 ### 💻 Vibe Coding - 快速构建
-- 集成多种 AI 编码工具 CLI (Kimi/Claude/Codex)
+- 集成多种 AI 编码工具 CLI (Kimi/Claude/CodeFree)
 - 代码编辑器和文件管理
 - 实时预览功能
 - 一键部署到 Vercel/Netlify
@@ -75,7 +75,8 @@ npm run tauri:build
 - **HTTP 客户端**: reqwest
 
 ### AI 集成
-- **支持厂商**: OpenAI, Anthropic Claude, 月之暗面 Kimi, 智谱 GLM
+- **支持厂商**: OpenAI, Anthropic Claude, 月之暗面 Kimi, 智谱 GLM, CodeFree
+- **CLI 工具**: Kimi CLI, Claude Code, CodeFree CLI
 - **协议**: REST API + SSE (Server-Sent Events)
 
 ## 🤖 Harness Engineering
