@@ -1,56 +1,49 @@
-import { invoke } from '@tauri-apps/api/core'
-import { useState, useEffect } from 'react'
-import {
-  Key,
-  Check,
-  X,
-  Eye,
-  EyeOff,
-  Cpu,
-  MessageSquare,
-  Play,
-  Square,
-  Send,
-  ShieldCheck,
-  Save,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState } from 'react'
+import { Cpu, Check } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAIConfigStore } from '@/stores'
 import { useAIStream } from '@/hooks/useAIStream'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { useAIValidation } from './ai-config/hooks/useAIValidation'
+import { useAITesting } from './ai-config/hooks/useAITesting'
+import { ProviderConfigForm } from './ai-config/components/ProviderConfigForm'
+import { ProviderConfigured } from './ai-config/components/ProviderConfigured'
+import { DeleteConfirmDialog } from './ai-config/components/DeleteConfirmDialog'
 
-interface AIResponse {
-  content?: string
-  [key: string]: unknown
-}
-
+/**
+ * AI 厂商配置主组件
+ * 负责协调各个子组件和状态管理
+ */
 export function AIConfig() {
   const { providers, setConfig, removeConfig, getConfig } = useAIConfigStore()
 
+  // UI 状态
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
   const [tempKeys, setTempKeys] = useState<Record<string, string>>({})
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({})
-  const [validating, setValidating] = useState<Record<string, boolean>>({})
-  const [validationStatus, setValidationStatus] = useState<
-    Record<string, 'success' | 'error' | null>
-  >({})
-  const [validationError, setValidationError] = useState<Record<string, string>>({})
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [providerToDelete, setProviderToDelete] = useState<string | null>(null)
 
-  // 流式测试状态
-  const [testProvider, setTestProvider] = useState<string | null>(null)
-  const [testMessage, setTestMessage] = useState('你好，请介绍一下你自己')
+  // 使用自定义 Hooks
+  const { validating, validationStatus, handleValidate, clearValidation } = useAIValidation({
+    providers,
+  })
+
+  const {
+    testProvider,
+    setTestProvider,
+    testMessage,
+    setTestMessage,
+    nonStreamResponse,
+    nonStreamLoading,
+    nonStreamError,
+    setNonStreamError,
+    handleTestNonStream,
+    clearNonStreamResponse,
+  } = useAITesting({ getConfig })
+
+  // 流式测试
   const {
     content: streamContent,
     isComplete,
@@ -61,27 +54,15 @@ export function AIConfig() {
     reset: resetStream,
   } = useAIStream()
 
-  const [nonStreamResponse, setNonStreamResponse] = useState<Record<string, string>>({})
-  const [nonStreamLoading, setNonStreamLoading] = useState(false)
-  const [nonStreamError, setNonStreamError] = useState<string | null>(null)
-
-  // 删除确认对话框状态
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [providerToDelete, setProviderToDelete] = useState<string | null>(null)
-
   // 对厂商进行排序：已配置的排在前面，按最后修改时间倒序
   const sortedProviders = [...providers].sort((a, b) => {
     const configA = getConfig(a.id)
     const configB = getConfig(b.id)
 
-    // 如果都未配置，保持原始顺序
     if (!configA && !configB) return 0
-
-    // 已配置的排在未配置的前面
     if (configA && !configB) return -1
     if (!configA && configB) return 1
 
-    // 都已配置，按最后修改时间倒序
     if (configA && configB) {
       const timeA = configA.lastModified || 0
       const timeB = configB.lastModified || 0
@@ -91,70 +72,14 @@ export function AIConfig() {
     return 0
   })
 
+  // 事件处理函数
   const handleKeyChange = (providerId: string, value: string) => {
     setTempKeys(prev => ({ ...prev, [providerId]: value }))
-    setValidationStatus(prev => ({ ...prev, [providerId]: null }))
-    setValidationError(prev => ({ ...prev, [providerId]: '' }))
+    clearValidation(providerId)
   }
 
   const handleModelSelect = (providerId: string, modelId: string) => {
     setSelectedModels(prev => ({ ...prev, [providerId]: modelId }))
-  }
-
-  const handleValidate = async (providerId: string) => {
-    const key = tempKeys[providerId]
-    if (!key) return
-
-    // 获取当前 provider 的配置
-    const provider = providers.find(p => p.id === providerId)
-    if (!provider) return
-
-    const selectedModel = selectedModels[providerId] || provider.models[0]?.id
-
-    setValidating(prev => ({ ...prev, [providerId]: true }))
-    setValidationError(prev => ({ ...prev, [providerId]: '' }))
-
-    try {
-      // 调用后端的 validate_ai_key 命令进行真实验证
-      const result = await invoke<boolean>('validate_ai_key', {
-        request: {
-          provider: providerId,
-          api_key: key,
-          model: selectedModel || null,
-        },
-      })
-
-      if (result) {
-        setValidationStatus(prev => ({ ...prev, [providerId]: 'success' }))
-      } else {
-        setValidationStatus(prev => ({ ...prev, [providerId]: 'error' }))
-        setValidationError(prev => ({
-          ...prev,
-          [providerId]: `API Key 验证失败：${providerId} 服务返回验证未通过。请检查 API Key 是否正确或是否已过期。`,
-        }))
-      }
-    } catch (err) {
-      // 后端验证失败或网络错误
-      setValidationStatus(prev => ({ ...prev, [providerId]: 'error' }))
-
-      // 提取详细的错误信息
-      let errorMessage = '验证请求失败'
-      if (err instanceof Error) {
-        errorMessage = err.message
-      } else if (typeof err === 'string') {
-        errorMessage = err
-      }
-
-      // 存储详细错误信息，并提供可能原因的提示
-      setValidationError(prev => ({
-        ...prev,
-        [providerId]: `${errorMessage}\n\n可能原因:\n1. API Key 格式不正确\n2. API Key 已过期或无效\n3. 网络连接问题\n4. ${providerId} API 服务不可用`,
-      }))
-
-      console.error('API Key validation failed:', err)
-    } finally {
-      setValidating(prev => ({ ...prev, [providerId]: false }))
-    }
   }
 
   const handleSave = (providerId: string) => {
@@ -170,13 +95,12 @@ export function AIConfig() {
       apiKey: key,
     })
 
-    setValidationStatus(prev => ({ ...prev, [providerId]: null }))
+    clearValidation(providerId)
     setTempKeys(prev => ({ ...prev, [providerId]: '' }))
     setSelectedModels(prev => ({ ...prev, [providerId]: '' }))
   }
 
   const handleRemove = (providerId: string) => {
-    // 打开删除确认对话框
     setProviderToDelete(providerId)
     setDeleteDialogOpen(true)
   }
@@ -198,14 +122,6 @@ export function AIConfig() {
     setShowKey(prev => ({ ...prev, [providerId]: !prev[providerId] }))
   }
 
-  // 监听流式测试错误，当出现错误时自动重置测试状态
-  useEffect(() => {
-    if (streamError && testProvider) {
-      console.log('[useEffect] 检测到流式测试错误，重置 testProvider')
-      setTestProvider(null)
-    }
-  }, [streamError, testProvider])
-
   const handleTestStream = async (providerId: string) => {
     if (testProvider === providerId) {
       stopStream()
@@ -225,90 +141,8 @@ export function AIConfig() {
           messages: [{ role: 'user', content: testMessage }],
         })
       } catch {
-        // useAIStream 内部已经处理了错误，这里的 catch 不会执行
-        console.error(
-          '[handleTestStream] 注意：这个 catch 块不会执行，因为 useAIStream 已经在内部处理了所有错误'
-        )
+        console.error('[handleTestStream] 启动流式测试失败')
       }
-    }
-  }
-
-  const handleTestNonStream = async (providerId: string) => {
-    setNonStreamLoading(true)
-    setNonStreamError(null)
-    setNonStreamResponse(prev => ({ ...prev, [providerId]: '' }))
-
-    const config = getConfig(providerId)
-    if (!config) return
-
-    try {
-      // 动态导入 Tauri API
-      const core = await import('@tauri-apps/api/core')
-
-      // 根据 provider 类型调用不同的命令
-      let command = ''
-      switch (providerId) {
-        case 'openai':
-          command = 'chat_openai'
-          break
-        case 'anthropic':
-          command = 'chat_anthropic'
-          break
-        case 'kimi':
-          command = 'chat_kimi'
-          break
-        case 'glm':
-          command = 'chat_glm'
-          break
-        case 'minimax':
-          command = 'chat_minimax'
-          break
-        default:
-          throw new Error(`不支持的 provider: ${providerId}`)
-      }
-
-      const response = await core.invoke<AIResponse>(command, {
-        request: {
-          provider: providerId,
-          model: config.model,
-          api_key: config.apiKey,
-          messages: [{ role: 'user', content: testMessage }],
-          temperature: 0.7,
-          max_tokens: 2048,
-        },
-      })
-
-      setNonStreamResponse(prev => ({
-        ...prev,
-        [providerId]: response.content || JSON.stringify(response),
-      }))
-    } catch (err) {
-      // 不要做任何处理，直接显示原始错误
-      console.error('[handleTestNonStream] 非流式测试失败:', err)
-      console.error('[handleTestNonStream] 错误类型:', typeof err)
-      console.error('[handleTestNonStream] 错误详情:', JSON.stringify(err, null, 2))
-
-      // 直接显示，不做任何处理
-      let errorMessage = ''
-
-      if (err instanceof Error) {
-        errorMessage = err.message
-      } else if (typeof err === 'string') {
-        errorMessage = err
-      } else if (err && typeof err === 'object') {
-        // 如果是对象，尝试转换为 JSON 字符串
-        try {
-          errorMessage = JSON.stringify(err, null, 2)
-        } catch {
-          errorMessage = String(err)
-        }
-      } else {
-        errorMessage = String(err)
-      }
-
-      setNonStreamError(errorMessage)
-    } finally {
-      setNonStreamLoading(false)
     }
   }
 
@@ -335,6 +169,7 @@ export function AIConfig() {
           const existingConfig = getConfig(provider.id)
           const isConfigured = !!existingConfig
           const isTesting = testProvider === provider.id
+          const validationState = validationStatus[provider.id]
 
           return (
             <TabsContent key={provider.id} value={provider.id}>
@@ -343,7 +178,7 @@ export function AIConfig() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Key className="w-5 h-5 text-primary" />
+                        <Cpu className="w-5 h-5 text-primary" />
                       </div>
                       <div>
                         <CardTitle className="text-lg">{provider.name}</CardTitle>
@@ -360,293 +195,56 @@ export function AIConfig() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* API Key Input */}
                   {!isConfigured ? (
-                    <div className="space-y-3">
-                      {/* 模型选择 */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">选择模型</label>
-                        <select
-                          value={selectedModels[provider.id] || provider.models[0].id}
-                          onChange={e => handleModelSelect(provider.id, e.target.value)}
-                          className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                        >
-                          {provider.models.map(model => {
-                            // 格式化 token 数为更易读的单位
-                            const formatTokens = (tokens: number) => {
-                              if (tokens >= 1000000) {
-                                return `${(tokens / 1000000).toFixed(1)}M`
-                              } else if (tokens >= 1000) {
-                                return `${(tokens / 1000).toFixed(0)}K`
-                              }
-                              return tokens.toString()
-                            }
-
-                            return (
-                              <option key={model.id} value={model.id}>
-                                {model.name} ({formatTokens(model.maxTokens)})
-                              </option>
-                            )
-                          })}
-                        </select>
-                      </div>
-
-                      <label className="text-sm font-medium">API Key</label>
-                      <div className="relative flex-1">
-                        <Input
-                          type={showKey[provider.id] ? 'text' : 'password'}
-                          value={tempKeys[provider.id] || ''}
-                          onChange={e => handleKeyChange(provider.id, e.target.value)}
-                          placeholder={`输入 ${provider.name} API Key`}
-                        />
-                        <button
-                          onClick={() => toggleShowKey(provider.id)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showKey[provider.id] ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleValidate(provider.id)}
-                          disabled={!tempKeys[provider.id] || validating[provider.id]}
-                        >
-                          <ShieldCheck className="w-4 h-4 mr-2" />
-                          {validating[provider.id] ? '验证中...' : '验证'}
-                        </Button>
-
-                        <Button
-                          onClick={() => handleSave(provider.id)}
-                          disabled={validationStatus[provider.id] !== 'success'}
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          保存
-                        </Button>
-                      </div>
-
-                      {/* 验证状态提示 */}
-                      {validationStatus[provider.id] === 'success' && (
-                        <div className="flex items-center gap-2 text-green-600 text-sm">
-                          <Check className="w-4 h-4" />
-                          <span>API Key 有效</span>
-                        </div>
-                      )}
-                      {validationStatus[provider.id] === 'error' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-red-600 text-sm font-medium">
-                            <X className="w-4 h-4" />
-                            <span>验证失败</span>
-                          </div>
-                          <div className="text-sm text-red-500 bg-red-50 p-3 rounded border border-red-100 whitespace-pre-line">
-                            {validationError[provider.id]}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <ProviderConfigForm
+                      provider={provider}
+                      selectedModel={selectedModels[provider.id]}
+                      apiKey={tempKeys[provider.id] || ''}
+                      showKey={showKey[provider.id] || false}
+                      isValidating={validating[provider.id] || false}
+                      validationStatus={validationState?.status || null}
+                      validationError={validationState?.error || ''}
+                      onModelSelect={modelId => handleModelSelect(provider.id, modelId)}
+                      onKeyChange={value => handleKeyChange(provider.id, value)}
+                      onToggleShowKey={() => toggleShowKey(provider.id)}
+                      onValidate={() =>
+                        handleValidate(
+                          provider.id,
+                          tempKeys[provider.id] || '',
+                          selectedModels[provider.id]
+                        )
+                      }
+                      onSave={() => handleSave(provider.id)}
+                    />
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                        <div className="space-y-2 w-full">
-                          <div className="flex items-center gap-2">
-                            <Key className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm font-mono">
-                              {existingConfig.apiKey.slice(0, 8)}...
-                              {existingConfig.apiKey.slice(-4)}
-                            </span>
-                          </div>
-
-                          {/* 模型选择 */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">当前模型:</span>
-                            <select
-                              value={existingConfig.model}
-                              onChange={e => {
-                                setConfig(provider.id, {
-                                  ...existingConfig,
-                                  model: e.target.value,
-                                })
-                              }}
-                              className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
-                            >
-                              {provider.models.map(model => {
-                                // 格式化 token 数为更易读的单位
-                                const formatTokens = (tokens: number) => {
-                                  if (tokens >= 1000000) {
-                                    return `${(tokens / 1000000).toFixed(1)}M`
-                                  } else if (tokens >= 1000) {
-                                    return `${(tokens / 1000).toFixed(0)}K`
-                                  }
-                                  return tokens.toString()
-                                }
-
-                                return (
-                                  <option key={model.id} value={model.id}>
-                                    {model.name} ({formatTokens(model.maxTokens)})
-                                  </option>
-                                )
-                              })}
-                            </select>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleRemove(provider.id)}>
-                          <X className="w-4 h-4 mr-2" />
-                          删除
-                        </Button>
-                      </div>
-
-                      {/* 流式测试区域 */}
-                      <div className="border-t pt-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <MessageSquare className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium">流式测试</span>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Textarea
-                            value={testMessage}
-                            onChange={e => setTestMessage(e.target.value)}
-                            placeholder="输入测试消息..."
-                            disabled={isStreaming}
-                            rows={2}
-                          />
-
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => handleTestStream(provider.id)}
-                              disabled={isStreaming && !isTesting}
-                              variant={isTesting ? 'destructive' : 'default'}
-                              size="sm"
-                            >
-                              {isTesting ? (
-                                <>
-                                  <Square className="w-4 h-4 mr-2" />
-                                  停止
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="w-4 h-4 mr-2" />
-                                  测试流式
-                                </>
-                              )}
-                            </Button>
-
-                            <Button
-                              onClick={() => handleTestNonStream(provider.id)}
-                              disabled={nonStreamLoading}
-                              variant="outline"
-                            >
-                              <Send className="w-4 h-4 mr-2" />
-                              测试非流式
-                            </Button>
-                          </div>
-
-                          {/* 流式输出显示 */}
-                          {(isStreaming || streamContent || streamError) && (
-                            <div className="mt-3 p-3 bg-muted rounded-lg min-h-[100px]">
-                              {isStreaming && (
-                                <div className="mb-2 text-xs text-muted-foreground animate-pulse">
-                                  AI 正在思考中...
-                                </div>
-                              )}
-                              <div className="text-sm whitespace-pre-wrap">
-                                {streamContent || '等待响应...'}
-                              </div>
-                              {isComplete && (
-                                <Badge className="mt-2 bg-green-500">
-                                  <Check className="w-3 h-3 mr-1" />
-                                  完成
-                                </Badge>
-                              )}
-                              {streamError && (
-                                <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-start gap-3 flex-1">
-                                      <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                      <div className="flex-1">
-                                        <div className="font-semibold text-red-900 mb-2">
-                                          流式测试失败
-                                        </div>
-                                        <div className="text-sm text-red-800 bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-red-200">
-                                          {streamError}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => resetStream()}
-                                      className="text-red-600 hover:text-red-800 hover:bg-red-100"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {nonStreamResponse[provider.id] && (
-                            <div className="mt-3 p-4 bg-white border-2 border-primary rounded-lg">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <MessageSquare className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                                  <div className="flex-1">
-                                    <div className="font-semibold text-primary mb-2">
-                                      非流式测试结果
-                                    </div>
-                                    <div className="text-sm text-primary bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-primary/20">
-                                      {nonStreamResponse[provider.id]}
-                                    </div>
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    setNonStreamResponse(prev => ({ ...prev, [provider.id]: '' }))
-                                  }
-                                  className="text-primary hover:text-primary-800 hover:bg-primary-100"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {nonStreamError && (
-                            <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                  <div className="flex-1">
-                                    <div className="font-semibold text-red-900 mb-2">
-                                      非流式测试失败
-                                    </div>
-                                    <div className="text-sm text-red-800 bg-white/70 p-3 rounded font-mono whitespace-pre-wrap break-all border border-red-200">
-                                      {nonStreamError}
-                                    </div>
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setNonStreamError(null)}
-                                  className="text-red-600 hover:text-red-800 hover:bg-red-100"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <ProviderConfigured
+                      provider={provider}
+                      existingConfig={existingConfig}
+                      isTesting={isTesting}
+                      testMessage={testMessage}
+                      streamContent={streamContent}
+                      isStreaming={isStreaming}
+                      isComplete={isComplete}
+                      streamError={streamError}
+                      nonStreamResponse={nonStreamResponse[provider.id] || ''}
+                      nonStreamLoading={nonStreamLoading}
+                      nonStreamError={nonStreamError}
+                      onModelChange={model => setConfig(provider.id, { ...existingConfig, model })}
+                      onRemove={() => handleRemove(provider.id)}
+                      onTestStream={() => handleTestStream(provider.id)}
+                      _onStopStream={() => {
+                        stopStream()
+                        setTestProvider(null)
+                      }}
+                      onResetStream={() => {
+                        resetStream()
+                        setTestProvider(null)
+                      }}
+                      onTestMessageChange={setTestMessage}
+                      onTestNonStream={() => handleTestNonStream(provider.id)}
+                      onClearNonStreamResponse={() => clearNonStreamResponse(provider.id)}
+                      onClearNonStreamError={() => setNonStreamError(null)}
+                    />
                   )}
                 </CardContent>
               </Card>
@@ -655,22 +253,12 @@ export function AIConfig() {
         })}
       </Tabs>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>确认删除配置</DialogTitle>
-            <DialogDescription>删除配置后需要重新输入 API Key 才能使用该服务。</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelDelete}>
-              取消
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              删除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   )
 }
