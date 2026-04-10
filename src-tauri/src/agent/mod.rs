@@ -21,7 +21,12 @@ pub mod realtime_performance_monitor;  // VC-031: Real-time Performance Monitor
 pub mod ai_code_generator;  // VC-032: AI Code Generator
 pub mod realtime_code_suggestions;  // VC-033: Real-time Code Suggestions
 pub mod code_change_tracker;  // VC-034: Code Change Tracker
+
+// Daemon 模块及其子模块
+mod daemon_types;
+mod daemon_core;
 pub mod daemon;
+
 pub mod agent_stdio;
 pub mod websocket_manager;
 pub mod agent_manager;
