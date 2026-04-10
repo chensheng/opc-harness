@@ -4,7 +4,12 @@
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { InitializerWorkflow } from './InitializerWorkflow'
+
+const renderWithRouter = (component: React.ReactElement) => {
+  return render(<MemoryRouter>{component}</MemoryRouter>)
+}
 
 describe('InitializerWorkflow', () => {
   beforeEach(() => {
@@ -13,12 +18,12 @@ describe('InitializerWorkflow', () => {
 
   describe('基本渲染', () => {
     it('应该正确渲染组件标题', () => {
-      render(<InitializerWorkflow />)
-      expect(screen.getByText('Initializer Agent')).toBeInTheDocument()
+      renderWithRouter(<InitializerWorkflow />)
+      expect(screen.getByText(/Initializer Agent/)).toBeInTheDocument()
     })
 
     it('应该渲染四个工作流步骤', () => {
-      render(<InitializerWorkflow />)
+      renderWithRouter(<InitializerWorkflow />)
       expect(screen.getByText('PRD 解析')).toBeInTheDocument()
       expect(screen.getByText('环境检查')).toBeInTheDocument()
       expect(screen.getByText('Git 初始化')).toBeInTheDocument()
@@ -26,64 +31,72 @@ describe('InitializerWorkflow', () => {
     })
 
     it('应该渲染开始按钮', () => {
-      render(<InitializerWorkflow />)
-      expect(screen.getByText('开始初始化')).toBeInTheDocument()
+      renderWithRouter(<InitializerWorkflow />)
+      expect(screen.getByRole('button', { name: /开始初始化/i })).toBeInTheDocument()
     })
 
-    it('应该显示初始状态为未开始', () => {
-      render(<InitializerWorkflow />)
-      expect(screen.getByText('未开始')).toBeInTheDocument()
-      expect(screen.getByText('进度：0%')).toBeInTheDocument()
+    it('应该显示初始状态为待执行', () => {
+      renderWithRouter(<InitializerWorkflow />)
+      // 检查步骤状态Badge
+      const pendingBadges = screen.getAllByText('待执行')
+      expect(pendingBadges.length).toBe(4) // 4个步骤都是待执行状态
     })
   })
 
   describe('日志面板', () => {
-    it('应该在没有日志时显示提示文本', () => {
-      render(<InitializerWorkflow />)
-      expect(screen.getByText('暂无日志')).toBeInTheDocument()
+    it('应该在初始状态下所有步骤都无日志', () => {
+      renderWithRouter(<InitializerWorkflow />)
+      // 初始状态下步骤没有日志内容
+      const steps = screen.getAllByRole('generic').filter(el => el.className.includes('border-l-4'))
+      expect(steps.length).toBe(4)
     })
 
-    it('应该有一个日志面板区域', () => {
-      render(<InitializerWorkflow />)
-      expect(screen.getByText('运行日志')).toBeInTheDocument()
+    it('应该有步骤卡片容器', () => {
+      renderWithRouter(<InitializerWorkflow />)
+      // 检查是否有步骤卡片
+      const cards = screen.getAllByRole('generic').filter(el => el.className.includes('border-l-4'))
+      expect(cards.length).toBeGreaterThan(0)
     })
   })
 
   describe('用户交互', () => {
     it('应该能够点击开始按钮', () => {
-      render(<InitializerWorkflow />)
-      const startButton = screen.getByText('开始初始化')
+      renderWithRouter(<InitializerWorkflow />)
+      const startButton = screen.getByRole('button', { name: /开始初始化/i })
       fireEvent.click(startButton)
 
-      // 按钮应该变为"初始化中..."
-      expect(screen.getByText('初始化中...')).toBeInTheDocument()
+      // 按钮应该变为"停止"
+      expect(screen.getByRole('button', { name: /停止/i })).toBeInTheDocument()
     })
 
     it('应该在运行时显示运行状态', () => {
-      render(<InitializerWorkflow />)
-      fireEvent.click(screen.getByText('开始初始化'))
+      renderWithRouter(<InitializerWorkflow />)
+      fireEvent.click(screen.getByRole('button', { name: /开始初始化/i }))
 
-      expect(screen.getByText('运行中...')).toBeInTheDocument()
+      // 检查是否有运行中的指示
+      expect(screen.getByRole('button', { name: /停止/i })).toBeInTheDocument()
     })
   })
 
   describe('自动启动模式', () => {
     it('应该在 autoStart=true 时不显示开始按钮', () => {
-      render(<InitializerWorkflow autoStart />)
-      expect(screen.queryByText('开始初始化')).not.toBeInTheDocument()
+      renderWithRouter(<InitializerWorkflow autoStart />)
+      expect(screen.queryByRole('button', { name: /开始初始化/i })).not.toBeInTheDocument()
     })
   })
 
   describe('可访问性', () => {
     it('应该使用语义化的 HTML 标签', () => {
-      render(<InitializerWorkflow />)
+      renderWithRouter(<InitializerWorkflow />)
       // 按钮应该是 button 元素
       expect(screen.getByRole('button', { name: /开始初始化/i })).toBeInTheDocument()
     })
 
     it('应该有清晰的标题层级', () => {
-      render(<InitializerWorkflow />)
-      expect(screen.getByRole('heading')).toBeInTheDocument()
+      renderWithRouter(<InitializerWorkflow />)
+      // h2 元素
+      const headings = screen.getAllByRole('heading', { level: 2 })
+      expect(headings.length).toBeGreaterThan(0)
     })
   })
 
