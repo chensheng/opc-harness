@@ -27,28 +27,8 @@ export function useAITesting({ getConfig }: UseAITestingProps) {
     try {
       const core = await import('@tauri-apps/api/core')
 
-      let command = ''
-      switch (providerId) {
-        case 'openai':
-          command = 'chat_openai'
-          break
-        case 'anthropic':
-          command = 'chat_anthropic'
-          break
-        case 'kimi':
-          command = 'chat_kimi'
-          break
-        case 'glm':
-          command = 'chat_glm'
-          break
-        case 'minimax':
-          command = 'chat_minimax'
-          break
-        default:
-          throw new Error(`不支持的 provider: ${providerId}`)
-      }
-
-      const response = await core.invoke<AIResponse>(command, {
+      // 使用通用的 chat 命令，支持所有 provider（包括 codefree）
+      const response = await core.invoke<any>('chat', {
         request: {
           provider: providerId,
           model: config.model,
