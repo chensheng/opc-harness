@@ -1,4 +1,4 @@
-import { Eye, EyeOff, ShieldCheck, Save, Check } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, Save, Check, Terminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatTokens } from '../utils'
@@ -39,6 +39,9 @@ export function ProviderConfigForm({
   onValidate,
   onSave,
 }: ProviderConfigFormProps) {
+  // CodeFree CLI 不需要 API Key
+  const isCodeFree = provider.id === 'codefree'
+
   return (
     <div className="space-y-3">
       {/* 模型选择 */}
@@ -57,24 +60,48 @@ export function ProviderConfigForm({
         </select>
       </div>
 
-      <label className="text-sm font-medium">API Key</label>
-      <div className="relative flex-1">
-        <Input
-          type={showKey ? 'text' : 'password'}
-          value={apiKey}
-          onChange={e => onKeyChange(e.target.value)}
-          placeholder={`输入 ${provider.name} API Key`}
-        />
-        <button
-          onClick={onToggleShowKey}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        >
-          {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        </button>
-      </div>
+      {/* CodeFree CLI 特殊提示 */}
+      {isCodeFree ? (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-2">
+          <div className="flex items-center gap-2 text-blue-700">
+            <Terminal className="w-4 h-4" />
+            <span className="font-medium text-sm">CodeFree CLI 配置说明</span>
+          </div>
+          <ul className="text-xs text-blue-600 space-y-1 ml-6 list-disc">
+            <li>无需配置 API Key，使用本地 CLI 工具</li>
+            <li>
+              请确保已安装 CodeFree CLI：
+              <code className="bg-blue-100 px-1 rounded">npm install -g @codefree/cli</code>
+            </li>
+            <li>点击"验证"按钮检测 CLI 是否已正确安装</li>
+          </ul>
+        </div>
+      ) : (
+        <>
+          <label className="text-sm font-medium">API Key</label>
+          <div className="relative flex-1">
+            <Input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={e => onKeyChange(e.target.value)}
+              placeholder={`输入 ${provider.name} API Key`}
+            />
+            <button
+              onClick={onToggleShowKey}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </>
+      )}
 
       <div className="flex gap-2">
-        <Button variant="outline" onClick={onValidate} disabled={!apiKey || isValidating}>
+        <Button
+          variant="outline"
+          onClick={onValidate}
+          disabled={(!isCodeFree && !apiKey) || isValidating}
+        >
           <ShieldCheck className="w-4 h-4 mr-2" />
           {isValidating ? '验证中...' : '验证'}
         </Button>
@@ -89,7 +116,7 @@ export function ProviderConfigForm({
       {validationStatus === 'success' && (
         <div className="flex items-center gap-2 text-green-600 text-sm">
           <Check className="w-4 h-4" />
-          <span>API Key 有效</span>
+          <span>{isCodeFree ? 'CodeFree CLI 已安装' : 'API Key 有效'}</span>
         </div>
       )}
       {validationStatus === 'error' && (

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Key, MessageSquare, Play, Square, Send, Check, X } from 'lucide-react'
+import { Key, MessageSquare, Play, Square, Send, Check, X, Terminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -68,17 +68,30 @@ export function ProviderConfigured({
     }
   }, [streamError, isTesting, onResetStream])
 
+  // CodeFree CLI 不需要显示 API Key
+  const isCodeFree = provider.id === 'codefree'
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
         <div className="space-y-2 w-full">
-          <div className="flex items-center gap-2">
-            <Key className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-mono">
-              {existingConfig.apiKey.slice(0, 8)}...
-              {existingConfig.apiKey.slice(-4)}
-            </span>
-          </div>
+          {!isCodeFree && (
+            <div className="flex items-center gap-2">
+              <Key className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-mono">
+                {existingConfig.apiKey.slice(0, 8)}...
+                {existingConfig.apiKey.slice(-4)}
+              </span>
+            </div>
+          )}
+
+          {/* CodeFree 特殊提示 */}
+          {isCodeFree && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Terminal className="w-4 h-4" />
+              <span>使用本地 CodeFree CLI</span>
+            </div>
+          )}
 
           {/* 模型选择 */}
           <div className="flex items-center gap-2">
