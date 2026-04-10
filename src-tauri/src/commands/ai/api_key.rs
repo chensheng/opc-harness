@@ -11,10 +11,18 @@ pub async fn validate_ai_key(request: ValidateKeyRequest) -> Result<bool, String
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
         "minimax" => AIProviderType::MiniMax,
+        "codefree" => AIProviderType::CodeFree,
         _ => return Err("Unsupported provider".to_string()),
     };
 
     log::info!("Validating API key - Provider: {}, Model: {:?}", request.provider, request.model);
+    
+    // CodeFree CLI 不需要 API Key，只需要检测 CLI 是否安装
+    if provider_type == AIProviderType::CodeFree {
+        log::info!("Validating CodeFree CLI installation...");
+        let provider = AIProvider::new(provider_type, "".to_string());
+        return provider.validate_key().await.map_err(|e| e.to_string());
+    }
 
     // 对于 Kimi，需要根据 model 判断使用哪个 API
     if provider_type == AIProviderType::Kimi {

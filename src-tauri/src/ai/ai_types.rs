@@ -15,6 +15,7 @@ pub enum AIProviderType {
     GLM,
     MiniMax,
     DeepL,
+    CodeFree,   // CodeFree CLI
 }
 
 /// AI 消息结构

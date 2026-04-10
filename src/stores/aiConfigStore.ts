@@ -88,6 +88,17 @@ export const AI_PROVIDERS: AIProvider[] = [
       { id: 'MiniMax-M2.5-highspeed', name: 'MiniMax-M2.5 HighSpeed（高速版）', maxTokens: 256000 },
     ],
   },
+  {
+    id: 'codefree',
+    name: 'CodeFree CLI',
+    baseUrl: 'cli://codefree',
+    models: [
+      { id: 'default', name: '默认模型', maxTokens: 128000 },
+      { id: 'gpt-4o', name: 'GPT-4o (通过 CodeFree)', maxTokens: 128000 },
+      { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (通过 CodeFree)', maxTokens: 200000 },
+      { id: 'kimi-k2.5', name: 'Kimi K2.5 (通过 CodeFree)', maxTokens: 256000 },
+    ],
+  },
 ]
 
 export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(

@@ -157,7 +157,7 @@ export function AIConfig() {
       </div>
 
       <Tabs defaultValue={sortedProviders[0]?.id} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-4">
+        <TabsList className="grid w-full grid-cols-6 mb-4">
           {sortedProviders.map(provider => (
             <TabsTrigger key={provider.id} value={provider.id}>
               {provider.name}

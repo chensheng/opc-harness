@@ -14,6 +14,7 @@ pub async fn chat(request: ChatRequestPayload) -> Result<String, String> {
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
         "minimax" => AIProviderType::MiniMax,
+        "codefree" => AIProviderType::CodeFree,
         _ => return Err("Unsupported provider".to_string()),
     };
 
@@ -63,6 +64,8 @@ pub async fn stream_chat(
         "anthropic" => AIProviderType::Anthropic,
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
+        "minimax" => AIProviderType::MiniMax,
+        "codefree" => AIProviderType::CodeFree,
         _ => return Err("Unsupported provider".to_string()),
     };
 

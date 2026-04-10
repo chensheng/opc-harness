@@ -17,6 +17,7 @@ mod kimi_impl;
 mod glm_impl;
 mod minimax_impl;
 mod deepl_impl;
+mod codefree_impl;  // CodeFree CLI Provider
 
 // 重新导出常用类型
 pub use ai_types::*;

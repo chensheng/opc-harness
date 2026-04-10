@@ -3,6 +3,7 @@
 //! 包含 AIProvider 核心结构体和基础方法
 
 use reqwest::Client;
+use tokio::process::Command;
 
 use super::ai_types::*;
 
@@ -86,6 +87,7 @@ impl AIProvider {
             AIProviderType::GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
             AIProviderType::MiniMax => "https://api.minimax.chat/v1".to_string(),
             AIProviderType::DeepL => "https://api-free.deepl.com/v2".to_string(),
+            AIProviderType::CodeFree => "cli://codefree".to_string(), // CLI-based provider
         }
     }
 
@@ -102,6 +104,11 @@ impl AIProvider {
 
     /// 验证 API Key
     pub async fn validate_key(&self) -> Result<bool, AIError> {
+        // CodeFree CLI 不需要 API Key，只需要检测 CLI 是否安装
+        if self.provider_type == AIProviderType::CodeFree {
+            return self.validate_codefree_cli().await;
+        }
+        
         // Simple validation - make a test request
         match self.provider_type {
             AIProviderType::OpenAI => {
@@ -252,6 +259,53 @@ impl AIProvider {
         }
     }
 
+    /// 验证 CodeFree CLI 是否安装
+    async fn validate_codefree_cli(&self) -> Result<bool, AIError> {
+        log::info!("Validating CodeFree CLI installation...");
+        
+        #[cfg(windows)]
+        let check_cmd = Command::new("where").arg("codefree").output().await;
+        
+        #[cfg(unix)]
+        let check_cmd = Command::new("which").arg("codefree").output().await;
+        
+        match check_cmd {
+            Ok(output) => {
+                if output.status.success() {
+                    // CLI 已安装，进一步检查版本
+                    let version_cmd = Command::new("codefree")
+                        .arg("--version")
+                        .output()
+                        .await;
+                    
+                    match version_cmd {
+                        Ok(ver_output) => {
+                            if ver_output.status.success() {
+                                let version = String::from_utf8_lossy(&ver_output.stdout);
+                                log::info!("CodeFree CLI is installed, version: {}", version.trim());
+                                Ok(true)
+                            } else {
+                                Err(AIError {
+                                    message: "CodeFree CLI 已安装但无法获取版本信息".to_string(),
+                                })
+                            }
+                        }
+                        Err(e) => Err(AIError {
+                            message: format!("CodeFree CLI 版本检查失败：{}", e),
+                        }),
+                    }
+                } else {
+                    Err(AIError {
+                        message: "CodeFree CLI 未安装。请运行 'npm install -g @codefree/cli' 进行安装".to_string(),
+                    })
+                }
+            }
+            Err(e) => Err(AIError {
+                message: format!("CodeFree CLI 检测失败：{}", e),
+            }),
+        }
+    }
+
     /// 发送聊天请求
     pub async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
         match self.provider_type {
@@ -261,6 +315,7 @@ impl AIProvider {
             AIProviderType::GLM => self.chat_glm(request).await,
             AIProviderType::MiniMax => self.chat_minimax(request).await,
             AIProviderType::DeepL => self.chat_deepl(request).await,
+            AIProviderType::CodeFree => self.chat_codefree(request).await,
         }
     }
 
@@ -276,6 +331,7 @@ impl AIProvider {
             AIProviderType::GLM => self.stream_chat_glm(request, on_chunk).await,
             AIProviderType::MiniMax => self.stream_chat_minimax(request, on_chunk).await,
             AIProviderType::DeepL => self.stream_chat_deepl(request, on_chunk).await,
+            AIProviderType::CodeFree => self.stream_chat_codefree(request, on_chunk).await,
         }
     }
 
@@ -288,6 +344,7 @@ impl AIProvider {
             AIProviderType::GLM => "glm",
             AIProviderType::MiniMax => "minimax",
             AIProviderType::DeepL => "deepl",
+            AIProviderType::CodeFree => "codefree",
         }
     }
 }
