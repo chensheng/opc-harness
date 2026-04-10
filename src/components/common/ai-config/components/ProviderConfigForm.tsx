@@ -39,26 +39,28 @@ export function ProviderConfigForm({
   onValidate,
   onSave,
 }: ProviderConfigFormProps) {
-  // CodeFree CLI 不需要 API Key
+  // CodeFree CLI 不需要 API Key 和模型选择
   const isCodeFree = provider.id === 'codefree'
 
   return (
     <div className="space-y-3">
-      {/* 模型选择 */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">选择模型</label>
-        <select
-          value={selectedModel || provider.models[0].id}
-          onChange={e => onModelSelect(e.target.value)}
-          className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        >
-          {provider.models.map(model => (
-            <option key={model.id} value={model.id}>
-              {model.name} ({formatTokens(model.maxTokens)})
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* CodeFree CLI 不显示模型选择 */}
+      {!isCodeFree && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">选择模型</label>
+          <select
+            value={selectedModel || provider.models[0].id}
+            onChange={e => onModelSelect(e.target.value)}
+            className="w-full border rounded-md px-3 py-2 bg-background hover:bg-accent cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          >
+            {provider.models.map(model => (
+              <option key={model.id} value={model.id}>
+                {model.name} ({formatTokens(model.maxTokens)})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* CodeFree CLI 特殊提示 */}
       {isCodeFree ? (
@@ -69,6 +71,7 @@ export function ProviderConfigForm({
           </div>
           <ul className="text-xs text-blue-600 space-y-1 ml-6 list-disc">
             <li>无需配置 API Key，使用本地 CLI 工具</li>
+            <li>无需选择模型，使用 CLI 默认配置的模型</li>
             <li>
               请确保已安装 CodeFree CLI：
               <code className="bg-blue-100 px-1 rounded">npm install -g @codefree/cli</code>

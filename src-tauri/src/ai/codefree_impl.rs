@@ -12,13 +12,8 @@ use super::provider_core::AIProvider;
 impl AIProvider {
     /// CodeFree CLI 非流式聊天
     pub(super) async fn chat_codefree(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
-        // 构建 codefree 命令参数
+        // 构建 codefree 命令参数（使用默认模型，不指定-m参数）
         let mut cmd = Command::new("codefree");
-        
-        // 添加模型参数（如果指定）
-        if !request.model.is_empty() && request.model != "default" {
-            cmd.arg("-m").arg(&request.model);
-        }
         
         // 添加 prompt 参数
         let prompt = request.messages.iter()
@@ -71,13 +66,8 @@ impl AIProvider {
     where
         F: FnMut(String) -> Result<(), AIError>,
     {
-        // 构建 codefree 命令参数
+        // 构建 codefree 命令参数（使用默认模型，不指定-m参数）
         let mut cmd = Command::new("codefree");
-        
-        // 添加模型参数（如果指定）
-        if !request.model.is_empty() && request.model != "default" {
-            cmd.arg("-m").arg(&request.model);
-        }
         
         // 添加 prompt 参数
         let prompt = request.messages.iter()

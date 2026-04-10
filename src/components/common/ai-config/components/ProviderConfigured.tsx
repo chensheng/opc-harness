@@ -89,25 +89,27 @@ export function ProviderConfigured({
           {isCodeFree && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Terminal className="w-4 h-4" />
-              <span>使用本地 CodeFree CLI</span>
+              <span>使用本地 CodeFree CLI（默认模型）</span>
             </div>
           )}
 
-          {/* 模型选择 */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">当前模型:</span>
-            <select
-              value={existingConfig.model}
-              onChange={e => onModelChange(e.target.value)}
-              className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
-            >
-              {provider.models.map(model => (
-                <option key={model.id} value={model.id}>
-                  {model.name} ({formatTokens(model.maxTokens)})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* CodeFree 不显示模型选择 */}
+          {!isCodeFree && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">当前模型:</span>
+              <select
+                value={existingConfig.model}
+                onChange={e => onModelChange(e.target.value)}
+                className="text-xs border rounded px-2 py-1 bg-background hover:bg-accent cursor-pointer"
+              >
+                {provider.models.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name} ({formatTokens(model.maxTokens)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <Button variant="ghost" size="sm" onClick={onRemove}>
           <X className="w-4 h-4 mr-2" />
