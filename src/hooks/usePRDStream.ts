@@ -144,7 +144,7 @@ export function usePRDStream(): UsePRDStreamReturn {
           idea: request.idea,
           provider: request.provider,
           model: request.model,
-          api_key: request.apiKey,
+          apiKey: request.apiKey,
         })
 
         setSessionId(session_id)

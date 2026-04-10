@@ -58,7 +58,7 @@ fn main() {
             commands::ai::chat,
             commands::ai::stream_chat,
             commands::ai::generate_prd,
-            commands::ai::stream_generate_prd,
+            commands::ai::start_prd_stream,
             commands::ai::generate_user_personas,
             commands::ai::generate_competitor_analysis,
             commands::ai::generate_marketing_strategy,
@@ -172,7 +172,7 @@ fn main() {
             commands::quality::save_user_stories,
             commands::quality::get_user_stories,
             // Streaming Output commands (US-048)
-            commands::ai::stream_generate_prd,
+            commands::ai::start_prd_stream,
             // User Preference commands (US-055)
             commands::user_preference::get_user_preferences,
             commands::user_preference::update_user_preferences,

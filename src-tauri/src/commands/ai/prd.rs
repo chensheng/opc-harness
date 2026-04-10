@@ -2,6 +2,7 @@ use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message as AIMessage, S
 use crate::prompts::prd_template;
 use crate::commands::ai::types::{GeneratePRDRequest, PRDResponse};
 use crate::commands::ai::parser::parse_prd_from_markdown;
+use serde::Serialize;
 use tauri::Emitter;
 use uuid::Uuid;
 
@@ -53,33 +54,42 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
 }
 
 /// 流式生成 PRD（打字机效果）
+#[derive(Serialize)]
+pub struct StartPRDStreamResponse {
+    pub session_id: String,
+}
+
 #[tauri::command]
-pub async fn stream_generate_prd(
-    request: GeneratePRDRequest,
+#[allow(non_snake_case)]
+pub async fn start_prd_stream(
+    idea: String,
+    provider: String,
+    model: String,
+    apiKey: String,
     app: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<StartPRDStreamResponse, String> {
     let session_id = Uuid::new_v4().to_string();
     
-    log::info!("Starting streaming PRD generation for idea: {}", request.idea);
+    log::info!("Starting streaming PRD generation for idea: {}", idea);
     
     // 1. 构建 PRD 提示词
-    let prompt = prd_template::generate_prd_prompt(&request.idea, None);
+    let prompt = prd_template::generate_prd_prompt(&idea, None);
     
     // 2. 创建 AI Provider
-    let provider_type = match request.provider.as_str() {
+    let provider_type = match provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
         "minimax" => AIProviderType::MiniMax,
-        _ => return Err(format!("不支持的 AI 提供商：{}", request.provider)),
+        _ => return Err(format!("不支持的 AI 提供商：{}", provider)),
     };
     
-    let provider = AIProvider::new(provider_type, request.api_key.clone());
+    let provider = AIProvider::new(provider_type, apiKey.clone());
     
     // 3. 构建聊天请求（流式模式）
     let chat_request = ChatRequest {
-        model: request.model,
+        model,
         messages: vec![AIMessage {
             role: "user".to_string(),
             content: prompt,
@@ -111,29 +121,33 @@ pub async fn stream_generate_prd(
         Ok(())
     };
     
-    // 5. 执行流式请求
-    match provider.stream_chat(chat_request, chunk_handler).await {
-        Ok(final_content) => {
-            // 发送完成事件
-            let complete_data = StreamComplete {
-                session_id: session_id.clone(),
-                content: final_content.clone(),
-            };
-            let _ = app.emit("prd-stream-complete", complete_data);
-            
-            log::info!("Streaming PRD generation completed");
-            Ok(final_content)
+    // 5. 在后台启动流式请求
+    let session_id_for_return = session_id.clone();
+    tokio::spawn(async move {
+        match provider.stream_chat(chat_request, chunk_handler).await {
+            Ok(final_content) => {
+                // 发送完成事件
+                let complete_data = StreamComplete {
+                    session_id: session_id.clone(),
+                    content: final_content.clone(),
+                };
+                let _ = app.emit("prd-stream-complete", complete_data);
+                
+                log::info!("Streaming PRD generation completed");
+            }
+            Err(e) => {
+                // 发送错误事件
+                let error_data = StreamError {
+                    session_id: session_id.clone(),
+                    error: e.to_string(),
+                };
+                let _ = app.emit("prd-stream-error", error_data);
+                
+                log::error!("Streaming PRD generation failed: {}", e);
+            }
         }
-        Err(e) => {
-            // 发送错误事件
-            let error_data = StreamError {
-                session_id: session_id.clone(),
-                error: e.to_string(),
-            };
-            let _ = app.emit("prd-stream-error", error_data);
-            
-            log::error!("Streaming PRD generation failed: {}", e);
-            Err(e.to_string())
-        }
-    }
+    });
+    
+    // 立即返回 session_id
+    Ok(StartPRDStreamResponse { session_id: session_id_for_return })
 }
