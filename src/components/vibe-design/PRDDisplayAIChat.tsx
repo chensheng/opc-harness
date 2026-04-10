@@ -43,7 +43,9 @@ export function PRDDisplayAIChat({
     if (scrollRef.current) {
       // 使用 requestAnimationFrame 确保 DOM 更新后再滚动
       requestAnimationFrame(() => {
-        scrollRef.current!.scrollTop = scrollRef.current!.scrollHeight
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+        }
       })
     }
   }, [messages, isStreaming])

@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { parseMarkdownToPRD } from './PRDDisplayUtils'
-import type { PRD, Project } from '@/types'
+import type { PRD } from '@/types'
 
 interface UsePRDSaveParams {
   projectId: string | undefined
   setProjectPRD: (projectId: string, prd: PRD) => void
-  getProjectById: (projectId: string) => Project | undefined
   syncProjectToDatabase: (projectId: string) => Promise<void>
   setLoading: (loading: boolean, message?: string) => void
   setIsEditing: (editing: boolean) => void
@@ -14,7 +13,6 @@ interface UsePRDSaveParams {
 export function usePRDSave({
   projectId,
   setProjectPRD,
-  getProjectById,
   syncProjectToDatabase,
   setLoading,
   setIsEditing,
@@ -27,9 +25,6 @@ export function usePRDSave({
 
   const handleSaveEdit = async (editedMarkdown: string, setPrd: (prd: PRD) => void) => {
     if (!editedMarkdown || !projectId) return
-
-    console.log('[PRD Save] Starting save process...')
-    console.log('[PRD Save] Edited markdown length:', editedMarkdown.length)
 
     // 显示保存对话框并开始进度
     setIsSaving(true)
@@ -48,8 +43,6 @@ export function usePRDSave({
       // 添加完整的 Markdown 内容到 PRD 对象
       updatedPrd.markdownContent = editedMarkdown
 
-      console.log('[PRD Save] Parsed PRD object:', updatedPrd)
-
       // 步骤 2: 更新本地状态 (进度 40%)
       setSaveProgress(40)
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -61,14 +54,10 @@ export function usePRDSave({
       setSaveProgress(60)
       await new Promise(resolve => setTimeout(resolve, 200))
 
-      const savedProject = getProjectById(projectId)
-      console.log('[PRD Save] Saved project PRD:', savedProject?.prd)
-
       // 步骤 4: 同步到数据库 (进度 80%)
       setSaveProgress(80)
       setSaveMessage('正在同步到数据库...')
       await syncProjectToDatabase(projectId)
-      console.log('[PRD Save] Successfully synced to database')
 
       // 步骤 5: 完成 (进度 100%)
       setSaveProgress(100)
@@ -83,7 +72,6 @@ export function usePRDSave({
         setLoading(false)
       }, 1500)
     } catch (error) {
-      console.error('[PRD Save] Failed to save:', error)
       setSaveStatus('error')
       setSaveMessage(`❌ 保存失败：${error instanceof Error ? error.message : '未知错误'}`)
       setSaveProgress(0)

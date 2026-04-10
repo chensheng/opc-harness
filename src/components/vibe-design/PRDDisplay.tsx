@@ -85,7 +85,6 @@ export function PRDDisplay() {
   } = usePRDSave({
     projectId,
     setProjectPRD,
-    getProjectById,
     syncProjectToDatabase,
     setLoading,
     setIsEditing,
@@ -144,8 +143,6 @@ export function PRDDisplay() {
     if (!content || !projectId) return
 
     try {
-      console.log('[AI Optimization Save] Starting save to database...')
-
       // 解析 Markdown 内容
       const updatedPrd = parseMarkdownToPRD(content)
       updatedPrd.markdownContent = content
@@ -156,7 +153,6 @@ export function PRDDisplay() {
 
       // 同步到数据库
       await syncProjectToDatabase(projectId)
-      console.log('[AI Optimization Save] Successfully saved to database')
     } catch (error) {
       console.error('[AI Optimization Save] Failed to save:', error)
       throw error

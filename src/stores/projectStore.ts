@@ -100,7 +100,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           state.currentProjectId = project.id
         })
 
-        console.log('[ProjectStore] Project created and saved to database:', projectId)
         return project
       } catch (error) {
         console.error('[ProjectStore] Failed to save project to database:', error)
@@ -127,7 +126,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       // 异步删除数据库记录
       try {
         await invoke('delete_project', { id })
-        console.log('[ProjectStore] Project deleted from database:', id)
       } catch (error) {
         console.error('[ProjectStore] Failed to delete project from database:', error)
       }
@@ -230,8 +228,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       }
 
       try {
-        console.log('[ProjectStore] Syncing project to database:', id)
-
         // 只保存原始 Markdown 内容，不再序列化 PRD 对象
         const projectForDb = {
           id: project.id,
@@ -250,7 +246,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         }
 
         await invoke('update_project', { project: projectForDb })
-        console.log('[ProjectStore] Project synced successfully')
       } catch (error) {
         console.error('[ProjectStore] Failed to sync project to database:', error)
         throw error

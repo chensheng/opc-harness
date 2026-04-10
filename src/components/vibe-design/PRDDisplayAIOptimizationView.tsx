@@ -101,7 +101,6 @@ export function PRDDisplayAIOptimizationView({
       if (onSaveToDatabase) {
         try {
           await onSaveToDatabase(lastAssistantMessage.content)
-          console.log('[AI Optimization] Content saved to database successfully')
         } catch (error) {
           console.error('[AI Optimization] Failed to save to database:', error)
           // 即使保存失败，也不影响应用优化内容
