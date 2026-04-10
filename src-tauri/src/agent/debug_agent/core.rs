@@ -2,7 +2,7 @@
 //! 
 //! 负责协调错误收集、解析和诊断的完整流程
 
-use super::types::{DebugAgentConfig, DebugResult, DebugStatus, ErrorInfo, ErrorSource};
+use super::types::{DebugAgentConfig, DebugResult, DebugStatus, ErrorInfo};
 use super::parsers::get_parser_for_source;
 use super::diagnoser::Diagnoser;
 
@@ -98,6 +98,7 @@ impl DebugAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::types::ErrorSource;
 
     #[test]
     fn test_debug_agent_creation() {
