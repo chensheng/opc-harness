@@ -370,7 +370,7 @@ export function Component() {
         /* User Story Management */
         <div className="flex-1 overflow-auto">
           <UserStoryManager
-            prdContent={prdToMarkdown(project?.prd)}
+            prdContent={project?.prdMarkdown || (project?.prd ? prdToMarkdown(project.prd) : '')}
             onStoriesGenerated={handleStoriesGenerated}
           />
         </div>

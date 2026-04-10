@@ -54,7 +54,8 @@ export interface Project {
   createdAt: string
   updatedAt: string
   idea?: string
-  prd?: PRD
+  prd?: PRD // 内存中的结构化 PRD 对象（用于展示）
+  prdMarkdown?: string // 数据库中的原始 Markdown 内容（用于持久化）
   userPersonas?: UserPersona[]
   competitorAnalysis?: CompetitorAnalysis
   techStack?: string[]

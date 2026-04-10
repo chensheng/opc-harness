@@ -57,7 +57,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           createdAt: String(dbProj.created_at || new Date().toISOString()),
           updatedAt: String(dbProj.updated_at || new Date().toISOString()),
           idea: dbProj.idea ? String(dbProj.idea) : undefined,
-          prd: dbProj.prd ? JSON.parse(String(dbProj.prd)) : undefined,
+          prdMarkdown: dbProj.prd ? String(dbProj.prd) : undefined, // 直接存储原始 Markdown
           userPersonas: dbProj.user_personas ? JSON.parse(String(dbProj.user_personas)) : undefined,
           competitorAnalysis: dbProj.competitor_analysis
             ? JSON.parse(String(dbProj.competitor_analysis))
@@ -154,7 +154,12 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       set(state => {
         const project = state.projects.find(p => p.id === id)
         if (project) {
+          // 保存结构化 PRD 对象到内存状态（用于展示）
           project.prd = prd
+          // 同时保存原始 Markdown 内容（用于持久化）
+          if (prd.markdownContent) {
+            project.prdMarkdown = prd.markdownContent
+          }
           project.updatedAt = new Date().toISOString()
         }
       })
@@ -230,7 +235,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       try {
         console.log('[ProjectStore] Syncing project to database:', id)
 
-        // 将复杂对象序列化为 JSON 字符串，并使用 camelCase 格式与后端交互
+        // 只保存原始 Markdown 内容，不再序列化 PRD 对象
         const projectForDb = {
           id: project.id,
           name: project.name,
@@ -240,7 +245,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           createdAt: project.createdAt,
           updatedAt: project.updatedAt,
           idea: project.idea || null,
-          prd: project.prd ? JSON.stringify(project.prd) : null,
+          prd: project.prdMarkdown || null, // 直接保存原始 Markdown
           userPersonas: project.userPersonas ? JSON.stringify(project.userPersonas) : null,
           competitorAnalysis: project.competitorAnalysis
             ? JSON.stringify(project.competitorAnalysis)

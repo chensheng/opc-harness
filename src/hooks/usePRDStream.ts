@@ -52,6 +52,8 @@ export function usePRDStream(): UsePRDStreamReturn {
     if (isComplete && content) {
       try {
         const parsedPRD = parseMarkdownToPRD(content)
+        // 重要：添加完整的 Markdown 内容到 PRD 对象
+        parsedPRD.markdownContent = content
         setPrd(parsedPRD)
       } catch (error) {
         console.error('[usePRDStream] Error parsing markdown to PRD:', error)

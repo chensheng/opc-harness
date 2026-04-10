@@ -94,7 +94,21 @@ export function PRDDisplay() {
   useEffect(() => {
     if (project && !hasStartedGenerationRef.current) {
       if (project.prd) {
+        // 如果已有结构化的 PRD 对象，直接使用
         setPrd(project.prd)
+      } else if (project.prdMarkdown) {
+        // 如果只有原始 Markdown，解析为结构化 PRD
+        try {
+          const parsedPRD = parseMarkdownToPRD(project.prdMarkdown)
+          // 添加完整的 Markdown 内容
+          parsedPRD.markdownContent = project.prdMarkdown
+          setPrd(parsedPRD)
+          console.log('[PRDDisplay] Parsed PRD from markdown:', parsedPRD.title)
+        } catch (error) {
+          console.error('[PRDDisplay] Failed to parse PRD from markdown:', error)
+          hasStartedGenerationRef.current = true
+          generatePRD()
+        }
       } else {
         // Generate PRD if not exists
         hasStartedGenerationRef.current = true
