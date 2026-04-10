@@ -20,6 +20,7 @@ export interface AIConfig {
   temperature?: number
   maxTokens?: number
   streaming?: boolean
+  cliPath?: string // CodeFree CLI 等本地工具的完整路径（可选）
 }
 
 export interface Message {

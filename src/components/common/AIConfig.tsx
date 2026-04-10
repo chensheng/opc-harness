@@ -83,8 +83,11 @@ export function AIConfig() {
   }
 
   const handleSave = (providerId: string) => {
+    // CodeFree CLI 不需要 API Key，其他 provider 需要
+    const isCodeFree = providerId === 'codefree'
     const key = tempKeys[providerId]
-    if (!key) return
+    
+    if (!isCodeFree && !key) return
 
     const provider = providers.find(p => p.id === providerId)
     if (!provider) return
@@ -92,7 +95,7 @@ export function AIConfig() {
     setConfig(providerId, {
       provider: providerId,
       model: selectedModels[providerId] || provider.models[0].id,
-      apiKey: key,
+      apiKey: key || '', // CodeFree 使用空字符串作为 apiKey
     })
 
     clearValidation(providerId)
