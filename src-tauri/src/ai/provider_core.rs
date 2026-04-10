@@ -106,7 +106,8 @@ impl AIProvider {
     pub async fn validate_key(&self) -> Result<bool, AIError> {
         // CodeFree CLI 不需要 API Key，只需要检测 CLI 是否安装
         if self.provider_type == AIProviderType::CodeFree {
-            return self.validate_codefree_cli().await;
+            let result = self.validate_codefree_cli().await;
+            return result.map(|_| true); // 只返回成功与否，路径信息在创建时已设置
         }
         
         // Simple validation - make a test request
@@ -263,47 +264,135 @@ impl AIProvider {
     async fn validate_codefree_cli(&self) -> Result<bool, AIError> {
         log::info!("Validating CodeFree CLI installation...");
         
-        #[cfg(windows)]
-        let check_cmd = Command::new("where").arg("codefree").output().await;
+        // 打印当前进程的 PATH 用于调试
+        let current_path = std::env::var("PATH").unwrap_or_default();
+        log::info!("Current process PATH length: {}", current_path.len());
+        log::debug!("Current PATH: {}", current_path);
         
-        #[cfg(unix)]
-        let check_cmd = Command::new("which").arg("codefree").output().await;
+        // 策略1: 直接尝试执行 codefree --version
+        log::info!("Strategy 1: Direct execution of 'codefree --version'");
+        let version_cmd = Command::new("codefree")
+            .arg("--version")
+            .output()
+            .await;
         
-        match check_cmd {
+        match &version_cmd {
             Ok(output) => {
                 if output.status.success() {
-                    // CLI 已安装，进一步检查版本
-                    let version_cmd = Command::new("codefree")
+                    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    log::info!("✓ CodeFree CLI verified successfully (direct), version: {}", version);
+                    return Ok(true);
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    log::warn!("Direct execution failed with status: {}, stderr: {}", output.status, stderr);
+                }
+            }
+            Err(e) => {
+                log::warn!("Direct execution error: {}", e);
+            }
+        }
+        
+        // 策略2: 在 Windows 上使用 where 命令查找完整路径并执行
+        #[cfg(windows)]
+        {
+            log::info!("Strategy 2: Using 'where' command to find full path");
+            let where_cmd = Command::new("where")
+                .arg("codefree")
+                .output()
+                .await;
+            
+            if let Ok(output) = &where_cmd {
+                if output.status.success() {
+                    let paths = String::from_utf8_lossy(&output.stdout);
+                    if paths.trim().is_empty() {
+                        log::warn!("where command returned empty result - codefree not in PATH");
+                    } else {
+                        log::info!("Found potential paths:\n{}", paths);
+                        
+                        // 尝试使用找到的完整路径执行
+                        for path in paths.lines() {
+                            let path = path.trim();
+                            if !path.is_empty() {
+                                log::info!("Testing path: {}", path);
+                                
+                                // 对于 .cmd/.bat 文件，需要通过 cmd.exe 执行
+                                let test_cmd = if path.to_lowercase().ends_with(".cmd") || path.to_lowercase().ends_with(".bat") {
+                                    log::info!("Detected batch file, using cmd.exe /c");
+                                    Command::new("cmd")
+                                        .args(&["/c", path, "--version"])
+                                        .output()
+                                        .await
+                                } else {
+                                    Command::new(path)
+                                        .arg("--version")
+                                        .output()
+                                        .await
+                                };
+                                
+                                match test_cmd {
+                                    Ok(test_output) => {
+                                        if test_output.status.success() {
+                                            let version = String::from_utf8_lossy(&test_output.stdout).trim().to_string();
+                                            log::info!("✓ CodeFree CLI verified successfully via full path, version: {}", version);
+                                            return Ok(true);
+                                        } else {
+                                            let stderr = String::from_utf8_lossy(&test_output.stderr);
+                                            log::warn!("Execution failed for {}: {}", path, stderr);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::warn!("Failed to execute {}: {}", path, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    log::warn!("'where' command failed: {}", stderr);
+                }
+            } else {
+                log::warn!("Failed to execute 'where' command");
+            }
+        }
+        
+        // 策略3: 在 Unix 系统上使用 which 命令
+        #[cfg(unix)]
+        {
+            log::info!("Strategy 3: Using 'which' command");
+            let which_cmd = Command::new("which")
+                .arg("codefree")
+                .output()
+                .await;
+            
+            if let Ok(output) = which_cmd {
+                if output.status.success() {
+                    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    log::info!("Found codefree at: {}", path);
+                    
+                    let test_cmd = Command::new(&path)
                         .arg("--version")
                         .output()
                         .await;
                     
-                    match version_cmd {
-                        Ok(ver_output) => {
-                            if ver_output.status.success() {
-                                let version = String::from_utf8_lossy(&ver_output.stdout);
-                                log::info!("CodeFree CLI is installed, version: {}", version.trim());
-                                Ok(true)
-                            } else {
-                                Err(AIError {
-                                    message: "CodeFree CLI 已安装但无法获取版本信息".to_string(),
-                                })
-                            }
+                    if let Ok(test_output) = test_cmd {
+                        if test_output.status.success() {
+                            let version = String::from_utf8_lossy(&test_output.stdout).trim().to_string();
+                            log::info!("✓ CodeFree CLI verified successfully via full path, version: {}", version);
+                            return Ok(true);
                         }
-                        Err(e) => Err(AIError {
-                            message: format!("CodeFree CLI 版本检查失败：{}", e),
-                        }),
                     }
-                } else {
-                    Err(AIError {
-                        message: "CodeFree CLI 未安装。请运行 'npm install -g @codefree/cli' 进行安装".to_string(),
-                    })
                 }
             }
-            Err(e) => Err(AIError {
-                message: format!("CodeFree CLI 检测失败：{}", e),
-            }),
         }
+        
+        // 所有策略都失败了
+        log::error!("✗ All validation strategies failed for CodeFree CLI");
+        Err(AIError {
+            message: format!(
+                "CodeFree CLI 未找到或无法执行。\n\n可能原因：\n1. 未全局安装 CodeFree CLI\n2. Node.js/npm 不在系统 PATH 中\n3. Tauri 应用未继承完整的系统环境变量\n\n解决方案：\n1. 确认已安装：在终端运行 'codefree --version'\n2. 重新安装：npm install -g @codefree/cli\n3. 重启应用以确保环境变量生效\n4. 检查系统 PATH 是否包含 Node.js 安装目录"
+            ),
+        })
     }
 
     /// 发送聊天请求

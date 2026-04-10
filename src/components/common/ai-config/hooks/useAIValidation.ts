@@ -19,7 +19,9 @@ export function useAIValidation({ providers }: UseAIValidationProps) {
   const [validationStatus, setValidationStatus] = useState<ProviderValidationStates>({})
 
   const handleValidate = async (providerId: string, apiKey: string, selectedModel?: string) => {
-    if (!apiKey) return
+    // CodeFree CLI 不需要 API Key，其他 provider 需要
+    const isCodeFree = providerId === 'codefree'
+    if (!isCodeFree && !apiKey) return
 
     const provider = providers.find(p => p.id === providerId)
     if (!provider) return

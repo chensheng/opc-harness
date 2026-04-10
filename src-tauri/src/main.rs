@@ -22,6 +22,50 @@ pub mod websocket;
 // 导出统一错误类型
 pub use error::{AppError, AppResult, ErrorCode};
 
+/// 展开环境变量字符串（Windows）
+/// 将 %VAR% 形式的引用替换为实际值
+#[cfg(windows)]
+fn expand_environment_strings(input: &str) -> String {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+    use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsW;
+    
+    // 首先获取需要的缓冲区大小
+    let input_wide: Vec<u16> = input.encode_utf16().chain(std::iter::once(0)).collect();
+    let size = unsafe {
+        ExpandEnvironmentStringsW(
+            input_wide.as_ptr(),
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    
+    if size == 0 {
+        // 如果失败，返回原始字符串
+        return input.to_string();
+    }
+    
+    // 分配缓冲区并再次调用
+    let mut buffer = vec![0u16; size as usize];
+    let result = unsafe {
+        ExpandEnvironmentStringsW(
+            input_wide.as_ptr(),
+            buffer.as_mut_ptr(),
+            size,
+        )
+    };
+    
+    if result == 0 {
+        return input.to_string();
+    }
+    
+    // 转换为 Rust 字符串
+    let len = buffer.iter().position(|&x| x == 0).unwrap_or(buffer.len());
+    OsString::from_wide(&buffer[..len])
+        .to_string_lossy()
+        .into_owned()
+}
+
 fn main() {
     // 初始化日志记录
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
@@ -34,6 +78,63 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            // 确保继承系统的环境变量（特别是 PATH）
+            #[cfg(windows)]
+            {
+                use std::env;
+                use winreg::RegKey;
+                use winreg::enums::*;
+                
+                log::info!("Ensuring system PATH is inherited on Windows...");
+                
+                // 获取系统 PATH（机器级别）
+                let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+                if let Ok(env_key) = hklm.open_subkey("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment") {
+                    if let Ok(system_path) = env_key.get_value::<String, _>("Path") {
+                        log::info!("System PATH found, length: {}", system_path.len());
+                        
+                        // 展开环境变量引用（如 %SystemRoot% 等）
+                        let expanded_system_path = expand_environment_strings(&system_path);
+                        log::debug!("Expanded system PATH: {}", expanded_system_path);
+                        
+                        // 获取当前进程的 PATH
+                        let current_path = env::var("PATH").unwrap_or_default();
+                        
+                        // 如果当前 PATH 不包含系统 PATH 的内容，则合并
+                        if !current_path.contains(&expanded_system_path) {
+                            let merged_path = if current_path.is_empty() {
+                                expanded_system_path.clone()
+                            } else {
+                                format!("{};{}", current_path, expanded_system_path)
+                            };
+                            
+                            env::set_var("PATH", &merged_path);
+                            log::info!("Merged system PATH into process environment");
+                        } else {
+                            log::info!("System PATH already included in process environment");
+                        }
+                    }
+                }
+                
+                // 也检查用户级别的 PATH
+                let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+                if let Ok(env_key) = hkcu.open_subkey("Environment") {
+                    if let Ok(user_path) = env_key.get_value::<String, _>("Path") {
+                        // 展开用户 PATH 中的环境变量
+                        let expanded_user_path = expand_environment_strings(&user_path);
+                        log::debug!("Expanded user PATH: {}", expanded_user_path);
+                        
+                        let current_path = env::var("PATH").unwrap_or_default();
+                        
+                        if !current_path.contains(&expanded_user_path) {
+                            let merged_path = format!("{};{}", current_path, expanded_user_path);
+                            env::set_var("PATH", &merged_path);
+                            log::info!("Merged user PATH into process environment");
+                        }
+                    }
+                }
+            }
+            
             // Initialize database
             let app_handle = app.handle();
             tauri::async_runtime::block_on(async move {

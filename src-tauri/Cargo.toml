@@ -38,6 +38,11 @@ regex = "1.10"
 notify = "6.1"
 sysinfo = "0.30"
 
+# Windows registry access for PATH inheritance
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+windows-sys = { version = "0.52", features = ["Win32_System_Environment"] }
+
 [dev-dependencies]
 tempfile = "3"
 tokio-test = "0.4"
