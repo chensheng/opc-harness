@@ -14,6 +14,9 @@ pub mod deep_analysis;
 #[allow(dead_code)]
 pub mod task_decomposition;
 pub mod user_story;
+pub mod user_story_parser;
+pub mod user_story_ai_service;
+pub mod user_story_streaming;
 pub mod persistence;
 
 // 重新导出所有公共 API，保持向后兼容

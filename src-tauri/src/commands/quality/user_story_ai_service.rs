@@ -1,0 +1,164 @@
+// 用户故事AI服务模块
+// 负责调用AI API进行用户故事分解
+
+use crate::commands::quality::types::UserStory;
+use crate::commands::quality::user_story_parser;
+use chrono::Utc;
+
+/// 使用 AI 进行用户故事拆分
+pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, api_key: Option<&str>) -> Result<Vec<UserStory>, String> {
+    use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
+    use crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt;
+    
+    // 获取 API Key - 支持多种环境变量名
+    let api_key = api_key
+        .map(|k| k.to_string())
+        .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+        .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+        .or_else(|| std::env::var("MOONSHOT_API_KEY").ok())
+        .or_else(|| std::env::var("ZHIPU_API_KEY").ok())
+        .or_else(|| std::env::var("KIMI_API_KEY").ok())
+        .or_else(|| std::env::var("GLM_API_KEY").ok())
+        .ok_or_else(|| {
+            "未提供 API Key，请在参数中传入或设置以下任一环境变量：\n\
+             - OPENAI_API_KEY\n\
+             - ANTHROPIC_API_KEY\n\
+             - MOONSHOT_API_KEY (Kimi)\n\
+             - ZHIPU_API_KEY (GLM)\n\
+             - KIMI_API_KEY\n\
+             - GLM_API_KEY"
+                .to_string()
+        })?;
+    
+    // 生成提示词
+    let prompt = generate_user_story_decomposition_prompt(prd_content);
+    
+    log::info!("Calling AI service for user story decomposition...");
+    log::debug!("Prompt length: {} characters", prompt.len());
+    
+    // 根据 provider 字符串创建对应的 AI Provider
+    let provider_type = match provider {
+        "openai" => AIProviderType::OpenAI,
+        "anthropic" => AIProviderType::Anthropic,
+        "kimi" => AIProviderType::Kimi,
+        "glm" => AIProviderType::GLM,
+        "minimax" => AIProviderType::MiniMax,
+        _ => {
+            return Err(format!("不支持的 AI 提供商：{}", provider));
+        }
+    };
+    
+    // 创建 AI Provider
+    let ai_provider = AIProvider::new(provider_type, api_key);
+    
+    // 构建聊天请求
+    let chat_request = ChatRequest {
+        model: model.to_string(),
+        messages: vec![
+            Message {
+                role: "system".to_string(),
+                content: "你是一位经验丰富的敏捷开发专家和产品经理。请严格按照要求的 JSON 格式输出用户故事列表，不要添加任何额外的解释或说明。".to_string(),
+            },
+            Message {
+                role: "user".to_string(),
+                content: prompt,
+            },
+        ],
+        temperature: Some(0.7),
+        max_tokens: Some(4096),
+        stream: false,
+    };
+    
+    // 调用 AI 服务
+    let response = ai_provider.chat(chat_request).await
+        .map_err(|e| format!("AI 服务调用失败：{}", e.message))?;
+    
+    log::info!("AI response received, length: {} characters", response.content.len());
+    
+    // 检查响应是否有效
+    let trimmed_content = response.content.trim();
+    if trimmed_content.is_empty() {
+        return Err("AI 返回了空响应".to_string());
+    }
+    
+    // 检测异常响应模式
+    if let Some(error_msg) = user_story_parser::detect_abnormal_response(trimmed_content) {
+        log::error!("检测到异常AI响应: {}", error_msg);
+        log::error!("响应预览(前500字符): {}", 
+                    if trimmed_content.len() > 500 { &trimmed_content[..500] } else { trimmed_content });
+        return Err(format!(
+            "AI 返回了无效响应：{}\n\n\
+             响应预览：{}\n\n\
+             建议解决方案：\n\
+             1. 检查 PRD 内容是否过长（建议精简到3000字以内）\n\
+             2. 尝试切换到其他 AI 提供商（如 OpenAI GPT-4）\n\
+             3. 检查 API Key 是否有足够配额且未过期\n\
+             4. 确认使用的模型支持此任务（Kimi for Coding 可能不适合）\n\
+             5. 简化 PRD 内容，只保留核心功能需求",
+            error_msg,
+            if trimmed_content.len() > 200 { &trimmed_content[..200] } else { trimmed_content }
+        ));
+    }
+    
+    log::debug!("AI response preview (first 300 chars): {}", 
+                if response.content.len() > 300 { 
+                    &response.content[..300] 
+                } else { 
+                    &response.content 
+                });
+    
+    // 解析 AI 响应中的 JSON
+    let user_stories = user_story_parser::parse_ai_response_to_user_stories(&response.content)?;
+    
+    // 补充时间戳和状态
+    let now = Utc::now().to_rfc3339();
+    let mut stories_with_metadata: Vec<UserStory> = user_stories.into_iter().map(|mut story| {
+        story.created_at = now.clone();
+        story.updated_at = now.clone();
+        if story.status.is_empty() {
+            story.status = "draft".to_string();
+        }
+        story
+    }).collect();
+    
+    // 确保故事编号连续
+    for (index, story) in stories_with_metadata.iter_mut().enumerate() {
+        story.story_number = format!("US-{:03}", index + 1);
+        story.id = format!("us-{:03}", index + 1);
+    }
+    
+    Ok(stories_with_metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_decompose_without_api_key() {
+        // 测试没有 API Key 时的错误处理
+        let result = decompose_with_ai(
+            "我们需要一个任务管理系统",
+            "openai",
+            "gpt-4-turbo-preview",
+            None
+        ).await;
+        
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err();
+        assert!(error_msg.contains("未提供 API Key"));
+    }
+
+    #[tokio::test]
+    async fn test_decompose_with_invalid_provider() {
+        let result = decompose_with_ai(
+            "测试内容",
+            "invalid_provider",
+            "test-model",
+            Some("test-key")
+        ).await;
+        
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("不支持的 AI 提供商"));
+    }
+}
