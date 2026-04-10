@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { AIResponse } from '../types'
 import { extractErrorMessage } from '../utils'
 
 interface UseAITestingProps {
@@ -28,7 +27,7 @@ export function useAITesting({ getConfig }: UseAITestingProps) {
       const core = await import('@tauri-apps/api/core')
 
       // 使用通用的 chat 命令，支持所有 provider（包括 codefree）
-      const response = await core.invoke<any>('chat', {
+      const response = await core.invoke<string>('chat', {
         request: {
           provider: providerId,
           model: config.model,
@@ -41,7 +40,7 @@ export function useAITesting({ getConfig }: UseAITestingProps) {
 
       setNonStreamResponse(prev => ({
         ...prev,
-        [providerId]: response.content || JSON.stringify(response),
+        [providerId]: response || '',
       }))
     } catch (err) {
       console.error('[handleTestNonStream] 非流式测试失败:', err)

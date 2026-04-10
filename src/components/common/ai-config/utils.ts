@@ -21,8 +21,27 @@ export function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) {
     return err.message
   } else if (typeof err === 'string') {
+    // 如果已经是字符串，检查是否是 JSON 格式（可能是被序列化的对象）
+    try {
+      const parsed = JSON.parse(err)
+      if (parsed && typeof parsed === 'object') {
+        // 如果是对象，尝试提取 message 字段
+        if ((parsed as Record<string, unknown>).message) {
+          return String((parsed as Record<string, unknown>).message)
+        }
+        // 否则返回整个对象的字符串表示
+        return JSON.stringify(parsed, null, 2)
+      }
+    } catch {
+      // 不是 JSON，直接返回
+    }
     return err
   } else if (err && typeof err === 'object') {
+    // 如果是对象，优先提取 message 字段
+    const obj = err as Record<string, unknown>
+    if (obj.message) {
+      return String(obj.message)
+    }
     try {
       return JSON.stringify(err, null, 2)
     } catch {

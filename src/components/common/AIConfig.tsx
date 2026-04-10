@@ -86,7 +86,7 @@ export function AIConfig() {
     // CodeFree CLI 不需要 API Key，其他 provider 需要
     const isCodeFree = providerId === 'codefree'
     const key = tempKeys[providerId]
-    
+
     if (!isCodeFree && !key) return
 
     const provider = providers.find(p => p.id === providerId)

@@ -177,6 +177,12 @@ impl AIProvider {
                     });
                 }
                 Err(e) => {
+                    // 如果解析过程中提取到了具体的错误信息（如认证错误），直接返回
+                    // 检查错误消息是否包含 "CodeFree CLI 错误：" 前缀，说明已经提取到了具体错误
+                    if e.message.starts_with("CodeFree CLI 错误：") {
+                        log::info!("✓ Extracted specific error from stdout: {}", e.message.chars().take(100).collect::<String>());
+                        return Err(e);
+                    }
                     log::warn!("✗ Failed to parse JSON from stdout: {}", e);
                 }
             }
@@ -201,6 +207,11 @@ impl AIProvider {
                         });
                     }
                     Err(e) => {
+                        // 同样检查是否提取到了具体错误
+                        if e.message.starts_with("CodeFree CLI 错误：") {
+                            log::info!("✓ Extracted specific error from stderr: {}", e.message.chars().take(100).collect::<String>());
+                            return Err(e);
+                        }
                         log::warn!("✗ Failed to parse JSON from stderr: {}", e);
                     }
                 }
@@ -457,8 +468,7 @@ impl AIProvider {
         let mut err_reader = BufReader::new(stderr);
         
         // 用于存储从 stderr 提取的错误信息
-        let stderr_error = std::sync::Arc::new(tokio::sync::Mutex::new(None::<String>));
-        let stderr_error_clone = stderr_error.clone();
+        let _stderr_error = std::sync::Arc::new(tokio::sync::Mutex::new(None::<String>));
         
         // 异步读取 stderr（不阻塞主流程）
         let stderr_handle = tokio::spawn(async move {
@@ -484,7 +494,7 @@ impl AIProvider {
             
             // 尝试从 stderr 中提取 JSON 错误信息
             if let Some(json_start) = full_stderr.rfind('[') {
-                let json_content = &full_stderr[json_start..];
+                let _json_content = &full_stderr[json_start..];
                 // 这里我们只记录，实际解析会在主线程中进行
                 log::info!("Found potential JSON in stderr for later parsing");
             }
