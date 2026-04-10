@@ -62,15 +62,23 @@ export function AIConfig() {
     reset: resetStream,
   } = useAIStream()
 
-  // 对厂商进行排序：已配置的排在前面，按最后修改时间倒序
+  // 对厂商进行排序：默认厂商排第1，已配置的排在前面，按最后修改时间倒序
   const sortedProviders = [...providers].sort((a, b) => {
     const configA = getConfig(a.id)
     const configB = getConfig(b.id)
+    const isDefaultA = defaultProvider === a.id
+    const isDefaultB = defaultProvider === b.id
 
+    // 1. 默认厂商排最前
+    if (isDefaultA && !isDefaultB) return -1
+    if (!isDefaultA && isDefaultB) return 1
+
+    // 2. 已配置的排在未配置的前面
     if (!configA && !configB) return 0
     if (configA && !configB) return -1
     if (!configA && configB) return 1
 
+    // 3. 已配置的按最后修改时间倒序
     if (configA && configB) {
       const timeA = configA.lastModified || 0
       const timeB = configB.lastModified || 0
