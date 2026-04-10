@@ -43,7 +43,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
     loadProjectsFromDatabase: async () => {
       try {
         set({ isLoading: true })
-        console.log('[ProjectStore] Loading projects from database...')
 
         const dbProjects = await invoke<Array<Record<string, unknown>>>('get_all_projects')
 
@@ -67,8 +66,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         set(state => {
           state.projects = projects
         })
-
-        console.log(`[ProjectStore] Loaded ${projects.length} projects from database`)
       } catch (error) {
         console.error('[ProjectStore] Failed to load projects from database:', error)
       } finally {

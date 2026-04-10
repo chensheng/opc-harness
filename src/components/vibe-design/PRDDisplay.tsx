@@ -103,7 +103,6 @@ export function PRDDisplay() {
           // 添加完整的 Markdown 内容
           parsedPRD.markdownContent = project.prdMarkdown
           setPrd(parsedPRD)
-          console.log('[PRDDisplay] Parsed PRD from markdown:', parsedPRD.title)
         } catch (error) {
           console.error('[PRDDisplay] Failed to parse PRD from markdown:', error)
           hasStartedGenerationRef.current = true
