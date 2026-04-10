@@ -105,8 +105,6 @@ export function usePRDStream(): UsePRDStreamReturn {
           content: string
           is_complete: boolean
         }>('prd-stream-chunk', event => {
-          console.log('[usePRDStream] Received PRD chunk:', event.payload.content.length, 'chars')
-
           accumulatedContentRef.current += event.payload.content
 
           updatePRDState(accumulatedContentRef.current)
