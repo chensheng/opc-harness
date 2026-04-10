@@ -186,7 +186,10 @@ export function AIConfig() {
                       </div>
                       <div>
                         <CardTitle className="text-lg">{provider.name}</CardTitle>
-                        <CardDescription>{provider.models.length} 个模型可用</CardDescription>
+                        {/* CodeFree CLI 不显示模型数量 */}
+                        {provider.id !== 'codefree' && (
+                          <CardDescription>{provider.models.length} 个模型可用</CardDescription>
+                        )}
                       </div>
                     </div>
                     {isConfigured && (
