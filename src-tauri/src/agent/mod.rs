@@ -26,6 +26,12 @@ pub mod agent_stdio;
 pub mod websocket_manager;
 pub mod agent_manager;
 
+// Agent Manager 子模块（内部使用）
+mod agent_manager_types;
+mod agent_manager_persistence;
+mod agent_manager_core;
+mod agent_manager_commands;
+
 // 重新导出常用类型，方便外部使用
 pub use types::{AgentPhase, AgentStatus, AgentConfig, AgentType};
 pub use messages::{
