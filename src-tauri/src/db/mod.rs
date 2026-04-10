@@ -904,57 +904,6 @@ pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Resul
     Ok(result)
 }
 
-/// 更新单个用户故事
-pub fn update_user_story(conn: &Connection, story: &UserStory) -> Result<()> {
-    conn.execute(
-        "UPDATE user_stories SET
-            story_number = ?1,
-            title = ?2,
-            role = ?3,
-            feature = ?4,
-            benefit = ?5,
-            description = ?6,
-            acceptance_criteria = ?7,
-            priority = ?8,
-            story_points = ?9,
-            status = ?10,
-            epic = ?11,
-            labels = ?12,
-            dependencies = ?13,
-            updated_at = ?14
-        WHERE id = ?15",
-        rusqlite::params![
-            story.story_number,
-            story.title,
-            story.role,
-            story.feature,
-            story.benefit,
-            story.description,
-            story.acceptance_criteria,
-            story.priority,
-            story.story_points,
-            story.status,
-            story.epic,
-            story.labels,
-            story.dependencies,
-            story.updated_at,
-            story.id
-        ],
-    )?;
-
-    Ok(())
-}
-
-/// 删除单个用户故事
-pub fn delete_user_story(conn: &Connection, story_id: &str) -> Result<()> {
-    conn.execute(
-        "DELETE FROM user_stories WHERE id = ?1",
-        [story_id],
-    )?;
-
-    Ok(())
-}
-
 // ==================== Generic CRUD Repository (简化版) ====================
 
 use std::marker::PhantomData;
