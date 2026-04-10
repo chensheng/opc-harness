@@ -137,28 +137,15 @@ export function AIConfig() {
       if (!config) return
 
       try {
-        // 使用通用的 chat 命令，支持所有 provider（包括 codefree）
-        const core = await import('@tauri-apps/api/core')
-
-        const response = await core.invoke<any>('chat', {
-          request: {
-            provider: providerId,
-            model: config.model,
-            api_key: config.apiKey,
-            messages: [{ role: 'user', content: testMessage }],
-            temperature: 0.7,
-            max_tokens: 2048,
-          },
-        })
-
+        // 直接调用 startStream，它会内部调用 stream_chat 命令
         await startStream({
           provider: providerId,
           model: config.model,
           apiKey: config.apiKey,
           messages: [{ role: 'user', content: testMessage }],
         })
-      } catch {
-        console.error('[handleTestStream] 启动流式测试失败')
+      } catch (err) {
+        console.error('[handleTestStream] 启动流式测试失败:', err)
       }
     }
   }
