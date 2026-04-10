@@ -1130,7 +1130,6 @@ export function CodingWorkspace() {
   // 当 projectId 变化时，设置当前项目ID
   useEffect(() => {
     if (projectId) {
-      console.log(`🔧 [CodingWorkspace] Setting current project ID: ${projectId}`)
       setCurrentProject(projectId)
     }
   }, [projectId, setCurrentProject])
@@ -1221,75 +1220,20 @@ export function CodingWorkspace() {
 
   const handleStoriesGenerated = useCallback(
     (stories: UserStory[]) => {
-      console.log('='.repeat(80))
-      console.log('📝 [CodingWorkspace] handleStoriesGenerated CALLED')
-      console.log('   Timestamp:', new Date().toISOString())
-      console.log(`   Stories count: ${stories.length}`)
-      console.log('   ProjectId:', projectId)
-      if (stories.length > 0) {
-        console.log('   First story:', {
-          id: stories[0].id,
-          storyNumber: stories[0].storyNumber,
-          title: stories[0].title,
-        })
-        console.log('   Last story:', {
-          id: stories[stories.length - 1].id,
-          storyNumber: stories[stories.length - 1].storyNumber,
-          title: stories[stories.length - 1].title,
-        })
-      }
-      console.log('='.repeat(80))
-
       // 保存用户故事到数据库
       if (projectId && stories.length > 0) {
-        console.log('\n💾 [CodingWorkspace] STARTING SAVE TO DATABASE')
-        console.log(`   Project ID: ${projectId}`)
-        console.log(`   Stories to save: ${stories.length}`)
-
         // 使用 useUserStoryStore 的 setProjectStories 方法
         const userStoryStore = useUserStoryStore.getState()
-        console.log('   Got userStoryStore instance')
-        console.log('   Calling setProjectStories...')
 
         userStoryStore
           .setProjectStories(projectId, stories)
           .then(() => {
-            console.log('\n✅ [CodingWorkspace] SAVE COMPLETED SUCCESSFULLY')
-            console.log(`   Successfully saved ${stories.length} user stories to database`)
-
             // 重新加载以确认保存成功
-            console.log('   Reloading stories from database to verify...')
             return userStoryStore.loadProjectStories(projectId)
           })
-          .then(() => {
-            const loadedStories = userStoryStore.getProjectStories(projectId)
-            console.log('\n✅ [CodingWorkspace] VERIFICATION COMPLETED')
-            console.log(`   Loaded ${loadedStories.length} stories from database after save`)
-            if (loadedStories.length > 0) {
-              console.log('   First loaded story:', {
-                id: loadedStories[0].id,
-                storyNumber: loadedStories[0].storyNumber,
-                title: loadedStories[0].title,
-              })
-            }
-            console.log('='.repeat(80))
+          .catch(() => {
+            // 静默处理错误
           })
-          .catch(error => {
-            console.error('\n❌ [CodingWorkspace] SAVE FAILED')
-            console.error('   Error message:', error.message || error)
-            console.error('   Error stack:', error.stack)
-            console.error('='.repeat(80))
-          })
-      } else {
-        console.warn('\n⚠️ [CodingWorkspace] SKIP SAVE')
-        if (!projectId) {
-          console.warn('   Reason: No projectId available')
-          console.warn('   Current projectId:', projectId)
-        }
-        if (stories.length === 0) {
-          console.warn('   Reason: No stories to save')
-        }
-        console.log('='.repeat(80))
       }
     },
     [projectId]
@@ -1369,35 +1313,6 @@ export function CodingWorkspace() {
       ])
     }
   }
-
-  // 调试日志：检查 PRD 数据
-  useEffect(() => {
-    if (project?.prd) {
-      console.log('[CodingWorkspace] Project PRD loaded:', {
-        hasMarkdownContent: !!project.prd.markdownContent,
-        markdownContentLength: project.prd.markdownContent?.length || 0,
-        title: project.prd.title,
-        hasOverview: !!project.prd.overview,
-        coreFeaturesCount: project.prd.coreFeatures?.length || 0,
-        // 输出前 500 字符以检查表格格式
-        markdownContentPreview: project.prd.markdownContent?.substring(0, 500),
-        // 检查是否包含表格语法
-        hasTableSyntax: project.prd.markdownContent?.includes('|') || false,
-      })
-
-      // 如果包含表格，输出完整的表格部分
-      if (project.prd.markdownContent?.includes('|')) {
-        const tableMatch = project.prd.markdownContent.match(
-          /\|.*\|[\s\S]*?\|[-|\s]+\|[\s\S]*?\|.*\|/m
-        )
-        if (tableMatch) {
-          console.log('[CodingWorkspace] Table found in PRD:', tableMatch[0].substring(0, 300))
-        }
-      }
-    } else {
-      console.warn('[CodingWorkspace] No PRD found for project:', projectId)
-    }
-  }, [project, projectId])
 
   if (!project) {
     return (
