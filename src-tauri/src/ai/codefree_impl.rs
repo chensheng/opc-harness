@@ -423,10 +423,15 @@ impl AIProvider {
         use serde_json::Value;
         
         // 尝试解析单个 JSON 对象
-        let value: Value = serde_json::from_str(line)
-            .map_err(|e| AIError {
-                message: format!("JSON 解析失败：{}", e),
-            })?;
+        let value: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => {
+                // 如果不是有效的JSON，可能是纯文本内容（如Markdown PRD）
+                // 直接返回该行作为文本内容
+                log::debug!("Line is not valid JSON, treating as plain text (length: {})", line.len());
+                return Ok(Some(line.to_string()));
+            }
+        };
         
         if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
             match msg_type {
