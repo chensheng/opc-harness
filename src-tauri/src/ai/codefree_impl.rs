@@ -527,7 +527,7 @@ impl AIProvider {
         log::info!("Stream query length: {} chars", query.len());
         
         // 构建命令参数
-        // 格式: codefree [query...] -o stream-json [-m model]
+        // 格式: codefree [query...] -o stream-json [-m model] [-y]
         let mut args = vec![query.clone()];
         args.push("-o".to_string());
         args.push("stream-json".to_string());
@@ -538,6 +538,10 @@ impl AIProvider {
             args.push(request.model.clone());
             log::info!("Using model for streaming: {}", request.model);
         }
+        
+        // 添加 -y 参数（YOLO 模式），自动接受所有操作，无需用户确认
+        args.push("-y".to_string());
+        log::info!("[CodeFree] YOLO mode enabled: automatically accept all actions");
         
         // 打印完整的 CodeFree CLI 命令（用于调试）
         if cmd_config.use_shell {
