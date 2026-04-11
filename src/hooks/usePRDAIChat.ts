@@ -130,7 +130,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
 ## 工作流程
 
-1. 读取 @PRD.md 获取当前 PRD 内容
+1. 读取 @.opc-harness/PRD.md 获取当前 PRD 内容
 2. 理解用户的优化需求
 3. 在脑海中完成优化（不要输出思考过程）
 4. **直接输出**优化后的完整 PRD 文档（Markdown 格式）
@@ -166,8 +166,8 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
               console.log('[usePRDAIChat] AGENTS.md written to workspace')
 
-              // 在提示词中使用 @ 引用
-              prdContentForAI = '@AGENTS.md @PRD.md'
+              // 在提示词中使用 @ 引用（文件在 .opc-harness 子目录中）
+              prdContentForAI = '@.opc-harness/AGENTS.md @.opc-harness/PRD.md'
             } catch (err) {
               console.error('[usePRDAIChat] Failed to write PRD file:', err)
               // 即使写入文件失败，也继续使用原有内容
@@ -224,11 +224,11 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
         unlistenRef.current.push(unlistenError)
 
         // 构建系统提示词，指导 AI 输出完整 PRD
-        // 对于 CodeFree，由于已经通过 @AGENTS.md 和 @PRD.md 引用了上下文，使用简化的提示词
+        // 对于 CodeFree，由于已经通过 @.opc-harness/AGENTS.md 和 @.opc-harness/PRD.md 引用了上下文，使用简化的提示词
         const isCodeFree = activeConfig?.provider === 'codefree'
 
         const systemPrompt = isCodeFree
-          ? '请读取 @AGENTS.md 了解任务规则，读取 @PRD.md 获取当前内容，然后根据用户需求生成优化后的完整 PRD 文档。'
+          ? '请读取 @.opc-harness/AGENTS.md 了解任务规则，读取 @.opc-harness/PRD.md 获取当前内容，然后根据用户需求生成优化后的完整 PRD 文档。'
           : `你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档.
 
 重要规则：
