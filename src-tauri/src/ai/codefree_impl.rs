@@ -519,12 +519,15 @@ impl AIProvider {
         };
         
         // 构建查询内容
+        // 对于 CodeFree，直接使用用户消息作为位置参数（system prompt 已通过 @AGENTS.md 引用）
         let query = request.messages.iter()
-            .map(|m| format!("{}: {}", m.role, m.content))
+            .filter(|m| m.role == "user")  // 只提取用户消息
+            .map(|m| m.content.clone())
             .collect::<Vec<_>>()
             .join("\n\n");
         
-        log::info!("Stream query length: {} chars", query.len());
+        log::info!("[CodeFree] Stream query length: {} chars", query.len());
+        log::info!("[CodeFree] Query preview: {}", &query[..100.min(query.len())]);
         
         // 构建命令参数
         // 格式: codefree [query...] -o stream-json [-m model] [-y]
