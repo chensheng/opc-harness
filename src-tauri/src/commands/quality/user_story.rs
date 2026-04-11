@@ -62,7 +62,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_decompose_user_stories_without_api_key() {
-        // 测试没有 API Key 时的错误处理
+        // 测试没有 API Key 时的行为 - 现在会尝试调用AI，但因API key无效而失败
         let request = DecomposeUserStoriesRequest {
             prd_content: "我们需要一个任务管理系统".to_string(),
             provider: "openai".to_string(),
@@ -74,9 +74,12 @@ mod tests {
         assert!(result.is_ok());
         
         let response = result.unwrap();
-        // 没有 API Key 时应该返回失败
+        // 由于 API key 无效，AI 调用会失败
         assert!(!response.success);
         assert!(response.error_message.is_some());
+        // 错误信息应该包含 AI 服务调用失败的相关信息
+        let error_msg = response.error_message.unwrap();
+        assert!(error_msg.contains("AI 拆分失败"));
     }
 
     #[tokio::test]

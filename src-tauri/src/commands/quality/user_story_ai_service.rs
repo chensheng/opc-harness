@@ -10,7 +10,7 @@ pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, a
     use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
     use crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt;
     
-    // 获取 API Key - 支持多种环境变量名
+    // 获取 API Key - 优先使用传入的 key，否则从环境变量读取
     let api_key = api_key
         .map(|k| k.to_string())
         .or_else(|| std::env::var("OPENAI_API_KEY").ok())
@@ -19,16 +19,7 @@ pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, a
         .or_else(|| std::env::var("ZHIPU_API_KEY").ok())
         .or_else(|| std::env::var("KIMI_API_KEY").ok())
         .or_else(|| std::env::var("GLM_API_KEY").ok())
-        .ok_or_else(|| {
-            "未提供 API Key，请在参数中传入或设置以下任一环境变量：\n\
-             - OPENAI_API_KEY\n\
-             - ANTHROPIC_API_KEY\n\
-             - MOONSHOT_API_KEY (Kimi)\n\
-             - ZHIPU_API_KEY (GLM)\n\
-             - KIMI_API_KEY\n\
-             - GLM_API_KEY"
-                .to_string()
-        })?;
+        .unwrap_or_default(); // 如果都没有，使用空字符串（AI Provider会处理）
     
     // 生成提示词
     let prompt = generate_user_story_decomposition_prompt(prd_content);
@@ -136,7 +127,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_decompose_without_api_key() {
-        // 测试没有 API Key 时的错误处理
+        // 测试没有 API Key 时的行为 - 现在不会报错，而是使用空字符串
         let result = decompose_with_ai(
             "我们需要一个任务管理系统",
             "openai",
@@ -144,9 +135,11 @@ mod tests {
             None
         ).await;
         
+        // 由于没有有效的 API Key，AI 调用会失败，但不会在参数检查阶段失败
         assert!(result.is_err());
         let error_msg = result.unwrap_err();
-        assert!(error_msg.contains("未提供 API Key"));
+        // 错误应该是 AI 服务调用失败，而不是"未提供 API Key"
+        assert!(error_msg.contains("AI 服务调用失败") || error_msg.contains("Invalid API key"));
     }
 
     #[tokio::test]

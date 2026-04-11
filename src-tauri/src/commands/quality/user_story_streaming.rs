@@ -26,7 +26,16 @@ pub async fn decompose_user_stories_streaming(
         _ => return Err(format!("不支持的 AI 提供商：{}", request.provider)),
     };
     
-    let api_key = request.api_key.ok_or_else(|| "未提供 API Key".to_string())?;
+    // 获取 API Key - 优先使用传入的 key，否则从环境变量读取
+    let api_key = request.api_key
+        .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+        .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+        .or_else(|| std::env::var("MOONSHOT_API_KEY").ok())
+        .or_else(|| std::env::var("ZHIPU_API_KEY").ok())
+        .or_else(|| std::env::var("KIMI_API_KEY").ok())
+        .or_else(|| std::env::var("GLM_API_KEY").ok())
+        .unwrap_or_default(); // 如果都没有，使用空字符串（AI Provider会处理）
+    
     let provider = crate::ai::AIProvider::new(provider_type, api_key);
     
     // 2. 生成提示词
