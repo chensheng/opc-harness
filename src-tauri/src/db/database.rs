@@ -209,15 +209,12 @@ pub fn ensure_all_project_workspaces() -> Result<(), String> {
     let conn = Connection::open(&db_path)
         .map_err(|e| format!("Failed to open database: {}", e))?;
     
-    // 查询所有项目
-    let mut stmt = conn.prepare("SELECT id, name FROM projects")
+    // 查询所有项目（只需要ID）
+    let mut stmt = conn.prepare("SELECT id FROM projects")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
     let projects = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-        ))
+        Ok(row.get::<_, String>(0)?)
     })
     .map_err(|e| format!("Failed to query projects: {}", e))?;
     
@@ -226,15 +223,15 @@ pub fn ensure_all_project_workspaces() -> Result<(), String> {
     
     for project_result in projects {
         match project_result {
-            Ok((_id, name)) => {
-                // 确保工作区目录存在
-                match ensure_project_workspace(&name) {
+            Ok(project_id) => {
+                // 确保工作区目录存在（使用项目ID）
+                match ensure_project_workspace(&project_id) {
                     Ok(path) => {
-                        log::debug!("Workspace directory verified for project '{}': {:?}", name, path);
+                        log::debug!("Workspace directory verified for project '{}': {:?}", project_id, path);
                         verified_count += 1;
                     }
                     Err(e) => {
-                        log::error!("Failed to ensure workspace directory for project '{}': {}", name, e);
+                        log::error!("Failed to ensure workspace directory for project '{}': {}", project_id, e);
                         error_count += 1;
                     }
                 }
@@ -262,7 +259,7 @@ pub fn ensure_all_project_workspaces() -> Result<(), String> {
 /// 确保项目的工作区目录存在
 /// 
 /// 如果目录不存在则创建，如果存在则返回路径
-fn ensure_project_workspace(project_name: &str) -> Result<std::path::PathBuf, String> {
+fn ensure_project_workspace(project_id: &str) -> Result<std::path::PathBuf, String> {
     use std::fs;
     
     // 获取工作区根目录
@@ -272,60 +269,20 @@ fn ensure_project_workspace(project_name: &str) -> Result<std::path::PathBuf, St
     fs::create_dir_all(&workspaces_root)
         .map_err(|e| format!("Failed to create workspaces directory: {}", e))?;
     
-    // 生成安全的项目目录名（替换非法字符）
-    let safe_project_name = sanitize_project_name_for_check(project_name);
+    // 构建项目工作区路径（直接使用项目ID作为目录名）
+    let project_workspace = workspaces_root.join(project_id);
     
-    // 构建项目工作区路径
-    let project_workspace = workspaces_root.join(&safe_project_name);
-    
-    // 如果目录已存在，添加时间戳避免冲突
-    let final_path = if project_workspace.exists() {
-        project_workspace
-    } else {
-        // 创建新的工作区目录
-        fs::create_dir_all(&project_workspace)
-            .map_err(|e| format!("Failed to create project workspace directory: {}", e))?;
-        log::info!("Created workspace directory for project '{}': {:?}", project_name, project_workspace);
-        project_workspace
-    };
-    
-    Ok(final_path)
-}
-
-/// 简化的项目名称清理函数（用于检查）
-/// 
-/// 与 commands::database::sanitize_project_name 保持一致的逻辑
-fn sanitize_project_name_for_check(name: &str) -> String {
-    // 第一步：替换所有非法字符为下划线
-    let replaced = name.chars()
-        .map(|c| match c {
-            // 允许的字符保持不变
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => c,
-            // 点号也替换为下划线（避免隐藏文件和扩展名问题）
-            '.' => '_',
-            // 空格和其他特殊字符替换为下划线
-            _ => '_',
-        })
-        .collect::<String>();
-    
-    // 第二步：移除连续的下划线
-    let cleaned = replaced
-        .split('_')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<&str>>()
-        .join("_");
-    
-    // 第三步：确保不以点或下划线开头
-    let trimmed = cleaned
-        .trim_start_matches('.')
-        .trim_start_matches('_');
-    
-    // 第四步：如果为空，使用默认名称
-    if trimmed.is_empty() {
-        "unnamed_project".to_string()
-    } else {
-        trimmed.to_string()
+    // 如果目录已存在，直接返回路径
+    if project_workspace.exists() {
+        return Ok(project_workspace);
     }
+    
+    // 创建新的工作区目录
+    fs::create_dir_all(&project_workspace)
+        .map_err(|e| format!("Failed to create project workspace directory: {}", e))?;
+    log::info!("Created workspace directory for project '{}': {:?}", project_id, project_workspace);
+    
+    Ok(project_workspace)
 }
 
 /// 获取数据库连接
@@ -349,44 +306,18 @@ mod tests {
         // 确保基础目录存在
         paths::ensure_app_directories().expect("Failed to ensure app directories");
         
-        // 测试确保项目工作区目录会被创建
-        let test_project_name = "Test_Project_Workspace";
+        // 使用 UUID 作为项目 ID
+        let project_id = Uuid::new_v4().to_string();
         let workspaces_root = paths::get_workspaces_dir();
-        let test_dir = workspaces_root.join("Test_Project_Workspace");
+        let test_dir = workspaces_root.join(&project_id);
         
         // 调用函数
-        let result = ensure_project_workspace(test_project_name);
+        let result = ensure_project_workspace(&project_id);
         
         // 验证结果
         assert!(result.is_ok(), "Failed to ensure project workspace: {:?}", result.err());
         assert!(test_dir.exists(), "Workspace directory was not created");
-        
-        // 清理
-        fs::remove_dir_all(&temp_dir).ok();
-        std::env::remove_var("OPC_HARNESS_HOME");
-    }
-
-    #[test]
-    fn test_ensure_project_workspace_with_special_chars() {
-        // 使用临时目录进行测试
-        let temp_dir = std::env::temp_dir().join(format!("test-opc-harness-{}", Uuid::new_v4()));
-        std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
-        
-        // 确保基础目录存在
-        paths::ensure_app_directories().expect("Failed to ensure app directories");
-        
-        // 测试包含特殊字符的项目名称
-        let test_project_name = "My Test@Project#2024!";
-        let workspaces_root = paths::get_workspaces_dir();
-        let expected_name = "My_Test_Project_2024";
-        let test_dir = workspaces_root.join(expected_name);
-        
-        // 调用函数
-        let result = ensure_project_workspace(test_project_name);
-        
-        // 验证结果
-        assert!(result.is_ok(), "Failed to ensure project workspace: {:?}", result.err());
-        assert!(test_dir.exists(), "Workspace directory with sanitized name was not created");
+        assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
         
         // 清理
         fs::remove_dir_all(&temp_dir).ok();
@@ -402,20 +333,21 @@ mod tests {
         // 确保基础目录存在
         paths::ensure_app_directories().expect("Failed to ensure app directories");
         
-        // 测试已存在的目录不会被重复创建或报错
-        let test_project_name = "Existing_Project";
+        // 使用 UUID 作为项目 ID
+        let project_id = Uuid::new_v4().to_string();
         let workspaces_root = paths::get_workspaces_dir();
-        let test_dir = workspaces_root.join("Existing_Project");
+        let test_dir = workspaces_root.join(&project_id);
         
         // 先创建目录
         fs::create_dir_all(&test_dir).expect("Failed to create test directory");
         
         // 调用函数
-        let result = ensure_project_workspace(test_project_name);
+        let result = ensure_project_workspace(&project_id);
         
         // 验证结果
         assert!(result.is_ok(), "Failed to ensure existing project workspace: {:?}", result.err());
         assert!(test_dir.exists(), "Existing workspace directory should still exist");
+        assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
         
         // 清理
         fs::remove_dir_all(&temp_dir).ok();

@@ -18,16 +18,15 @@ OPC-HARNESS 采用业界标准做法（参考 OpenClaw、Claude Code），在用
 ├── cache/                         # 缓存文件
 ├── sessions/                      # 会话数据
 └── workspaces/                    # 项目工作区 ⭐
-    ├── project-name-1/            # 项目1的代码目录
-    ├── project-name-2/            # 项目2的代码目录
+    ├── {project-uuid-1}/          # 项目1的代码目录（使用UUID命名）
+    ├── {project-uuid-2}/          # 项目2的代码目录（使用UUID命名）
     └── ...
 ```
 
 **项目工作区特性**：
-- ✅ 自动创建：创建新项目时自动生成 `~/.opc-harness/workspaces/{project_name}` 目录
+- ✅ 自动创建：创建新项目时自动生成 `~/.opc-harness/workspaces/{project_id}` 目录（使用项目UUID作为目录名）
 - ✅ 启动检查：应用启动时自动检查并修复缺失的工作区目录
-- ✅ 名称清理：自动替换非法字符（空格、特殊符号等）为下划线
-- ✅ 冲突处理：如果目录已存在，自动添加时间戳避免冲突
+- ✅ 唯一性保证：使用UUID确保目录名全局唯一，避免冲突
 - ✅ 跨平台兼容：支持 Windows、macOS、Linux
 
 ## ✨ 核心功能
