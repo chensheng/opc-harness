@@ -225,17 +225,17 @@ impl AIProvider {
         
         // 构建详细的错误消息
         let mut error_details = String::new();
-        error_details.push_str("CodeFree CLI 执行失败\n\n");
+        
+        // 优先显示 stderr 中的实际错误信息
+        if !stderr.is_empty() {
+            error_details.push_str("【CodeFree CLI 错误详情】\n");
+            error_details.push_str(&stderr);
+            error_details.push_str("\n\n");
+        }
         
         if !stdout.is_empty() {
             error_details.push_str("【标准输出】\n");
             error_details.push_str(&stdout.chars().take(1000).collect::<String>());
-            error_details.push_str("\n\n");
-        }
-        
-        if !stderr.is_empty() {
-            error_details.push_str("【标准错误】\n");
-            error_details.push_str(&stderr.chars().take(1000).collect::<String>());
             error_details.push_str("\n\n");
         }
         
@@ -467,10 +467,7 @@ impl AIProvider {
         let mut reader = BufReader::new(stdout);
         let mut err_reader = BufReader::new(stderr);
         
-        // 用于存储从 stderr 提取的错误信息
-        let _stderr_error = std::sync::Arc::new(tokio::sync::Mutex::new(None::<String>));
-        
-        // 异步读取 stderr（不阻塞主流程）
+        // 异步读取 stderr（不阻塞主流程），并返回完整的 stderr 内容
         let stderr_handle = tokio::spawn(async move {
             let mut line = String::new();
             let mut full_stderr = String::new();
@@ -492,12 +489,7 @@ impl AIProvider {
                 }
             }
             
-            // 尝试从 stderr 中提取 JSON 错误信息
-            if let Some(json_start) = full_stderr.rfind('[') {
-                let _json_content = &full_stderr[json_start..];
-                // 这里我们只记录，实际解析会在主线程中进行
-                log::info!("Found potential JSON in stderr for later parsing");
-            }
+            full_stderr
         });
         
         // 逐行读取 stdout 并流式输出
@@ -567,13 +559,13 @@ impl AIProvider {
             message: format!("CodeFree CLI 进程等待失败：{}", e),
         })?;
         
-        // 等待 stderr 读取完成
-        let _ = stderr_handle.await;
+        // 等待 stderr 读取完成并获取内容
+        let full_stderr = stderr_handle.await.unwrap_or_default();
         
         if !status.success() {
             log::error!("CodeFree CLI exited with status: {}", status);
             
-            // 尝试从已接收的内容中解析 JSON 错误信息
+            // 尝试从已接收的 stdout 内容中解析 JSON 错误信息
             if !full_content.is_empty() {
                 log::info!("Attempting to parse error from stream output (length: {})", full_content.len());
                 
@@ -610,17 +602,19 @@ impl AIProvider {
             
             // 如果所有解析都失败，返回详细的诊断信息
             let mut error_details = String::new();
-            error_details.push_str("CodeFree CLI 执行失败\n\n");
             
-            if !full_content.is_empty() {
-                error_details.push_str("【已接收的内容】\n");
-                error_details.push_str(&full_content.chars().take(1000).collect::<String>());
+            // 优先显示 stderr 中的实际错误信息
+            if !full_stderr.is_empty() {
+                error_details.push_str("【CodeFree CLI 错误详情】\n");
+                error_details.push_str(&full_stderr);
                 error_details.push_str("\n\n");
             }
             
-            error_details.push_str("【说明】\n");
-            error_details.push_str("CLI 将输出发送到了标准错误(stderr)，可能包含警告或错误信息。\n");
-            error_details.push_str("请检查 CodeFree CLI 配置和认证设置。\n\n");
+            if !full_content.is_empty() {
+                error_details.push_str("【已接收的标准输出】\n");
+                error_details.push_str(&full_content.chars().take(1000).collect::<String>());
+                error_details.push_str("\n\n");
+            }
             
             error_details.push_str(&format!("退出码: {}", status));
             
@@ -628,11 +622,6 @@ impl AIProvider {
                 message: error_details,
             });
         }
-        
-        log::info!(
-            "CodeFree stream finished, content length: {}",
-            full_content.len()
-        );
         
         Ok(full_content)
     }

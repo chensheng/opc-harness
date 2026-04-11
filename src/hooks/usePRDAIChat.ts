@@ -158,7 +158,12 @@ ${currentPRDContent}
         })
       } catch (err) {
         console.error('[usePRDAIChat] Error sending message:', err)
-        setError(err instanceof Error ? err.message : '发送消息失败')
+        // 只有在还没有设置详细错误信息时，才设置通用错误
+        // 因为详细的错误信息应该已经通过 ai-stream-error 事件设置了
+        if (!error) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          setError(`AI 调用失败：${errorMessage}`)
+        }
         setIsStreaming(false)
         isStreamingRef.current = false
         cleanup()

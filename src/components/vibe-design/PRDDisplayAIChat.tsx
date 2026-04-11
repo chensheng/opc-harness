@@ -189,7 +189,8 @@ export function PRDDisplayAIChat({
             {/* 错误提示 */}
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-sm text-destructive">
-                {error}
+                <div className="font-semibold mb-1">❌ AI 调用失败</div>
+                <div className="text-xs opacity-90 whitespace-pre-wrap">{error}</div>
               </div>
             )}
           </div>
