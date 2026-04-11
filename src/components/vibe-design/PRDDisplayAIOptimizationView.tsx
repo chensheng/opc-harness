@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, StopCircle, ArrowLeft, Check, Send } from 'lucide-react'
+import { Sparkles, StopCircle, ArrowLeft, Check, Send, AlertCircle } from 'lucide-react'
 import { StreamingComponents } from './PRDDisplayMarkdownComponents'
 import { usePRDAIChat } from '@/hooks/usePRDAIChat'
 
@@ -152,7 +152,18 @@ export function PRDDisplayAIOptimizationView({
 
       {/* 实时内容预览 - 可滚动区域 */}
       <Card className="min-h-[70vh]">
-        <CardContent className="py-6">
+        <CardContent className="py-6 space-y-4">
+          {/* 错误提示 - 放在预览区域顶部，确保可见 */}
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3 text-sm text-destructive">
+              <div className="font-semibold mb-2 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                ❌ AI 调用失败
+              </div>
+              <div className="text-xs opacity-90 whitespace-pre-wrap max-h-[150px] overflow-y-auto">{error}</div>
+            </div>
+          )}
+
           <div
             ref={scrollContainerRef}
             className="prose prose-sm max-w-none overflow-y-auto max-h-[calc(100vh-280px)] scroll-smooth"
@@ -183,15 +194,6 @@ export function PRDDisplayAIOptimizationView({
           </div>
         </CardContent>
       </Card>
-
-      {/* 错误提示 */}
-      {error && (
-        <Card className="border-destructive">
-          <CardContent className="py-6">
-            <p className="text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* 底部输入区域 */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t py-4">
