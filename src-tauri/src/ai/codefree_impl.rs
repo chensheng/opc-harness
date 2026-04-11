@@ -405,7 +405,7 @@ impl AIProvider {
     pub(super) async fn stream_chat_codefree<F>(
         &self,
         request: ChatRequest,
-        mut on_chunk: F,
+        on_chunk: F,
     ) -> Result<String, AIError>
     where
         F: FnMut(String) -> Result<(), AIError>,
@@ -463,14 +463,98 @@ impl AIProvider {
             message: "无法获取 CodeFree CLI 错误输出".to_string(),
         })?;
         
-        let mut full_content = String::new();
-        let mut reader = BufReader::new(stdout);
-        let mut err_reader = BufReader::new(stderr);
+        // 使用 Arc<Mutex> 包装 on_chunk 以便在多个异步任务中共享
+        let on_chunk_shared = std::sync::Arc::new(tokio::sync::Mutex::new(on_chunk));
         
-        // 异步读取 stderr（不阻塞主流程），并返回完整的 stderr 内容
-        let stderr_handle = tokio::spawn(async move {
+        // 用于收集完整内容的缓冲区
+        let full_content_arc = std::sync::Arc::new(tokio::sync::Mutex::new(String::new()));
+        let full_stderr_arc = std::sync::Arc::new(tokio::sync::Mutex::new(String::new()));
+        
+        // 克隆 Arc 用于异步任务
+        let on_chunk_stdout = on_chunk_shared.clone();
+        let full_content_clone = full_content_arc.clone();
+        let full_stderr_clone = full_stderr_arc.clone();
+        
+        // 创建子进程的等待 future（不立即 await）
+        let child_wait = Box::pin(child.wait());
+        
+        // 并发读取 stdout 和 stderr，同时监控进程退出
+        let stdout_future = async {
+            let mut reader = BufReader::new(stdout);
             let mut line = String::new();
-            let mut full_stderr = String::new();
+            let mut content = String::new();
+            
+            loop {
+                line.clear();
+                match reader.read_line(&mut line).await {
+                    Ok(0) => break, // EOF
+                    Ok(_) => {
+                        if !line.trim().is_empty() {
+                            let raw_chunk = line.clone();
+                            content.push_str(&raw_chunk);
+                            
+                            // 尝试解析当前行的 JSON 并提取文本内容
+                            let trimmed_line = line.trim();
+                            if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed_line) {
+                                if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
+                                    match msg_type {
+                                        "assistant" => {
+                                            // 提取助手消息中的文本内容
+                                            if let Some(message) = value.get("message") {
+                                                if let Some(content_array) = message.get("content").and_then(|v| v.as_array()) {
+                                                    for item in content_array {
+                                                        if let Some(item_type) = item.get("type").and_then(|v| v.as_str()) {
+                                                            if item_type == "text" {
+                                                                if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+                                                                    // 发送提取的文本内容到前端
+                                                                    let mut callback_guard = on_chunk_stdout.lock().await;
+                                                                    if let Err(e) = callback_guard(text.to_string()) {
+                                                                        log::error!("Error in on_chunk callback: {}", e);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        "result" => {
+                                            // 提取最终结果
+                                            if let Some(result_text) = value.get("result").and_then(|v| v.as_str()) {
+                                                let mut callback_guard = on_chunk_stdout.lock().await;
+                                                if let Err(e) = callback_guard(format!("\n\n{}", result_text)) {
+                                                    log::error!("Error in on_chunk callback: {}", e);
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            // 其他类型（如 system、error）不显示
+                                            log::debug!("Skipping {} message type", msg_type);
+                                        }
+                                    }
+                                }
+                            } else {
+                                // 如果解析失败，记录日志但不发送原始 JSON
+                                log::warn!("Failed to parse JSON line: {}", trimmed_line.chars().take(100).collect::<String>());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Error reading stdout: {}", e);
+                        break;
+                    }
+                }
+            }
+            
+            // 将结果写入共享状态
+            let mut guard = full_content_clone.lock().await;
+            *guard = content;
+        };
+        
+        let stderr_future = async {
+            let mut err_reader = BufReader::new(stderr);
+            let mut line = String::new();
+            let mut stderr_content = String::new();
             
             loop {
                 line.clear();
@@ -479,7 +563,7 @@ impl AIProvider {
                     Ok(_) => {
                         if !line.trim().is_empty() {
                             log::warn!("CodeFree stderr: {}", line.trim());
-                            full_stderr.push_str(&line);
+                            stderr_content.push_str(&line);
                         }
                     }
                     Err(e) => {
@@ -489,78 +573,25 @@ impl AIProvider {
                 }
             }
             
-            full_stderr
-        });
+            // 将结果写入共享状态
+            let mut guard = full_stderr_clone.lock().await;
+            *guard = stderr_content;
+        };
         
-        // 逐行读取 stdout 并流式输出
-        let mut line = String::new();
-        loop {
-            line.clear();
-            match reader.read_line(&mut line).await {
-                Ok(0) => break, // EOF
-                Ok(_) => {
-                    if !line.trim().is_empty() {
-                        let raw_chunk = line.clone();
-                        full_content.push_str(&raw_chunk);
-                        
-                        // 尝试解析当前行的 JSON 并提取文本内容
-                        let trimmed_line = line.trim();
-                        if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed_line) {
-                            if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
-                                match msg_type {
-                                    "assistant" => {
-                                        // 提取助手消息中的文本内容
-                                        if let Some(message) = value.get("message") {
-                                            if let Some(content_array) = message.get("content").and_then(|v| v.as_array()) {
-                                                for item in content_array {
-                                                    if let Some(item_type) = item.get("type").and_then(|v| v.as_str()) {
-                                                        if item_type == "text" {
-                                                            if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
-                                                                // 发送提取的文本内容到前端
-                                                                if let Err(e) = on_chunk(text.to_string()) {
-                                                                    log::error!("Error in on_chunk callback: {}", e);
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    "result" => {
-                                        // 提取最终结果
-                                        if let Some(result_text) = value.get("result").and_then(|v| v.as_str()) {
-                                            if let Err(e) = on_chunk(format!("\n\n{}", result_text)) {
-                                                log::error!("Error in on_chunk callback: {}", e);
-                                            }
-                                        }
-                                    }
-                                    _ => {
-                                        // 其他类型（如 system、error）不显示
-                                        log::debug!("Skipping {} message type", msg_type);
-                                    }
-                                }
-                            }
-                        } else {
-                            // 如果解析失败，记录日志但不发送原始 JSON
-                            log::warn!("Failed to parse JSON line: {}", trimmed_line.chars().take(100).collect::<String>());
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::error!("Error reading stdout: {}", e);
-                    break;
-                }
-            }
-        }
+        // ✅ 关键改进：并发执行两个读取任务，它们会一直运行直到 EOF
+        tokio::join!(stdout_future, stderr_future);
         
-        // 等待进程结束
-        let status = child.wait().await.map_err(|e| AIError {
+        // ✅ 然后等待进程退出，确保所有输出都已完成
+        let status = child_wait.await.map_err(|e| AIError {
             message: format!("CodeFree CLI 进程等待失败：{}", e),
         })?;
         
-        // 等待 stderr 读取完成并获取内容
-        let full_stderr = stderr_handle.await.unwrap_or_default();
+        // 从共享状态获取结果
+        let full_content = full_content_arc.lock().await.clone();
+        let full_stderr = full_stderr_arc.lock().await.clone();
+        
+        // tokio::join! 返回的是 ()，因为 async 块没有返回值
+        // 错误已经在各自的 async 块中通过 log::error 记录了
         
         if !status.success() {
             log::error!("CodeFree CLI exited with status: {}", status);
@@ -572,12 +603,9 @@ impl AIProvider {
                 // 策略1: 尝试解析为 JSONL 格式（每行一个 JSON 对象）
                 match self.parse_codefree_jsonl_response(&full_content) {
                     Ok(_) => {
-                        // 如果解析成功但没有返回错误，说明是正常的 assistant 消息
-                        // 这种情况不应该发生（因为 exit code 不为 0）
                         log::warn!("JSONL parsed successfully but exit code is non-zero");
                     }
                     Err(e) => {
-                        // 提取到了具体的错误信息，直接返回
                         log::info!("✓ Extracted error message from JSONL: {}", e.message.chars().take(100).collect::<String>());
                         return Err(e);
                     }
