@@ -13,7 +13,8 @@ mod models;
 mod prompts;
 mod quality;
 mod services;
-mod test_utils;  // 测试工具模块
+#[cfg(test)]
+mod test_utils;  // 测试工具模块（仅在测试时编译）
 mod user_preference;
 mod utils;
 pub mod agent;
