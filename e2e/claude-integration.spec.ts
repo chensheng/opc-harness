@@ -1,6 +1,6 @@
 /**
  * Claude API Integration E2E 测试
- * 
+ *
  * 测试 Claude API 的完整集成流程，包括：
  * - 聊天功能
  * - PRD 生成
@@ -51,36 +51,32 @@ describe('Claude API Integration', () => {
         totalAssertions: 0,
         passedAssertions: 0,
         failedAssertions: 0,
-        coverage: '100%'
-      }
+        coverage: '100%',
+      },
     }
   })
 
   it('should validate Claude provider configuration', async () => {
     const startTime = Date.now()
-    
+
     // Step 1: 验证 Claude API 配置
     const claudeConfig = {
       provider: 'anthropic',
-      models: [
-        'claude-3-opus-20240229',
-        'claude-3-sonnet-20240229',
-        'claude-3-haiku-20240307'
-      ],
+      models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
       features: [
         'chat',
         'stream_chat',
         'generate_prd',
         'generate_personas',
-        'generate_competitor_analysis'
-      ]
+        'generate_competitor_analysis',
+      ],
     }
 
     testReport.steps.push({
       step: 1,
       name: '验证 Claude Provider 配置',
       status: 'completed',
-      data: { config: claudeConfig }
+      data: { config: claudeConfig },
     })
 
     // 验证配置完整性
@@ -92,17 +88,13 @@ describe('Claude API Integration', () => {
       step: 2,
       name: '验证配置断言',
       status: 'completed',
-      assertions: [
-        'provider 是 anthropic',
-        'models 数量 >= 3',
-        'features 数量 = 5'
-      ]
+      assertions: ['provider 是 anthropic', 'models 数量 >= 3', 'features 数量 = 5'],
     })
 
     const duration = Date.now() - startTime
     testReport.results.totalAssertions += 3
     testReport.results.passedAssertions += 3
-    
+
     console.log(`✅ Claude configuration test passed in ${duration}ms`)
   })
 
@@ -111,12 +103,10 @@ describe('Claude API Integration', () => {
     const chatRequest = {
       provider: 'anthropic',
       model: 'claude-3-opus-20240229',
-      messages: [
-        { role: 'user', content: '你好，请介绍一下你自己' }
-      ],
+      messages: [{ role: 'user', content: '你好，请介绍一下你自己' }],
       temperature: 0.7,
       max_tokens: 1024,
-      stream: false
+      stream: false,
     }
 
     // 验证请求结构
@@ -127,7 +117,7 @@ describe('Claude API Integration', () => {
     expect(chatRequest.max_tokens).toBe(1024)
 
     console.log('✅ Claude chat request structure test passed')
-    
+
     testReport.steps.push({
       step: 3,
       name: '验证聊天请求结构',
@@ -137,8 +127,8 @@ describe('Claude API Integration', () => {
         'model 格式正确',
         'messages 结构正确',
         'temperature 正确',
-        'max_tokens 正确'
-      ]
+        'max_tokens 正确',
+      ],
     })
 
     testReport.results.totalAssertions += 5
@@ -169,10 +159,10 @@ describe('Claude API Integration', () => {
     const name = lines.find(line => line.startsWith('# '))?.substring(2) || '典型用户'
     const goals: string[] = []
     const painPoints: string[] = []
-    
+
     let inGoalsSection = false
     let inPainPointsSection = false
-    
+
     for (const line of lines) {
       if (line.includes('## 目标')) {
         inGoalsSection = true
@@ -204,12 +194,7 @@ describe('Claude API Integration', () => {
       step: 4,
       name: '验证用户画像解析',
       status: 'completed',
-      assertions: [
-        '姓名解析正确',
-        'goals 数量正确',
-        'painPoints 数量正确',
-        '第一个 goal 内容正确'
-      ]
+      assertions: ['姓名解析正确', 'goals 数量正确', 'painPoints 数量正确', '第一个 goal 内容正确'],
     })
 
     testReport.results.totalAssertions += 4
@@ -221,7 +206,7 @@ describe('Claude API Integration', () => {
       { id: 'claude-3-opus-20240229', capability: 'highest', contextWindow: 200000 },
       { id: 'claude-3-sonnet-20240229', capability: 'balanced', contextWindow: 200000 },
       { id: 'claude-3-haiku-20240307', capability: 'fast', contextWindow: 200000 },
-      { id: 'claude-2.1', capability: 'legacy', contextWindow: 100000 }
+      { id: 'claude-2.1', capability: 'legacy', contextWindow: 100000 },
     ]
 
     expect(supportedModels.length).toBeGreaterThanOrEqual(3)
@@ -237,8 +222,8 @@ describe('Claude API Integration', () => {
       assertions: [
         '支持至少 3 个模型',
         '所有模型 ID 以 claude-开头',
-        '所有模型 context window >= 100K'
-      ]
+        '所有模型 context window >= 100K',
+      ],
     })
 
     testReport.results.totalAssertions += 3
@@ -251,7 +236,7 @@ describe('Claude API Integration', () => {
       { name: 'Invalid API Key', expected: 'Authentication error' },
       { name: 'Rate Limit', expected: 'Too many requests' },
       { name: 'Network Error', expected: 'Connection failed' },
-      { name: 'Invalid Model', expected: 'Model not found' }
+      { name: 'Invalid Model', expected: 'Model not found' },
     ]
 
     expect(errorScenarios.length).toBe(4)
@@ -266,10 +251,7 @@ describe('Claude API Integration', () => {
       step: 6,
       name: '验证错误场景处理',
       status: 'completed',
-      assertions: [
-        '定义了 4 个错误场景',
-        '每个场景有名称和预期错误'
-      ]
+      assertions: ['定义了 4 个错误场景', '每个场景有名称和预期错误'],
     })
 
     testReport.results.totalAssertions += 3
@@ -280,10 +262,10 @@ describe('Claude API Integration', () => {
   afterAll(() => {
     testReport.endTime = new Date().toISOString()
     testReport.status = 'passed'
-    
+
     const reportPath = join(REPORT_DIR, 'claude-integration-e2e-report.json')
     writeFileSync(reportPath, JSON.stringify(testReport, null, 2))
-    
+
     console.log(`📊 Test report saved to: ${reportPath}`)
   })
 })

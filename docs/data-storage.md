@@ -6,11 +6,11 @@ OPC-HARNESS 采用业界标准做法（参考 OpenClaw、Claude Code），在用
 
 ### 跨平台路径
 
-| 平台 | 路径 |
-|------|------|
+| 平台        | 路径                              |
+| ----------- | --------------------------------- |
 | **Windows** | `C:\Users\<用户名>\.opc-harness\` |
-| **macOS** | `/Users/<用户名>/.opc-harness/` |
-| **Linux** | `/home/<用户名>/.opc-harness/` |
+| **macOS**   | `/Users/<用户名>/.opc-harness/`   |
+| **Linux**   | `/home/<用户名>/.opc-harness/`    |
 
 ### 目录结构
 
@@ -36,11 +36,13 @@ OPC-HARNESS 采用业界标准做法（参考 OpenClaw、Claude Code），在用
 如果需要自定义数据存储位置，可以设置环境变量：
 
 ### Windows (PowerShell)
+
 ```powershell
 $env:OPC_HARNESS_HOME = "D:\my-opc-data"
 ```
 
 ### macOS/Linux (Bash)
+
 ```bash
 export OPC_HARNESS_HOME="/path/to/custom/dir"
 ```
@@ -48,12 +50,14 @@ export OPC_HARNESS_HOME="/path/to/custom/dir"
 ### 永久设置
 
 **Windows:**
+
 ```powershell
 # 添加到系统环境变量
 [Environment]::SetEnvironmentVariable("OPC_HARNESS_HOME", "D:\my-opc-data", "User")
 ```
 
 **macOS/Linux:**
+
 ```bash
 # 添加到 ~/.bashrc 或 ~/.zshrc
 echo 'export OPC_HARNESS_HOME="/path/to/custom/dir"' >> ~/.bashrc

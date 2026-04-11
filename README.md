@@ -24,6 +24,7 @@ OPC-HARNESS 采用业界标准做法（参考 OpenClaw、Claude Code），在用
 ```
 
 **项目工作区特性**：
+
 - ✅ 自动创建：创建新项目时自动生成 `~/.opc-harness/workspaces/{project_id}` 目录（使用项目UUID作为目录名）
 - ✅ 启动检查：应用启动时自动检查并修复缺失的工作区目录
 - ✅ 唯一性保证：使用UUID确保目录名全局唯一，避免冲突
@@ -32,18 +33,21 @@ OPC-HARNESS 采用业界标准做法（参考 OpenClaw、Claude Code），在用
 ## ✨ 核心功能
 
 ### 🎨 Vibe Design - 产品构思
+
 - 自然语言输入产品想法
 - AI 生成产品需求文档 (PRD)
 - 自动生成用户画像
 - 竞品分析和差异化建议
 
 ### 💻 Vibe Coding - 快速构建
+
 - 集成多种 AI 编码工具 CLI (Kimi/Claude/CodeFree)
 - 代码编辑器和文件管理
 - 实时预览功能
 - 一键部署到 Vercel/Netlify
 
 ### 📈 Vibe Marketing - 增长运营
+
 - AI 生成发布策略
 - 多平台营销文案生成
 - 发布时间线规划
@@ -88,18 +92,21 @@ npm run tauri:build
 ## 🏗️ 技术架构
 
 ### 前端
+
 - **框架**: React 18 + TypeScript 5
 - **样式**: Tailwind CSS 3 + shadcn/ui
 - **状态管理**: Zustand + Immer
 - **路由**: React Router 6
 
 ### 后端 (Tauri v2)
+
 - **语言**: Rust
 - **数据库**: SQLite (rusqlite)
 - **密钥存储**: OS Keychain (keyring-rs)
 - **HTTP 客户端**: reqwest
 
 ### AI 集成
+
 - **支持厂商**: OpenAI, Anthropic Claude, 月之暗面 Kimi, 智谱 GLM, CodeFree
 - **CLI 工具**: Kimi CLI, Claude Code, CodeFree CLI
 - **协议**: REST API + SSE (Server-Sent Events)

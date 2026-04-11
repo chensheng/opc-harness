@@ -1,6 +1,6 @@
 /**
  * GLM API Integration E2E 测试
- * 
+ *
  * 测试 GLM API 的完整集成流程，包括：
  * - 聊天功能
  * - 技术导向 PRD 生成
@@ -50,43 +50,34 @@ describe('GLM API Integration', () => {
         totalAssertions: 0,
         passedAssertions: 0,
         failedAssertions: 0,
-        coverage: '100%'
-      }
+        coverage: '100%',
+      },
     }
   })
 
   it('should validate GLM provider configuration', async () => {
     const startTime = Date.now()
-    
+
     // Step 1: 验证 GLM API 配置
     const glmConfig = {
       provider: 'glm',
       baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-      models: [
-        'glm-4',
-        'glm-3-turbo',
-        'chatglm_turbo'
-      ],
+      models: ['glm-4', 'glm-3-turbo', 'chatglm_turbo'],
       features: [
         'chat',
         'stream_chat',
         'generate_prd',
         'generate_personas',
-        'generate_competitor_analysis'
+        'generate_competitor_analysis',
       ],
-      advantages: [
-        '技术文档优化',
-        '代码生成能力',
-        '开发者友好',
-        '开源生态'
-      ]
+      advantages: ['技术文档优化', '代码生成能力', '开发者友好', '开源生态'],
     }
 
     testReport.steps.push({
       step: 1,
       name: '验证 GLM Provider 配置',
       status: 'completed',
-      data: { config: glmConfig }
+      data: { config: glmConfig },
     })
 
     // 验证配置完整性
@@ -105,14 +96,14 @@ describe('GLM API Integration', () => {
         'baseUrl 正确',
         'models 数量 >= 3',
         'features 数量 = 5',
-        'advantages 数量 = 4'
-      ]
+        'advantages 数量 = 4',
+      ],
     })
 
     const duration = Date.now() - startTime
     testReport.results.totalAssertions += 5
     testReport.results.passedAssertions += 5
-    
+
     console.log(`✅ GLM configuration test passed in ${duration}ms`)
   })
 
@@ -121,12 +112,10 @@ describe('GLM API Integration', () => {
     const chatRequest = {
       provider: 'glm',
       model: 'glm-4',
-      messages: [
-        { role: 'user', content: '你好，请介绍一下你自己' }
-      ],
+      messages: [{ role: 'user', content: '你好，请介绍一下你自己' }],
       temperature: 0.7,
       max_tokens: 1024,
-      stream: false
+      stream: false,
     }
 
     // 验证请求结构
@@ -137,7 +126,7 @@ describe('GLM API Integration', () => {
     expect(chatRequest.max_tokens).toBe(1024)
 
     console.log('✅ GLM chat request structure test passed')
-    
+
     testReport.steps.push({
       step: 3,
       name: '验证聊天请求结构',
@@ -147,8 +136,8 @@ describe('GLM API Integration', () => {
         'model 格式正确',
         'messages 结构正确',
         'temperature 正确',
-        'max_tokens 正确'
-      ]
+        'max_tokens 正确',
+      ],
     })
 
     testReport.results.totalAssertions += 5
@@ -162,7 +151,7 @@ describe('GLM API Integration', () => {
       '代码生成能力',
       'API 文档优化',
       '架构设计建议',
-      '最佳实践推荐'
+      '最佳实践推荐',
     ]
 
     expect(technicalFeatures.length).toBe(5)
@@ -177,10 +166,7 @@ describe('GLM API Integration', () => {
       step: 4,
       name: '验证技术文档特性',
       status: 'completed',
-      assertions: [
-        '定义了 5 个技术特性',
-        '所有特性都有定义'
-      ]
+      assertions: ['定义了 5 个技术特性', '所有特性都有定义'],
     })
 
     testReport.results.totalAssertions += 4
@@ -191,11 +177,13 @@ describe('GLM API Integration', () => {
     const supportedModels = [
       { id: 'glm-4', capability: 'highest', useCase: '复杂任务处理' },
       { id: 'glm-3-turbo', capability: 'balanced', useCase: '日常对话' },
-      { id: 'chatglm_turbo', capability: 'fast', useCase: '快速响应' }
+      { id: 'chatglm_turbo', capability: 'fast', useCase: '快速响应' },
     ]
 
     expect(supportedModels.length).toBe(3)
-    expect(supportedModels.every(m => m.id.startsWith('glm') || m.id.includes('chatglm'))).toBe(true)
+    expect(supportedModels.every(m => m.id.startsWith('glm') || m.id.includes('chatglm'))).toBe(
+      true
+    )
 
     console.log(`✅ Multi-model support test passed (${supportedModels.length} models)`)
 
@@ -203,10 +191,7 @@ describe('GLM API Integration', () => {
       step: 5,
       name: '验证多模型支持',
       status: 'completed',
-      assertions: [
-        '支持 3 个模型',
-        '所有模型 ID 包含 glm 或 chatglm'
-      ]
+      assertions: ['支持 3 个模型', '所有模型 ID 包含 glm 或 chatglm'],
     })
 
     testReport.results.totalAssertions += 2
@@ -219,7 +204,7 @@ describe('GLM API Integration', () => {
       { name: 'Invalid API Key', expected: 'Authentication error' },
       { name: 'Rate Limit', expected: 'Too many requests' },
       { name: 'Network Error', expected: 'Connection failed' },
-      { name: 'Invalid Model', expected: 'Model not found' }
+      { name: 'Invalid Model', expected: 'Model not found' },
     ]
 
     expect(errorScenarios.length).toBe(4)
@@ -234,10 +219,7 @@ describe('GLM API Integration', () => {
       step: 6,
       name: '验证错误场景处理',
       status: 'completed',
-      assertions: [
-        '定义了 4 个错误场景',
-        '每个场景有名称和预期错误'
-      ]
+      assertions: ['定义了 4 个错误场景', '每个场景有名称和预期错误'],
     })
 
     testReport.results.totalAssertions += 3
@@ -282,8 +264,8 @@ describe('GLM API Integration', () => {
         '包含技术架构章节',
         '包含 Rust 技术栈',
         '包含 TypeScript 技术栈',
-        '包含 AI 相关内容'
-      ]
+        '包含 AI 相关内容',
+      ],
     })
 
     testReport.results.totalAssertions += 4
@@ -324,12 +306,7 @@ describe('GLM API Integration', () => {
       step: 8,
       name: '验证开发者用户画像生成',
       status: 'completed',
-      assertions: [
-        '包含职业信息',
-        '包含技术栈',
-        '包含技术背景',
-        '包含技术痛点'
-      ]
+      assertions: ['包含职业信息', '包含技术栈', '包含技术背景', '包含技术痛点'],
     })
 
     testReport.results.totalAssertions += 4
@@ -340,10 +317,10 @@ describe('GLM API Integration', () => {
   afterAll(() => {
     testReport.endTime = new Date().toISOString()
     testReport.status = 'passed'
-    
+
     const reportPath = join(REPORT_DIR, 'glm-integration-e2e-report.json')
     writeFileSync(reportPath, JSON.stringify(testReport, null, 2))
-    
+
     console.log(`📊 Test report saved to: ${reportPath}`)
   })
 })

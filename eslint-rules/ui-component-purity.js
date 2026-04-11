@@ -1,6 +1,6 @@
 /**
  * ESLint 规则：UI 组件纯度检查
- * 
+ *
  * 确保 UI 组件（src/components/ui/）不包含业务逻辑：
  * - 不允许调用 Tauri invoke
  * - 不允许直接 HTTP 请求（axios/fetch）
@@ -29,43 +29,43 @@ module.exports = {
     },
   },
   create(context) {
-    const path = require('path');
+    const path = require('path')
 
     /**
      * 检查文件是否在 UI 组件目录中
      */
     function isUIComponent(filePath) {
-      return filePath.includes(path.join('src', 'components', 'ui'));
+      return filePath.includes(path.join('src', 'components', 'ui'))
     }
 
     /**
      * 获取组件名称
      */
     function getComponentName(filePath) {
-      return path.basename(filePath);
+      return path.basename(filePath)
     }
 
     return {
       Program(node) {
-        const filePath = context.getFilename();
-        
+        const filePath = context.getFilename()
+
         // 只检查 UI 组件
         if (!isUIComponent(filePath)) {
-          return;
+          return
         }
 
-        const componentName = getComponentName(filePath);
-        const sourceCode = context.getSourceCode();
+        const componentName = getComponentName(filePath)
+        const sourceCode = context.getSourceCode()
 
         // 检查是否包含 Tauri invoke 调用
-        const text = sourceCode.getText();
-        
+        const text = sourceCode.getText()
+
         if (/invoke\s*\(/.test(text)) {
           context.report({
             node,
             messageId: 'tauriInvoke',
             data: { componentName },
-          });
+          })
         }
 
         // 检查是否包含直接的 HTTP 调用
@@ -74,40 +74,39 @@ module.exports = {
             node,
             messageId: 'httpCall',
             data: { componentName },
-          });
+          })
         }
 
         // 检查是否包含复杂的异步操作（useEffect 中的 async）
-        const hasComplexAsync = /useEffect\s*\(\s*async\s*\(/.test(text);
+        const hasComplexAsync = /useEffect\s*\(\s*async\s*\(/.test(text)
         if (hasComplexAsync) {
           context.report({
             node,
             messageId: 'complexAsync',
             data: { componentName },
-          });
+          })
         }
       },
 
       ImportDeclaration(node) {
-        const filePath = context.getFilename();
-        
+        const filePath = context.getFilename()
+
         if (!isUIComponent(filePath)) {
-          return;
+          return
         }
 
-        const importSource = node.source.value;
-        const componentName = getComponentName(filePath);
+        const importSource = node.source.value
+        const componentName = getComponentName(filePath)
 
         // 检查是否直接导入 stores
-        if (importSource.includes('/stores/') || 
-            importSource.startsWith('@/stores/')) {
+        if (importSource.includes('/stores/') || importSource.startsWith('@/stores/')) {
           context.report({
             node,
             messageId: 'storeImport',
             data: { componentName },
-          });
+          })
         }
       },
-    };
+    }
   },
-};
+}

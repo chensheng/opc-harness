@@ -1,6 +1,6 @@
 /**
  * PRD Generation E2E 测试
- * 
+ *
  * 测试从用户输入产品想法到 AI 生成完整 PRD 的全流程
  * 包括：UI 交互、API 调用、数据解析、结果展示
  */
@@ -14,7 +14,7 @@ const REPORT_DIR = join(process.cwd(), 'test-results', 'e2e-reports')
 
 /**
  * E2E 测试：PRD 生成流程
- * 
+ *
  * 测试场景:
  * 1. 用户输入产品想法
  * 2. 选择 AI 提供商（OpenAI）
@@ -63,15 +63,16 @@ describe('PRD Generation E2E', () => {
 
   it('should generate a complete PRD from user idea', async () => {
     const startTime = Date.now()
-    
+
     // Step 1: 准备测试数据
-    const testIdea = '我想做一个帮助独立开发者管理项目进度的工具，支持任务分解、时间追踪和进度可视化'
-    
+    const testIdea =
+      '我想做一个帮助独立开发者管理项目进度的工具，支持任务分解、时间追踪和进度可视化'
+
     testReport.steps.push({
       step: 1,
       name: '准备测试数据',
       status: 'completed',
-      data: { idea: testIdea }
+      data: { idea: testIdea },
     })
 
     // Step 2: 模拟 Tauri Command 调用
@@ -79,24 +80,25 @@ describe('PRD Generation E2E', () => {
     // 在真实环境中，这会调用实际的 generate_prd command
     const mockPRDResponse = {
       title: '产品需求文档 - DevProgress',
-      overview: 'DevProgress 是一款专为独立开发者设计的项目管理工具，通过 AI 驱动的智能任务分解、自动化时间追踪和直观的进度可视化，帮助开发者高效管理多个项目，提升工作效率。我们的目标是让独立开发者从繁琐的项目管理中解放出来，专注于核心业务逻辑的实现。',
+      overview:
+        'DevProgress 是一款专为独立开发者设计的项目管理工具，通过 AI 驱动的智能任务分解、自动化时间追踪和直观的进度可视化，帮助开发者高效管理多个项目，提升工作效率。我们的目标是让独立开发者从繁琐的项目管理中解放出来，专注于核心业务逻辑的实现。',
       target_users: ['独立开发者', '自由职业者', '小型创业团队'],
       core_features: [
         '智能任务分解：基于 AI 自动将大任务拆分为可执行的小任务',
         '时间追踪：自动记录每个任务的耗时，生成时间报告',
-        '进度可视化：通过甘特图、燃尽图等直观展示项目进度'
+        '进度可视化：通过甘特图、燃尽图等直观展示项目进度',
       ],
       tech_stack: ['React', 'TypeScript', 'Rust', 'Tauri', 'SQLite'],
       estimated_effort: '8-12 周',
       business_model: 'Freemium 模式：基础功能免费，高级功能订阅制',
-      pricing: '个人版：免费；专业版：$9/月；团队版：$29/月'
+      pricing: '个人版：免费；专业版：$9/月；团队版：$29/月',
     }
 
     testReport.steps.push({
       step: 2,
       name: '调用 generate_prd Tauri Command',
       status: 'completed',
-      data: { request: { idea: testIdea, provider: 'openai', model: 'gpt-4' } }
+      data: { request: { idea: testIdea, provider: 'openai', model: 'gpt-4' } },
     })
 
     // Step 3: 验证 PRD 响应结构
@@ -118,8 +120,8 @@ describe('PRD Generation E2E', () => {
         'target_users 是数组',
         'core_features 是数组',
         'tech_stack 是数组',
-        'estimated_effort 字段存在'
-      ]
+        'estimated_effort 字段存在',
+      ],
     })
 
     // Step 4: 验证 PRD 内容质量
@@ -138,8 +140,8 @@ describe('PRD Generation E2E', () => {
         'overview 长度 > 50',
         'target_users 数量 >= 3',
         'core_features 数量 >= 3',
-        'tech_stack 数量 >= 5'
-      ]
+        'tech_stack 数量 >= 5',
+      ],
     })
 
     // Step 5: 验证 PRD 解析逻辑（后端已实现）
@@ -183,14 +185,14 @@ describe('PRD Generation E2E', () => {
         '正确提取 H1 标题',
         '正确提取目标用户列表（3 项）',
         '正确提取核心功能列表（3 项）',
-        '正确提取技术栈列表（3 项）'
-      ]
+        '正确提取技术栈列表（3 项）',
+      ],
     })
 
     // Step 6: 性能测试
     const duration = Date.now() - startTime
     const avgGenerationTime = 5000 // 模拟 AI 生成时间
-    
+
     // PRD 生成应该在合理时间内完成（< 10 秒）
     expect(avgGenerationTime).toBeLessThan(10000)
 
@@ -202,8 +204,8 @@ describe('PRD Generation E2E', () => {
         totalTestDuration: duration,
         simulatedAIGenerationTime: avgGenerationTime,
         performanceTarget: '< 10s',
-        passed: avgGenerationTime < 10000
-      }
+        passed: avgGenerationTime < 10000,
+      },
     })
 
     // 生成测试报告
@@ -214,13 +216,13 @@ describe('PRD Generation E2E', () => {
       totalAssertions: 15,
       passedAssertions: 15,
       failedAssertions: 0,
-      coverage: '100%'
+      coverage: '100%',
     }
 
     // 保存测试报告
     const reportPath = join(REPORT_DIR, 'prd-generation-e2e-report.json')
     writeFileSync(reportPath, JSON.stringify(testReport, null, 2))
-    
+
     console.log(`✅ PRD Generation E2E test passed in ${duration}ms`)
     console.log(`📊 Test report saved to: ${reportPath}`)
   })
@@ -228,23 +230,23 @@ describe('PRD Generation E2E', () => {
   it('should handle invalid input gracefully', async () => {
     // 测试空输入处理
     const emptyIdea = ''
-    
+
     // 后端应该返回错误
     expect(emptyIdea.length).toBe(0)
-    
+
     // 测试过短的输入
     const shortIdea = '做个工具'
     expect(shortIdea.length).toBeLessThan(10)
-    
+
     console.log('✅ Invalid input handling test passed')
   })
 
   it('should support multiple AI providers', () => {
     const supportedProviders = ['openai', 'anthropic', 'kimi', 'glm', 'minimax']
-    
+
     expect(supportedProviders).toContain('openai')
     expect(supportedProviders.length).toBeGreaterThanOrEqual(3)
-    
+
     console.log(`✅ Multi-provider support test passed (${supportedProviders.length} providers)`)
   })
 })
@@ -269,15 +271,15 @@ function extractListItems(content: string, context: string): string[] {
   const lines = content.split('\n')
   const items: string[] = []
   let inTargetList = false
-  
+
   for (const line of lines) {
     const trimmed = line.trim()
-    
+
     if (trimmed.includes(context)) {
       inTargetList = true
       continue
     }
-    
+
     if (inTargetList) {
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('+ ')) {
         const item = trimmed.substring(2).trim()
@@ -289,6 +291,6 @@ function extractListItems(content: string, context: string): string[] {
       }
     }
   }
-  
+
   return items
 }

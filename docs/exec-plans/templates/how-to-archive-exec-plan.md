@@ -2,25 +2,28 @@
 
 **描述**: 必须严格按照此指引归档执行计划，以便后续的任务跟踪和评估。
 
- **步骤**:
+**步骤**:
 
- ## 1. 移动文件
+## 1. 移动文件
+
 ```bash
 mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
    docs/exec-plans/completed/{TASK_ID}-{TASK_NAME}.md
 ```
 
 ## 2. 更新文档状态
+
 ```
 # {TASK_ID}: {TASK_NAME}
 
-**状态**: ✅ 已完成  
-**完成日期**: YYYY-MM-DD  
-**总耗时**: X 天  
+**状态**: ✅ 已完成
+**完成日期**: YYYY-MM-DD
+**总耗时**: X 天
 **负责人**: OPC-HARNESS Team
 ```
 
 ## 3. 填写交付物清单
+
 ```
 ## ✅ 交付物
 
@@ -41,6 +44,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 ## 4. 填写质量指标
+
 ```
 ## 📊 质量指标
 
@@ -71,6 +75,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 ## 5. 填写技术亮点
+
 ```
 ## 🌟 技术亮点
 
@@ -92,6 +97,7 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 ## 6. 填写复盘总结
+
 ```
 ## 🔄 复盘总结
 
@@ -117,12 +123,13 @@ mv docs/exec-plans/active/{TASK_ID}-{TASK_NAME}.md \
 ```
 
 ## 7. 更新最后信息
+
 ```
 ---
 
-**维护者**: OPC-HARNESS Team  
-**版本**: v1.0  
-**最后更新**: YYYY-MM-DD HH:mm:ss  
-**状态**: ✅ 已完成  
+**维护者**: OPC-HARNESS Team
+**版本**: v1.0
+**最后更新**: YYYY-MM-DD HH:mm:ss
+**状态**: ✅ 已完成
 **Harness Engineering Health Score**: XX/100
 ```

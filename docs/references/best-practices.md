@@ -63,11 +63,13 @@ graph LR
 **任务**: 实现用户登录功能
 
 **上下文**:
+
 - 位置：src/components/auth/Login.tsx
 - 已有：数据库连接、User 模型
 - 需要：登录、注册、登出组件
 
 **约束**:
+
 - 使用 bcrypt 加密密码
 - JWT token 有效期 7 天
 - 错误信息使用中文
@@ -77,6 +79,7 @@ graph LR
 参考 src/components/common/Settings.tsx 的实现模式
 
 **验收标准**:
+
 - [ ] 用户可以成功登录
 - [ ] 错误密码有友好提示
 - [ ] Token 正确存储和刷新
@@ -98,20 +101,24 @@ graph LR
 **任务**: [简短描述]
 
 **上下文**:
+
 - 位置：[文件路径]
 - 已有：[现有代码/功能]
 - 需要：[期望实现]
 
 **约束**:
+
 - [技术栈要求]
 - [性能要求]
 - [安全要求]
 
 **参考**:
+
 - [参考文件/代码]
 - [相关文档链接]
 
 **验收标准**:
+
 - [ ] [标准 1]
 - [ ] [标准 2]
 ```
@@ -145,28 +152,33 @@ npm run test:unit
 
 ```markdown
 ## 代码质量
+
 - [ ] TypeScript 无类型错误
 - [ ] ESLint 无警告
 - [ ] Prettier 格式化通过
 - [ ] Rust cargo check 通过
 
 ## 功能完整性
+
 - [ ] 核心功能已测试
 - [ ] 边界情况已处理
 - [ ] 错误提示友好（中文）
 - [ ] 加载状态正确显示
 
 ## 测试覆盖
+
 - [ ] 新增代码有对应测试
 - [ ] 单元测试覆盖率 >= 70%
 - [ ] E2E 测试通过
 
 ## 文档
+
 - [ ] 更新了必要的注释
 - [ ] 记录了架构决策（如需要）
 - [ ] 更新了最佳实践（如有新经验）
 
 ## 性能和安全
+
 - [ ] 无明显性能问题
 - [ ] 敏感数据加密存储
 - [ ] API Key 不硬编码
@@ -226,19 +238,19 @@ user?.profile?.settings?.notifications?.email // 超过 3 层
 ```typescript
 // 1. 使用 interface 定义对象类型
 interface User {
-  id: string;
-  name: string;
-  email?: string;
+  id: string
+  name: string
+  email?: string
 }
 
 // 2. 使用 type 定义联合类型
-type Status = 'pending' | 'loading' | 'success' | 'error';
+type Status = 'pending' | 'loading' | 'success' | 'error'
 
 // 3. 使用泛型提高复用性
 interface ApiResponse<T> {
-  data: T;
-  status: number;
-  message: string;
+  data: T
+  status: number
+  message: string
 }
 
 // 4. 明确的函数返回类型
@@ -421,27 +433,28 @@ Commands → Services → Models → DB
 // ❌ 错误
 function MyComponent() {
   const handleSave = async () => {
-    await invoke('save_project', { data });
-  };
+    await invoke('save_project', { data })
+  }
 }
 
 // ✅ 正确
 // stores/projectStore.ts
-export const useProjectStore = create((set) => ({
-  saveProject: async (data) => {
-    await invoke('save_project', { data });
-    set({ lastSaved: new Date() });
-  }
-}));
+export const useProjectStore = create(set => ({
+  saveProject: async data => {
+    await invoke('save_project', { data })
+    set({ lastSaved: new Date() })
+  },
+}))
 
 // components/MyComponent.tsx
 function MyComponent() {
-  const { saveProject } = useProjectStore();
-  const handleSave = () => saveProject(data);
+  const { saveProject } = useProjectStore()
+  const handleSave = () => saveProject(data)
 }
 ```
 
-**原因**: 
+**原因**:
+
 - 保持组件纯净，便于测试
 - 统一错误处理
 - 便于状态追踪
@@ -478,6 +491,7 @@ pub async fn create_project(name: String) -> Result<Project, AppError> {
 ```
 
 **原因**:
+
 - Commands 层保持简洁（< 30 行）
 - 业务逻辑集中在 Services 层
 - 便于单元测试
@@ -487,18 +501,18 @@ pub async fn create_project(name: String) -> Result<Project, AppError> {
 ```typescript
 // ❌ 错误
 const handleSave = async () => {
-  await saveData(); // 没有 try-catch
-};
+  await saveData() // 没有 try-catch
+}
 
 // ✅ 正确
 const handleSave = async () => {
   try {
-    await saveData();
-    showSuccess('保存成功');
+    await saveData()
+    showSuccess('保存成功')
   } catch (error) {
-    showError(error instanceof Error ? error.message : '保存失败');
+    showError(error instanceof Error ? error.message : '保存失败')
   }
-};
+}
 ```
 
 ---

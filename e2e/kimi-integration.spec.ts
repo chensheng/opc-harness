@@ -1,6 +1,6 @@
 /**
  * Kimi API Integration E2E 测试
- * 
+ *
  * 测试 Kimi API 的完整集成流程，包括：
  * - 聊天功能
  * - 用户画像生成（本地化）
@@ -50,43 +50,34 @@ describe('Kimi API Integration', () => {
         totalAssertions: 0,
         passedAssertions: 0,
         failedAssertions: 0,
-        coverage: '100%'
-      }
+        coverage: '100%',
+      },
     }
   })
 
   it('should validate Kimi provider configuration', async () => {
     const startTime = Date.now()
-    
+
     // Step 1: 验证 Kimi API 配置
     const kimiConfig = {
       provider: 'kimi',
       baseUrl: 'https://api.moonshot.cn/v1',
-      models: [
-        'moonshot-v1-8k',
-        'moonshot-v1-32k',
-        'moonshot-v1-128k'
-      ],
+      models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
       features: [
         'chat',
         'stream_chat',
         'generate_prd',
         'generate_personas',
-        'generate_competitor_analysis'
+        'generate_competitor_analysis',
       ],
-      advantages: [
-        '中文优化',
-        '本地化支持',
-        '长上下文处理',
-        '国产 AI'
-      ]
+      advantages: ['中文优化', '本地化支持', '长上下文处理', '国产 AI'],
     }
 
     testReport.steps.push({
       step: 1,
       name: '验证 Kimi Provider 配置',
       status: 'completed',
-      data: { config: kimiConfig }
+      data: { config: kimiConfig },
     })
 
     // 验证配置完整性
@@ -105,14 +96,14 @@ describe('Kimi API Integration', () => {
         'baseUrl 正确',
         'models 数量 >= 3',
         'features 数量 = 5',
-        'advantages 数量 = 4'
-      ]
+        'advantages 数量 = 4',
+      ],
     })
 
     const duration = Date.now() - startTime
     testReport.results.totalAssertions += 5
     testReport.results.passedAssertions += 5
-    
+
     console.log(`✅ Kimi configuration test passed in ${duration}ms`)
   })
 
@@ -121,12 +112,10 @@ describe('Kimi API Integration', () => {
     const chatRequest = {
       provider: 'kimi',
       model: 'moonshot-v1-32k',
-      messages: [
-        { role: 'user', content: '你好，请介绍一下你自己' }
-      ],
+      messages: [{ role: 'user', content: '你好，请介绍一下你自己' }],
       temperature: 0.7,
       max_tokens: 1024,
-      stream: false
+      stream: false,
     }
 
     // 验证请求结构
@@ -137,7 +126,7 @@ describe('Kimi API Integration', () => {
     expect(chatRequest.max_tokens).toBe(1024)
 
     console.log('✅ Kimi chat request structure test passed')
-    
+
     testReport.steps.push({
       step: 3,
       name: '验证聊天请求结构',
@@ -147,8 +136,8 @@ describe('Kimi API Integration', () => {
         'model 格式正确',
         'messages 结构正确',
         'temperature 正确',
-        'max_tokens 正确'
-      ]
+        'max_tokens 正确',
+      ],
     })
 
     testReport.results.totalAssertions += 5
@@ -162,7 +151,7 @@ describe('Kimi API Integration', () => {
       '中国文化背景适配',
       '中国市场分析',
       '本土化表达',
-      '符合中文习惯'
+      '符合中文习惯',
     ]
 
     expect(chineseFeatures.length).toBe(5)
@@ -174,10 +163,7 @@ describe('Kimi API Integration', () => {
       step: 4,
       name: '验证中文本地化特性',
       status: 'completed',
-      assertions: [
-        '定义了 5 个本地化特性',
-        '所有特性都与中文相关'
-      ]
+      assertions: ['定义了 5 个本地化特性', '所有特性都与中文相关'],
     })
 
     testReport.results.totalAssertions += 2
@@ -188,7 +174,7 @@ describe('Kimi API Integration', () => {
     const supportedModels = [
       { id: 'moonshot-v1-8k', contextWindow: 8000, useCase: '短文本快速响应' },
       { id: 'moonshot-v1-32k', contextWindow: 32000, useCase: '中等长度文档' },
-      { id: 'moonshot-v1-128k', contextWindow: 128000, useCase: '长文档分析' }
+      { id: 'moonshot-v1-128k', contextWindow: 128000, useCase: '长文档分析' },
     ]
 
     expect(supportedModels.length).toBe(3)
@@ -204,8 +190,8 @@ describe('Kimi API Integration', () => {
       assertions: [
         '支持 3 个模型',
         '所有模型 ID 以 moonshot-v1-开头',
-        '所有模型 context window >= 8K'
-      ]
+        '所有模型 context window >= 8K',
+      ],
     })
 
     testReport.results.totalAssertions += 3
@@ -218,7 +204,7 @@ describe('Kimi API Integration', () => {
       { name: 'Invalid API Key', expected: 'Authentication error' },
       { name: 'Rate Limit', expected: 'Too many requests' },
       { name: 'Network Error', expected: 'Connection failed' },
-      { name: 'Invalid Model', expected: 'Model not found' }
+      { name: 'Invalid Model', expected: 'Model not found' },
     ]
 
     expect(errorScenarios.length).toBe(4)
@@ -233,10 +219,7 @@ describe('Kimi API Integration', () => {
       step: 6,
       name: '验证错误场景处理',
       status: 'completed',
-      assertions: [
-        '定义了 4 个错误场景',
-        '每个场景有名称和预期错误'
-      ]
+      assertions: ['定义了 4 个错误场景', '每个场景有名称和预期错误'],
     })
 
     testReport.results.totalAssertions += 3
@@ -277,12 +260,7 @@ describe('Kimi API Integration', () => {
       step: 7,
       name: '验证中国用户画像生成',
       status: 'completed',
-      assertions: [
-        '包含中文名',
-        '包含中国城市',
-        '包含本土化职业',
-        '包含中国教育背景'
-      ]
+      assertions: ['包含中文名', '包含中国城市', '包含本土化职业', '包含中国教育背景'],
     })
 
     testReport.results.totalAssertions += 4
@@ -317,12 +295,7 @@ describe('Kimi API Integration', () => {
       step: 8,
       name: '验证中国市场竞品分析',
       status: 'completed',
-      assertions: [
-        '包含腾讯',
-        '包含飞书',
-        '包含石墨',
-        '包含语雀'
-      ]
+      assertions: ['包含腾讯', '包含飞书', '包含石墨', '包含语雀'],
     })
 
     testReport.results.totalAssertions += 4
@@ -333,10 +306,10 @@ describe('Kimi API Integration', () => {
   afterAll(() => {
     testReport.endTime = new Date().toISOString()
     testReport.status = 'passed'
-    
+
     const reportPath = join(REPORT_DIR, 'kimi-integration-e2e-report.json')
     writeFileSync(reportPath, JSON.stringify(testReport, null, 2))
-    
+
     console.log(`📊 Test report saved to: ${reportPath}`)
   })
 })

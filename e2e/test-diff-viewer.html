@@ -1,21 +1,78 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>DiffViewer Test</title>
-  <style>
-    .diff-line-added { background-color: #e6ffed; }
-    .diff-line-removed { background-color: #ffeef0; }
-    .diff-line-unchanged { background-color: #fff; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module">
-    import { renderDiffViewer } from '/src/test-harness.tsx'
-    const mockData = {"file_path":"src/example.ts","old_path":null,"new_path":null,"hunks":[{"header":"@@ -1,5 +1,6 @@","old_start":1,"old_count":5,"new_start":1,"new_count":6,"lines":[{"line_number_old":1,"line_number_new":1,"content":"line1","change_type":"unchanged"},{"line_number_old":2,"line_number_new":null,"content":"old line","change_type":"removed"},{"line_number_old":null,"line_number_new":2,"content":"new line","change_type":"added"},{"line_number_old":3,"line_number_new":3,"content":"line3","change_type":"unchanged"},{"line_number_old":4,"line_number_new":4,"content":"line4","change_type":"unchanged"},{"line_number_old":5,"line_number_new":5,"content":"line5","change_type":"unchanged"}],"stats":{"total_lines":6,"additions":1,"deletions":1,"unchanged":4}}],"stats":{"total_lines":6,"additions":1,"deletions":1,"unchanged":4}}
-    renderDiffViewer(document.getElementById('root'), mockData)
-  </script>
-</body>
+  <head>
+    <title>DiffViewer Test</title>
+    <style>
+      .diff-line-added {
+        background-color: #e6ffed;
+      }
+      .diff-line-removed {
+        background-color: #ffeef0;
+      }
+      .diff-line-unchanged {
+        background-color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import { renderDiffViewer } from '/src/test-harness.tsx'
+      const mockData = {
+        file_path: 'src/example.ts',
+        old_path: null,
+        new_path: null,
+        hunks: [
+          {
+            header: '@@ -1,5 +1,6 @@',
+            old_start: 1,
+            old_count: 5,
+            new_start: 1,
+            new_count: 6,
+            lines: [
+              {
+                line_number_old: 1,
+                line_number_new: 1,
+                content: 'line1',
+                change_type: 'unchanged',
+              },
+              {
+                line_number_old: 2,
+                line_number_new: null,
+                content: 'old line',
+                change_type: 'removed',
+              },
+              {
+                line_number_old: null,
+                line_number_new: 2,
+                content: 'new line',
+                change_type: 'added',
+              },
+              {
+                line_number_old: 3,
+                line_number_new: 3,
+                content: 'line3',
+                change_type: 'unchanged',
+              },
+              {
+                line_number_old: 4,
+                line_number_new: 4,
+                content: 'line4',
+                change_type: 'unchanged',
+              },
+              {
+                line_number_old: 5,
+                line_number_new: 5,
+                content: 'line5',
+                change_type: 'unchanged',
+              },
+            ],
+            stats: { total_lines: 6, additions: 1, deletions: 1, unchanged: 4 },
+          },
+        ],
+        stats: { total_lines: 6, additions: 1, deletions: 1, unchanged: 4 },
+      }
+      renderDiffViewer(document.getElementById('root'), mockData)
+    </script>
+  </body>
 </html>
-      

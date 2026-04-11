@@ -19,13 +19,7 @@ describe('Architecture Constraints', () => {
    * 确保所有必需的目录都存在
    */
   it('should have complete directory structure', () => {
-    const requiredDirs = [
-      'components',
-      'stores',
-      'types',
-      'hooks',
-      'lib',
-    ]
+    const requiredDirs = ['components', 'stores', 'types', 'hooks', 'lib']
 
     requiredDirs.forEach(dir => {
       const dirPath = path.join(srcDir, dir)
@@ -39,7 +33,7 @@ describe('Architecture Constraints', () => {
    */
   it('should not import Rust code directly in frontend', () => {
     const frontendFiles = getAllFiles(srcDir, '.ts', '.tsx')
-    
+
     const forbiddenPatterns = [
       /from ['"]\.\.\/src-tauri/i,
       /from ['"]@\/.*rust/i,
@@ -48,13 +42,13 @@ describe('Architecture Constraints', () => {
 
     frontendFiles.forEach(file => {
       const content = fs.readFileSync(file, 'utf-8')
-      
+
       forbiddenPatterns.forEach(pattern => {
         const matches = content.match(pattern)
         if (matches) {
           throw new Error(
             `Forbidden import found in ${file}: ${matches[0]}\n` +
-            'Frontend should only communicate with backend via Tauri Commands'
+              'Frontend should only communicate with backend via Tauri Commands'
           )
         }
       })
@@ -67,7 +61,7 @@ describe('Architecture Constraints', () => {
    */
   it('should not have business logic in UI components', () => {
     const componentFiles = getAllFiles(path.join(srcDir, 'components'), '.tsx')
-    
+
     const forbiddenPatterns = [
       /invoke\s*\(/, // Tauri invoke 调用
       /axios\./, // HTTP 请求
@@ -88,13 +82,11 @@ describe('Architecture Constraints', () => {
       }
 
       const content = fs.readFileSync(file, 'utf-8')
-      
+
       forbiddenPatterns.forEach(pattern => {
         const matches = content.match(pattern)
         if (matches && !isAllowedInFile(file, allowedPatterns)) {
-          console.warn(
-            `⚠️  Potential business logic in UI component: ${file}`
-          )
+          console.warn(`⚠️  Potential business logic in UI component: ${file}`)
           // 这里使用 warning 而不是 error，因为有些组件可能需要简单的交互逻辑
         }
       })
@@ -107,19 +99,17 @@ describe('Architecture Constraints', () => {
    */
   it('should not call APIs directly in stores', () => {
     const storeFiles = getAllFiles(path.join(srcDir, 'stores'), '.ts')
-    
+
     storeFiles.forEach(file => {
       const content = fs.readFileSync(file, 'utf-8')
-      
+
       // 检查是否有直接的 API 调用
-      const hasDirectAPICall = 
-        /axios\./.test(content) ||
-        /fetch\s*\([^)]*http/.test(content)
-      
+      const hasDirectAPICall = /axios\./.test(content) || /fetch\s*\([^)]*http/.test(content)
+
       if (hasDirectAPICall) {
         throw new Error(
           `Direct API call found in store: ${file}\n` +
-          'Stores should use Tauri commands instead of direct API calls'
+            'Stores should use Tauri commands instead of direct API calls'
         )
       }
     })
@@ -131,21 +121,21 @@ describe('Architecture Constraints', () => {
    */
   it('should have JSDoc comments for exported types', () => {
     const typeFiles = getAllFiles(path.join(srcDir, 'types'), '.ts')
-    
+
     typeFiles.forEach(file => {
       const content = fs.readFileSync(file, 'utf-8')
-      
+
       // 查找 export interface 和 export type
       const exportPattern = /export\s+(interface|type)\s+(\w+)/g
       let match
-      
+
       while ((match = exportPattern.exec(content)) !== null) {
         const lineNumber = content.substring(0, match.index).split('\n').length
         const precedingLines = content.substring(0, match.index).split('\n').slice(-3)
-        
+
         // 检查前面是否有 JSDoc 注释
         const hasJSDoc = precedingLines.some(line => line.includes('*/') || line.includes('//'))
-        
+
         if (!hasJSDoc) {
           console.warn(
             `⚠️  Missing JSDoc comment for ${match[1]} ${match[2]} in ${file}:${lineNumber}`
@@ -169,19 +159,19 @@ describe('Architecture Constraints', () => {
 // 辅助函数：获取指定目录下的所有文件
 function getAllFiles(dir: string, ...extensions: string[]): string[] {
   const files: string[] = []
-  
+
   const items = fs.readdirSync(dir)
   for (const item of items) {
     const fullPath = path.join(dir, item)
     const stat = fs.statSync(fullPath)
-    
+
     if (stat.isDirectory()) {
       files.push(...getAllFiles(fullPath, ...extensions))
     } else if (extensions.some(ext => item.endsWith(ext))) {
       files.push(fullPath)
     }
   }
-  
+
   return files
 }
 

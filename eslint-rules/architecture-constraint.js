@@ -1,6 +1,6 @@
 /**
  * ESLint 规则：架构约束检查
- * 
+ *
  * 强制执行以下架构规则：
  * 1. Store 层不得依赖组件层
  * 2. Hook 层不得依赖业务组件层（UI 组件除外）
@@ -29,36 +29,33 @@ module.exports = {
     },
   },
   create(context) {
-    const path = require('path');
+    const path = require('path')
 
     /**
      * 获取文件所在的层级
      */
     function getLayer(filePath) {
-      const relativePath = path.relative(
-        path.resolve(__dirname, '../..'),
-        filePath
-      );
+      const relativePath = path.relative(path.resolve(__dirname, '../..'), filePath)
 
       if (relativePath.includes(path.join('src', 'stores'))) {
-        return 'stores';
+        return 'stores'
       }
       if (relativePath.includes(path.join('src', 'hooks'))) {
-        return 'hooks';
+        return 'hooks'
       }
       if (relativePath.includes(path.join('src', 'components', 'ui'))) {
-        return 'ui-components';
+        return 'ui-components'
       }
       if (relativePath.includes(path.join('src', 'components'))) {
-        return 'business-components';
+        return 'business-components'
       }
       if (relativePath.includes(path.join('src', 'lib'))) {
-        return 'lib';
+        return 'lib'
       }
       if (relativePath.includes(path.join('src', 'types'))) {
-        return 'types';
+        return 'types'
       }
-      return 'unknown';
+      return 'unknown'
     }
 
     /**
@@ -67,20 +64,20 @@ module.exports = {
     function getImportLayer(importSource, currentFile) {
       // 处理相对路径
       if (importSource.startsWith('.')) {
-        const currentDir = path.dirname(currentFile);
-        const resolvedPath = path.resolve(currentDir, importSource);
-        return getLayer(resolvedPath);
+        const currentDir = path.dirname(currentFile)
+        const resolvedPath = path.resolve(currentDir, importSource)
+        return getLayer(resolvedPath)
       }
 
       // 处理 @/ 别名
       if (importSource.startsWith('@/')) {
-        const basePath = path.resolve(__dirname, '../..', 'src');
-        const resolvedPath = path.resolve(basePath, importSource.slice(2));
-        return getLayer(resolvedPath);
+        const basePath = path.resolve(__dirname, '../..', 'src')
+        const resolvedPath = path.resolve(basePath, importSource.slice(2))
+        return getLayer(resolvedPath)
       }
 
       // 第三方库
-      return 'external';
+      return 'external'
     }
 
     /**
@@ -94,23 +91,23 @@ module.exports = {
       'ui-components': ['lib', 'types', 'external'],
       lib: ['lib', 'types', 'external'],
       types: ['types', 'external'],
-    };
+    }
 
     return {
       ImportDeclaration(node) {
-        const currentFile = context.getFilename();
-        const importSource = node.source.value;
-        
-        const fromLayer = getLayer(currentFile);
-        const toLayer = getImportLayer(importSource, currentFile);
+        const currentFile = context.getFilename()
+        const importSource = node.source.value
+
+        const fromLayer = getLayer(currentFile)
+        const toLayer = getImportLayer(importSource, currentFile)
 
         // 跳过未知层级或外部依赖的检查
         if (fromLayer === 'unknown' || toLayer === 'external' || toLayer === 'unknown') {
-          return;
+          return
         }
 
         // 检查是否违反依赖规则
-        const allowedLayers = ALLOWED_DEPENDENCIES[fromLayer];
+        const allowedLayers = ALLOWED_DEPENDENCIES[fromLayer]
         if (allowedLayers && !allowedLayers.includes(toLayer)) {
           context.report({
             node,
@@ -120,9 +117,9 @@ module.exports = {
               toLayer,
               filePath: currentFile,
             },
-          });
+          })
         }
       },
-    };
+    }
   },
-};
+}

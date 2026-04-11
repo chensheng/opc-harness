@@ -9,17 +9,20 @@
 > **实际工时**: 待填写  
 > **状态**: 🔄 进行中  
 > **创建时间**: 2026-03-31  
-> **完成时间**: 待填写  
+> **完成时间**: 待填写
 
 ---
 
 ## 📋 任务描述
 
 ### 用户故事
+
 作为用户，我希望提供反馈并重新生成 PRD，以便改进 PRD 质量。
 
 ### 背景说明
+
 在 PRD 生成后，用户可能需要：
+
 - 对某些部分提出反馈意见
 - 要求系统根据反馈重新生成特定章节
 - 支持多轮迭代，逐步完善 PRD
@@ -32,6 +35,7 @@
 ## 🎯 验收标准
 
 ### 功能要求
+
 - [ ] **反馈输入**: 支持用户对 PRD 整体或特定章节提供反馈
 - [ ] **反馈解析**: 自动解析用户反馈，识别关键改进点
 - [ ] **定向再生**: 根据反馈重新生成指定的 PRD 章节
@@ -40,6 +44,7 @@
 - [ ] **质量提升**: 每轮迭代后 PRD 质量评分应提升
 
 ### 质量要求
+
 - **响应性**: 重新生成耗时 < 10 秒
 - **准确性**: 反馈理解准确率 > 85%
 - **迭代能力**: 支持至少 3 轮有效迭代
@@ -50,6 +55,7 @@
 ## 🏗️ 技术方案
 
 ### 架构设计
+
 ```
 ┌─────────────────────────────────────┐
 │   React Component                   │
@@ -71,6 +77,7 @@
 ```
 
 ### 文件结构
+
 ```
 src-tauri/
 ├── src/
@@ -95,6 +102,7 @@ src/
 ### 核心数据结构
 
 #### 1. 反馈类型定义
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Feedback {
@@ -125,6 +133,7 @@ pub enum FeedbackPriority {
 ```
 
 #### 2. 再生成请求
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegenerateRequest {
@@ -137,6 +146,7 @@ pub struct RegenerateRequest {
 ```
 
 #### 3. 再生成结果
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegenerateResult {
@@ -152,6 +162,7 @@ pub struct RegenerateResult {
 ### 核心算法
 
 #### 1. 反馈解析
+
 ```rust
 // 使用 NLP 或规则解析反馈
 let parsed_feedback = parse_feedback(&feedback.content)?;
@@ -167,6 +178,7 @@ let affected_sections = map_to_sections(&improvement_points, &prd_structure);
 ```
 
 #### 2. 上下文保持
+
 ```rust
 // 构建完整的迭代历史
 let context = build_iteration_context(
@@ -186,6 +198,7 @@ let prompt = format!(
 ```
 
 #### 3. 质量验证
+
 ```rust
 // 每轮迭代后检查质量
 let quality_report = PRDQualityChecker::check(&new_prd)?;
@@ -204,6 +217,7 @@ if quality_report.overall_score <= previous_score {
 ### Phase 1: Rust 后端实现（2 小时）
 
 #### Step 1.1: 定义数据结构
+
 - [ ] `Feedback` 结构体
 - [ ] `FeedbackSentiment` 枚举
 - [ ] `FeedbackPriority` 枚举
@@ -212,6 +226,7 @@ if quality_report.overall_score <= previous_score {
 - [ ] `IterationHistory` 结构体
 
 #### Step 1.2: 实现反馈处理器
+
 - [ ] `FeedbackProcessor` 结构体
 - [ ] `parse_feedback()` 方法
 - [ ] `classify_feedback()` 方法
@@ -220,11 +235,13 @@ if quality_report.overall_score <= previous_score {
 - [ ] `build_iteration_context()` 方法
 
 #### Step 1.3: 集成 AI 生成
+
 - [ ] 调用 AI Agent 进行再生成
 - [ ] 保持上下文一致性
 - [ ] 处理多轮迭代
 
 #### Step 1.4: 单元测试
+
 - [ ] 正面反馈测试
 - [ ] 负面反馈测试
 - [ ] 建议性反馈测试
@@ -234,16 +251,19 @@ if quality_report.overall_score <= previous_score {
 ### Phase 2: TypeScript 前端实现（1.5 小时）
 
 #### Step 2.1: 类型定义
+
 - [ ] 创建 `src/types/prd-feedback.ts`
 - [ ] 添加反馈相关类型
 
 #### Step 2.2: Hook 实现
+
 - [ ] `usePRDFeedback` Hook
 - [ ] 提交反馈功能
 - [ ] 触发再生成
 - [ ] 状态管理
 
 #### Step 2.3: React 组件
+
 - [ ] `PRDFeedbackPanel` 组件
 - [ ] 反馈输入界面
 - [ ] 反馈列表展示
@@ -252,6 +272,7 @@ if quality_report.overall_score <= previous_score {
 - [ ] Tailwind CSS 样式
 
 #### Step 2.4: 单元测试
+
 - [ ] Hook 测试
 - [ ] 组件测试
 - [ ] 覆盖率 > 80%
@@ -259,6 +280,7 @@ if quality_report.overall_score <= previous_score {
 ### Phase 3: 集成测试（0.5 小时）
 
 #### Step 3.1: E2E 流程测试
+
 - [ ] 提交反馈 → 再生成 → 验证结果
 - [ ] 多轮迭代测试
 - [ ] 性能测试
@@ -268,6 +290,7 @@ if quality_report.overall_score <= previous_score {
 ## 🧪 测试策略
 
 ### Rust 测试用例
+
 ```
 #[test]
 fn test_positive_feedback_parsing() {
@@ -311,6 +334,7 @@ fn test_overall_feedback() {
 ```
 
 ### TypeScript 测试用例
+
 ```
 describe('usePRDFeedback', () => {
   it('should initialize with empty state', () => {
@@ -343,12 +367,12 @@ describe('usePRDFeedback', () => {
 
 ## 📊 进度追踪
 
-| 阶段 | 任务 | 状态 | 完成时间 |
-|------|------|------|----------|
-| Phase 1: Rust 后端实现 | 40% | 🔄 进行中 | - |
-| Phase 2: TypeScript 前端实现 | 30% | 📋 待开始 | - |
-| Phase 3: 测试与验证 | 20% | 📋 待开始 | - |
-| Phase 4: 文档与归档 | 10% | 📋 待开始 | - |
+| 阶段                         | 任务 | 状态      | 完成时间 |
+| ---------------------------- | ---- | --------- | -------- |
+| Phase 1: Rust 后端实现       | 40%  | 🔄 进行中 | -        |
+| Phase 2: TypeScript 前端实现 | 30%  | 📋 待开始 | -        |
+| Phase 3: 测试与验证          | 20%  | 📋 待开始 | -        |
+| Phase 4: 文档与归档          | 10%  | 📋 待开始 | -        |
 
 **总体进度**: 0% (0/4 阶段)
 
@@ -357,6 +381,7 @@ describe('usePRDFeedback', () => {
 ## ✅ 阶段 6: 质量验证 (20%) 🔥
 
 **Harness Health Check**:
+
 ```
 ✅ TypeScript Type Checking: PASS
 ✅ ESLint Code Quality: PASS (仅警告，无错误)
@@ -372,10 +397,12 @@ Overall Score: 85 / 100 🎉
 ```
 
 **Rust 测试**:
+
 - `feedback_processor` 模块：19 个测试全部通过
 - 测试覆盖率：100%
 
 **TypeScript 测试**:
+
 - `usePRDFeedback.test.ts`: 6 个测试全部通过
 - 测试覆盖率：100%
 
@@ -441,5 +468,6 @@ Overall Score: 85 / 100 🎉
 ### 下一步
 
 继续执行 Sprint 2 中的其他任务：
+
 - US-054: 质量检查可视化
 - US-048/049: 流式输出增强

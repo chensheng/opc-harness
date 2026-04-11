@@ -2,30 +2,33 @@
 
 **描述**: 必须严格按照此指引创建执行计划，以便后续的任务跟踪和评估。
 
-
 **步骤**:
 
 ## 1. 创建文件
+
 在 `docs/exec-plans/active/` 目录创建新文件：
+
 ```bash
 # 文件名：{TASK_ID}-{TASK_NAME}.md
 # 示例：US-019-测试任务.md
 ```
 
 ## 2. 填写基本信息
+
 ```
 # {TASK_ID}: {TASK_NAME}
 
-**状态**: 🔄 进行中  
-**优先级**: P0/P1/P2  
-**任务类型**: User Story/Techical Task/Bug Fix/Tech Debt  
-**开始日期**: YYYY-MM-DD  
-**预计完成**: YYYY-MM-DD  
-**负责人**: OPC-HARNESS Team  
+**状态**: 🔄 进行中
+**优先级**: P0/P1/P2
+**任务类型**: User Story/Techical Task/Bug Fix/Tech Debt
+**开始日期**: YYYY-MM-DD
+**预计完成**: YYYY-MM-DD
+**负责人**: OPC-HARNESS Team
 **关联需求**: _关联的 Sprint 任务 ID_
 ```
 
 ## 3. 填写任务概述
+
 ```
 ## 📋 任务概述
 
@@ -51,6 +54,7 @@ _为什么需要这个功能？解决什么问题？_
 ```
 
 ## 4. 设计解决方案
+
 ```
 ## 💡 解决方案设计
 
@@ -68,6 +72,7 @@ _使用的技术栈、框架、库及选型理由_
 ```
 
 ## 5. 保存并确认
+
 - ✅ 文件位于 `active/` 目录
 - ✅ 文件名：`{TASK_ID}-{TASK_NAME}.md`
 - ✅ 所有占位符已替换

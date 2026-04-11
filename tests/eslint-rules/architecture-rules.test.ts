@@ -1,18 +1,22 @@
 /**
  * 自定义 ESLint 规则单元测试
- * 
+ *
  * 测试架构约束规则是否正确工作
  */
 
-import { describe, it } from 'vitest';
-import { RuleTester } from 'eslint';
-import path from 'path';
-import { createRequire } from 'module';
+import { describe, it } from 'vitest'
+import { RuleTester } from 'eslint'
+import path from 'path'
+import { createRequire } from 'module'
 
-const require = createRequire(import.meta.url);
-const architectureConstraintRule = require(path.resolve(__dirname, '../../eslint-rules/architecture-constraint.cjs'));
-const uiComponentPurityRule = require(path.resolve(__dirname, '../../eslint-rules/ui-component-purity.cjs'));
-const storeApiCheckRule = require(path.resolve(__dirname, '../../eslint-rules/store-api-check.cjs'));
+const require = createRequire(import.meta.url)
+const architectureConstraintRule = require(
+  path.resolve(__dirname, '../../eslint-rules/architecture-constraint.cjs')
+)
+const uiComponentPurityRule = require(
+  path.resolve(__dirname, '../../eslint-rules/ui-component-purity.cjs')
+)
+const storeApiCheckRule = require(path.resolve(__dirname, '../../eslint-rules/store-api-check.cjs'))
 
 describe('Custom ESLint Architecture Rules', () => {
   const ruleTester = new RuleTester({
@@ -20,7 +24,7 @@ describe('Custom ESLint Architecture Rules', () => {
       ecmaVersion: 2020,
       sourceType: 'module',
     },
-  });
+  })
 
   describe('architecture-constraint rule', () => {
     it('should allow stores to import lib and types', () => {
@@ -36,8 +40,8 @@ describe('Custom ESLint Architecture Rules', () => {
           },
         ],
         invalid: [],
-      });
-    });
+      })
+    })
 
     it('should prevent stores from importing components', () => {
       ruleTester.run('architecture-constraint', architectureConstraintRule, {
@@ -49,8 +53,8 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'layerViolation' }],
           },
         ],
-      });
-    });
+      })
+    })
 
     it('should allow hooks to import stores and lib', () => {
       ruleTester.run('architecture-constraint', architectureConstraintRule, {
@@ -65,8 +69,8 @@ describe('Custom ESLint Architecture Rules', () => {
           },
         ],
         invalid: [],
-      });
-    });
+      })
+    })
 
     it('should prevent hooks from importing business components', () => {
       ruleTester.run('architecture-constraint', architectureConstraintRule, {
@@ -78,8 +82,8 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'layerViolation' }],
           },
         ],
-      });
-    });
+      })
+    })
 
     it('should allow UI components to import only lib and types', () => {
       ruleTester.run('architecture-constraint', architectureConstraintRule, {
@@ -94,8 +98,8 @@ describe('Custom ESLint Architecture Rules', () => {
           },
         ],
         invalid: [],
-      });
-    });
+      })
+    })
 
     it('should prevent UI components from importing stores', () => {
       ruleTester.run('architecture-constraint', architectureConstraintRule, {
@@ -107,9 +111,9 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'uiComponentImportStore' }],
           },
         ],
-      });
-    });
-  });
+      })
+    })
+  })
 
   describe('ui-component-purity rule', () => {
     it('should allow pure UI components', () => {
@@ -125,8 +129,8 @@ describe('Custom ESLint Architecture Rules', () => {
           },
         ],
         invalid: [],
-      });
-    });
+      })
+    })
 
     it('should prevent Tauri invoke in UI components', () => {
       ruleTester.run('ui-component-purity', uiComponentPurityRule, {
@@ -145,8 +149,8 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'tauriInvoke' }],
           },
         ],
-      });
-    });
+      })
+    })
 
     it('should prevent HTTP calls in UI components', () => {
       ruleTester.run('ui-component-purity', uiComponentPurityRule, {
@@ -165,9 +169,9 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'httpCall' }],
           },
         ],
-      });
-    });
-  });
+      })
+    })
+  })
 
   describe('store-api-check rule', () => {
     it('should allow stores without API calls', () => {
@@ -184,8 +188,8 @@ describe('Custom ESLint Architecture Rules', () => {
           },
         ],
         invalid: [],
-      });
-    });
+      })
+    })
 
     it('should prevent axios calls in stores', () => {
       ruleTester.run('store-api-check', storeApiCheckRule, {
@@ -205,8 +209,8 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'axiosCall' }],
           },
         ],
-      });
-    });
+      })
+    })
 
     it('should prevent fetch calls in stores', () => {
       ruleTester.run('store-api-check', storeApiCheckRule, {
@@ -226,7 +230,7 @@ describe('Custom ESLint Architecture Rules', () => {
             errors: [{ messageId: 'fetchCall' }],
           },
         ],
-      });
-    });
-  });
-});
+      })
+    })
+  })
+})

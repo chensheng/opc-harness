@@ -6,6 +6,7 @@
 ## 🎯 模块职责
 
 ### 分层架构
+
 ```
 src-tauri/
 ├── src/
@@ -20,6 +21,7 @@ src-tauri/
 ```
 
 ### 数据流规则
+
 ```rust
 // ✅ 推荐：单向数据流
 Frontend → Commands → Services → DB/AI
@@ -35,6 +37,7 @@ Frontend → Commands → Services → DB/AI
 ## 🛠️ 开发规范
 
 ### 命令实现
+
 ```rust
 // ✅ 推荐：Commands 仅做参数转发
 #[tauri::command]
@@ -46,7 +49,7 @@ pub async fn create_project(
     if name.is_empty() {
         return Err("项目名称不能为空".to_string());
     }
-    
+
     // 委托给 Service 层
     services::create_project(name, description)
         .await
@@ -57,6 +60,7 @@ pub async fn create_project(
 ```
 
 ### 错误处理
+
 ```rust
 // ✅ 推荐：使用 Result + 中文错误信息
 pub async fn save_project(project: Project) -> Result<Project, AppError> {
@@ -86,6 +90,7 @@ impl std::fmt::Display for AppError {
 ```
 
 ### 数据序列化
+
 ```rust
 // ✅ 推荐：使用 camelCase 与前端保持一致
 use serde::{Deserialize, Serialize};
@@ -107,12 +112,14 @@ pub struct Project {
 ## 📁 文件组织
 
 ### 命名规范
+
 - **模块文件**: snake_case (e.g., `mod.rs`, `project_service.rs`)
 - **结构体**: PascalCase (e.g., `Project`, `AIConfig`)
 - **函数**: snake_case (e.g., `create_project()`)
 - **常量**: SCREAMING_SNAKE_CASE (e.g., `MAX_RETRIES`)
 
 ### 目录结构
+
 ```
 commands/
 ├── mod.rs             # 命令导出
@@ -134,6 +141,7 @@ models/
 ## 🔒 架构约束
 
 ### 依赖方向
+
 ```rust
 // ✅ 允许：
 commands → services → models → db
@@ -147,6 +155,7 @@ models → commands        // 模型层不可依赖命令层
 ```
 
 ### 导入规范
+
 ```rust
 // ✅ 推荐：使用绝对路径
 use crate::models::Project;
@@ -162,6 +171,7 @@ use crate::utils::generate_uuid();
 ## 🚨 常见陷阱
 
 ### 陷阱 1: 在 Commands 中包含业务逻辑
+
 ```
 // ❌ 错误
 #[tauri::command]
@@ -181,6 +191,7 @@ pub fn create_project(name: String) -> Result<Project, String> {
 ```
 
 ### 陷阱 2: 忽略错误传播
+
 ```
 // ❌ 错误：使用 unwrap()
 let project = db::get_project(id).unwrap();
@@ -192,6 +203,7 @@ let project = db::get_project(id)
 ```
 
 ### 陷阱 3: 忘记序列化配置
+
 ```
 // ❌ 错误：前端收到 snake_case 字段
 #[derive(Serialize)]
@@ -216,5 +228,5 @@ pub struct Project {
 
 ---
 
-**需要帮助？** 
+**需要帮助？**
 查看根目录 [`AGENTS.md`](../AGENTS.md) 获取更多导航信息。

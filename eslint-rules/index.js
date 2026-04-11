@@ -1,6 +1,6 @@
 /**
  * 自定义 ESLint 插件：OPC-HARNESS 架构规则
- * 
+ *
  * 提供以下规则：
  * - architecture-constraint: 架构分层约束
  * - ui-component-purity: UI 组件纯度检查
@@ -13,4 +13,4 @@ module.exports = {
     'ui-component-purity': require('./ui-component-purity'),
     'store-api-check': require('./store-api-check'),
   },
-};
+}

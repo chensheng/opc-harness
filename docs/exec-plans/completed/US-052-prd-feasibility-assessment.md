@@ -9,17 +9,20 @@
 > **实际工时**: 4 小时  
 > **状态**: ✅ 已完成  
 > **创建时间**: 2026-03-30  
-> **完成时间**: 2026-03-31  
+> **完成时间**: 2026-03-31
 
 ---
 
 ## 📋 任务描述
 
 ### 用户故事
+
 作为系统，我希望评估 PRD 的可行性，以便提前识别风险。
 
 ### 背景说明
+
 在 PRD 生成过程中，需要评估产品的技术可行性、资源可行性和时间可行性。这有助于：
+
 - 提前识别技术难点和风险点
 - 评估团队是否具备相应的技术能力
 - 判断预估工作量是否合理
@@ -32,6 +35,7 @@
 ## 🎯 验收标准
 
 ### 功能要求
+
 - [x] **可行性评分**: 提供 0-100 分的可行性评分
 - [x] **风险评估**: 识别至少 3 种类型的风险
 - [x] **技术难点**: 分析技术栈的复杂度和团队匹配度
@@ -40,6 +44,7 @@
 - [x] **改进建议**: 为每个风险提供缓解建议
 
 ### 质量要求
+
 - **准确性**: 风险识别准确率 > 85%
 - **完整性**: 覆盖技术、资源、时间三个维度
 - **性能**: 评估耗时 < 3 秒
@@ -50,6 +55,7 @@
 ## 🏗️ 技术方案
 
 ### 架构设计
+
 ```
 ┌─────────────────────────────────────┐
 │   React Component                   │
@@ -71,6 +77,7 @@
 ```
 
 ### 文件结构
+
 ```
 src-tauri/
 ├── src/
@@ -95,6 +102,7 @@ src/
 ### 核心算法
 
 #### 1. 技术可行性分析
+
 ```rust
 // 技术栈复杂度评分
 let tech_complexity = calculate_tech_complexity(&tech_stack);
@@ -112,6 +120,7 @@ if tech_complexity > 0.8 && skill_match < 0.6 {
 ```
 
 #### 2. 资源需求评估
+
 ```rust
 // 基于功能复杂度计算所需人力
 let required_people = features.len() as f64 * avg_feature_complexity / available_hours;
@@ -128,6 +137,7 @@ if required_people > available_team_size {
 ```
 
 #### 3. 时间合理性检查
+
 ```rust
 // 综合复杂度评分
 let overall_complexity = weighted_average(&[
@@ -155,6 +165,7 @@ if estimated_timeline < reasonable_timeline_low {
 ### Phase 1: Rust 后端实现（2 小时）
 
 #### Step 1.1: 定义数据结构
+
 - [ ] `FeasibilityReport` 结构体（评估报告）
 - [ ] `RiskType` 枚举（风险类型）
 - [ ] `RiskLevel` 枚举（风险等级）
@@ -163,6 +174,7 @@ if estimated_timeline < reasonable_timeline_low {
 - [ ] `TimelineAssessment` 结构体（时间评估）
 
 #### Step 1.2: 实现评估器核心逻辑
+
 - [ ] `PRDFeasibilityAssessor` 结构体
 - [ ] `assess_feasibility()` 主方法
 - [ ] 技术可行性分析逻辑
@@ -171,11 +183,13 @@ if estimated_timeline < reasonable_timeline_low {
 - [ ] 风险识别和评分逻辑
 
 #### Step 1.3: 实现 Tauri Command
+
 - [ ] `assess_prd_feasibility` 命令
 - [ ] Markdown 解析
 - [ ] 错误处理
 
 #### Step 1.4: 单元测试
+
 - [ ] 高可行性 PRD 测试
 - [ ] 低可行性 PRD 测试
 - [ ] 边界条件测试
@@ -184,21 +198,25 @@ if estimated_timeline < reasonable_timeline_low {
 ### Phase 2: TypeScript 前端实现（1.5 小时）
 
 #### Step 2.1: 类型定义
+
 - [ ] 更新 `src/types/prd-quality.ts`
 - [ ] 添加可行性相关类型
 
 #### Step 2.2: Hook 实现
+
 - [ ] `usePRDFeasibilityCheck` Hook
 - [ ] 调用 Rust API
 - [ ] 状态管理
 
 #### Step 2.3: React 组件
+
 - [ ] `PRDFeasibilityCheckPanel` 组件
 - [ ] 可行性报告展示
 - [ ] 风险列表可视化
 - [ ] Tailwind CSS 样式
 
 #### Step 2.4: 单元测试
+
 - [ ] Hook 测试（6 个用例）
 - [ ] 组件测试（可选）
 - [ ] 覆盖率 > 80%
@@ -206,17 +224,20 @@ if estimated_timeline < reasonable_timeline_low {
 ### Phase 3: 质量验证（0.5 小时）
 
 #### Step 3.1: 代码质量
+
 - [ ] 运行 `npm run harness:check`
 - [ ] 修复所有 TypeScript 错误
 - [ ] 修复所有 ESLint 问题
 - [ ] 修复所有 Prettier 格式问题
 
 #### Step 3.2: 测试验证
+
 - [ ] Rust 测试全部通过
 - [ ] TypeScript 测试全部通过
 - [ ] Health Score = 100/100
 
 #### Step 3.3: Git 提交
+
 - [ ] 编写符合规范的提交信息
 - [ ] 提交到 Git
 - [ ] 推送到远程仓库
@@ -242,26 +263,26 @@ pub enum RiskType {
         required_techs: Vec<String>,
         team_skill_level: f64,
     },
-    
+
     // 资源短缺
     ResourceShortage {
         required_people: f64,
         available_team_size: usize,
     },
-    
+
     // 时间低估
     TimelineUnderestimate {
         estimated_weeks: f64,
         reasonable_min_weeks: f64,
     },
-    
+
     // 技术依赖风险
     TechnologyDependencyRisk {
         technology: String,
         maturity_level: String,
         community_support: String,
     },
-    
+
     // 集成复杂度风险
     IntegrationComplexityRisk {
         systems_count: usize,
@@ -275,67 +296,68 @@ pub enum RiskType {
 
 ``typescript
 interface FeasibilityReport {
-  /** 总体可行性得分 (0-100) */
-  overallScore: number
-  /** 可行性等级 (High/Medium/Low) */
-  feasibilityLevel: 'high' | 'medium' | 'low'
-  /** 技术评估 */
-  technical: TechnicalAssessment
-  /** 资源评估 */
-  resource: ResourceAssessment
-  /** 时间评估 */
-  timeline: TimelineAssessment
-  /** 识别的风险列表 */
-  risks: Risk[]
-  /** 改进建议 */
-  recommendations: string[]
+/** 总体可行性得分 (0-100) \*/
+overallScore: number
+/** 可行性等级 (High/Medium/Low) _/
+feasibilityLevel: 'high' | 'medium' | 'low'
+/\*\* 技术评估 _/
+technical: TechnicalAssessment
+/** 资源评估 \*/
+resource: ResourceAssessment
+/** 时间评估 _/
+timeline: TimelineAssessment
+/\*\* 识别的风险列表 _/
+risks: Risk[]
+/\*_ 改进建议 _/
+recommendations: string[]
 }
 
 interface TechnicalAssessment {
-  /** 技术栈复杂度 (0-1) */
-  complexity: number
-  /** 团队技能匹配度 (0-1) */
-  teamSkillMatch: number
-  /** 技术可行性得分 (0-100) */
-  feasibilityScore: number
-  /** 技术难点列表 */
-  technicalChallenges: string[]
+/** 技术栈复杂度 (0-1) \*/
+complexity: number
+/** 团队技能匹配度 (0-1) _/
+teamSkillMatch: number
+/\*\* 技术可行性得分 (0-100) _/
+feasibilityScore: number
+/\*_ 技术难点列表 _/
+technicalChallenges: string[]
 }
 
 interface ResourceAssessment {
-  /** 所需人力 (人月) */
-  requiredPeople: number
-  /** 可用团队规模 */
-  availableTeamSize: number
-  /** 资源充足度 (0-1) */
-  resourceAdequacy: number
-  /** 关键技能需求 */
-  criticalSkills: string[]
+/** 所需人力 (人月) \*/
+requiredPeople: number
+/** 可用团队规模 _/
+availableTeamSize: number
+/\*\* 资源充足度 (0-1) _/
+resourceAdequacy: number
+/\*_ 关键技能需求 _/
+criticalSkills: string[]
 }
 
 interface TimelineAssessment {
-  /** 预估时间（周） */
-  estimatedWeeks: number
-  /** 合理时间范围（最小值） */
-  reasonableMinWeeks: number
-  /** 合理时间范围（最大值） */
-  reasonableMaxWeeks: number
-  /** 时间合理性得分 (0-100) */
-  reasonablenessScore: number
+/** 预估时间（周） \*/
+estimatedWeeks: number
+/** 合理时间范围（最小值） _/
+reasonableMinWeeks: number
+/\*\* 合理时间范围（最大值） _/
+reasonableMaxWeeks: number
+/\*_ 时间合理性得分 (0-100) _/
+reasonablenessScore: number
 }
 
 interface Risk {
-  /** 风险类型 */
-  type: RiskType
-  /** 风险等级 */
-  level: 'critical' | 'high' | 'medium' | 'low'
-  /** 风险描述 */
-  description: string
-  /** 影响分析 */
-  impact: string
-  /** 缓解建议 */
-  mitigation: string
+/** 风险类型 \*/
+type: RiskType
+/** 风险等级 _/
+level: 'critical' | 'high' | 'medium' | 'low'
+/\*\* 风险描述 _/
+description: string
+/** 影响分析 \*/
+impact: string
+/** 缓解建议 \*/
+mitigation: string
 }
+
 ```
 
 ---
@@ -464,3 +486,4 @@ interface Risk {
 ---
 
 **最后更新**: 2026-03-31
+```

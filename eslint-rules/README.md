@@ -2,7 +2,7 @@
 
 > **架构护栏**: "质量内建，非事后检查"  
 > **适用范围**: 所有前端 TypeScript/TSX 文件  
-> **最后更新**: 2026-03-28  
+> **最后更新**: 2026-03-28
 
 ---
 
@@ -13,12 +13,14 @@
 **目的**: 强制执行分层架构依赖关系，防止架构漂移。
 
 **检测场景**:
+
 - ❌ Store 层导入组件层
 - ❌ Hook 层导入业务组件层（UI 组件除外）
 - ❌ 组件层直接导入 Rust 代码
 - ❌ 违反允许依赖矩阵的导入
 
 **允许的依赖关系**:
+
 ```
 stores → [lib, types, external]
 hooks → [stores, lib, types, ui-components, external]
@@ -29,8 +31,9 @@ types → [types, external]
 ```
 
 **错误消息示例**:
+
 ```
-Layer violation: 'stores' cannot import 'business-components'. 
+Layer violation: 'stores' cannot import 'business-components'.
 File: 'd:/workspace/opc-harness/src/stores/appStore.ts'
 ```
 
@@ -41,6 +44,7 @@ File: 'd:/workspace/opc-harness/src/stores/appStore.ts'
 **目的**: 确保 UI 基础组件保持纯净，不包含业务逻辑。
 
 **检测场景**:
+
 - ❌ UI 组件调用 Tauri `invoke()`
 - ❌ UI 组件直接使用 `axios` 或 `fetch` 发起 HTTP 请求
 - ❌ UI 组件包含复杂的异步操作（`useEffect` 中的 async）
@@ -49,8 +53,9 @@ File: 'd:/workspace/opc-harness/src/stores/appStore.ts'
 **适用范围**: `src/components/ui/` 目录下的所有 `.tsx` 文件
 
 **错误消息示例**:
+
 ```
-UI component should not call Tauri invoke directly. 
+UI component should not call Tauri invoke directly.
 Move business logic to hooks or stores. Found in: 'button.tsx'
 ```
 
@@ -61,11 +66,13 @@ Move business logic to hooks or stores. Found in: 'button.tsx'
 **目的**: 确保 Store 层不直接调用外部 API，必须通过 Tauri Commands 与后端通信。
 
 **检测场景**:
+
 - ❌ Store 中使用 `axios.get/post/...`
 - ❌ Store 中使用 `fetch('http://...')`
 - ❌ Store 中导入 `axios` 或其他 HTTP 客户端库
 
 **检测的 HTTP 客户端库**:
+
 - axios
 - superagent
 - got
@@ -73,8 +80,9 @@ Move business logic to hooks or stores. Found in: 'button.tsx'
 - http-client
 
 **错误消息示例**:
+
 ```
-Store should not use axios for API calls. 
+Store should not use axios for API calls.
 Use Tauri commands to communicate with backend. Found in: 'appStore.ts'
 ```
 
@@ -87,18 +95,16 @@ Use Tauri commands to communicate with backend. Found in: 'appStore.ts'
 ```javascript
 import architecturePlugin from './eslint-rules/index.cjs'
 
-export default tseslint.config(
-  {
-    plugins: {
-      'architecture': architecturePlugin,
-    },
-    rules: {
-      'architecture/architecture-constraint': 'error',
-      'architecture/ui-component-purity': 'error',
-      'architecture/store-api-check': 'error',
-    },
-  }
-)
+export default tseslint.config({
+  plugins: {
+    architecture: architecturePlugin,
+  },
+  rules: {
+    'architecture/architecture-constraint': 'error',
+    'architecture/ui-component-purity': 'error',
+    'architecture/store-api-check': 'error',
+  },
+})
 ```
 
 ---
@@ -133,6 +139,7 @@ npm run test:unit -- tests/eslint-rules/architecture-rules.test.ts
 ```
 
 测试覆盖场景：
+
 - ✅ 允许的导入模式
 - ✅ 禁止的导入模式
 - ✅ 错误消息准确性
@@ -144,31 +151,34 @@ npm run test:unit -- tests/eslint-rules/architecture-rules.test.ts
 ### ✅ 正确的做法
 
 **Store 层**:
+
 ```typescript
 // ✅ 使用 Tauri commands
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core'
 
-export const useAppStore = create((set) => ({
+export const useAppStore = create(set => ({
   loadData: async () => {
-    const data = await invoke('load_data_command');
-    set({ data });
-  }
-}));
+    const data = await invoke('load_data_command')
+    set({ data })
+  },
+}))
 ```
 
 **Hook 层**:
+
 ```typescript
 // ✅ 导入 stores 和 lib
-import { useAppStore } from '@/stores/appStore';
-import { cn } from '@/lib/utils';
+import { useAppStore } from '@/stores/appStore'
+import { cn } from '@/lib/utils'
 
 export function useAgent() {
-  const store = useAppStore();
+  const store = useAppStore()
   // ...
 }
 ```
 
 **UI 组件**:
+
 ```typescript
 // ✅ 纯 UI 组件
 import { cn } from '@/lib/utils';
@@ -180,6 +190,7 @@ export function Button({ children, onClick }: ButtonProps) {
 ```
 
 **业务组件**:
+
 ```typescript
 // ✅ 可以导入 hooks 和 lib
 import { useAgent } from '@/hooks/useAgent';
@@ -194,19 +205,21 @@ export function CodeEditor() {
 ### ❌ 错误的做法
 
 **Store 层直接调用 API**:
+
 ```typescript
 // ❌ 禁止：直接使用 axios
-import axios from 'axios';
+import axios from 'axios'
 
-export const useAppStore = create((set) => ({
+export const useAppStore = create(set => ({
   loadData: async () => {
-    const res = await axios.get('/api/data');
-    set({ data: res.data });
-  }
-}));
+    const res = await axios.get('/api/data')
+    set({ data: res.data })
+  },
+}))
 ```
 
 **UI 组件包含业务逻辑**:
+
 ```typescript
 // ❌ 禁止：调用 Tauri invoke
 export function Button() {
@@ -218,9 +231,10 @@ export function Button() {
 ```
 
 **Hook 导入业务组件**:
+
 ```typescript
 // ❌ 禁止：Hook 导入业务组件
-import { CodeEditor } from '@/components/vibe-coding/CodeEditor';
+import { CodeEditor } from '@/components/vibe-coding/CodeEditor'
 
 export function useAgent() {
   // ...
@@ -231,12 +245,12 @@ export function useAgent() {
 
 ## 📊 规则效果
 
-| 指标 | 目标 | 实际 |
-|------|------|------|
-| 规则数量 | ≥1 | 3 ✅ |
-| 检测场景 | ≥5 | 9 ✅ |
-| 单元测试覆盖 | 100% | 100% ✅ |
-| 误报率 | <5% | ~0% ✅ |
+| 指标         | 目标    | 实际       |
+| ------------ | ------- | ---------- |
+| 规则数量     | ≥1      | 3 ✅       |
+| 检测场景     | ≥5      | 9 ✅       |
+| 单元测试覆盖 | 100%    | 100% ✅    |
+| 误报率       | <5%     | ~0% ✅     |
 | Health Score | 100/100 | 100/100 ✅ |
 
 ---

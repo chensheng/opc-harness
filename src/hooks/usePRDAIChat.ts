@@ -106,129 +106,30 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
               console.log('[usePRDAIChat] PRD written to:', filePath)
 
-              // 2. 写入 AGENTS.md（系统提示词）
-              const systemPrompt = `# PRD 优化助手
-
-你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档.
-
-## 🚫 严格禁止
-
-**绝对不要输出以下内容：**
-- ❌ 思考过程、推理步骤、分析过程
-- ❌ "让我思考一下"、"我需要分析"、"首先..."等过渡性文字
-- ❌ 解释性文字、修改说明、变更列表
-- ❌ "以下是优化后的PRD"、"我已经完成优化"等总结性文字
-- ❌ 任何非 PRD 文档本身的内容
-
-## ✅ 必须遵守
-
-1. **直接输出完整的 PRD Markdown 文档**，从第一个标题开始
-2. **即使用户只要求修改某一部分，也要输出包含该部分优化的完整文档**
-3. **未修改的部分保持原样，一字不改**
-4. **确保文档的专业性和可读性**
-5. **输出必须是纯 Markdown 格式，无任何额外说明**
-
-## 工作流程
-
-1. 读取 @.opc-harness/PRD.md 获取当前 PRD 内容
-2. 理解用户的优化需求
-3. 在脑海中完成优化（不要输出思考过程）
-4. **直接输出**优化后的完整 PRD 文档（Markdown 格式）
-
-## 输出示例
-
-**正确的输出**应该直接以 PRD 标题开始：
-
-\`\`\`markdown
-# 产品名称
-
-## 1. 产品概述
-...（完整的 PRD 内容）
-\`\`\`
-
-**错误的输出**（包含思考过程）：
-
-\`\`\`
-让我先分析一下用户的需求...
-好的，我现在开始优化PRD...
-
-# 产品名称
-...
-\`\`\`
-
-**记住：只输出 PRD 文档本身，其他任何内容都不要输出！**`
-
-              await invoke<string>('write_file_to_project', {
-                projectPath: workspacePath,
-                fileName: 'AGENTS.md',
-                content: systemPrompt,
-              })
-
-              console.log('[usePRDAIChat] AGENTS.md written to workspace')
-
               // 在提示词中使用 @ 引用（文件在 .opc-harness 子目录中）
-              prdContentForAI = '@.opc-harness/AGENTS.md @.opc-harness/PRD.md'
+              prdContentForAI = '@.opc-harness/PRD.md'
             } catch (err) {
-              console.error('[usePRDAIChat] Failed to write PRD file:', err)
-              // 即使写入文件失败，也继续使用原有内容
-              setError(`写入 PRD 文件失败：${err instanceof Error ? err.message : String(err)}`)
+              console.error('[usePRDAIChat] Error writing PRD and AGENTS files:', err)
+              setError('无法写入 PRD 和 AGENTS 文件')
+              return
             }
           }
         }
 
-        // 监听流式数据块事件
-        const unlistenChunk = await listen<{
-          session_id: string
-          content: string
-          is_complete: boolean
-        }>('ai-stream-chunk', event => {
-          accumulatedContentRef.current += event.payload.content
-
-          // 更新最后一条助手消息
-          setMessages(prev => {
-            const newMessages = [...prev]
-            const lastIndex = newMessages.length - 1
-            if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
-              newMessages[lastIndex] = {
-                ...newMessages[lastIndex],
-                content: accumulatedContentRef.current,
-              }
-            }
-            return newMessages
-          })
-        })
-        unlistenRef.current.push(unlistenChunk)
-
-        // 监听完成事件
-        const unlistenComplete = await listen<{ session_id: string; content: string }>(
-          'ai-stream-complete',
-          _event => {
-            setIsStreaming(false)
-            isStreamingRef.current = false
-            cleanup()
-          }
-        )
-        unlistenRef.current.push(unlistenComplete)
-
-        // 监听错误事件
-        const unlistenError = await listen<{ session_id: string; error: string }>(
-          'ai-stream-error',
-          event => {
-            console.error('[usePRDAIChat] Stream error:', event.payload.error)
-            setError(event.payload.error)
-            setIsStreaming(false)
-            isStreamingRef.current = false
-            cleanup()
-          }
-        )
-        unlistenRef.current.push(unlistenError)
-
         // 构建系统提示词，指导 AI 输出完整 PRD
-        // 对于 CodeFree，由于已经通过 @.opc-harness/AGENTS.md 和 @.opc-harness/PRD.md 引用了上下文，使用简化的提示词
         const isCodeFree = activeConfig?.provider === 'codefree'
 
         const systemPrompt = isCodeFree
-          ? '请读取 @.opc-harness/AGENTS.md 了解任务规则，读取 @.opc-harness/PRD.md 获取当前内容，然后根据用户需求生成优化后的完整 PRD 文档。'
+          ? `你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档.
+
+重要规则：
+1. 必须输出完整的 PRD Markdown 文档，保持原有结构和风格
+2. 即使用户只要求修改某一部分，也要输出包含该部分优化的完整文档
+3. 不要输出解释性文字、修改建议列表或非完整文档片段
+4. 未修改的部分保持原样
+5. 确保文档的专业性和可读性
+
+请读取 @.opc-harness/PRD.md 获取当前 PRD 内容，并基于用户需求和该 PRD 内容，生成优化后的完整 PRD 文档。`
           : `你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档.
 
 重要规则：
@@ -243,36 +144,38 @@ ${prdContentForAI}
 
 请基于以上 PRD 和用户需求，生成优化后的完整 PRD 文档。`
 
-        // 调用后端流式聊天命令
-        await invoke<string>('stream_chat', {
-          request: {
-            provider: aiConfigStore.defaultProvider,
-            model: activeConfig.model,
-            api_key: activeConfig.apiKey,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage },
-            ],
-            temperature: 0.7,
-            max_tokens: 8000,
-            // 传递 project_id，让 CodeFree CLI 切换到项目工作区目录
-            project_id: projectId || null,
-          },
+        // 发送请求
+        const unlisten = await listen('ai-stream', ({ payload }) => {
+          accumulatedContentRef.current += payload
+          setMessages(prev => {
+            const lastMsg = prev[prev.length - 1]
+            return [
+              ...prev.slice(0, -1),
+              {
+                role: lastMsg.role,
+                content: accumulatedContentRef.current,
+              },
+            ]
+          })
+        })
+
+        unlistenRef.current.push(unlisten)
+
+        await invoke('run_ai', {
+          provider: activeConfig?.provider,
+          apiKey: activeConfig?.apiKey,
+          systemPrompt,
+          userMessage,
         })
       } catch (err) {
-        console.error('[usePRDAIChat] Error sending message:', err)
-        // 只有在还没有设置详细错误信息时，才设置通用错误
-        // 因为详细的错误信息应该已经通过 ai-stream-error 事件设置了
-        if (!error) {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          setError(`AI 调用失败：${errorMessage}`)
-        }
-        setIsStreaming(false)
+        console.error('[usePRDAIChat] Error:', err)
+        setError('无法生成优化后的 PRD')
+      } finally {
         isStreamingRef.current = false
-        cleanup()
+        setIsStreaming(false)
       }
     },
-    [aiConfigStore, cleanup, error, projectStore]
+    [aiConfigStore, projectStore, cleanup]
   )
 
   return {

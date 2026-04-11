@@ -10,11 +10,13 @@
 当前 AI 响应为一次性返回，用户体验较差，无法实时看到 AI 生成内容。需要实现 Server-Sent Events (SSE) 流式输出，让 AI 响应能够逐字显示。
 
 ### 问题描述
+
 1. **用户等待时间长**：AI 生成完整响应前用户无法看到任何内容
 2. **缺乏进度反馈**：用户不知道 AI 是否在工作或卡住了
 3. **无法中断**：一旦开始请求，无法中途取消或干预
 
 ### 约束条件
+
 - Tauri v2 架构限制
 - 需要支持多会话并发
 - 保持前后端解耦
@@ -24,6 +26,7 @@
 采用 **Tauri v2 的事件系统（Event API）**实现 Rust 到前端的流式推送。
 
 ### 技术方案
+
 - **Rust 端**：使用 `tauri::Emitter` trait 发送事件
 - **前端**：使用 `@tauri-apps/api/core` 的 `listen` 函数监听事件
 - **事件命名**：
@@ -31,6 +34,7 @@
   - `ai-stream-complete` - 完成信号
   - `ai-stream-error` - 错误信号
 - **数据格式**：
+
 ```json
 {
   "session_id": "uuid",
@@ -42,14 +46,15 @@
 
 ### 技术选型对比
 
-| 方案 | 实时性 | 复杂度 | Tauri 兼容性 | 综合评分 |
-|------|--------|--------|--------------|----------|
-| **Tauri Events（选中）** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 9/10 |
-| WebSocket | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ | 7/10 |
-| HTTP SSE | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | 6/10 |
-| 轮询 | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 5/10 |
+| 方案                     | 实时性     | 复杂度     | Tauri 兼容性 | 综合评分 |
+| ------------------------ | ---------- | ---------- | ------------ | -------- |
+| **Tauri Events（选中）** | ⭐⭐⭐⭐   | ⭐⭐⭐     | ⭐⭐⭐⭐⭐   | 9/10     |
+| WebSocket                | ⭐⭐⭐⭐⭐ | ⭐⭐       | ⭐⭐⭐       | 7/10     |
+| HTTP SSE                 | ⭐⭐⭐⭐   | ⭐⭐⭐     | ⭐⭐         | 6/10     |
+| 轮询                     | ⭐⭐       | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐     | 5/10     |
 
 选择 Tauri Events 的原因：
+
 1. **原生支持**：Tauri v2 内置事件系统，无需额外依赖
 2. **类型安全**：Rust 和 TypeScript 都有良好的类型定义
 3. **简单易用**：API 简洁，学习成本低
@@ -133,7 +138,7 @@ pub async fn stream_chat(
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     let session_id = uuid::Uuid::new_v4().to_string();
-    
+
     // 创建流式处理器
     let stream_handler = |chunk: String| {
         let _ = app.emit("ai-stream-chunk", StreamChunk {
@@ -142,16 +147,16 @@ pub async fn stream_chat(
             is_complete: false,
         });
     };
-    
+
     // 执行流式请求
     let final_content = execute_stream_chat(request, stream_handler).await?;
-    
+
     // 发送完成事件
     let _ = app.emit("ai-stream-complete", StreamComplete {
         session_id,
         content: final_content.clone(),
     });
-    
+
     Ok(final_content)
 }
 ```
@@ -162,12 +167,12 @@ pub async fn stream_chat(
 import { listen } from '@tauri-apps/api/event'
 
 // 监听流式数据块
-const unlisten = await listen<StreamChunk>('ai-stream-chunk', (event) => {
+const unlisten = await listen<StreamChunk>('ai-stream-chunk', event => {
   setContent(prev => prev + event.payload.content)
 })
 
 // 监听完成事件
-await listen<StreamComplete>('ai-stream-complete', (event) => {
+await listen<StreamComplete>('ai-stream-complete', event => {
   setIsComplete(true)
 })
 

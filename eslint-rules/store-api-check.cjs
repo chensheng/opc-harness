@@ -1,6 +1,6 @@
 /**
  * ESLint 规则：Store 层 API 调用检查
- * 
+ *
  * 确保 Store 层不直接调用外部 API：
  * - 不允许使用 axios
  * - 不允许使用 fetch 访问 HTTP 端点
@@ -27,35 +27,37 @@ module.exports = {
     },
   },
   create(context) {
-    const path = require('path');
+    const path = require('path')
 
     /**
      * 检查文件是否在 Store 目录中
      */
     function isStoreFile(filePath) {
-      return filePath.includes(path.join('src', 'stores')) && 
-             (filePath.endsWith('.ts') || filePath.endsWith('.tsx'));
+      return (
+        filePath.includes(path.join('src', 'stores')) &&
+        (filePath.endsWith('.ts') || filePath.endsWith('.tsx'))
+      )
     }
 
     /**
      * 获取 Store 名称
      */
     function getStoreName(filePath) {
-      return path.basename(filePath);
+      return path.basename(filePath)
     }
 
     return {
       Program(node) {
-        const filePath = context.getFilename();
-        
+        const filePath = context.getFilename()
+
         // 只检查 Store 文件
         if (!isStoreFile(filePath)) {
-          return;
+          return
         }
 
-        const storeName = getStoreName(filePath);
-        const sourceCode = context.getSourceCode();
-        const text = sourceCode.getText();
+        const storeName = getStoreName(filePath)
+        const sourceCode = context.getSourceCode()
+        const text = sourceCode.getText()
 
         // 检查是否包含 axios 调用
         if (/axios\./.test(text)) {
@@ -63,7 +65,7 @@ module.exports = {
             node,
             messageId: 'axiosCall',
             data: { storeFile: storeName },
-          });
+          })
         }
 
         // 检查是否包含 fetch 调用（特别是 HTTP 请求）
@@ -72,31 +74,33 @@ module.exports = {
             node,
             messageId: 'fetchCall',
             data: { storeFile: storeName },
-          });
+          })
         }
       },
 
       ImportDeclaration(node) {
-        const filePath = context.getFilename();
-        
+        const filePath = context.getFilename()
+
         if (!isStoreFile(filePath)) {
-          return;
+          return
         }
 
-        const importSource = node.source.value;
-        const storeName = getStoreName(filePath);
+        const importSource = node.source.value
+        const storeName = getStoreName(filePath)
 
         // 检查是否导入了 axios 或其他 HTTP 客户端库
-        if (importSource === 'axios' || 
-            importSource.includes('axios/') ||
-            /http-client|superagent|got|node-fetch/.test(importSource)) {
+        if (
+          importSource === 'axios' ||
+          importSource.includes('axios/') ||
+          /http-client|superagent|got|node-fetch/.test(importSource)
+        ) {
           context.report({
             node,
             messageId: 'httpImport',
             data: { storeFile: storeName },
-          });
+          })
         }
       },
-    };
+    }
   },
-};
+}

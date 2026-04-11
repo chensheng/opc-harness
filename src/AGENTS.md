@@ -6,6 +6,7 @@
 ## 🎯 模块职责
 
 ### 分层架构
+
 ```
 src/
 ├── components/     # UI 组件层 - 仅负责渲染和用户交互
@@ -16,6 +17,7 @@ src/
 ```
 
 ### 数据流规则
+
 ```typescript
 // ✅ 推荐：单向数据流
 Component → Store → Tauri Commands → Rust Backend
@@ -31,6 +33,7 @@ Component → Store → Tauri Commands → Rust Backend
 ## 🛠️ 开发规范
 
 ### 组件开发
+
 ```typescript
 // ✅ 推荐：使用函数组件 + TypeScript
 interface Props {
@@ -47,6 +50,7 @@ export function MyComponent({ title, on_submit }: Props) {
 ```
 
 ### 状态管理
+
 ```typescript
 // ✅ 推荐：使用 Zustand store
 import { useAppStore } from '@/stores/appStore';
@@ -61,13 +65,14 @@ function Component() {
 ```
 
 ### 类型定义
+
 ```typescript
 // ✅ 推荐：集中管理类型
 // src/types/index.ts
 export interface Project {
-  id: string;
-  name: string;
-  status: 'idea' | 'design' | 'coding' | 'completed';
+  id: string
+  name: string
+  status: 'idea' | 'design' | 'coding' | 'completed'
 }
 
 // ❌ 避免：使用 any
@@ -77,12 +82,14 @@ export interface Project {
 ## 📁 文件组织
 
 ### 命名规范
+
 - **组件文件**: PascalCase (e.g., `MyComponent.tsx`)
 - **Hooks 文件**: camelCase + hook 后缀 (e.g., `useAIStream.ts`)
 - **工具文件**: camelCase (e.g., `utils.ts`)
 - **类型文件**: 集中在 `types/index.ts`
 
 ### 目录结构
+
 ```
 components/
 ├── ui/              # shadcn/ui 基础组件 (不可修改)
@@ -95,6 +102,7 @@ components/
 ## 🔒 架构约束
 
 ### 依赖方向
+
 ```typescript
 // ✅ 允许：
 components → hooks → stores → types
@@ -107,13 +115,14 @@ lib → stores         // 工具函数不可依赖状态
 ```
 
 ### 导入规范
+
 ```typescript
 // ✅ 推荐：使用路径别名
-import { Button } from '@/components/ui/button';
-import { useAppStore } from '@/stores/appStore';
+import { Button } from '@/components/ui/button'
+import { useAppStore } from '@/stores/appStore'
 
 // ❌ 避免：相对路径过深
-import { Button } from '../../../components/ui/button';
+import { Button } from '../../../components/ui/button'
 
 // ⚠️ 强制：ESLint 检查 import 路径深度 <= 3
 ```
@@ -121,27 +130,29 @@ import { Button } from '../../../components/ui/button';
 ## 🚨 常见陷阱
 
 ### 陷阱 1: 在组件中直接调用 Tauri API
+
 ``typescript
 // ❌ 错误
 function MyComponent() {
-  const handleSave = async () => {
-    await invoke('save_project', { data });
-  };
+const handleSave = async () => {
+await invoke('save_project', { data });
+};
 }
 
 // ✅ 正确
 // stores/projectStore.ts
 export const useProjectStore = create((set) => ({
-  saveProject: async (data) => {
-    await invoke('save_project', { data });
-  }
+saveProject: async (data) => {
+await invoke('save_project', { data });
+}
 }));
 
 // components/MyComponent.tsx
 function MyComponent() {
-  const { saveProject } = useProjectStore();
-  const handleSave = () => saveProject(data);
+const { saveProject } = useProjectStore();
+const handleSave = () => saveProject(data);
 }
+
 ```
 
 ### 陷阱 2: 过度使用 useEffect
@@ -160,18 +171,19 @@ const handleClick = () => {
 ```
 
 ### 陷阱 3: 类型滥用 any
+
 ```typescript
 // ❌ 错误
 function processData(data: any) {
-  return data.value;
+  return data.value
 }
 
 // ✅ 正确
 interface Data {
-  value: string;
+  value: string
 }
 function processData(data: Data) {
-  return data.value;
+  return data.value
 }
 ```
 
@@ -184,5 +196,5 @@ function processData(data: Data) {
 
 ---
 
-**需要帮助？** 
+**需要帮助？**
 查看根目录 [`AGENTS.md`](../AGENTS.md) 获取更多导航信息。

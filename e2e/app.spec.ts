@@ -1,6 +1,6 @@
 /**
  * OPC-HARNESS E2E 测试 - Chrome DevTools MCP 版本
- * 
+ *
  * 使用 Chrome DevTools Protocol 替代 Playwright，更轻量级的选择
  * 运行方式：直接在 Chrome 浏览器中执行测试
  */
@@ -30,9 +30,9 @@ let serverStartedByTest = false
  * 辅助函数：检查端口是否被占用
  */
 function isPortInUse(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const server = net.createServer()
-    
+
     server.once('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
         resolve(true)
@@ -40,12 +40,12 @@ function isPortInUse(port: number): Promise<boolean> {
         resolve(false)
       }
     })
-    
+
     server.once('listening', () => {
       server.close()
       resolve(false)
     })
-    
+
     server.listen(port)
   })
 }
@@ -55,7 +55,7 @@ function isPortInUse(port: number): Promise<boolean> {
  */
 async function waitForServer(url: string, timeout: number = 30000): Promise<void> {
   const startTime = Date.now()
-  
+
   while (Date.now() - startTime < timeout) {
     try {
       const response = await fetch(url)
@@ -66,10 +66,10 @@ async function waitForServer(url: string, timeout: number = 30000): Promise<void
     } catch {
       // Server not ready yet, wait and retry
     }
-    
+
     await new Promise(resolve => setTimeout(resolve, 1000))
   }
-  
+
   throw new Error(`Server failed to start within ${timeout}ms`)
 }
 
@@ -84,10 +84,10 @@ function generateReport(testName: string, result: 'pass' | 'fail', details: stri
     } catch {
       // 忽略目录创建错误
     }
-    
+
     const timestamp = new Date().toISOString()
     const reportFile = join(REPORT_DIR, `report-${Date.now()}.html`)
-    
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -101,7 +101,7 @@ function generateReport(testName: string, result: 'pass' | 'fail', details: stri
         </body>
       </html>
     `
-    
+
     writeFileSync(reportFile, html)
     console.log(`Report saved to: ${reportFile}`)
   } catch (error) {
@@ -117,33 +117,33 @@ let serverAvailable = false
 beforeAll(async () => {
   const port = 1420
   const inUse = await isPortInUse(port)
-  
+
   if (inUse) {
     console.log('✅ Development server already running on port', port)
     serverAvailable = true
   } else {
     console.log('🚀 Starting development server...')
-    
+
     // 启动 Vite 开发服务器
     devServer = spawn('npm', ['run', 'dev'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,
     })
-    
+
     serverStartedByTest = true
-    
+
     // 监听输出
-    devServer.stdout?.on('data', (data) => {
+    devServer.stdout?.on('data', data => {
       const output = data.toString()
       if (output.includes('Local:') || output.includes('ready')) {
         console.log('Server output:', output.trim())
       }
     })
-    
-    devServer.stderr?.on('data', (data) => {
+
+    devServer.stderr?.on('data', data => {
       console.error('Server error:', data.toString())
     })
-    
+
     // 等待服务器启动
     try {
       await waitForServer(TEST_CONFIG.baseUrl, TEST_CONFIG.timeout)
@@ -163,7 +163,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (serverStartedByTest && devServer) {
     console.log('🛑 Stopping development server...')
-    
+
     // 优雅地停止进程
     if (process.platform === 'win32') {
       // Windows 需要发送 Ctrl+C
@@ -171,14 +171,14 @@ afterAll(async () => {
     } else {
       devServer.kill('SIGTERM')
     }
-    
+
     // 强制终止（如果必要）
     setTimeout(() => {
       if (devServer && !devServer.killed) {
         devServer.kill('SIGKILL')
       }
     }, 5000)
-    
+
     serverStartedByTest = false
     devServer = null
   }
@@ -200,10 +200,10 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
     try {
       const response = await fetch(TEST_CONFIG.baseUrl)
       expect(response.status).toBe(200)
-      
+
       const html = await response.text()
       expect(html).toContain('OPC-HARNESS')
-      
+
       generateReport(testName, 'pass', 'Application loaded successfully')
     } catch (error) {
       if (error instanceof Error && error.message.includes('ECONNREFUSED')) {
@@ -219,14 +219,14 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
     try {
       const response = await fetch(TEST_CONFIG.baseUrl)
       const html = await response.text()
-      
+
       // 使用不区分大小写的正则表达式匹配 DOCTYPE
       expect(html.toLowerCase()).toContain('<!doctype html>')
       expect(html).toContain('<html')
       expect(html).toContain('<head>')
       expect(html).toContain('<body>')
       expect(html).toContain('<div id="root">')
-      
+
       generateReport(testName, 'pass', 'HTML structure is valid')
     } catch (error) {
       generateReport(testName, 'fail', String(error))
@@ -239,18 +239,22 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
     try {
       const response = await fetch(TEST_CONFIG.baseUrl)
       const html = await response.text()
-      
+
       // 使用更宽松的正则表达式匹配 CSS 和 JS 资源（包括 Vite 开发模式的路径）
-      const cssMatches = html.match(/<link[^>]+rel="stylesheet"[^>]*>/gi) || 
-                         html.match(/<link[^>]+href="[^"]*\.css"[^>]*>/gi) || []
-      const jsMatches = html.match(/<script[^>]+type="module"[^>]*>/gi) || 
-                        html.match(/<script[^>]+src="[^"]*\.js"[^>]*>/gi) || []
-      
+      const cssMatches =
+        html.match(/<link[^>]+rel="stylesheet"[^>]*>/gi) ||
+        html.match(/<link[^>]+href="[^"]*\.css"[^>]*>/gi) ||
+        []
+      const jsMatches =
+        html.match(/<script[^>]+type="module"[^>]*>/gi) ||
+        html.match(/<script[^>]+src="[^"]*\.js"[^>]*>/gi) ||
+        []
+
       console.log(`Found ${cssMatches.length} CSS files and ${jsMatches.length} JS files`)
-      
+
       // 在开发模式下，Vite 会动态加载模块，所以至少检查有 script 标签
       expect(jsMatches.length).toBeGreaterThanOrEqual(1)
-      
+
       generateReport(testName, 'pass', `Loaded ${cssMatches.length} CSS, ${jsMatches.length} JS`)
     } catch (error) {
       generateReport(testName, 'fail', String(error))
@@ -267,9 +271,9 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
           'Viewport-Width': '375',
         },
       })
-      
+
       expect(response.status).toBe(200)
-      
+
       generateReport(testName, 'pass', 'Mobile viewport OK')
     } catch (error) {
       generateReport(testName, 'fail', String(error))
@@ -282,7 +286,7 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
     try {
       const response = await fetch(TEST_CONFIG.baseUrl)
       expect(response.status).toBe(200)
-      
+
       generateReport(testName, 'pass', 'No critical errors detected')
     } catch (error) {
       generateReport(testName, 'fail', String(error))
@@ -293,11 +297,8 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
   it('API endpoints should be accessible', async () => {
     const testName = 'api-accessibility'
     try {
-      const apiEndpoints = [
-        '/tauri.js',
-        '/assets/',
-      ]
-      
+      const apiEndpoints = ['/tauri.js', '/assets/']
+
       for (const endpoint of apiEndpoints) {
         try {
           const response = await fetch(TEST_CONFIG.baseUrl + endpoint)
@@ -306,7 +307,7 @@ describe('OPC-HARNESS Application (Chrome DevTools MCP)', () => {
           console.warn(`Endpoint ${endpoint} not available:`, error)
         }
       }
-      
+
       generateReport(testName, 'pass', 'API endpoints checked')
     } catch (error) {
       generateReport(testName, 'fail', String(error))

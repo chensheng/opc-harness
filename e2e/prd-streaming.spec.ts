@@ -1,6 +1,6 @@
 /**
  * VD-001: PRD 流式生成 E2E 测试
- * 
+ *
  * 测试 PRD 生成的真实 AI 实现：
  * - 非流式 PRD 生成
  * - 流式 PRD 生成（打字机效果）
@@ -17,21 +17,23 @@ describe('PRD Real AI Implementation', () => {
     timestamp: new Date().toISOString(),
     results: {
       totalAssertions: 0,
-      passedAssertions: 0
+      passedAssertions: 0,
     },
     steps: [] as Array<{
       step: number
       name: string
       status: 'completed' | 'failed'
       assertions: string[]
-    }>
+    }>,
   }
 
   afterAll(() => {
     console.log(`\n📊 Test Report Summary:`)
     console.log(`Total Assertions: ${testReport.results.totalAssertions}`)
     console.log(`Passed Assertions: ${testReport.results.passedAssertions}`)
-    console.log(`Success Rate: ${Math.round((testReport.results.passedAssertions / testReport.results.totalAssertions) * 100)}%`)
+    console.log(
+      `Success Rate: ${Math.round((testReport.results.passedAssertions / testReport.results.totalAssertions) * 100)}%`
+    )
   })
 
   it('should generate PRD with real AI (non-streaming)', () => {
@@ -39,18 +41,14 @@ describe('PRD Real AI Implementation', () => {
     const _idea = '一个帮助独立开发者管理项目进度的 AI 工具'
     const prdResponse = {
       title: 'AI Project Progress Manager',
-      overview: '专为独立开发者设计的项目管理工具，利用 AI 技术自动化进度跟踪和风险评估。该产品通过智能算法预测项目完成时间，自动识别潜在风险，并提供数据驱动的决策建议，帮助开发者更高效地管理多个项目。',
+      overview:
+        '专为独立开发者设计的项目管理工具，利用 AI 技术自动化进度跟踪和风险评估。该产品通过智能算法预测项目完成时间，自动识别潜在风险，并提供数据驱动的决策建议，帮助开发者更高效地管理多个项目。',
       target_users: ['独立开发者', '小型开发团队', '自由职业者'],
-      core_features: [
-        'AI 驱动的进度预测',
-        '自动任务分解',
-        '风险预警系统',
-        '时间追踪与分析'
-      ],
+      core_features: ['AI 驱动的进度预测', '自动任务分解', '风险预警系统', '时间追踪与分析'],
       tech_stack: ['Rust', 'TypeScript', 'Tauri', 'SQLite'],
       estimated_effort: '8-12 周',
       business_model: 'SaaS 订阅制',
-      pricing: '基础版免费，专业版 ¥99/月'
+      pricing: '基础版免费，专业版 ¥99/月',
     }
 
     expect(prdResponse.title.length).toBeGreaterThan(0)
@@ -68,8 +66,8 @@ describe('PRD Real AI Implementation', () => {
         '产品概述详细（>50 字）',
         '至少 2 个目标用户',
         '至少 3 个核心功能',
-        '技术栈完整'
-      ]
+        '技术栈完整',
+      ],
     })
 
     testReport.results.totalAssertions += 5
@@ -88,7 +86,7 @@ describe('PRD Real AI Implementation', () => {
       { type: 'chunk', content: '档\n\n' },
       { type: 'chunk', content: '## 1. ' },
       { type: 'chunk', content: '产品概述\n' },
-      { type: 'complete', content: '完整的 PRD 内容...' }
+      { type: 'complete', content: '完整的 PRD 内容...' },
     ]
 
     expect(streamEvents[0].type).toBe('start')
@@ -99,11 +97,7 @@ describe('PRD Real AI Implementation', () => {
       step: 2,
       name: '验证流式 PRD 生成',
       status: 'completed',
-      assertions: [
-        '正确触发 start 事件',
-        '持续发送 chunk 事件',
-        '正确触发 complete 事件'
-      ]
+      assertions: ['正确触发 start 事件', '持续发送 chunk 事件', '正确触发 complete 事件'],
     })
 
     testReport.results.totalAssertions += 3
@@ -118,7 +112,7 @@ describe('PRD Real AI Implementation', () => {
       strategy: 'Quality',
       selectedProvider: 'Anthropic',
       reason: 'Best for long-form content generation',
-      alternatives: ['OpenAI', 'Kimi']
+      alternatives: ['OpenAI', 'Kimi'],
     }
 
     expect(routingDecision.strategy).toBe('Quality')
@@ -129,11 +123,7 @@ describe('PRD Real AI Implementation', () => {
       step: 3,
       name: '验证质量优先路由',
       status: 'completed',
-      assertions: [
-        '使用 Quality 策略',
-        '选择 Anthropic Provider',
-        '原因包含 long-form 关键字'
-      ]
+      assertions: ['使用 Quality 策略', '选择 Anthropic Provider', '原因包含 long-form 关键字'],
     })
 
     testReport.results.totalAssertions += 3
@@ -144,14 +134,7 @@ describe('PRD Real AI Implementation', () => {
 
   it('should validate PRD structure completeness', () => {
     // 验证 PRD 结构完整性
-    const requiredSections = [
-      '产品概述',
-      '目标用户',
-      '核心功能',
-      '技术栈',
-      '商业模式',
-      '开发计划'
-    ]
+    const requiredSections = ['产品概述', '目标用户', '核心功能', '技术栈', '商业模式', '开发计划']
 
     const generatedPRD = `
 # 产品需求文档
@@ -178,9 +161,7 @@ SaaS 订阅...
 第一阶段：MVP...
 `
 
-    const missingSections = requiredSections.filter(section => 
-      !generatedPRD.includes(section)
-    )
+    const missingSections = requiredSections.filter(section => !generatedPRD.includes(section))
 
     expect(missingSections.length).toBe(0)
     expect(requiredSections.every(s => generatedPRD.includes(s))).toBe(true)
@@ -189,11 +170,7 @@ SaaS 订阅...
       step: 4,
       name: '验证 PRD 结构完整性',
       status: 'completed',
-      assertions: [
-        '包含所有必需章节',
-        '结构清晰',
-        '内容完整'
-      ]
+      assertions: ['包含所有必需章节', '结构清晰', '内容完整'],
     })
 
     testReport.results.totalAssertions += 2
@@ -208,7 +185,7 @@ SaaS 订阅...
       { type: 'timeout', expected: '请求超时' },
       { type: 'rate_limit', expected: '请求频率超限' },
       { type: 'invalid_key', expected: 'API key 无效' },
-      { type: 'network_error', expected: '网络连接失败' }
+      { type: 'network_error', expected: '网络连接失败' },
     ]
 
     errorScenarios.forEach(scenario => {
@@ -219,12 +196,7 @@ SaaS 订阅...
       step: 5,
       name: '验证错误处理机制',
       status: 'completed',
-      assertions: [
-        '正确处理超时错误',
-        '正确处理限流错误',
-        '正确处理认证错误',
-        '正确处理网络错误'
-      ]
+      assertions: ['正确处理超时错误', '正确处理限流错误', '正确处理认证错误', '正确处理网络错误'],
     })
 
     testReport.results.totalAssertions += 4
@@ -239,7 +211,7 @@ SaaS 订阅...
       { name: 'Anthropic', model: 'claude-3-sonnet-20240229', strength: '长文本生成' },
       { name: 'OpenAI', model: 'gpt-4-turbo-preview', strength: '高质量文档' },
       { name: 'Kimi', model: 'moonshot-v1-32k', strength: '中文优化' },
-      { name: 'GLM', model: 'glm-4', strength: '技术导向' }
+      { name: 'GLM', model: 'glm-4', strength: '技术导向' },
     ]
 
     expect(supportedProviders.length).toBe(4)
@@ -252,12 +224,7 @@ SaaS 订阅...
       step: 6,
       name: '验证多 Provider 支持',
       status: 'completed',
-      assertions: [
-        '支持 Anthropic',
-        '支持 OpenAI',
-        '支持 Kimi',
-        '支持 GLM'
-      ]
+      assertions: ['支持 Anthropic', '支持 OpenAI', '支持 Kimi', '支持 GLM'],
     })
 
     testReport.results.totalAssertions += 5
@@ -294,7 +261,7 @@ SaaS 订阅...
       overview: '专为独立开发者打造...',
       targetUsers: ['独立开发者', '小型团队'],
       coreFeatures: ['AI 进度预测', '自动任务分解', '风险预警'],
-      techStack: ['Rust', 'TypeScript', 'SQLite']
+      techStack: ['Rust', 'TypeScript', 'SQLite'],
     }
 
     expect(parsedPRD.title).toBe('AI Project Manager')
@@ -305,12 +272,7 @@ SaaS 订阅...
       step: 7,
       name: '验证 Markdown 解析',
       status: 'completed',
-      assertions: [
-        '正确提取标题',
-        '正确解析目标用户',
-        '正确解析核心功能',
-        '正确解析技术栈'
-      ]
+      assertions: ['正确提取标题', '正确解析目标用户', '正确解析核心功能', '正确解析技术栈'],
     })
 
     testReport.results.totalAssertions += 4
@@ -322,11 +284,11 @@ SaaS 订阅...
   it('should validate PRD quality metrics', () => {
     // 验证 PRD 质量指标
     const qualityMetrics = {
-      completeness: 0.92,      // 完整性 >90%
-      consistency: 0.95,       // 一致性 >90%
-      feasibility: 0.88,       // 可行性 >85%
-      clarity: 0.91,           // 清晰度 >90%
-      overall: 0.92            // 总体质量 >90%
+      completeness: 0.92, // 完整性 >90%
+      consistency: 0.95, // 一致性 >90%
+      feasibility: 0.88, // 可行性 >85%
+      clarity: 0.91, // 清晰度 >90%
+      overall: 0.92, // 总体质量 >90%
     }
 
     expect(qualityMetrics.completeness).toBeGreaterThan(0.9)
@@ -339,13 +301,7 @@ SaaS 订阅...
       step: 8,
       name: '验证 PRD 质量指标',
       status: 'completed',
-      assertions: [
-        '完整性 >90%',
-        '一致性 >90%',
-        '可行性 >85%',
-        '清晰度 >90%',
-        '总体质量 >90%'
-      ]
+      assertions: ['完整性 >90%', '一致性 >90%', '可行性 >85%', '清晰度 >90%', '总体质量 >90%'],
     })
 
     testReport.results.totalAssertions += 5
