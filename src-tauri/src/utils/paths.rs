@@ -173,10 +173,7 @@ pub fn migrate_legacy_data(app_handle: &tauri::AppHandle) -> Result<bool, String
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    
-    // 使用静态互斥锁确保测试串行执行，避免环境变量冲突
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+    use crate::test_utils::{TEST_MUTEX, TestCleanup};
     
     #[test]
     fn test_get_app_root_default() {
@@ -254,6 +251,9 @@ mod tests {
             std::fs::remove_dir_all(&temp_dir).ok();
         }
         
+        // 创建 RAII 守卫，确保无论如何都会清理
+        let _cleanup = TestCleanup::new(temp_dir.clone());
+        
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
         
         // 确保目录被创建
@@ -271,8 +271,6 @@ mod tests {
         assert!(get_cache_dir().exists());
         assert!(get_sessions_dir().exists());
         
-        // 清理测试目录和环境变量
-        std::fs::remove_dir_all(&temp_dir).ok();
-        std::env::remove_var("OPC_HARNESS_HOME");
+        // 不需要手动清理，_cleanup 会在函数退出时自动调用 Drop
     }
 }

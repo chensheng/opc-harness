@@ -485,10 +485,7 @@ pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    
-    // 使用静态互斥锁确保测试串行执行，避免环境变量冲突
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+    use crate::test_utils::{TEST_MUTEX, TestCleanup};
     
     #[test]
     fn test_create_workspace_directory_with_uuid() {
@@ -506,6 +503,9 @@ mod tests {
         if temp_dir.exists() {
             std::fs::remove_dir_all(&temp_dir).ok();
         }
+        
+        // 创建 RAII 守卫，确保无论如何都会清理
+        let _cleanup = TestCleanup::new(temp_dir.clone());
         
         // 设置独立的环境变量，避免污染真实环境
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
@@ -535,8 +535,6 @@ mod tests {
                 workspace_path, workspaces_root);
         assert_eq!(workspace_path.file_name().unwrap().to_string_lossy(), project_id);
         
-        // 清理：移除环境变量并删除临时目录
-        std::env::remove_var("OPC_HARNESS_HOME");
-        std::fs::remove_dir_all(&temp_dir).ok();
+        // 不需要手动清理，_cleanup 会在函数退出时自动调用 Drop
     }
 }

@@ -295,10 +295,7 @@ mod tests {
     use super::*;
     use std::fs;
     use uuid::Uuid;
-    use std::sync::Mutex;
-    
-    // 使用静态互斥锁确保测试串行执行，避免环境变量冲突
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+    use crate::test_utils::{TEST_MUTEX, TestCleanup};
 
     #[test]
     fn test_ensure_project_workspace_creates_directory() {
@@ -314,6 +311,9 @@ mod tests {
         if temp_dir.exists() {
             fs::remove_dir_all(&temp_dir).ok();
         }
+        
+        // 创建 RAII 守卫，确保无论如何都会清理
+        let _cleanup = TestCleanup::new(temp_dir.clone());
         
         // 先设置独立的环境变量，再调用任何 paths 函数
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
@@ -341,9 +341,7 @@ mod tests {
         assert!(test_dir.exists(), "Workspace directory was not created");
         assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
         
-        // 清理：移除环境变量并删除临时目录
-        std::env::remove_var("OPC_HARNESS_HOME");
-        fs::remove_dir_all(&temp_dir).ok();
+        // 不需要手动清理，_cleanup 会在函数退出时自动调用 Drop
     }
 
     #[test]
@@ -360,6 +358,9 @@ mod tests {
         if temp_dir.exists() {
             fs::remove_dir_all(&temp_dir).ok();
         }
+        
+        // 创建 RAII 守卫，确保无论如何都会清理
+        let _cleanup = TestCleanup::new(temp_dir.clone());
         
         // 先设置环境变量
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
@@ -385,8 +386,6 @@ mod tests {
         assert!(test_dir.exists(), "Existing workspace directory should still exist");
         assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
         
-        // 清理：移除环境变量并删除临时目录
-        std::env::remove_var("OPC_HARNESS_HOME");
-        fs::remove_dir_all(&temp_dir).ok();
+        // 不需要手动清理，_cleanup 会在函数退出时自动调用 Drop
     }
 }
