@@ -173,10 +173,14 @@ pub fn migrate_legacy_data(app_handle: &tauri::AppHandle) -> Result<bool, String
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+    
+    // 使用静态互斥锁确保测试串行执行，避免环境变量冲突
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
     
     #[test]
-    fn test_get_app_root() {
-        // 确保没有设置自定义环境变量
+    fn test_get_app_root_default() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         std::env::remove_var("OPC_HARNESS_HOME");
         
         let app_root = get_app_root();
@@ -190,7 +194,7 @@ mod tests {
     
     #[test]
     fn test_get_database_path() {
-        // 确保没有设置自定义环境变量
+        let _lock = TEST_MUTEX.lock().unwrap();
         std::env::remove_var("OPC_HARNESS_HOME");
         
         let db_path = get_database_path();
@@ -204,6 +208,11 @@ mod tests {
     
     #[test]
     fn test_custom_home_via_env() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        
+        // 清除可能存在的环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
         // 设置自定义路径
         std::env::set_var("OPC_HARNESS_HOME", "/tmp/test-opc-harness");
         
@@ -216,6 +225,8 @@ mod tests {
     
     #[test]
     fn test_get_workspaces_dir() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        
         // 确保没有设置自定义环境变量
         std::env::remove_var("OPC_HARNESS_HOME");
         
@@ -230,8 +241,19 @@ mod tests {
     
     #[test]
     fn test_ensure_app_directories_creates_workspaces() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        
+        // 清除可能存在的环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
         // 使用临时目录进行测试
-        let temp_dir = std::env::temp_dir().join("test-opc-harness-ensure-dirs");
+        let temp_dir = std::env::temp_dir().join(format!("test-opc-harness-ensure-dirs-{}", uuid::Uuid::new_v4()));
+        
+        // 清理可能存在的旧测试目录
+        if temp_dir.exists() {
+            std::fs::remove_dir_all(&temp_dir).ok();
+        }
+        
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
         
         // 确保目录被创建
@@ -249,7 +271,7 @@ mod tests {
         assert!(get_cache_dir().exists());
         assert!(get_sessions_dir().exists());
         
-        // 清理测试目录
+        // 清理测试目录和环境变量
         std::fs::remove_dir_all(&temp_dir).ok();
         std::env::remove_var("OPC_HARNESS_HOME");
     }

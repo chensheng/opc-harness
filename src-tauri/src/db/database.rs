@@ -296,19 +296,42 @@ mod tests {
     use super::*;
     use std::fs;
     use uuid::Uuid;
+    use std::sync::Mutex;
+    
+    // 使用静态互斥锁确保测试串行执行，避免环境变量冲突
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_ensure_project_workspace_creates_directory() {
-        // 使用临时目录进行测试
+        let _lock = TEST_MUTEX.lock().unwrap();
+        
+        // 清除可能存在的环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
+        // 使用唯一的临时目录进行测试
         let temp_dir = std::env::temp_dir().join(format!("test-opc-harness-{}", Uuid::new_v4()));
+        
+        // 清理可能存在的旧测试目录（确保幂等性）
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).ok();
+        }
+        
+        // 先设置独立的环境变量，再调用任何 paths 函数
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        
+        // 现在获取工作区根目录（应该在临时目录下）
+        let workspaces_root = paths::get_workspaces_dir();
+        
+        // 验证临时目录路径正确（防止路径穿越）
+        assert!(workspaces_root.starts_with(&temp_dir), 
+                "Workspaces root {:?} should be under temp dir {:?}", 
+                workspaces_root, temp_dir);
         
         // 确保基础目录存在
         paths::ensure_app_directories().expect("Failed to ensure app directories");
         
         // 使用 UUID 作为项目 ID
         let project_id = Uuid::new_v4().to_string();
-        let workspaces_root = paths::get_workspaces_dir();
         let test_dir = workspaces_root.join(&project_id);
         
         // 调用函数
@@ -319,23 +342,37 @@ mod tests {
         assert!(test_dir.exists(), "Workspace directory was not created");
         assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
         
-        // 清理
-        fs::remove_dir_all(&temp_dir).ok();
+        // 清理：移除环境变量并删除临时目录
         std::env::remove_var("OPC_HARNESS_HOME");
+        fs::remove_dir_all(&temp_dir).ok();
     }
 
     #[test]
     fn test_ensure_project_workspace_existing_directory() {
-        // 使用临时目录进行测试
+        let _lock = TEST_MUTEX.lock().unwrap();
+        
+        // 清除可能存在的环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
+        // 使用唯一的临时目录进行测试
         let temp_dir = std::env::temp_dir().join(format!("test-opc-harness-{}", Uuid::new_v4()));
+        
+        // 清理可能存在的旧测试目录
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).ok();
+        }
+        
+        // 先设置环境变量
         std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        
+        // 获取工作区根目录
+        let workspaces_root = paths::get_workspaces_dir();
         
         // 确保基础目录存在
         paths::ensure_app_directories().expect("Failed to ensure app directories");
         
         // 使用 UUID 作为项目 ID
         let project_id = Uuid::new_v4().to_string();
-        let workspaces_root = paths::get_workspaces_dir();
         let test_dir = workspaces_root.join(&project_id);
         
         // 先创建目录
@@ -349,8 +386,8 @@ mod tests {
         assert!(test_dir.exists(), "Existing workspace directory should still exist");
         assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
         
-        // 清理
-        fs::remove_dir_all(&temp_dir).ok();
+        // 清理：移除环境变量并删除临时目录
         std::env::remove_var("OPC_HARNESS_HOME");
+        fs::remove_dir_all(&temp_dir).ok();
     }
 }

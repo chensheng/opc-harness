@@ -485,25 +485,39 @@ pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+    
+    // 使用静态互斥锁确保测试串行执行，避免环境变量冲突
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
     
     #[test]
     fn test_create_workspace_directory_with_uuid() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        
+        // 清除可能存在的环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
         use crate::utils::paths::get_workspaces_dir;
-        use std::env;
         
-        // 使用临时目录进行测试
-        let temp_dir = env::temp_dir().join("test-workspace-uuid");
+        // 使用唯一的临时目录进行测试
+        let temp_dir = std::env::temp_dir().join(format!("test-workspace-uuid-{}", Uuid::new_v4()));
         
-        // 清理可能存在的旧测试目录
+        // 清理可能存在的旧测试目录（确保幂等性）
         if temp_dir.exists() {
             std::fs::remove_dir_all(&temp_dir).ok();
         }
         
-        env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        // 设置独立的环境变量，避免污染真实环境
+        std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
         
         // 确保工作区根目录存在（在设置环境变量之后获取）
         let workspaces_root = get_workspaces_dir();
         std::fs::create_dir_all(&workspaces_root).expect("Failed to create workspaces root");
+        
+        // 验证临时目录路径正确（防止路径穿越）
+        assert!(workspaces_root.starts_with(&temp_dir), 
+                "Workspaces root {:?} should be under temp dir {:?}", 
+                workspaces_root, temp_dir);
         
         // 使用 UUID 作为项目 ID
         let project_id = Uuid::new_v4().to_string();
@@ -515,17 +529,14 @@ mod tests {
         assert!(workspace_path.exists(), "Workspace directory should exist");
         assert!(workspace_path.is_dir(), "Workspace path should be a directory");
         
-        // 重新获取 workspaces_root 以确保路径正确
-        let workspaces_root_check = get_workspaces_dir();
-        
-        // 验证路径结构正确
-        assert!(workspace_path.starts_with(&workspaces_root_check), 
+        // 验证路径结构正确（使用之前保存的 workspaces_root）
+        assert!(workspace_path.starts_with(&workspaces_root), 
                 "Workspace path {:?} should start with workspaces root {:?}", 
-                workspace_path, workspaces_root_check);
+                workspace_path, workspaces_root);
         assert_eq!(workspace_path.file_name().unwrap().to_string_lossy(), project_id);
         
-        // 清理测试目录
-        env::remove_var("OPC_HARNESS_HOME");
+        // 清理：移除环境变量并删除临时目录
+        std::env::remove_var("OPC_HARNESS_HOME");
         std::fs::remove_dir_all(&temp_dir).ok();
     }
 }
