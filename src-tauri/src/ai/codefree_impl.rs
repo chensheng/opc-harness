@@ -508,12 +508,50 @@ impl AIProvider {
                 Ok(0) => break, // EOF
                 Ok(_) => {
                     if !line.trim().is_empty() {
-                        let chunk = line.clone();
-                        full_content.push_str(&chunk);
+                        let raw_chunk = line.clone();
+                        full_content.push_str(&raw_chunk);
                         
-                        // 发送 chunk 到回调
-                        if let Err(e) = on_chunk(chunk) {
-                            log::error!("Error in on_chunk callback: {}", e);
+                        // 尝试解析当前行的 JSON 并提取文本内容
+                        let trimmed_line = line.trim();
+                        if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed_line) {
+                            if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
+                                match msg_type {
+                                    "assistant" => {
+                                        // 提取助手消息中的文本内容
+                                        if let Some(message) = value.get("message") {
+                                            if let Some(content_array) = message.get("content").and_then(|v| v.as_array()) {
+                                                for item in content_array {
+                                                    if let Some(item_type) = item.get("type").and_then(|v| v.as_str()) {
+                                                        if item_type == "text" {
+                                                            if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+                                                                // 发送提取的文本内容到前端
+                                                                if let Err(e) = on_chunk(text.to_string()) {
+                                                                    log::error!("Error in on_chunk callback: {}", e);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    "result" => {
+                                        // 提取最终结果
+                                        if let Some(result_text) = value.get("result").and_then(|v| v.as_str()) {
+                                            if let Err(e) = on_chunk(format!("\n\n{}", result_text)) {
+                                                log::error!("Error in on_chunk callback: {}", e);
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        // 其他类型（如 system、error）不显示
+                                        log::debug!("Skipping {} message type", msg_type);
+                                    }
+                                }
+                            }
+                        } else {
+                            // 如果解析失败，记录日志但不发送原始 JSON
+                            log::warn!("Failed to parse JSON line: {}", trimmed_line.chars().take(100).collect::<String>());
                         }
                     }
                 }
