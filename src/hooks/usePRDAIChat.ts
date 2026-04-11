@@ -84,12 +84,12 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
       try {
         let prdContentForAI = currentPRDContent
 
-        // 如果使用 CodeFree，需要将 PRD 写入文件并通过 @PRD.md 引用
+        // 如果使用 CodeFree，需要将 PRD 和系统提示词写入文件并通过 @ 引用
         if (activeConfig?.provider === 'codefree' && projectId) {
           const project = projectStore.getProjectById(projectId)
           if (project) {
             try {
-              console.log('[usePRDAIChat] Writing PRD to file for CodeFree...')
+              console.log('[usePRDAIChat] Writing PRD and AGENTS files for CodeFree...')
 
               // 获取项目的实际工作区路径
               const workspacePath = await invoke<string>('get_project_workspace_path', {
@@ -98,7 +98,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
               console.log('[usePRDAIChat] Project workspace path:', workspacePath)
 
-              // 调用后端命令将 PRD 写入工作区目录
+              // 1. 写入 PRD.md
               const filePath = await invoke<string>('write_prd_to_file', {
                 projectPath: workspacePath,
                 prdContent: currentPRDContent,
@@ -106,8 +106,36 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
               console.log('[usePRDAIChat] PRD written to:', filePath)
 
-              // 在提示词中添加 @PRD.md 引用
-              prdContentForAI = `@PRD.md\n\n${currentPRDContent}`
+              // 2. 写入 AGENTS.md（系统提示词）
+              const systemPrompt = `# PRD 优化助手
+
+你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档.
+
+## 重要规则
+
+1. **必须输出完整的 PRD Markdown 文档**，保持原有结构和风格
+2. **即使用户只要求修改某一部分，也要输出包含该部分优化的完整文档**
+3. **不要输出解释性文字、修改建议列表或非完整文档片段**
+4. **未修改的部分保持原样**
+5. **确保文档的专业性和可读性**
+
+## 工作流程
+
+1. 读取 @PRD.md 获取当前 PRD 内容
+2. 理解用户的优化需求
+3. 生成优化后的完整 PRD 文档
+4. 直接输出 Markdown 格式的 PRD，不要添加额外的说明`
+
+              await invoke<string>('write_file_to_project', {
+                projectPath: workspacePath,
+                fileName: 'AGENTS.md',
+                content: systemPrompt,
+              })
+
+              console.log('[usePRDAIChat] AGENTS.md written to workspace')
+
+              // 在提示词中使用 @ 引用
+              prdContentForAI = '@AGENTS.md @PRD.md'
             } catch (err) {
               console.error('[usePRDAIChat] Failed to write PRD file:', err)
               // 即使写入文件失败，也继续使用原有内容
@@ -164,7 +192,12 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
         unlistenRef.current.push(unlistenError)
 
         // 构建系统提示词，指导 AI 输出完整 PRD
-        const systemPrompt = `你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档。
+        // 对于 CodeFree，由于已经通过 @AGENTS.md 和 @PRD.md 引用了上下文，使用简化的提示词
+        const isCodeFree = activeConfig?.provider === 'codefree'
+
+        const systemPrompt = isCodeFree
+          ? '请读取 @AGENTS.md 了解任务规则，读取 @PRD.md 获取当前内容，然后根据用户需求生成优化后的完整 PRD 文档。'
+          : `你是一个专业的产品经理助手。你的任务是基于当前 PRD 内容和用户的优化需求，生成优化后的完整 PRD 文档。
 
 重要规则：
 1. 必须输出完整的 PRD Markdown 文档，保持原有结构和风格

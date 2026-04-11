@@ -80,3 +80,40 @@ pub fn get_project_workspace_path(project_id: String) -> Result<String, String> 
     
     Ok(project_workspace.to_string_lossy().to_string())
 }
+
+/// 将内容写入到项目目录下的指定文件
+/// 通用文件写入命令，用于 CodeFree CLI 读取上下文文件
+#[tauri::command]
+pub async fn write_file_to_project(
+    project_path: String,
+    file_name: String,
+    content: String,
+) -> Result<String, String> {
+    use tokio::fs;
+    
+    log::info!("[write_file_to_project] Writing file '{}' to project: {}", file_name, project_path);
+    
+    // 构建文件路径
+    let mut file_path = PathBuf::from(&project_path);
+    file_path.push(&file_name);
+    
+    log::info!("[write_file_to_project] File path: {:?}", file_path);
+    
+    // 确保目录存在
+    if let Some(parent) = file_path.parent() {
+        fs::create_dir_all(parent).await.map_err(|e| {
+            log::error!("[write_file_to_project] Failed to create directory: {}", e);
+            format!("创建目录失败: {}", e)
+        })?;
+    }
+    
+    // 写入文件
+    fs::write(&file_path, &content).await.map_err(|e| {
+        log::error!("[write_file_to_project] Failed to write file: {}", e);
+        format!("写入文件失败: {}", e)
+    })?;
+    
+    log::info!("[write_file_to_project] Successfully wrote {} bytes to {:?}", content.len(), file_path);
+    
+    Ok(file_path.to_string_lossy().to_string())
+}

@@ -294,6 +294,7 @@ fn main() {
             commands::system::open_external_link,
             commands::system::write_prd_to_file,
             commands::system::get_project_workspace_path,
+            commands::system::write_file_to_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
