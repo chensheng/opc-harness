@@ -59,7 +59,8 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
     async (userMessage: string, currentPRDContent: string) => {
       const activeConfig = aiConfigStore.getActiveConfig()
 
-      if (!activeConfig?.apiKey) {
+      // CodeFree CLI 不需要 API Key，其他 provider 需要检查
+      if (activeConfig?.provider !== 'codefree' && !activeConfig?.apiKey) {
         setError('请先配置 AI 提供商')
         return
       }

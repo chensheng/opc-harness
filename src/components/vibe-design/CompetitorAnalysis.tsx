@@ -109,7 +109,8 @@ export function CompetitorAnalysis() {
       const aiConfigStore = useAIConfigStore.getState()
       const activeConfig = aiConfigStore.getActiveConfig()
 
-      if (!activeConfig?.apiKey) {
+      // CodeFree CLI 不需要 API Key，其他 provider 需要检查
+      if (activeConfig?.provider !== 'codefree' && !activeConfig?.apiKey) {
         console.error('[CompetitorAnalysis] No API key configured')
         setUseFallback(true)
         generateAnalysis()
@@ -120,7 +121,7 @@ export function CompetitorAnalysis() {
         idea,
         provider: aiConfigStore.defaultProvider,
         model: activeConfig.model,
-        apiKey: activeConfig.apiKey,
+        apiKey: activeConfig.apiKey || '', // codefree 传空字符串
       })
     } catch (err) {
       console.error('[CompetitorAnalysis] Error starting stream:', err)

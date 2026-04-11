@@ -71,14 +71,17 @@ export function usePRDGeneration({
     // 原有的逻辑：从 store 获取 AI 配置
     const activeConfig = aiConfigStore.getActiveConfig()
 
-    if (activeConfig?.apiKey) {
+    // CodeFree CLI 不需要 API Key，其他 provider 需要检查
+    const hasValidConfig = activeConfig && (activeConfig.provider === 'codefree' || activeConfig.apiKey)
+
+    if (hasValidConfig) {
       // 使用流式生成（不显示加载遮罩）
       reset()
       await startStream({
         idea: projectIdea,
         provider: aiConfigStore.defaultProvider,
         model: activeConfig.model,
-        apiKey: activeConfig.apiKey,
+        apiKey: activeConfig.apiKey || '', // codefree 传空字符串
       })
     } else {
       // 降级到模拟生成

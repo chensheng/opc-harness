@@ -193,7 +193,8 @@ export function UserStoryManager({
     const store = useAIConfigStore.getState()
     const activeConfig = store.getActiveConfig()
 
-    if (!activeConfig?.apiKey) {
+    // CodeFree CLI 不需要 API Key，其他 provider 需要检查
+    if (activeConfig?.provider !== 'codefree' && !activeConfig?.apiKey) {
       alert('未配置 AI API Key，请先在设置中配置')
       return
     }
@@ -207,7 +208,7 @@ export function UserStoryManager({
         prdContent: fullContent,
         provider: store.defaultProvider,  // ✅ 使用默认厂商而非activeConfig.provider
         model: activeConfig.model,
-        apiKey: activeConfig.apiKey,
+        apiKey: activeConfig.apiKey || '', // codefree 传空字符串
       },
       stories => {
         // 流式完成后自动调用保存回调
