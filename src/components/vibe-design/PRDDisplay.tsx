@@ -234,6 +234,7 @@ export function PRDDisplay() {
       {/* 编辑模式 - Markdown 编辑器 */}
       {isEditing && editedMarkdown ? (
         <PRDDEditor
+          projectId={projectId || ''}
           editedMarkdown={editedMarkdown}
           onMarkdownChange={setEditedMarkdown}
           previewMode={previewMode}

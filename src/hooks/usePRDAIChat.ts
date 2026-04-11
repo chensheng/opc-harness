@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { useProjectStore } from '@/stores'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -12,7 +13,7 @@ export interface UsePRDAIChatReturn {
   messages: ChatMessage[]
   isStreaming: boolean
   error: string | null
-  sendMessage: (userMessage: string, currentPRDContent: string) => Promise<void>
+  sendMessage: (userMessage: string, currentPRDContent: string, projectId?: string) => Promise<void>
   stopStream: () => void
   reset: () => void
 }
@@ -27,6 +28,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
   const [error, setError] = useState<string | null>(null)
 
   const aiConfigStore = useAIConfigStore()
+  const projectStore = useProjectStore()
   const unlistenRef = useRef<UnlistenFn[]>([])
   const isStreamingRef = useRef(false)
   const accumulatedContentRef = useRef('')
@@ -56,7 +58,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
   }, [stopStream])
 
   const sendMessage = useCallback(
-    async (userMessage: string, currentPRDContent: string) => {
+    async (userMessage: string, currentPRDContent: string, projectId?: string) => {
       const activeConfig = aiConfigStore.getActiveConfig()
 
       // CodeFree CLI 不需要 API Key，其他 provider 需要检查
@@ -80,6 +82,40 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
       setMessages(prev => [...prev, { role: 'assistant', content: '' }])
 
       try {
+        let prdContentForAI = currentPRDContent
+        
+        // 如果使用 CodeFree，需要将 PRD 写入文件并通过 @PRD.md 引用
+        if (activeConfig?.provider === 'codefree' && projectId) {
+          const project = projectStore.getProjectById(projectId)
+          if (project) {
+            try {
+              console.log('[usePRDAIChat] Writing PRD to file for CodeFree...')
+              
+              // 获取项目的实际工作区路径
+              const workspacePath = await invoke<string>('get_project_workspace_path', {
+                projectId,
+              })
+              
+              console.log('[usePRDAIChat] Project workspace path:', workspacePath)
+              
+              // 调用后端命令将 PRD 写入工作区目录
+              const filePath = await invoke<string>('write_prd_to_file', {
+                projectPath: workspacePath,
+                prdContent: currentPRDContent,
+              })
+              
+              console.log('[usePRDAIChat] PRD written to:', filePath)
+              
+              // 在提示词中添加 @PRD.md 引用
+              prdContentForAI = `@PRD.md\n\n${currentPRDContent}`
+            } catch (err) {
+              console.error('[usePRDAIChat] Failed to write PRD file:', err)
+              // 即使写入文件失败，也继续使用原有内容
+              setError(`写入 PRD 文件失败：${err instanceof Error ? err.message : String(err)}`)
+            }
+          }
+        }
+
         // 监听流式数据块事件
         const unlistenChunk = await listen<{
           session_id: string
@@ -138,7 +174,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 5. 确保文档的专业性和可读性
 
 当前 PRD 内容：
-${currentPRDContent}
+${prdContentForAI}
 
 请基于以上 PRD 和用户需求，生成优化后的完整 PRD 文档。`
 
@@ -169,7 +205,7 @@ ${currentPRDContent}
         cleanup()
       }
     },
-    [aiConfigStore, cleanup, error]
+    [aiConfigStore, cleanup, error, projectStore]
   )
 
   return {

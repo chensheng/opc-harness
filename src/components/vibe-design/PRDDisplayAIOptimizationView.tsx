@@ -9,6 +9,7 @@ import { StreamingComponents } from './PRDDisplayMarkdownComponents'
 import { usePRDAIChat } from '@/hooks/usePRDAIChat'
 
 interface AIOptimizationViewProps {
+  projectId: string
   currentPRDContent: string
   onApplyOptimization: (content: string) => void
   onBack: () => void
@@ -25,6 +26,7 @@ const QUICK_PROMPTS = [
 ]
 
 export function PRDDisplayAIOptimizationView({
+  projectId,
   currentPRDContent,
   onApplyOptimization,
   onBack,
@@ -70,7 +72,7 @@ export function PRDDisplayAIOptimizationView({
 
   const handleSend = async () => {
     if (!inputMessage.trim() || isStreaming) return
-    await sendMessage(inputMessage.trim(), currentPRDContent)
+    await sendMessage(inputMessage.trim(), currentPRDContent, projectId)
     setInputMessage('')
   }
 

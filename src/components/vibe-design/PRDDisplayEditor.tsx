@@ -9,6 +9,7 @@ import { FullDocComponents } from './PRDDisplayMarkdownComponents'
 import { PRDDisplayAIOptimizationView } from './PRDDisplayAIOptimizationView'
 
 interface EditorProps {
+  projectId: string
   editedMarkdown: string
   onMarkdownChange: (value: string) => void
   previewMode: 'edit' | 'preview' | 'split'
@@ -19,6 +20,7 @@ interface EditorProps {
 }
 
 export function PRDDEditor({
+  projectId,
   editedMarkdown,
   onMarkdownChange,
   previewMode,
@@ -40,6 +42,7 @@ export function PRDDEditor({
   if (showAIOptimization) {
     return (
       <PRDDisplayAIOptimizationView
+        projectId={projectId}
         currentPRDContent={editedMarkdown}
         onApplyOptimization={handleApplyOptimization}
         onBack={() => setShowAIOptimization(false)}

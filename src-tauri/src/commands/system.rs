@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppVersionResponse {
@@ -19,4 +20,63 @@ pub fn get_app_version(app_handle: tauri::AppHandle) -> AppVersionResponse {
 pub async fn open_external_link(_url: String) -> Result<(), String> {
     // TODO: Implement opening external links
     Ok(())
+}
+
+/// 将 PRD 内容写入到项目目录下的 PRD.md 文件
+/// 用于 CodeFree CLI 读取 PRD 文件
+#[tauri::command]
+pub async fn write_prd_to_file(project_path: Option<String>, prd_content: String) -> Result<String, String> {
+    use tokio::fs;
+    use std::env;
+    
+    // 如果未提供项目路径，使用当前工作目录
+    let base_path = if let Some(path) = project_path {
+        path
+    } else {
+        env::current_dir()
+            .map_err(|e| format!("获取当前目录失败: {}", e))?
+            .to_string_lossy()
+            .to_string()
+    };
+    
+    log::info!("[write_prd_to_file] Writing PRD to file in project: {}", base_path);
+    
+    // 构建文件路径
+    let mut file_path = PathBuf::from(&base_path);
+    file_path.push("PRD.md");
+    
+    log::info!("[write_prd_to_file] File path: {:?}", file_path);
+    
+    // 确保目录存在
+    if let Some(parent) = file_path.parent() {
+        fs::create_dir_all(parent).await.map_err(|e| {
+            log::error!("[write_prd_to_file] Failed to create directory: {}", e);
+            format!("创建目录失败: {}", e)
+        })?;
+    }
+    
+    // 写入文件
+    fs::write(&file_path, &prd_content).await.map_err(|e| {
+        log::error!("[write_prd_to_file] Failed to write file: {}", e);
+        format!("写入文件失败: {}", e)
+    })?;
+    
+    log::info!("[write_prd_to_file] Successfully wrote PRD to {:?}", file_path);
+    
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+/// 获取项目的工作区目录路径
+/// 
+/// 返回: ~/.opc-harness/workspaces/{project_id}
+#[tauri::command]
+pub fn get_project_workspace_path(project_id: String) -> Result<String, String> {
+    use crate::utils::paths::get_workspaces_dir;
+    
+    let workspaces_root = get_workspaces_dir();
+    let project_workspace = workspaces_root.join(&project_id);
+    
+    log::info!("[get_project_workspace_path] Project workspace path: {:?}", project_workspace);
+    
+    Ok(project_workspace.to_string_lossy().to_string())
 }
