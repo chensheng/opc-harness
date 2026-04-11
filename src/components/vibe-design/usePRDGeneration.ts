@@ -50,8 +50,15 @@ export function usePRDGeneration({
       const model = urlParams?.get('model') || ''
       const apiKey = urlParams?.get('apiKey') || ''
 
-      if (!apiKey || !provider || !model) {
-        console.error('[usePRDGeneration] Missing AI config from URL params')
+      // CodeFree 不需要 API Key，其他提供商需要
+      const needsApiKey = provider !== 'codefree'
+
+      if (!provider || !model || (needsApiKey && !apiKey)) {
+        console.error('[usePRDGeneration] Missing AI config from URL params', {
+          provider,
+          model,
+          apiKey: needsApiKey ? '(required)' : '(not required for codefree)',
+        })
         return
       }
 
