@@ -1,25 +1,29 @@
 use rusqlite::{Connection, Result};
-use std::path::PathBuf;
-use tauri::Manager;
+use crate::utils::paths;
 
 /// 初始化数据库连接和表结构
 pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("."));
+    // 确保应用目录结构存在
+    paths::ensure_app_directories()
+        .map_err(|e| {
+            rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(1),
+                Some(format!("Failed to create app directories: {}", e)),
+            )
+        })?;
 
-    // Ensure the directory exists
-    if let Err(e) = std::fs::create_dir_all(&app_dir) {
-        return Err(rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(1),
-            Some(format!("Failed to create app data directory: {}", e)),
-        ));
+    // 尝试从旧位置迁移数据
+    match paths::migrate_legacy_data(app_handle) {
+        Ok(true) => log::info!("Legacy data migrated successfully"),
+        Ok(false) => log::info!("No migration needed"),
+        Err(e) => log::warn!("Migration failed: {}, will use new location", e),
     }
 
-    let db_path = app_dir.join("opc-harness.db");
+    let db_path = paths::get_database_path();
+    
+    log::info!("Initializing database at: {:?}", db_path);
 
-    let conn = Connection::open(db_path)?;
+    let conn = Connection::open(&db_path)?;
 
     // Create projects table
     conn.execute(
@@ -193,11 +197,7 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
 }
 
 /// 获取数据库连接
-pub fn get_connection(app_handle: &tauri::AppHandle) -> Result<Connection> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("."));
-    let db_path = app_dir.join("opc-harness.db");
-    Connection::open(db_path)
+pub fn get_connection(_app_handle: &tauri::AppHandle) -> Result<Connection> {
+    let db_path = paths::get_database_path();
+    Connection::open(&db_path)
 }

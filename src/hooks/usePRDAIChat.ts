@@ -169,7 +169,7 @@ ${currentPRDContent}
         cleanup()
       }
     },
-    [aiConfigStore, cleanup]
+    [aiConfigStore, cleanup, error]
   )
 
   return {

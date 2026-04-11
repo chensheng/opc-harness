@@ -37,6 +37,7 @@ num_cpus = "1.16"
 regex = "1.10"
 notify = "6.1"
 sysinfo = "0.30"
+dirs = "5"  # 用于获取用户home目录
 
 # Windows registry access for PATH inheritance
 [target.'cfg(windows)'.dependencies]
