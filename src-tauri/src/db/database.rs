@@ -1,6 +1,5 @@
 use rusqlite::{Connection, Result};
 use crate::utils::paths;
-use uuid::Uuid;
 
 /// 初始化数据库连接和表结构
 pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
