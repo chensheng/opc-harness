@@ -56,6 +56,13 @@ pub fn get_sessions_dir() -> PathBuf {
     get_app_root().join("sessions")
 }
 
+/// 获取工作区代码存储目录
+/// 
+/// 返回: ~/.opc-harness/workspaces/
+pub fn get_workspaces_dir() -> PathBuf {
+    get_app_root().join("workspaces")
+}
+
 /// 确保所有必要的目录存在
 /// 
 /// 创建以下目录结构：
@@ -64,6 +71,7 @@ pub fn get_sessions_dir() -> PathBuf {
 /// - ~/.opc-harness/logs/
 /// - ~/.opc-harness/cache/
 /// - ~/.opc-harness/sessions/
+/// - ~/.opc-harness/workspaces/
 pub fn ensure_app_directories() -> Result<(), String> {
     let dirs = vec![
         get_app_root(),
@@ -71,6 +79,7 @@ pub fn ensure_app_directories() -> Result<(), String> {
         get_log_dir(),
         get_cache_dir(),
         get_sessions_dir(),
+        get_workspaces_dir(),
     ];
     
     for dir in dirs {
@@ -167,6 +176,9 @@ mod tests {
     
     #[test]
     fn test_get_app_root() {
+        // 确保没有设置自定义环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
         let app_root = get_app_root();
         
         // 验证路径包含 .opc-harness
@@ -178,6 +190,9 @@ mod tests {
     
     #[test]
     fn test_get_database_path() {
+        // 确保没有设置自定义环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
         let db_path = get_database_path();
         
         // 验证文件名正确
@@ -196,6 +211,46 @@ mod tests {
         assert_eq!(app_root, PathBuf::from("/tmp/test-opc-harness"));
         
         // 清理环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+    }
+    
+    #[test]
+    fn test_get_workspaces_dir() {
+        // 确保没有设置自定义环境变量
+        std::env::remove_var("OPC_HARNESS_HOME");
+        
+        let workspaces_dir = get_workspaces_dir();
+        
+        // 验证目录名称正确
+        assert_eq!(workspaces_dir.file_name().unwrap(), "workspaces");
+        
+        // 验证父目录是 app root
+        assert!(workspaces_dir.parent().unwrap().to_string_lossy().contains(".opc-harness"));
+    }
+    
+    #[test]
+    fn test_ensure_app_directories_creates_workspaces() {
+        // 使用临时目录进行测试
+        let temp_dir = std::env::temp_dir().join("test-opc-harness-ensure-dirs");
+        std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        
+        // 确保目录被创建
+        let result = ensure_app_directories();
+        assert!(result.is_ok(), "Failed to ensure app directories: {:?}", result.err());
+        
+        // 验证 workspaces 目录已创建
+        let workspaces_dir = get_workspaces_dir();
+        assert!(workspaces_dir.exists(), "Workspaces directory should exist");
+        assert!(workspaces_dir.is_dir(), "Workspaces path should be a directory");
+        
+        // 验证其他目录也被创建
+        assert!(get_config_dir().exists());
+        assert!(get_log_dir().exists());
+        assert!(get_cache_dir().exists());
+        assert!(get_sessions_dir().exists());
+        
+        // 清理测试目录
+        std::fs::remove_dir_all(&temp_dir).ok();
         std::env::remove_var("OPC_HARNESS_HOME");
     }
 }
