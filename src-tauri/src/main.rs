@@ -293,6 +293,7 @@ fn main() {
             commands::system::get_app_version,
             commands::system::open_external_link,
             commands::system::write_prd_to_file,
+            commands::system::read_prd_from_file,
             commands::system::get_project_workspace_path,
             commands::system::write_file_to_project,
         ])

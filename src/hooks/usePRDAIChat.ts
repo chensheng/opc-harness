@@ -83,6 +83,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
       try {
         let prdContentForAI = currentPRDContent
+        let workspacePath: string | null = null
 
         // 如果使用 CodeFree，需要将 PRD 和系统提示词写入文件并通过 @ 引用
         if (activeConfig?.provider === 'codefree' && projectId) {
@@ -92,7 +93,7 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
               console.log('[usePRDAIChat] Writing PRD and AGENTS files for CodeFree...')
 
               // 获取项目的实际工作区路径
-              const workspacePath = await invoke<string>('get_project_workspace_path', {
+              workspacePath = await invoke<string>('get_project_workspace_path', {
                 projectId,
               })
 
@@ -144,7 +145,7 @@ ${prdContentForAI}
 
 请基于以上 PRD 和用户需求，生成优化后的完整 PRD 文档。`
 
-        // 发送请求
+        // 发送请求 - 使用 stream_chat 命令
         const unlisten = await listen('ai-stream', ({ payload }) => {
           accumulatedContentRef.current += payload
           setMessages(prev => {
@@ -161,12 +162,54 @@ ${prdContentForAI}
 
         unlistenRef.current.push(unlisten)
 
-        await invoke('run_ai', {
-          provider: activeConfig?.provider,
-          apiKey: activeConfig?.apiKey,
-          systemPrompt,
-          userMessage,
+        // 构建消息数组
+        const messages = [
+          { role: 'system' as const, content: systemPrompt },
+          { role: 'user' as const, content: userMessage },
+        ]
+
+        await invoke('stream_chat', {
+          request: {
+            provider: activeConfig?.provider || 'openai',
+            model: activeConfig?.model || 'gpt-4',
+            api_key: activeConfig?.apiKey || '',
+            messages,
+            temperature: 0.7,
+            max_tokens: 8000,
+            project_id: projectId || null,
+          },
         })
+
+        // 如果使用 CodeFree，优化完成后从文件读取最终的 PRD 内容
+        if (activeConfig?.provider === 'codefree' && workspacePath) {
+          console.log('[usePRDAIChat] Reading optimized PRD from file...')
+          try {
+            const optimizedContent = await invoke<string>('read_prd_from_file', {
+              projectPath: workspacePath,
+            })
+
+            console.log('[usePRDAIChat] Successfully read optimized PRD from file')
+
+            // 更新最后一条助手消息为文件中的内容
+            setMessages(prev => {
+              const newMessages = [...prev]
+              const lastIndex = newMessages.length - 1
+              if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
+                newMessages[lastIndex] = {
+                  ...newMessages[lastIndex],
+                  content: optimizedContent,
+                }
+              }
+              return newMessages
+            })
+
+            // 同时更新累积内容
+            accumulatedContentRef.current = optimizedContent
+          } catch (err) {
+            console.error('[usePRDAIChat] Failed to read optimized PRD from file:', err)
+            // 即使读取失败，也不影响已有的流式内容
+          }
+        }
       } catch (err) {
         console.error('[usePRDAIChat] Error:', err)
         setError('无法生成优化后的 PRD')

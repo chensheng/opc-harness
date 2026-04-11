@@ -66,6 +66,36 @@ pub async fn write_prd_to_file(project_path: Option<String>, prd_content: String
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// 从项目目录读取 PRD.md 文件内容
+/// 用于 CodeFree CLI 优化后读取最终的 PRD 内容
+#[tauri::command]
+pub async fn read_prd_from_file(project_path: String) -> Result<String, String> {
+    use tokio::fs;
+    
+    log::info!("[read_prd_from_file] Reading PRD from project: {}", project_path);
+    
+    // 构建文件路径
+    let mut file_path = PathBuf::from(&project_path);
+    file_path.push("PRD.md");
+    
+    log::info!("[read_prd_from_file] File path: {:?}", file_path);
+    
+    // 检查文件是否存在
+    if !file_path.exists() {
+        return Err(format!("PRD 文件不存在: {:?}", file_path));
+    }
+    
+    // 读取文件内容
+    let content = fs::read_to_string(&file_path).await.map_err(|e| {
+        log::error!("[read_prd_from_file] Failed to read file: {}", e);
+        format!("读取文件失败: {}", e)
+    })?;
+    
+    log::info!("[read_prd_from_file] Successfully read {} bytes from {:?}", content.len(), file_path);
+    
+    Ok(content)
+}
+
 /// 获取项目的工作区目录路径
 /// 
 /// 返回: ~/.opc-harness/workspaces/{project_id}/.opc-harness
