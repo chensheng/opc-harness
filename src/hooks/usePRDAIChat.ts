@@ -83,29 +83,29 @@ export function usePRDAIChat(): UsePRDAIChatReturn {
 
       try {
         let prdContentForAI = currentPRDContent
-        
+
         // 如果使用 CodeFree，需要将 PRD 写入文件并通过 @PRD.md 引用
         if (activeConfig?.provider === 'codefree' && projectId) {
           const project = projectStore.getProjectById(projectId)
           if (project) {
             try {
               console.log('[usePRDAIChat] Writing PRD to file for CodeFree...')
-              
+
               // 获取项目的实际工作区路径
               const workspacePath = await invoke<string>('get_project_workspace_path', {
                 projectId,
               })
-              
+
               console.log('[usePRDAIChat] Project workspace path:', workspacePath)
-              
+
               // 调用后端命令将 PRD 写入工作区目录
               const filePath = await invoke<string>('write_prd_to_file', {
                 projectPath: workspacePath,
                 prdContent: currentPRDContent,
               })
-              
+
               console.log('[usePRDAIChat] PRD written to:', filePath)
-              
+
               // 在提示词中添加 @PRD.md 引用
               prdContentForAI = `@PRD.md\n\n${currentPRDContent}`
             } catch (err) {
