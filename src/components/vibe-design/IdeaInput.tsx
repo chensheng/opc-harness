@@ -39,8 +39,11 @@ export function IdeaInput() {
     // 检查 AI 配置
     const activeConfig = aiConfigStore.getActiveConfig()
 
-    if (!activeConfig?.apiKey) {
-      // 没有 API Key，显示提示对话框
+    // CodeFree 不需要 API Key，其他提供商需要
+    const needsApiKey = activeConfig?.provider !== 'codefree'
+
+    if (!activeConfig || (needsApiKey && !activeConfig.apiKey)) {
+      // 没有配置或需要 API Key 但没有设置，显示提示对话框
       setShowNoApiKeyDialog(true)
       return
     }
