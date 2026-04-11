@@ -21,6 +21,7 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
         "kimi" => AIProvider::new(AIProviderType::Kimi, request.api_key),
         "glm" => AIProvider::new(AIProviderType::GLM, request.api_key),
         "minimax" => AIProvider::new(AIProviderType::MiniMax, request.api_key),
+        "codefree" => AIProvider::new(AIProviderType::CodeFree, request.api_key),
         _ => {
             return Err(format!("不支持的 AI 提供商：{}", request.provider));
         }
@@ -83,6 +84,7 @@ pub async fn start_prd_stream(
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
         "minimax" => AIProviderType::MiniMax,
+        "codefree" => AIProviderType::CodeFree,
         _ => return Err(format!("不支持的 AI 提供商：{}", provider)),
     };
     
