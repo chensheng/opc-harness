@@ -426,13 +426,27 @@ impl AIProvider {
         // 根据是否需要 cmd.exe 来构建命令
         // 使用 --input-format stream-json 和 -o stream-json
         let mut child = if use_cmd {
-            log::info!("Executing via cmd.exe /c with JSON input");
-            // 通过 echo 管道传递 JSON 到 stdin
-            let json_escaped = messages_json.replace('"', "\\\"").replace('\n', "\\n");
-            let full_command = format!("echo {} | \"{}\" --input-format stream-json -o stream-json", json_escaped, command_path);
+            log::info!("Executing via cmd.exe /c with JSON input (using temp file)");
+            
+            // 创建临时文件存储 JSON
+            let temp_dir = std::env::temp_dir();
+            let temp_file_path = temp_dir.join(format!("codefree_input_{}.json", std::process::id()));
+            let temp_file_path_str = temp_file_path.to_string_lossy().to_string();
+            
+            // 写入 JSON 到临时文件
+            tokio::fs::write(&temp_file_path, &messages_json).await
+                .map_err(|e| AIError {
+                    message: format!("写入临时 JSON 文件失败：{}", e),
+                })?;
+            
+            log::info!("JSON written to temp file: {}", temp_file_path_str);
+            
+            // 使用 type 命令读取文件并管道传递（比 echo 更可靠）
+            // 注意：在 cmd.exe /c "..." 中，内部命令不需要额外引号
+            let full_command = format!("type \"{}\" | {} --input-format stream-json -o stream-json", temp_file_path_str, command_path);
             log::info!("Full command: cmd.exe /c \"{}\"", full_command.chars().take(300).collect::<String>());
             
-            Command::new("cmd")
+            let child = Command::new("cmd")
                 .args(&["/c", &full_command])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -442,7 +456,17 @@ impl AIProvider {
                     AIError {
                         message: format!("CodeFree CLI 启动失败（cmd）：{}", e),
                     }
-                })?
+                })?;
+            
+            // 异步删除临时文件（在进程启动后）
+            let temp_file_clone = temp_file_path.clone();
+            tokio::spawn(async move {
+                // 等待一小段时间确保进程已读取文件
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                let _ = tokio::fs::remove_file(&temp_file_clone).await;
+            });
+            
+            child
         } else {
             log::info!("Executing directly with JSON input via stdin");
             // 直接执行，通过 stdin 传递 JSON
@@ -579,30 +603,30 @@ impl AIProvider {
         };
         
         let stderr_future = async {
-            let mut err_reader = BufReader::new(stderr);
-            let mut line = String::new();
-            let mut stderr_content = String::new();
+            // 使用原始字节读取 stderr，避免 UTF-8 编码问题
+            use tokio::io::AsyncReadExt;
+            let mut err_reader = stderr;
+            let mut buffer = Vec::new();
             
-            loop {
-                line.clear();
-                match err_reader.read_line(&mut line).await {
-                    Ok(0) => break,
-                    Ok(_) => {
-                        if !line.trim().is_empty() {
-                            log::warn!("CodeFree stderr: {}", line.trim());
-                            stderr_content.push_str(&line);
-                        }
+            match err_reader.read_to_end(&mut buffer).await {
+                Ok(_) => {
+                    // 尝试将字节转换为字符串，失败时使用替换字符
+                    let stderr_content = String::from_utf8_lossy(&buffer).to_string();
+                    
+                    if !stderr_content.trim().is_empty() {
+                        log::warn!("CodeFree stderr output ({} bytes): {}", buffer.len(), stderr_content.chars().take(500).collect::<String>());
                     }
-                    Err(e) => {
-                        log::error!("Error reading stderr: {}", e);
-                        break;
-                    }
+                    
+                    // 将结果写入共享状态
+                    let mut guard = full_stderr_clone.lock().await;
+                    *guard = stderr_content;
+                }
+                Err(e) => {
+                    log::error!("Error reading stderr: {}", e);
+                    let mut guard = full_stderr_clone.lock().await;
+                    *guard = format!("读取 stderr 失败: {}", e);
                 }
             }
-            
-            // 将结果写入共享状态
-            let mut guard = full_stderr_clone.lock().await;
-            *guard = stderr_content;
         };
         
         // ✅ 关键改进：并发执行两个读取任务，它们会一直运行直到 EOF
