@@ -68,7 +68,7 @@ pub async fn write_prd_to_file(project_path: Option<String>, prd_content: String
 
 /// 获取项目的工作区目录路径
 /// 
-/// 返回: ~/.opc-harness/workspaces/{project_id}
+/// 返回: ~/.opc-harness/workspaces/{project_id}/.opc-harness
 #[tauri::command]
 pub fn get_project_workspace_path(project_id: String) -> Result<String, String> {
     use crate::utils::paths::get_workspaces_dir;
@@ -76,9 +76,13 @@ pub fn get_project_workspace_path(project_id: String) -> Result<String, String> 
     let workspaces_root = get_workspaces_dir();
     let project_workspace = workspaces_root.join(&project_id);
     
-    log::info!("[get_project_workspace_path] Project workspace path: {:?}", project_workspace);
+    // 在项目中创建 .opc-harness 子目录，用于存放 CodeFree CLI 上下文文件
+    let opc_harness_dir = project_workspace.join(".opc-harness");
     
-    Ok(project_workspace.to_string_lossy().to_string())
+    log::info!("[get_project_workspace_path] Project workspace path: {:?}", project_workspace);
+    log::info!("[get_project_workspace_path] OPC-HARNESS context directory: {:?}", opc_harness_dir);
+    
+    Ok(opc_harness_dir.to_string_lossy().to_string())
 }
 
 /// 将内容写入到项目目录下的指定文件
