@@ -141,6 +141,13 @@ export function usePRDStream(): UsePRDStreamReturn {
         )
         unlistenRef.current.push(unlistenError)
 
+        console.log('[usePRDStream] Calling start_prd_stream with:', {
+          idea: request.idea.slice(0, 50) + '...',
+          provider: request.provider,
+          model: request.model,
+          projectId: request.projectId,
+        })
+
         const { session_id } = await invoke<{ session_id: string }>('start_prd_stream', {
           idea: request.idea,
           provider: request.provider,

@@ -74,12 +74,16 @@ pub async fn start_prd_stream(
     let session_id = Uuid::new_v4().to_string();
     
     log::info!("Starting streaming PRD generation for idea: {}", idea);
+    log::info!("[start_prd_stream] Provider: {}, Model: {}", provider, model);
+    log::info!("[start_prd_stream] Project ID: {:?}", project_id);
     
     // 1. 构建 PRD 提示词
     let prompt = prd_template::generate_prd_prompt(&idea, None);
     
     // 2. 如果是 CodeFree，需要写入 AGENTS.md 文件
     if provider == "codefree" {
+        log::info!("[start_prd_stream] CodeFree provider detected, preparing to write AGENTS.md");
+        
         if let Some(ref pid) = project_id {
             use crate::utils::paths::get_workspaces_dir;
             use std::fs;
@@ -88,10 +92,16 @@ pub async fn start_prd_stream(
             let workspace_path = workspaces_root.join(pid);
             let context_dir = workspace_path.join(".opc-harness");
             
+            log::info!("[start_prd_stream] Workspace path: {:?}", workspace_path);
+            log::info!("[start_prd_stream] Context directory: {:?}", context_dir);
+            
             // 确保 .opc-harness 目录存在
             fs::create_dir_all(&context_dir).map_err(|e| {
+                log::error!("[start_prd_stream] Failed to create context directory: {}", e);
                 format!("Failed to create context directory: {}", e)
             })?;
+            
+            log::info!("[start_prd_stream] Context directory created/verified");
             
             // 写入 AGENTS.md 作为系统提示词
             let agents_md_path = context_dir.join("AGENTS.md");
@@ -131,12 +141,13 @@ Now, generate the complete PRD document based on the user's idea below.
             );
             
             fs::write(&agents_md_path, agents_content).map_err(|e| {
+                log::error!("[start_prd_stream] Failed to write AGENTS.md: {}", e);
                 format!("Failed to write AGENTS.md: {}", e)
             })?;
             
-            log::info!("[start_prd_stream] AGENTS.md written to: {:?}", agents_md_path);
+            log::info!("[start_prd_stream] ✅ AGENTS.md successfully written to: {:?}", agents_md_path);
         } else {
-            log::warn!("[start_prd_stream] CodeFree provider requires project_id but got None");
+            log::warn!("[start_prd_stream] ❌ CodeFree provider requires project_id but got None");
         }
     }
     
