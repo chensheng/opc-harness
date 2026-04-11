@@ -415,19 +415,25 @@ impl AIProvider {
         
         log::info!("Using CodeFree CLI path: {}, use_cmd: {}", command_path, use_cmd);
         
-        // 构建查询内容（将消息合并为单个查询字符串）
-        let query = request.messages.iter()
-            .map(|m| format!("{}: {}", m.role, m.content))
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        // 构建 JSON 格式的消息数组
+        let messages_json = serde_json::to_string(&request.messages)
+            .map_err(|e| AIError {
+                message: format!("序列化消息为 JSON 失败：{}", e),
+            })?;
+        
+        log::info!("JSON input (first 200 chars): {}", messages_json.chars().take(200).collect::<String>());
         
         // 根据是否需要 cmd.exe 来构建命令
-        // 流式输出使用 -o stream-json 格式
+        // 使用 --input-format stream-json 和 -o stream-json
         let mut child = if use_cmd {
-            log::info!("Executing via cmd.exe /c");
-            log::info!("Full command: cmd.exe /c \"{}\" \"{}\" -o stream-json", command_path, query.replace('\n', "\\n").chars().take(200).collect::<String>());
+            log::info!("Executing via cmd.exe /c with JSON input");
+            // 通过 echo 管道传递 JSON 到 stdin
+            let json_escaped = messages_json.replace('"', "\\\"").replace('\n', "\\n");
+            let full_command = format!("echo {} | \"{}\" --input-format stream-json -o stream-json", json_escaped, command_path);
+            log::info!("Full command: cmd.exe /c \"{}\"", full_command.chars().take(300).collect::<String>());
+            
             Command::new("cmd")
-                .args(&["/c", &command_path, &query, "-o", "stream-json"])
+                .args(&["/c", &full_command])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
@@ -438,21 +444,42 @@ impl AIProvider {
                     }
                 })?
         } else {
-            log::info!("Executing directly");
-            log::info!("Full command: {} \"{}\" -o stream-json", command_path, query.replace('\n', "\\n").chars().take(200).collect::<String>());
-            Command::new(&command_path)
-                .arg(&query)
+            log::info!("Executing directly with JSON input via stdin");
+            // 直接执行，通过 stdin 传递 JSON
+            let mut cmd = Command::new(&command_path);
+            cmd.arg("--input-format")
+                .arg("stream-json")
                 .arg("-o")
                 .arg("stream-json")
+                .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
+                .stderr(Stdio::piped());
+            
+            log::info!("Command: {} --input-format stream-json -o stream-json", command_path);
+            
+            let mut child = cmd.spawn()
                 .map_err(|e| {
                     log::error!("Failed to execute codefree command: {}", e);
                     AIError {
                         message: format!("CodeFree CLI 启动失败：{}", e),
                     }
-                })?
+                })?;
+            
+            // 写入 JSON 到 stdin
+            if let Some(mut stdin) = child.stdin.take() {
+                use tokio::io::AsyncWriteExt;
+                stdin.write_all(messages_json.as_bytes()).await
+                    .map_err(|e| AIError {
+                        message: format!("写入 JSON 到 stdin 失败：{}", e),
+                    })?;
+                stdin.flush().await
+                    .map_err(|e| AIError {
+                        message: format!("刷新 stdin 失败：{}", e),
+                    })?;
+                // stdin 会在 drop 时自动关闭
+            }
+            
+            child
         };
         
         let stdout = child.stdout.take().ok_or_else(|| AIError {
