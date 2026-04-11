@@ -13,7 +13,7 @@ mod issue_repository;
 mod user_story_repository;
 
 // Re-export database functions
-pub use database::{get_connection, init_database};
+pub use database::{get_connection, init_database, ensure_all_project_workspaces};
 
 // Re-export repository trait and generic implementation
 pub use repository::Entity;

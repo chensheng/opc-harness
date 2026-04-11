@@ -143,6 +143,13 @@ fn main() {
                 }
             });
 
+            // Check and create workspace directories for all projects
+            if let Err(e) = db::ensure_all_project_workspaces() {
+                log::warn!("Failed to ensure project workspaces: {}", e);
+            } else {
+                log::info!("All project workspace directories verified");
+            }
+
             // Enable devtools in debug mode
             #[cfg(debug_assertions)]
             {

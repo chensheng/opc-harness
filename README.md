@@ -4,6 +4,32 @@
 
 OPC-HARNESS 是一个为独立创造者整合产品构思 (Vibe Design)、快速构建 (Vibe Coding)、增长运营 (Vibe Marketing) 三大模块的 AI 驱动桌面应用，实现从想法到产品运营的全流程闭环。
 
+## 📁 数据存储
+
+### 工作区目录结构
+
+OPC-HARNESS 采用业界标准做法（参考 OpenClaw、Claude Code），在用户 home 目录下创建 `.opc-harness` 隐藏目录来存储所有应用数据：
+
+```
+~/.opc-harness/                    # 应用数据根目录
+├── opc-harness.db                 # SQLite 数据库
+├── config/                        # 配置文件
+├── logs/                          # 日志文件
+├── cache/                         # 缓存文件
+├── sessions/                      # 会话数据
+└── workspaces/                    # 项目工作区 ⭐
+    ├── project-name-1/            # 项目1的代码目录
+    ├── project-name-2/            # 项目2的代码目录
+    └── ...
+```
+
+**项目工作区特性**：
+- ✅ 自动创建：创建新项目时自动生成 `~/.opc-harness/workspaces/{project_name}` 目录
+- ✅ 启动检查：应用启动时自动检查并修复缺失的工作区目录
+- ✅ 名称清理：自动替换非法字符（空格、特殊符号等）为下划线
+- ✅ 冲突处理：如果目录已存在，自动添加时间戳避免冲突
+- ✅ 跨平台兼容：支持 Windows、macOS、Linux
+
 ## ✨ 核心功能
 
 ### 🎨 Vibe Design - 产品构思

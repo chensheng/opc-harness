@@ -10,6 +10,9 @@ pub fn create_project(
     name: String,
     description: String,
 ) -> Result<String, String> {
+    // 创建工作区目录
+    let workspace_path = create_workspace_directory(&name)?;
+
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
 
     let project = Project {
@@ -27,7 +30,96 @@ pub fn create_project(
     };
 
     db::create_project(&conn, &project).map_err(|e| e.to_string())?;
+    
+    // 记录工作区路径（可以在后续版本中将此路径保存到数据库）
+    log::info!("Project workspace created at: {:?}", workspace_path);
+    
     Ok(project.id)
+}
+
+/// 为项目创建工作区目录
+/// 
+/// 在 ~/.opc-harness/workspaces/ 下创建以项目名称命名的子目录
+/// 
+/// # 参数
+/// * `project_name` - 项目名称
+/// 
+/// # 返回
+/// * `Ok(PathBuf)` - 工作区目录路径
+/// * `Err(String)` - 错误信息
+fn create_workspace_directory(project_name: &str) -> Result<std::path::PathBuf, String> {
+    use crate::utils::paths::get_workspaces_dir;
+    
+    // 获取工作区根目录
+    let workspaces_root = get_workspaces_dir();
+    
+    // 确保工作区根目录存在
+    std::fs::create_dir_all(&workspaces_root)
+        .map_err(|e| format!("Failed to create workspaces directory: {}", e))?;
+    
+    // 生成安全的项目目录名（替换非法字符）
+    let safe_project_name = sanitize_project_name(project_name);
+    
+    // 构建项目工作区路径
+    let project_workspace = workspaces_root.join(&safe_project_name);
+    
+    // 如果目录已存在，添加时间戳避免冲突
+    let final_path = if project_workspace.exists() {
+        let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+        workspaces_root.join(format!("{}_{}", safe_project_name, timestamp))
+    } else {
+        project_workspace
+    };
+    
+    // 创建项目工作区目录
+    std::fs::create_dir_all(&final_path)
+        .map_err(|e| format!("Failed to create project workspace directory: {}", e))?;
+    
+    log::info!("Created workspace directory: {:?}", final_path);
+    
+    Ok(final_path)
+}
+
+/// 清理项目名称，使其适合作为目录名
+/// 
+/// 替换或移除文件系统不允许的字符
+/// 
+/// # 参数
+/// * `name` - 原始项目名称
+/// 
+/// # 返回
+/// * `String` - 安全的目录名
+fn sanitize_project_name(name: &str) -> String {
+    // 第一步：替换所有非法字符为下划线
+    let replaced = name.chars()
+        .map(|c| match c {
+            // 允许的字符保持不变
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-' => c,
+            // 点号也替换为下划线（避免隐藏文件和扩展名问题）
+            '.' => '_',
+            // 空格和其他特殊字符替换为下划线
+            _ => '_',
+        })
+        .collect::<String>();
+    
+    // 第二步：移除连续的下划线
+    let cleaned = replaced
+        .split('_')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>()
+        .join("_");
+    
+    // 第三步：确保不以点或下划线开头
+    let trimmed = cleaned
+        .trim_start_matches('.')
+        .trim_start_matches('_');
+    
+    // 第四步：如果为空，使用默认名称
+    if trimmed.is_empty() {
+        "unnamed_project".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 /// 获取所有项目
@@ -430,4 +522,151 @@ pub fn update_agent_session(app_handle: tauri::AppHandle, session: AgentSession)
 pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> Result<(), String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
     db::delete_agent_session(&conn, &agent_id).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_sanitize_project_name() {
+        // 测试正常名称
+        assert_eq!(sanitize_project_name("my-project"), "my-project");
+        assert_eq!(sanitize_project_name("MyProject"), "MyProject");
+        assert_eq!(sanitize_project_name("project_123"), "project_123");
+        
+        // 测试包含空格的名称
+        assert_eq!(sanitize_project_name("my project"), "my_project");
+        assert_eq!(sanitize_project_name("My Test Project"), "My_Test_Project");
+        
+        // 测试包含特殊字符的名称
+        assert_eq!(sanitize_project_name("project@2024"), "project_2024");
+        assert_eq!(sanitize_project_name("test#1"), "test_1");
+        assert_eq!(sanitize_project_name("app&demo"), "app_demo");
+        
+        // 测试以点开头的名称（避免隐藏文件）
+        assert_eq!(sanitize_project_name(".hidden"), "hidden");
+        
+        // 测试空名称
+        assert_eq!(sanitize_project_name(""), "unnamed_project");
+        assert_eq!(sanitize_project_name("   "), "unnamed_project");
+        
+        // 测试连续特殊字符
+        assert_eq!(sanitize_project_name("test@@@project"), "test_project");
+        assert_eq!(sanitize_project_name("a...b"), "a_b");
+    }
+    
+    #[test]
+    fn test_create_workspace_directory_structure() {
+        use crate::utils::paths::get_workspaces_dir;
+        use std::env;
+        
+        // 使用临时目录进行测试
+        let temp_dir = env::temp_dir().join("test-workspace-creation");
+        
+        // 清理可能存在的旧测试目录
+        if temp_dir.exists() {
+            std::fs::remove_dir_all(&temp_dir).ok();
+        }
+        
+        env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        
+        // 确保工作区根目录存在
+        let workspaces_root = get_workspaces_dir();
+        std::fs::create_dir_all(&workspaces_root).expect("Failed to create workspaces root");
+        
+        // 测试创建项目工作区目录
+        let project_name = "test-project";
+        let result = create_workspace_directory(project_name);
+        
+        assert!(result.is_ok(), "Failed to create workspace directory: {:?}", result.err());
+        
+        let workspace_path = result.unwrap();
+        assert!(workspace_path.exists(), "Workspace directory should exist");
+        assert!(workspace_path.is_dir(), "Workspace path should be a directory");
+        
+        // 验证路径结构正确
+        assert!(workspace_path.starts_with(&workspaces_root));
+        assert_eq!(workspace_path.file_name().unwrap(), project_name);
+        
+        // 清理测试目录
+        env::remove_var("OPC_HARNESS_HOME");
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+    
+    #[test]
+    fn test_create_workspace_directory_with_special_chars() {
+        use crate::utils::paths::get_workspaces_dir;
+        use std::env;
+        
+        // 使用临时目录进行测试
+        let temp_dir = env::temp_dir().join("test-workspace-special-chars");
+        
+        // 清理可能存在的旧测试目录
+        if temp_dir.exists() {
+            std::fs::remove_dir_all(&temp_dir).ok();
+        }
+        
+        env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        
+        // 确保工作区根目录存在
+        let workspaces_root = get_workspaces_dir();
+        std::fs::create_dir_all(&workspaces_root).expect("Failed to create workspaces root");
+        
+        // 测试包含特殊字符的项目名称
+        let project_name = "My Test@Project#2024";
+        let result = create_workspace_directory(project_name);
+        
+        assert!(result.is_ok(), "Failed to create workspace directory: {:?}", result.err());
+        
+        let workspace_path = result.unwrap();
+        assert!(workspace_path.exists(), "Workspace directory should exist");
+        
+        // 验证文件名已清理特殊字符
+        let dir_name = workspace_path.file_name().unwrap().to_string_lossy();
+        assert_eq!(dir_name, "My_Test_Project_2024");
+        
+        // 清理测试目录
+        env::remove_var("OPC_HARNESS_HOME");
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+    
+    #[test]
+    fn test_create_workspace_directory_duplicate_handling() {
+        use crate::utils::paths::get_workspaces_dir;
+        use std::env;
+        use std::thread;
+        use std::time::Duration;
+        
+        // 使用临时目录进行测试
+        let temp_dir = env::temp_dir().join("test-workspace-duplicate");
+        env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
+        
+        // 确保工作区根目录存在
+        let workspaces_root = get_workspaces_dir();
+        std::fs::create_dir_all(&workspaces_root).expect("Failed to create workspaces root");
+        
+        let project_name = "duplicate-test";
+        
+        // 第一次创建
+        let result1 = create_workspace_directory(project_name);
+        assert!(result1.is_ok());
+        let path1 = result1.unwrap();
+        
+        // 短暂等待以确保时间戳不同
+        thread::sleep(Duration::from_millis(1100));
+        
+        // 第二次创建同名项目
+        let result2 = create_workspace_directory(project_name);
+        assert!(result2.is_ok());
+        let path2 = result2.unwrap();
+        
+        // 验证两个路径不同（第二个应该包含时间戳）
+        assert_ne!(path1, path2, "Duplicate project names should have different paths");
+        assert!(path2.to_string_lossy().contains(&project_name.replace(' ', "_")));
+        
+        // 清理测试目录
+        env::remove_var("OPC_HARNESS_HOME");
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
 }
