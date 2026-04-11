@@ -539,6 +539,15 @@ impl AIProvider {
             log::info!("Using model for streaming: {}", request.model);
         }
         
+        // 打印完整的 CodeFree CLI 命令（用于调试）
+        if cmd_config.use_shell {
+            let mut full_cmd = vec![cmd_config.executable.clone()];
+            full_cmd.extend(args.clone());
+            log::info!("[CodeFree] Full command: cmd.exe /c {}", full_cmd.join(" "));
+        } else {
+            log::info!("[CodeFree] Full command: {} {}", cmd_config.executable, args.join(" "));
+        }
+        
         // 启动进程（设置工作目录）
         let mut child = if cmd_config.use_shell {
             log::info!("Executing via cmd.exe /c for streaming");
