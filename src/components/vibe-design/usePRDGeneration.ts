@@ -71,6 +71,7 @@ export function usePRDGeneration({
         provider,
         model,
         apiKey,
+        projectId: projectId || null,
       })
       return
     }
@@ -90,6 +91,7 @@ export function usePRDGeneration({
         provider: aiConfigStore.defaultProvider,
         model: activeConfig.model,
         apiKey: activeConfig.apiKey || '', // codefree 传空字符串
+        projectId: projectId || null,
       })
     } else {
       // 降级到模拟生成

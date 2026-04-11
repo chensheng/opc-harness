@@ -9,6 +9,7 @@ export interface PRDStreamRequest {
   provider: string
   model: string
   apiKey: string
+  projectId?: string | null
 }
 
 export interface UsePRDStreamReturn {
@@ -145,6 +146,7 @@ export function usePRDStream(): UsePRDStreamReturn {
           provider: request.provider,
           model: request.model,
           apiKey: request.apiKey,
+          project_id: request.projectId || null,
         })
 
         setSessionId(session_id)

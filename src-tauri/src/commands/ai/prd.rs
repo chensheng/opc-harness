@@ -68,6 +68,7 @@ pub async fn start_prd_stream(
     provider: String,
     model: String,
     apiKey: String,
+    project_id: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<StartPRDStreamResponse, String> {
     let session_id = Uuid::new_v4().to_string();
@@ -77,7 +78,69 @@ pub async fn start_prd_stream(
     // 1. 构建 PRD 提示词
     let prompt = prd_template::generate_prd_prompt(&idea, None);
     
-    // 2. 创建 AI Provider
+    // 2. 如果是 CodeFree，需要写入 AGENTS.md 文件
+    if provider == "codefree" {
+        if let Some(ref pid) = project_id {
+            use crate::utils::paths::get_workspaces_dir;
+            use std::fs;
+            
+            let workspaces_root = get_workspaces_dir();
+            let workspace_path = workspaces_root.join(pid);
+            let context_dir = workspace_path.join(".opc-harness");
+            
+            // 确保 .opc-harness 目录存在
+            fs::create_dir_all(&context_dir).map_err(|e| {
+                format!("Failed to create context directory: {}", e)
+            })?;
+            
+            // 写入 AGENTS.md 作为系统提示词
+            let agents_md_path = context_dir.join("AGENTS.md");
+            let agents_content = format!(
+r#"# AI Assistant - PRD Generation
+
+## Role
+You are a professional Product Manager and PRD (Product Requirements Document) writer.
+
+## Task
+Generate a complete, structured PRD document based on the user's product idea.
+
+## Output Rules
+1. **Output ONLY the final PRD document** - no explanations, no reasoning process, no summaries
+2. **Write in Chinese** (简体中文)
+3. **Use Markdown format** with proper headings and structure
+4. **Be comprehensive and detailed** - include all necessary sections
+5. **Ensure professionalism and readability**
+
+## Required PRD Structure
+Your output must include these sections:
+- Product Overview (产品概述)
+- Target Users (目标用户)
+- Core Features (核心功能)
+- User Stories (用户故事)
+- Technical Stack (技术栈)
+- Development Effort Estimate (开发工作量评估)
+- Business Model (商业模式)
+- Pricing Strategy (定价策略)
+
+## Context Files
+- Current working directory contains @.opc-harness/PRD.md (if exists)
+- Read existing PRD content if available for reference
+
+Now, generate the complete PRD document based on the user's idea below.
+"#
+            );
+            
+            fs::write(&agents_md_path, agents_content).map_err(|e| {
+                format!("Failed to write AGENTS.md: {}", e)
+            })?;
+            
+            log::info!("[start_prd_stream] AGENTS.md written to: {:?}", agents_md_path);
+        } else {
+            log::warn!("[start_prd_stream] CodeFree provider requires project_id but got None");
+        }
+    }
+    
+    // 3. 创建 AI Provider
     let provider_type = match provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -90,7 +153,7 @@ pub async fn start_prd_stream(
     
     let provider = AIProvider::new(provider_type, apiKey.clone());
     
-    // 3. 构建聊天请求（流式模式）
+    // 4. 构建聊天请求（流式模式）
     let chat_request = ChatRequest {
         model,
         messages: vec![AIMessage {
@@ -100,10 +163,10 @@ pub async fn start_prd_stream(
         temperature: Some(0.7),
         max_tokens: Some(4096),
         stream: true,
-        project_id: None,
+        project_id: project_id.clone(),
     };
     
-    // 4. 创建会话感知的 chunk 处理器
+    // 5. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
     let app_clone = app.clone();
 
@@ -125,7 +188,7 @@ pub async fn start_prd_stream(
         Ok(())
     };
     
-    // 5. 在后台启动流式请求
+    // 6. 在后台启动流式请求
     let session_id_for_return = session_id.clone();
     tokio::spawn(async move {
         match provider.stream_chat(chat_request, chunk_handler).await {
