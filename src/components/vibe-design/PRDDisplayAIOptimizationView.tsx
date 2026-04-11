@@ -157,10 +157,11 @@ export function PRDDisplayAIOptimizationView({
           {error && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3 text-sm text-destructive">
               <div className="font-semibold mb-2 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                ❌ AI 调用失败
+                <AlertCircle className="w-4 h-4" />❌ AI 调用失败
               </div>
-              <div className="text-xs opacity-90 whitespace-pre-wrap max-h-[150px] overflow-y-auto">{error}</div>
+              <div className="text-xs opacity-90 whitespace-pre-wrap max-h-[150px] overflow-y-auto">
+                {error}
+              </div>
             </div>
           )}
 

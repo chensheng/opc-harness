@@ -109,12 +109,14 @@ export function PRDDisplayAIChat({
             <X className="w-4 h-4" />
           </Button>
         </div>
-        
+
         {/* 错误提示 - 放在标题栏下方，确保可见 */}
         {error && (
           <div className="mt-2 bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 text-sm text-destructive">
             <div className="font-semibold mb-1">❌ AI 调用失败</div>
-            <div className="text-xs opacity-90 whitespace-pre-wrap max-h-[120px] overflow-y-auto">{error}</div>
+            <div className="text-xs opacity-90 whitespace-pre-wrap max-h-[120px] overflow-y-auto">
+              {error}
+            </div>
           </div>
         )}
       </CardHeader>

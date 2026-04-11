@@ -1,6 +1,12 @@
 //! CodeFree CLI Provider Implementation
 //! 
 //! 通过调用系统 codefree CLI 工具实现 AI 对话功能
+//! 
+//! CodeFree CLI 使用方法（基于 codefree --help）：
+//! - 非交互式: codefree [query...] -o json
+//! - 流式输出: codefree [query...] -o stream-json
+//! - 指定模型: codefree -m <model> [query...]
+//! - 交互模式: codefree -i "prompt"
 
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -9,107 +15,183 @@ use tokio::process::Command;
 use super::ai_types::*;
 use super::provider_core::AIProvider;
 
-/// 智能查找并执行 CodeFree CLI
-/// 返回完整的命令路径和是否需要通过 cmd.exe 执行的标志
-async fn find_and_prepare_codefree() -> Result<(String, bool), AIError> {
-    // 策略1: 直接尝试 "codefree"
-    log::info!("Strategy 1: Trying direct 'codefree' command");
+/// CodeFree CLI 命令配置
+struct CodeFreeCommand {
+    /// 可执行文件路径或命令名
+    executable: String,
+    /// 是否通过 cmd.exe 执行（Windows .cmd/.bat 文件需要）
+    use_shell: bool,
+}
+
+/// 智能查找并准备 CodeFree CLI 执行环境
+/// 
+/// 返回可执行路径和执行方式配置
+async fn find_codefree_executable() -> Result<CodeFreeCommand, AIError> {
+    log::info!("🔍 Searching for CodeFree CLI...");
     
-    // 先检查是否可以直接执行
-    let test_cmd = Command::new("codefree")
-        .arg("--version")
-        .output()
-        .await;
-    
-    if let Ok(output) = &test_cmd {
-        if output.status.success() {
-            log::info!("Direct execution successful");
-            return Ok(("codefree".to_string(), false));
-        }
+    // 策略1: 直接尝试 "codefree" 命令
+    if test_codefree_command("codefree", false).await.is_ok() {
+        log::info!("✅ Found CodeFree CLI via direct execution");
+        return Ok(CodeFreeCommand {
+            executable: "codefree".to_string(),
+            use_shell: false,
+        });
     }
     
-    // 策略2: Windows 上使用 where 命令查找
+    // 策略2: Windows 上使用 where 命令查找完整路径
     #[cfg(windows)]
     {
-        log::info!("Strategy 2: Using 'where' command to find full path");
-        let where_output = Command::new("where")
-            .arg("codefree")
-            .output()
-            .await
-            .map_err(|e| AIError {
-                message: format!("Failed to execute 'where' command: {}", e),
-            })?;
-        
-        if where_output.status.success() {
-            let paths = String::from_utf8_lossy(&where_output.stdout);
-            log::info!("Found potential paths:\n{}", paths);
+        if let Some(path) = find_via_where().await? {
+            let is_batch = path.to_lowercase().ends_with(".cmd") 
+                || path.to_lowercase().ends_with(".bat");
             
-            // 收集所有候选路径
-            let mut batch_files = Vec::new();
-            let mut other_files = Vec::new();
-            
-            for path in paths.lines() {
-                let path = path.trim();
-                if !path.is_empty() {
-                    log::info!("Testing path: {}", path);
-                    
-                    // 检查是否是批处理文件
-                    let is_batch = path.to_lowercase().ends_with(".cmd") 
-                        || path.to_lowercase().ends_with(".bat");
-                    
-                    if is_batch {
-                        batch_files.push(path.to_string());
-                    } else {
-                        other_files.push(path.to_string());
-                    }
-                }
-            }
-            
-            // 优先返回批处理文件（Windows 下 npm 全局脚本的正确形式）
-            if let Some(batch_path) = batch_files.first() {
-                log::info!("Using batch file: {}", batch_path);
-                return Ok((batch_path.clone(), true));
-            }
-            
-            // 如果没有批处理文件，尝试其他文件
-            if let Some(other_path) = other_files.first() {
-                log::info!("Using non-batch file: {}", other_path);
-                return Ok((other_path.clone(), false));
-            }
+            log::info!("✅ Found CodeFree CLI at: {} (batch: {})", path, is_batch);
+            return Ok(CodeFreeCommand {
+                executable: path,
+                use_shell: is_batch,
+            });
         }
     }
     
     // 策略3: Unix 系统使用 which 命令
     #[cfg(not(windows))]
     {
-        log::info!("Strategy 3: Using 'which' command");
-        let which_output = Command::new("which")
-            .arg("codefree")
-            .output()
-            .await
-            .map_err(|e| AIError {
-                message: format!("Failed to execute 'which' command: {}", e),
-            })?;
-        
-        if which_output.status.success() {
-            let path = String::from_utf8_lossy(&which_output.stdout).trim().to_string();
-            log::info!("Found codefree at: {}", path);
-            return Ok((path, false));
+        if let Some(path) = find_via_which().await? {
+            log::info!("✅ Found CodeFree CLI at: {}", path);
+            return Ok(CodeFreeCommand {
+                executable: path,
+                use_shell: false,
+            });
         }
     }
     
     Err(AIError {
-        message: "CodeFree CLI not found in PATH. Please ensure it's installed and accessible.".to_string(),
+        message: format!(
+            "❌ CodeFree CLI 未找到\n\n\
+            可能原因：\n\
+            1. 未全局安装 CodeFree CLI\n\
+            2. Node.js/npm 不在系统 PATH 中\n\
+            3. Tauri 应用未继承完整的系统环境变量\n\n\
+            解决方案：\n\
+            1. 确认已安装：在终端运行 'codefree --version'\n\
+            2. 重新安装：npm install -g @codefree/cli\n\
+            3. 重启应用以确保环境变量生效\n\
+            4. 检查系统 PATH 是否包含 Node.js 安装目录"
+        ),
     })
+}
+
+/// 测试 CodeFree 命令是否可用
+async fn test_codefree_command(cmd: &str, use_shell: bool) -> Result<(), AIError> {
+    let output = if use_shell {
+        Command::new("cmd")
+            .args(&["/c", cmd, "--version"])
+            .output()
+            .await
+    } else {
+        Command::new(cmd)
+            .arg("--version")
+            .output()
+            .await
+    };
+    
+    match output {
+        Ok(out) if out.status.success() => Ok(()),
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            log::debug!("Test command failed: {}", stderr.chars().take(200).collect::<String>());
+            Err(AIError {
+                message: format!("Command test failed: {}", stderr),
+            })
+        }
+        Err(e) => {
+            log::debug!("Test command error: {}", e);
+            Err(AIError {
+                message: format!("Command test error: {}", e),
+            })
+        }
+    }
+}
+
+/// Windows: 通过 where 命令查找 codefree 路径
+#[cfg(windows)]
+async fn find_via_where() -> Result<Option<String>, AIError> {
+    log::info!("Strategy 2: Using 'where' command to find full path");
+    let where_output = Command::new("where")
+        .arg("codefree")
+        .output()
+        .await
+        .map_err(|e| AIError {
+            message: format!("Failed to execute 'where' command: {}", e),
+        })?;
+    
+    if where_output.status.success() {
+        let paths = String::from_utf8_lossy(&where_output.stdout);
+        log::info!("Found potential paths:\n{}", paths);
+        
+        // 收集所有候选路径
+        let mut batch_files = Vec::new();
+        let mut other_files = Vec::new();
+        
+        for path in paths.lines() {
+            let path = path.trim();
+            if !path.is_empty() {
+                log::info!("Testing path: {}", path);
+                
+                // 检查是否是批处理文件
+                let is_batch = path.to_lowercase().ends_with(".cmd") 
+                    || path.to_lowercase().ends_with(".bat");
+                
+                if is_batch {
+                    batch_files.push(path.to_string());
+                } else {
+                    other_files.push(path.to_string());
+                }
+            }
+        }
+        
+        // 优先返回批处理文件（Windows 下 npm 全局脚本的正确形式）
+        if let Some(batch_path) = batch_files.first() {
+            return Ok(Some(batch_path.clone()));
+        }
+        
+        // 如果没有批处理文件，尝试其他文件
+        if let Some(other_path) = other_files.first() {
+            return Ok(Some(other_path.clone()));
+        }
+    }
+    
+    Ok(None)
+}
+
+/// Unix: 通过 which 命令查找 codefree 路径
+#[cfg(not(windows))]
+async fn find_via_which() -> Result<Option<String>, AIError> {
+    log::info!("Strategy 3: Using 'which' command");
+    let which_output = Command::new("which")
+        .arg("codefree")
+        .output()
+        .await
+        .map_err(|e| AIError {
+            message: format!("Failed to execute 'which' command: {}", e),
+        })?;
+    
+    if which_output.status.success() {
+        let path = String::from_utf8_lossy(&which_output.stdout).trim().to_string();
+        log::info!("Found codefree at: {}", path);
+        return Ok(Some(path));
+    }
+    
+    Ok(None)
 }
 
 impl AIProvider {
     /// CodeFree CLI 非流式聊天
     pub(super) async fn chat_codefree(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
         // 智能查找 codefree 命令
-        let (command_path, use_cmd) = find_and_prepare_codefree().await?;
+        let cmd_config = find_codefree_executable().await?;
         
-        log::info!("Using CodeFree CLI path: {}, use_cmd: {}", command_path, use_cmd);
+        log::info!("Using CodeFree CLI: {}, use_shell: {}", cmd_config.executable, cmd_config.use_shell);
         
         // 构建查询内容（将消息合并为单个查询字符串）
         let query = request.messages.iter()
@@ -117,13 +199,31 @@ impl AIProvider {
             .collect::<Vec<_>>()
             .join("\n\n");
         
-        // 根据是否需要 cmd.exe 来执行命令
-        // 使用格式: codefree [query...] -o json
-        let output = if use_cmd {
+        log::info!("Query length: {} chars", query.len());
+        
+        // 构建命令参数
+        // 格式: codefree [query...] -o json [-m model]
+        let mut args = vec![query.clone()];
+        args.push("-o".to_string());
+        args.push("json".to_string());
+        
+        // 如果指定了模型，添加 -m 参数
+        if !request.model.is_empty() && request.model != "codefree-default" {
+            args.push("-m".to_string());
+            args.push(request.model.clone());
+            log::info!("Using model: {}", request.model);
+        }
+        
+        // 执行命令
+        let output = if cmd_config.use_shell {
             log::info!("Executing via cmd.exe /c");
-            log::info!("Full command: cmd.exe /c \"{}\" \"{}\" -o json", command_path, query.replace('\n', "\\n").chars().take(200).collect::<String>());
+            // Windows 批处理文件需要通过 cmd.exe 执行
+            let mut full_cmd = vec![cmd_config.executable.clone()];
+            full_cmd.extend(args.clone());
+            
             Command::new("cmd")
-                .args(&["/c", &command_path, &query, "-o", "json"])
+                .args(&["/c"])
+                .args(&full_cmd)
                 .output()
                 .await
                 .map_err(|e| {
@@ -134,11 +234,8 @@ impl AIProvider {
                 })?
         } else {
             log::info!("Executing directly");
-            log::info!("Full command: {} \"{}\" -o json", command_path, query.replace('\n', "\\n").chars().take(200).collect::<String>());
-            Command::new(&command_path)
-                .arg(&query)
-                .arg("-o")
-                .arg("json")
+            Command::new(&cmd_config.executable)
+                .args(&args)
                 .output()
                 .await
                 .map_err(|e| {
@@ -178,7 +275,6 @@ impl AIProvider {
                 }
                 Err(e) => {
                     // 如果解析过程中提取到了具体的错误信息（如认证错误），直接返回
-                    // 检查错误消息是否包含 "CodeFree CLI 错误：" 前缀，说明已经提取到了具体错误
                     if e.message.starts_with("CodeFree CLI 错误：") {
                         log::info!("✓ Extracted specific error from stdout: {}", e.message.chars().take(100).collect::<String>());
                         return Err(e);
@@ -323,131 +419,113 @@ impl AIProvider {
     }
 
     /// 解析 CodeFree CLI 的 JSONL 响应（每行一个 JSON 对象，用于流式输出）
-    fn parse_codefree_jsonl_response(&self, jsonl_str: &str) -> Result<String, AIError> {
+    fn parse_codefree_jsonl_line(&self, line: &str) -> Result<Option<String>, AIError> {
         use serde_json::Value;
         
-        let mut error_message: Option<String> = None;
-        let mut assistant_texts: Vec<String> = Vec::new();
-        let mut result_text: Option<String> = None;
+        // 尝试解析单个 JSON 对象
+        let value: Value = serde_json::from_str(line)
+            .map_err(|e| AIError {
+                message: format!("JSON 解析失败：{}", e),
+            })?;
         
-        // 逐行解析 JSON
-        for line in jsonl_str.lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            
-            // 尝试解析单个 JSON 对象
-            if let Ok(value) = serde_json::from_str::<Value>(line) {
-                if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
-                    match msg_type {
-                        "result" => {
-                            // 检查是否为错误结果
-                            if let Some(is_error) = value.get("is_error").and_then(|v| v.as_bool()) {
-                                if is_error {
-                                    if let Some(error_obj) = value.get("error") {
-                                        if let Some(error_msg) = error_obj.get("message").and_then(|v| v.as_str()) {
-                                            error_message = Some(error_msg.to_string());
-                                        }
-                                    }
+        if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
+            match msg_type {
+                "result" => {
+                    // 检查是否为错误结果
+                    if let Some(is_error) = value.get("is_error").and_then(|v| v.as_bool()) {
+                        if is_error {
+                            if let Some(error_obj) = value.get("error") {
+                                if let Some(error_msg) = error_obj.get("message").and_then(|v| v.as_str()) {
+                                    return Err(AIError {
+                                        message: format!("CodeFree CLI 错误：{}", error_msg),
+                                    });
                                 }
                             }
-                            // 提取成功结果
-                            if let Some(result) = value.get("result").and_then(|v| v.as_str()) {
-                                result_text = Some(result.to_string());
-                            }
+                            return Err(AIError {
+                                message: "CodeFree CLI 执行出错".to_string(),
+                            });
                         }
-                        "assistant" => {
-                            // 提取助手消息
-                            if let Some(message) = value.get("message") {
-                                if let Some(content_array) = message.get("content").and_then(|v| v.as_array()) {
-                                    for item in content_array {
-                                        if let Some(item_type) = item.get("type").and_then(|v| v.as_str()) {
-                                            if item_type == "text" {
-                                                if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
-                                                    assistant_texts.push(text.to_string());
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
                     }
+                    // 提取成功结果
+                    if let Some(result) = value.get("result").and_then(|v| v.as_str()) {
+                        return Ok(Some(result.to_string()));
+                    }
+                }
+                "assistant" => {
+                    // 提取助手消息
+                    if let Some(message) = value.get("message") {
+                        if let Some(content_array) = message.get("content").and_then(|v| v.as_array()) {
+                            let mut texts = Vec::new();
+                            for item in content_array {
+                                if let Some(item_type) = item.get("type").and_then(|v| v.as_str()) {
+                                    if item_type == "text" {
+                                        if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+                                            texts.push(text.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                            if !texts.is_empty() {
+                                return Ok(Some(texts.join("\n")));
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    // 其他类型（如 system、error）不处理
+                    log::debug!("Skipping {} message type", msg_type);
                 }
             }
         }
         
-        // 优先级1: 如果有错误信息，返回错误
-        if let Some(err_msg) = error_message {
-            return Err(AIError {
-                message: format!("CodeFree CLI 错误：{}", err_msg),
-            });
-        }
-        
-        // 优先级2: 如果有助手消息，返回拼接的文本
-        if !assistant_texts.is_empty() {
-            return Ok(assistant_texts.join("\n"));
-        }
-        
-        // 优先级3: 如果有结果文本，返回结果
-        if let Some(result) = result_text {
-            return Ok(result);
-        }
-        
-        Err(AIError {
-            message: "未在 JSONL 响应中找到有效内容".to_string(),
-        })
+        Ok(None)
     }
 
     /// CodeFree CLI 流式聊天
     pub(super) async fn stream_chat_codefree<F>(
         &self,
         request: ChatRequest,
-        on_chunk: F,
+        mut on_chunk: F,
     ) -> Result<String, AIError>
     where
         F: FnMut(String) -> Result<(), AIError>,
     {
         // 智能查找 codefree 命令
-        let (command_path, use_cmd) = find_and_prepare_codefree().await?;
+        let cmd_config = find_codefree_executable().await?;
         
-        log::info!("Using CodeFree CLI path: {}, use_cmd: {}", command_path, use_cmd);
+        log::info!("Using CodeFree CLI for streaming: {}, use_shell: {}", cmd_config.executable, cmd_config.use_shell);
         
-        // 构建 JSON 格式的消息数组
-        let messages_json = serde_json::to_string(&request.messages)
-            .map_err(|e| AIError {
-                message: format!("序列化消息为 JSON 失败：{}", e),
-            })?;
+        // 构建查询内容
+        let query = request.messages.iter()
+            .map(|m| format!("{}: {}", m.role, m.content))
+            .collect::<Vec<_>>()
+            .join("\n\n");
         
-        log::info!("JSON input (first 200 chars): {}", messages_json.chars().take(200).collect::<String>());
+        log::info!("Stream query length: {} chars", query.len());
         
-        // 根据是否需要 cmd.exe 来构建命令
-        // 使用 --input-format stream-json 和 -o stream-json
-        let mut child = if use_cmd {
-            log::info!("Executing via cmd.exe /c with JSON input (using temp file)");
+        // 构建命令参数
+        // 格式: codefree [query...] -o stream-json [-m model]
+        let mut args = vec![query.clone()];
+        args.push("-o".to_string());
+        args.push("stream-json".to_string());
+        
+        // 如果指定了模型，添加 -m 参数
+        if !request.model.is_empty() && request.model != "codefree-default" {
+            args.push("-m".to_string());
+            args.push(request.model.clone());
+            log::info!("Using model for streaming: {}", request.model);
+        }
+        
+        // 启动进程
+        let mut child = if cmd_config.use_shell {
+            log::info!("Executing via cmd.exe /c for streaming");
+            // Windows 批处理文件需要通过 cmd.exe 执行
+            let mut full_cmd = vec![cmd_config.executable.clone()];
+            full_cmd.extend(args.clone());
             
-            // 创建临时文件存储 JSON
-            let temp_dir = std::env::temp_dir();
-            let temp_file_path = temp_dir.join(format!("codefree_input_{}.json", std::process::id()));
-            let temp_file_path_str = temp_file_path.to_string_lossy().to_string();
-            
-            // 写入 JSON 到临时文件
-            tokio::fs::write(&temp_file_path, &messages_json).await
-                .map_err(|e| AIError {
-                    message: format!("写入临时 JSON 文件失败：{}", e),
-                })?;
-            
-            log::info!("JSON written to temp file: {}", temp_file_path_str);
-            
-            // 使用 type 命令读取文件并管道传递（比 echo 更可靠）
-            // 注意：在 cmd.exe /c "..." 中，内部命令不需要额外引号
-            let full_command = format!("type \"{}\" | {} --input-format stream-json -o stream-json", temp_file_path_str, command_path);
-            log::info!("Full command: cmd.exe /c \"{}\"", full_command.chars().take(300).collect::<String>());
-            
-            let child = Command::new("cmd")
-                .args(&["/c", &full_command])
+            Command::new("cmd")
+                .args(&["/c"])
+                .args(&full_cmd)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
@@ -456,54 +534,20 @@ impl AIProvider {
                     AIError {
                         message: format!("CodeFree CLI 启动失败（cmd）：{}", e),
                     }
-                })?;
-            
-            // 异步删除临时文件（在进程启动后）
-            let temp_file_clone = temp_file_path.clone();
-            tokio::spawn(async move {
-                // 等待一小段时间确保进程已读取文件
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                let _ = tokio::fs::remove_file(&temp_file_clone).await;
-            });
-            
-            child
+                })?
         } else {
-            log::info!("Executing directly with JSON input via stdin");
-            // 直接执行，通过 stdin 传递 JSON
-            let mut cmd = Command::new(&command_path);
-            cmd.arg("--input-format")
-                .arg("stream-json")
-                .arg("-o")
-                .arg("stream-json")
-                .stdin(Stdio::piped())
+            log::info!("Executing directly for streaming");
+            Command::new(&cmd_config.executable)
+                .args(&args)
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-            
-            log::info!("Command: {} --input-format stream-json -o stream-json", command_path);
-            
-            let mut child = cmd.spawn()
+                .stderr(Stdio::piped())
+                .spawn()
                 .map_err(|e| {
                     log::error!("Failed to execute codefree command: {}", e);
                     AIError {
                         message: format!("CodeFree CLI 启动失败：{}", e),
                     }
-                })?;
-            
-            // 写入 JSON 到 stdin
-            if let Some(mut stdin) = child.stdin.take() {
-                use tokio::io::AsyncWriteExt;
-                stdin.write_all(messages_json.as_bytes()).await
-                    .map_err(|e| AIError {
-                        message: format!("写入 JSON 到 stdin 失败：{}", e),
-                    })?;
-                stdin.flush().await
-                    .map_err(|e| AIError {
-                        message: format!("刷新 stdin 失败：{}", e),
-                    })?;
-                // stdin 会在 drop 时自动关闭
-            }
-            
-            child
+                })?
         };
         
         let stdout = child.stdout.take().ok_or_else(|| AIError {
@@ -514,22 +558,10 @@ impl AIProvider {
             message: "无法获取 CodeFree CLI 错误输出".to_string(),
         })?;
         
-        // 使用 Arc<Mutex> 包装 on_chunk 以便在多个异步任务中共享
-        let on_chunk_shared = std::sync::Arc::new(tokio::sync::Mutex::new(on_chunk));
-        
-        // 用于收集完整内容的缓冲区
-        let full_content_arc = std::sync::Arc::new(tokio::sync::Mutex::new(String::new()));
-        let full_stderr_arc = std::sync::Arc::new(tokio::sync::Mutex::new(String::new()));
-        
-        // 克隆 Arc 用于异步任务
-        let on_chunk_stdout = on_chunk_shared.clone();
-        let full_content_clone = full_content_arc.clone();
-        let full_stderr_clone = full_stderr_arc.clone();
-        
-        // 创建子进程的等待 future（不立即 await）
+        // 创建子进程的等待 future
         let child_wait = Box::pin(child.wait());
         
-        // 并发读取 stdout 和 stderr，同时监控进程退出
+        // 并发读取 stdout 和 stderr
         let stdout_future = async {
             let mut reader = BufReader::new(stdout);
             let mut line = String::new();
@@ -540,53 +572,27 @@ impl AIProvider {
                 match reader.read_line(&mut line).await {
                     Ok(0) => break, // EOF
                     Ok(_) => {
-                        if !line.trim().is_empty() {
-                            let raw_chunk = line.clone();
-                            content.push_str(&raw_chunk);
+                        let trimmed_line = line.trim();
+                        if !trimmed_line.is_empty() {
+                            content.push_str(trimmed_line);
+                            content.push('\n');
                             
                             // 尝试解析当前行的 JSON 并提取文本内容
-                            let trimmed_line = line.trim();
-                            if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed_line) {
-                                if let Some(msg_type) = value.get("type").and_then(|v| v.as_str()) {
-                                    match msg_type {
-                                        "assistant" => {
-                                            // 提取助手消息中的文本内容
-                                            if let Some(message) = value.get("message") {
-                                                if let Some(content_array) = message.get("content").and_then(|v| v.as_array()) {
-                                                    for item in content_array {
-                                                        if let Some(item_type) = item.get("type").and_then(|v| v.as_str()) {
-                                                            if item_type == "text" {
-                                                                if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
-                                                                    // 发送提取的文本内容到前端
-                                                                    let mut callback_guard = on_chunk_stdout.lock().await;
-                                                                    if let Err(e) = callback_guard(text.to_string()) {
-                                                                        log::error!("Error in on_chunk callback: {}", e);
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        "result" => {
-                                            // 提取最终结果
-                                            if let Some(result_text) = value.get("result").and_then(|v| v.as_str()) {
-                                                let mut callback_guard = on_chunk_stdout.lock().await;
-                                                if let Err(e) = callback_guard(format!("\n\n{}", result_text)) {
-                                                    log::error!("Error in on_chunk callback: {}", e);
-                                                }
-                                            }
-                                        }
-                                        _ => {
-                                            // 其他类型（如 system、error）不显示
-                                            log::debug!("Skipping {} message type", msg_type);
-                                        }
+                            match self.parse_codefree_jsonl_line(trimmed_line) {
+                                Ok(Some(text)) => {
+                                    // 发送提取的文本内容到前端
+                                    if let Err(e) = on_chunk(text) {
+                                        log::error!("Error in on_chunk callback: {}", e);
                                     }
                                 }
-                            } else {
-                                // 如果解析失败，记录日志但不发送原始 JSON
-                                log::warn!("Failed to parse JSON line: {}", trimmed_line.chars().take(100).collect::<String>());
+                                Ok(None) => {
+                                    // 没有可提取的内容，跳过
+                                }
+                                Err(e) => {
+                                    // 解析错误，记录日志
+                                    log::warn!("Failed to parse JSONL line: {}, error: {}", 
+                                        trimmed_line.chars().take(100).collect::<String>(), e);
+                                }
                             }
                         }
                     }
@@ -597,9 +603,7 @@ impl AIProvider {
                 }
             }
             
-            // 将结果写入共享状态
-            let mut guard = full_content_clone.lock().await;
-            *guard = content;
+            content
         };
         
         let stderr_future = async {
@@ -610,70 +614,48 @@ impl AIProvider {
             
             match err_reader.read_to_end(&mut buffer).await {
                 Ok(_) => {
-                    // 尝试将字节转换为字符串，失败时使用替换字符
                     let stderr_content = String::from_utf8_lossy(&buffer).to_string();
                     
                     if !stderr_content.trim().is_empty() {
                         log::warn!("CodeFree stderr output ({} bytes): {}", buffer.len(), stderr_content.chars().take(500).collect::<String>());
                     }
                     
-                    // 将结果写入共享状态
-                    let mut guard = full_stderr_clone.lock().await;
-                    *guard = stderr_content;
+                    stderr_content
                 }
                 Err(e) => {
                     log::error!("Error reading stderr: {}", e);
-                    let mut guard = full_stderr_clone.lock().await;
-                    *guard = format!("读取 stderr 失败: {}", e);
+                    format!("读取 stderr 失败: {}", e)
                 }
             }
         };
         
         // ✅ 关键改进：并发执行两个读取任务，它们会一直运行直到 EOF
-        tokio::join!(stdout_future, stderr_future);
+        let (stdout_content, stderr_content) = tokio::join!(stdout_future, stderr_future);
         
         // ✅ 然后等待进程退出，确保所有输出都已完成
         let status = child_wait.await.map_err(|e| AIError {
             message: format!("CodeFree CLI 进程等待失败：{}", e),
         })?;
         
-        // 从共享状态获取结果
-        let full_content = full_content_arc.lock().await.clone();
-        let full_stderr = full_stderr_arc.lock().await.clone();
-        
-        // tokio::join! 返回的是 ()，因为 async 块没有返回值
-        // 错误已经在各自的 async 块中通过 log::error 记录了
-        
         if !status.success() {
             log::error!("CodeFree CLI exited with status: {}", status);
             
             // 尝试从已接收的 stdout 内容中解析 JSON 错误信息
-            if !full_content.is_empty() {
-                log::info!("Attempting to parse error from stream output (length: {})", full_content.len());
+            if !stdout_content.is_empty() {
+                log::info!("Attempting to parse error from stream output (length: {})", stdout_content.len());
                 
-                // 策略1: 尝试解析为 JSONL 格式（每行一个 JSON 对象）
-                match self.parse_codefree_jsonl_response(&full_content) {
-                    Ok(_) => {
-                        log::warn!("JSONL parsed successfully but exit code is non-zero");
-                    }
-                    Err(e) => {
-                        log::info!("✓ Extracted error message from JSONL: {}", e.message.chars().take(100).collect::<String>());
-                        return Err(e);
-                    }
-                }
-                
-                // 策略2: 如果 JSONL 解析失败，尝试解析为 JSON 数组格式
-                if let Some(json_start) = full_content.rfind('[') {
-                    let json_content = &full_content[json_start..];
-                    log::info!("Attempting to parse as JSON array format");
-                    
-                    match self.parse_codefree_json_response(json_content) {
-                        Ok(_) => {
-                            log::warn!("JSON array parsed successfully but exit code is non-zero");
-                        }
-                        Err(e) => {
-                            log::info!("✓ Extracted error message from JSON array: {}", e.message.chars().take(100).collect::<String>());
-                            return Err(e);
+                // 逐行解析，尝试提取错误信息
+                for line in stdout_content.lines() {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() {
+                        match self.parse_codefree_jsonl_line(trimmed) {
+                            Err(e) => {
+                                if e.message.starts_with("CodeFree CLI 错误：") {
+                                    log::info!("✓ Extracted error message from stream: {}", e.message.chars().take(100).collect::<String>());
+                                    return Err(e);
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -683,15 +665,15 @@ impl AIProvider {
             let mut error_details = String::new();
             
             // 优先显示 stderr 中的实际错误信息
-            if !full_stderr.is_empty() {
+            if !stderr_content.is_empty() {
                 error_details.push_str("【CodeFree CLI 错误详情】\n");
-                error_details.push_str(&full_stderr);
+                error_details.push_str(&stderr_content);
                 error_details.push_str("\n\n");
             }
             
-            if !full_content.is_empty() {
+            if !stdout_content.is_empty() {
                 error_details.push_str("【已接收的标准输出】\n");
-                error_details.push_str(&full_content.chars().take(1000).collect::<String>());
+                error_details.push_str(&stdout_content.chars().take(1000).collect::<String>());
                 error_details.push_str("\n\n");
             }
             
@@ -702,6 +684,6 @@ impl AIProvider {
             });
         }
         
-        Ok(full_content)
+        Ok(stdout_content)
     }
 }

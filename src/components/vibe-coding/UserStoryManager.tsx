@@ -206,7 +206,7 @@ export function UserStoryManager({
     await startStream(
       {
         prdContent: fullContent,
-        provider: store.defaultProvider,  // ✅ 使用默认厂商而非activeConfig.provider
+        provider: store.defaultProvider, // ✅ 使用默认厂商而非activeConfig.provider
         model: activeConfig.model,
         apiKey: activeConfig.apiKey || '', // codefree 传空字符串
       },

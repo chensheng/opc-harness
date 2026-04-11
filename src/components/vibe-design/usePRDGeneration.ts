@@ -72,7 +72,8 @@ export function usePRDGeneration({
     const activeConfig = aiConfigStore.getActiveConfig()
 
     // CodeFree CLI 不需要 API Key，其他 provider 需要检查
-    const hasValidConfig = activeConfig && (activeConfig.provider === 'codefree' || activeConfig.apiKey)
+    const hasValidConfig =
+      activeConfig && (activeConfig.provider === 'codefree' || activeConfig.apiKey)
 
     if (hasValidConfig) {
       // 使用流式生成（不显示加载遮罩）
