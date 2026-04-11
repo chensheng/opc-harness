@@ -23,7 +23,8 @@ pub async fn chat_kimi(request: ChatRequestPayload) -> Result<crate::ai::ChatRes
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 调用 AI Provider (Kimi uses OpenAI-compatible API)
     let response = provider.chat(chat_request)
@@ -59,7 +60,8 @@ pub async fn stream_chat_kimi(
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: true,
-    };
+            project_id: None,
+        };
     
     // 克隆 session_id 和 app handle 用于闭包
     let session_id_clone = session_id.clone();
@@ -131,7 +133,8 @@ pub async fn generate_personas_kimi(
         temperature: Some(0.7),
         max_tokens: Some(2048),
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 4. 调用 AI Provider
     let response = provider.chat(chat_request)
@@ -181,7 +184,8 @@ pub async fn generate_competitor_analysis_kimi(
         temperature: Some(0.7),
         max_tokens: Some(4096),
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 4. 调用 AI Provider
     let response = provider.chat(chat_request)

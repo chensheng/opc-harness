@@ -21,7 +21,8 @@ pub async fn chat_glm(request: ChatRequestPayload) -> Result<crate::ai::ChatResp
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 调用 AI Provider (GLM uses OpenAI-compatible API)
     let response = provider.chat(chat_request)
@@ -57,7 +58,8 @@ pub async fn stream_chat_glm(
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: true,
-    };
+            project_id: None,
+        };
     
     // 克隆 session_id 和 app handle 用于闭包
     let session_id_clone = session_id.clone();

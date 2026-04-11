@@ -190,6 +190,8 @@ ${prdContentForAI}
             ],
             temperature: 0.7,
             max_tokens: 8000,
+            // 传递 project_id，让 CodeFree CLI 切换到项目工作区目录
+            project_id: projectId || null,
           },
         })
       } catch (err) {

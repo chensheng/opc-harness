@@ -42,7 +42,8 @@ pub async fn generate_competitor_analysis(
         temperature: Some(0.7),
         max_tokens: Some(6000),
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 5. 调用 AI Provider
     let response = provider.chat(chat_request)

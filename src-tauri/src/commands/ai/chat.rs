@@ -37,6 +37,7 @@ pub async fn chat(request: ChatRequestPayload) -> Result<String, String> {
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: false,
+        project_id: None,
     };
 
     let response = provider
@@ -90,6 +91,7 @@ pub async fn stream_chat(
         temperature: request.temperature,
         max_tokens: request.max_tokens,
         stream: true,
+        project_id: request.project_id,
     };
 
     log::info!("[stream_chat] Calling provider.stream_chat...");

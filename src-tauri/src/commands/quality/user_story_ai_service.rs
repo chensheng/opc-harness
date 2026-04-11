@@ -58,7 +58,8 @@ pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, a
         temperature: Some(0.7),
         max_tokens: Some(4096),
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 调用 AI 服务
     let response = ai_provider.chat(chat_request).await

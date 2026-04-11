@@ -33,6 +33,22 @@ pub struct ChatRequest {
     pub temperature: Option<f32>,
     pub max_tokens: Option<i32>,
     pub stream: bool,
+    /// 项目 ID（用于 CodeFree CLI 切换工作目录）
+    #[serde(default)]
+    pub project_id: Option<String>,
+}
+
+impl Default for ChatRequest {
+    fn default() -> Self {
+        Self {
+            model: String::new(),
+            messages: Vec::new(),
+            temperature: None,
+            max_tokens: None,
+            stream: false,
+            project_id: None,
+        }
+    }
 }
 
 /// AI 聊天响应

@@ -57,7 +57,8 @@ pub async fn decompose_user_stories_streaming(
         temperature: Some(0.7),
         max_tokens: Some(4096),
         stream: true,
-    };
+            project_id: None,
+        };
     
     // 4. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();

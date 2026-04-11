@@ -42,7 +42,8 @@ pub async fn generate_user_personas(
         temperature: Some(0.8), // 稍微提高温度增加创造性
         max_tokens: Some(4096), // 用户画像需要较长文本
         stream: false,
-    };
+            project_id: None,
+        };
     
     // 5. 调用 AI Provider
     let response = provider.chat(chat_request)

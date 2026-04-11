@@ -36,6 +36,7 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
         temperature: Some(0.7),
         max_tokens: Some(4096), // PRD 通常较长
         stream: false,
+        project_id: None,
     };
     
     // 4. 调用 AI Provider
@@ -97,6 +98,7 @@ pub async fn start_prd_stream(
         temperature: Some(0.7),
         max_tokens: Some(4096),
         stream: true,
+        project_id: None,
     };
     
     // 4. 创建会话感知的 chunk 处理器

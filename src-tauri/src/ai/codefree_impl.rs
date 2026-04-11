@@ -500,6 +500,24 @@ impl AIProvider {
         
         log::info!("Using CodeFree CLI for streaming: {}, use_shell: {}", cmd_config.executable, cmd_config.use_shell);
         
+        // 如果提供了 project_id，获取并切换到项目工作区目录
+        let workspace_dir = if let Some(ref project_id) = request.project_id {
+            use crate::utils::paths::get_workspaces_dir;
+            
+            let workspaces_root = get_workspaces_dir();
+            let project_workspace = workspaces_root.join(project_id);
+            
+            if project_workspace.exists() {
+                log::info!("[CodeFree] Switching to project workspace: {:?}", project_workspace);
+                Some(project_workspace)
+            } else {
+                log::warn!("[CodeFree] Project workspace does not exist: {:?}", project_workspace);
+                None
+            }
+        } else {
+            None
+        };
+        
         // 构建查询内容
         let query = request.messages.iter()
             .map(|m| format!("{}: {}", m.role, m.content))
@@ -521,38 +539,50 @@ impl AIProvider {
             log::info!("Using model for streaming: {}", request.model);
         }
         
-        // 启动进程
+        // 启动进程（设置工作目录）
         let mut child = if cmd_config.use_shell {
             log::info!("Executing via cmd.exe /c for streaming");
             // Windows 批处理文件需要通过 cmd.exe 执行
             let mut full_cmd = vec![cmd_config.executable.clone()];
             full_cmd.extend(args.clone());
             
-            Command::new("cmd")
-                .args(&["/c"])
+            let mut cmd = Command::new("cmd");
+            cmd.args(&["/c"])
                 .args(&full_cmd)
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| {
-                    log::error!("Failed to spawn cmd.exe with codefree: {}", e);
-                    AIError {
-                        message: format!("CodeFree CLI 启动失败（cmd）：{}", e),
-                    }
-                })?
+                .stderr(Stdio::piped());
+            
+            // 如果指定了工作目录，设置当前目录
+            if let Some(ref dir) = workspace_dir {
+                cmd.current_dir(dir);
+                log::info!("[CodeFree] Set working directory to: {:?}", dir);
+            }
+            
+            cmd.spawn().map_err(|e| {
+                log::error!("Failed to spawn cmd.exe with codefree: {}", e);
+                AIError {
+                    message: format!("CodeFree CLI 启动失败（cmd）：{}", e),
+                }
+            })?
         } else {
             log::info!("Executing directly for streaming");
-            Command::new(&cmd_config.executable)
-                .args(&args)
+            let mut cmd = Command::new(&cmd_config.executable);
+            cmd.args(&args)
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| {
-                    log::error!("Failed to execute codefree command: {}", e);
-                    AIError {
-                        message: format!("CodeFree CLI 启动失败：{}", e),
-                    }
-                })?
+                .stderr(Stdio::piped());
+            
+            // 如果指定了工作目录，设置当前目录
+            if let Some(ref dir) = workspace_dir {
+                cmd.current_dir(dir);
+                log::info!("[CodeFree] Set working directory to: {:?}", dir);
+            }
+            
+            cmd.spawn().map_err(|e| {
+                log::error!("Failed to execute codefree command: {}", e);
+                AIError {
+                    message: format!("CodeFree CLI 启动失败：{}", e),
+                }
+            })?
         };
         
         let stdout = child.stdout.take().ok_or_else(|| AIError {

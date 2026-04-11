@@ -234,6 +234,7 @@ Follow best practices and coding standards. Include appropriate comments and doc
             temperature: Some(self.config.temperature),
             max_tokens: Some(self.config.max_tokens),
             stream: false,
+            project_id: None,
         };
 
         match client.post(&api_url)

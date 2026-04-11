@@ -111,6 +111,7 @@ impl AIProvider {
                 temperature: request.temperature,
                 max_tokens: request.max_tokens,
                 stream: false,
+                project_id: None,
             };
             
             self.chat_openai(kimi_request).await
@@ -298,6 +299,7 @@ impl AIProvider {
                 temperature: request.temperature,
                 max_tokens: request.max_tokens,
                 stream: true,
+                project_id: None,
             };
             
             self.stream_chat_openai(kimi_request, on_chunk).await

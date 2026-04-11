@@ -73,6 +73,7 @@ mod tests {
             temperature: Some(0.7),
             max_tokens: Some(1024),
             stream: false,
+            project_id: None,
         };
         assert_eq!(request.model, "gpt-4");
         assert_eq!(request.temperature, Some(0.7));
@@ -113,6 +114,7 @@ mod tests {
             temperature: Some(0.7),
             max_tokens: Some(1024),
             stream: false,
+            project_id: None,
         };
         let result = provider.chat(request).await;
         assert!(result.is_err());

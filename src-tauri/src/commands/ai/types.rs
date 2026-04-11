@@ -43,6 +43,9 @@ pub struct ChatRequestPayload {
     pub messages: Vec<Message>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<i32>,
+    /// 项目 ID（用于 CodeFree CLI 切换工作目录）
+    #[serde(default)]
+    pub project_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
