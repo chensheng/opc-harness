@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useProjectStore, useAppStore } from '@/stores'
+import { useProjectStore, useAppStore, useAIConfigStore } from '@/stores'
 import { useCompetitorStream } from '@/hooks/useCompetitorStream'
 import { CompetitorRadarChart } from '@/components/CompetitorRadarChart'
 import { CompetitorTimeline } from '@/components/CompetitorTimeline'
@@ -105,11 +105,22 @@ export function CompetitorAnalysis() {
       // 从项目 idea 生成竞品分析
       const idea = proj.prd?.overview || proj.description || '创建一个创新的产品'
 
+      // 获取默认AI厂商配置
+      const aiConfigStore = useAIConfigStore.getState()
+      const activeConfig = aiConfigStore.getActiveConfig()
+
+      if (!activeConfig?.apiKey) {
+        console.error('[CompetitorAnalysis] No API key configured')
+        setUseFallback(true)
+        generateAnalysis()
+        return
+      }
+
       await startStream({
         idea,
-        provider: 'openai',
-        model: 'gpt-4o-mini',
-        apiKey: '', // TODO: 从配置中获取
+        provider: aiConfigStore.defaultProvider,
+        model: activeConfig.model,
+        apiKey: activeConfig.apiKey,
       })
     } catch (err) {
       console.error('[CompetitorAnalysis] Error starting stream:', err)

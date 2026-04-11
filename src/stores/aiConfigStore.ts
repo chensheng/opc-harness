@@ -151,34 +151,28 @@ export const useAIConfigStore = create<AIConfigState & AIConfigActions>()(
         getActiveConfig: () => {
           const { defaultProvider, configs } = get()
 
-          // 1. 优先返回 defaultProvider 的配置
-          if (configs[defaultProvider]?.apiKey) {
-            return configs[defaultProvider]
-          }
+          // 始终基于 defaultProvider 返回配置（信任用户设置，不检查apiKey）
+          const config = configs[defaultProvider]
 
-          // 2. 如果 defaultProvider 没有配置，查找所有已配置的 provider
-          const configuredProviders = Object.entries(configs)
-            .filter(([_, config]) => config?.apiKey)
-            .sort(([_, configA], [__, configB]) => {
-              // 按 lastModified 降序排序，最新的在前
-              const timeA = configA?.lastModified || 0
-              const timeB = configB?.lastModified || 0
-              return timeB - timeA
-            })
-
-          if (configuredProviders.length > 0) {
-            // 返回最新配置的那个 provider
-            const [latestProvider, latestConfig] = configuredProviders[0]
+          if (config) {
             console.log(
-              '[AIConfig] Using provider:',
-              latestProvider,
-              'configured at:',
-              new Date(latestConfig.lastModified || 0).toLocaleString()
+              '[AIConfig] Using default provider:',
+              defaultProvider,
+              '(model:',
+              config.model + ')'
             )
-            return latestConfig
+            return {
+              ...config,
+              provider: defaultProvider, // 确保返回的provider与defaultProvider一致
+            }
           }
 
-          // 3. 没有任何配置，返回 undefined
+          // 默认provider不存在（理论上不应该发生，因为设置时会验证）
+          console.warn(
+            '[AIConfig] Default provider',
+            defaultProvider,
+            'configuration not found. This should not happen if properly configured.'
+          )
           return undefined
         },
       }),

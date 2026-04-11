@@ -76,7 +76,7 @@ export function usePRDGeneration({
       reset()
       await startStream({
         idea: projectIdea,
-        provider: activeConfig.provider,
+        provider: aiConfigStore.defaultProvider,
         model: activeConfig.model,
         apiKey: activeConfig.apiKey,
       })

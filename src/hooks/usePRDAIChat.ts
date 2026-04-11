@@ -144,7 +144,7 @@ ${currentPRDContent}
         // 调用后端流式聊天命令
         await invoke<string>('stream_chat', {
           request: {
-            provider: activeConfig.provider,
+            provider: aiConfigStore.defaultProvider,
             model: activeConfig.model,
             api_key: activeConfig.apiKey,
             messages: [
