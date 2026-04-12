@@ -9,6 +9,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Sparkles,
   FileText,
   CheckCircle2,
@@ -34,6 +42,7 @@ import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
 import { useUserStoryStream } from '@/hooks/useUserStoryStream'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUserStoryStore } from '@/stores/userStoryStore'
+import { UserStoryEditDialog } from './UserStoryEditDialog'
 
 // PRD 预览的自定义 Markdown 组件
 const PRDPreviewComponents = {
@@ -175,6 +184,15 @@ export function UserStoryManager({
   const [filterStatus, setFilterStatus] = useState<string>('') // 状态筛选
   const [filterPriority, setFilterPriority] = useState<string>('') // 优先级筛选
 
+  // 编辑对话框状态
+  const [editingStory, setEditingStory] = useState<UserStory | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+
+  // 删除确认对话框状态
+  const [deletingStory, setDeletingStory] = useState<UserStory | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // 使用流式 Hook
   const {
     markdownContent,
@@ -198,6 +216,8 @@ export function UserStoryManager({
   // 获取当前项目ID和用户故事Store
   const currentProjectId = useProjectStore(state => state.currentProjectId)
   const loadProjectStories = useUserStoryStore(state => state.loadProjectStories)
+  const updateStory = useUserStoryStore(state => state.updateStory)
+  const deleteStory = useUserStoryStore(state => state.deleteStory)
   const isLoadingFromDB = useUserStoryStore(state => state.isLoading)
 
   // 直接从 Store 订阅用户故事(响应式)
@@ -288,6 +308,50 @@ export function UserStoryManager({
     const avgPoints = stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0) / total || 0
 
     return { total, p0, p1, avgPoints }
+  }
+
+  // 编辑用户故事
+  const handleEditStory = (story: UserStory) => {
+    setEditingStory(story)
+    setShowEditDialog(true)
+  }
+
+  // 保存编辑后的用户故事
+  const handleSaveStory = async (updatedStory: UserStory) => {
+    if (currentProjectId && editingStory) {
+      await updateStory(currentProjectId, editingStory.id, updatedStory)
+      setShowEditDialog(false)
+      setEditingStory(null)
+    }
+  }
+
+  // 打开删除确认对话框
+  const handleDeleteStory = (story: UserStory) => {
+    setDeletingStory(story)
+    setShowDeleteConfirm(true)
+  }
+
+  // 执行删除操作
+  const confirmDelete = async () => {
+    if (!deletingStory || !currentProjectId) return
+
+    setIsDeleting(true)
+    try {
+      await deleteStory(currentProjectId, deletingStory.id)
+      setShowDeleteConfirm(false)
+      setDeletingStory(null)
+    } catch (error) {
+      console.error('删除用户故事失败:', error)
+      alert('删除失败，请重试')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // 取消删除
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false)
+    setDeletingStory(null)
   }
 
   // 筛选逻辑（在排序之前执行）
@@ -792,10 +856,22 @@ export function UserStoryManager({
                             </td>
                             <td className="py-1.5 px-2 align-middle">
                               <div className="flex gap-0.5">
-                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => handleEditStory(story)}
+                                  title="编辑用户故事"
+                                >
                                   <Edit2 className="w-2.5 h-2.5" />
                                 </Button>
-                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => handleDeleteStory(story)}
+                                  title="删除用户故事"
+                                >
                                   <Trash2 className="w-2.5 h-2.5" />
                                 </Button>
                               </div>
@@ -918,6 +994,41 @@ export function UserStoryManager({
           )}
         </TabsContent>
       </Tabs>
+
+      {/* 用户故事编辑对话框 */}
+      <UserStoryEditDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        story={editingStory}
+        onSave={handleSaveStory}
+      />
+
+      {/* 用户故事删除确认对话框 */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              确定要删除用户故事 "{deletingStory?.title}" 吗？此操作不可恢复。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDelete} disabled={isDeleting}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  删除中...
+                </>
+              ) : (
+                '确认删除'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
