@@ -411,25 +411,7 @@ export function UserStoryManager({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6" />
-            用户故事管理
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            通过 AI 将 PRD 拆分为符合 INVEST 原则的用户故事
-          </p>
-        </div>
-        {displayStories.length > 0 && (
-          <Button variant="outline" onClick={handleReset}>
-            重新拆分
-          </Button>
-        )}
-      </div>
-
+    <div className="space-y-3">
       <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'input' | 'stories')}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="input">
@@ -666,7 +648,7 @@ export function UserStoryManager({
               {/* Story List - 表格形式（超紧凑版） */}
               <Card>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-450px)]">
+                  <ScrollArea className="h-[calc(100vh-350px)]">
                     <table className="w-full border-collapse text-xs">
                       <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
