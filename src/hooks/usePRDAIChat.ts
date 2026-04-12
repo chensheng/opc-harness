@@ -174,6 +174,18 @@ ${prdContentForAI}
 
         unlistenRef.current.push(errorUnlisten)
 
+        // ✅ 监听完成事件（关键修复）
+        const completeUnlisten = await listen<{ session_id: string; content: string }>(
+          'ai-stream-complete',
+          () => {
+            console.log('[usePRDAIChat] Stream completed event received')
+            // 注意：不立即设置 isStreaming = false，因为 CodeFree 还需要从文件读取
+            // isStreaming 会在后续的文件读取完成后或 invoke 返回后设置
+          }
+        )
+
+        unlistenRef.current.push(completeUnlisten)
+
         // 构建消息数组
         const messages = [
           { role: 'system' as const, content: systemPrompt },
@@ -191,6 +203,9 @@ ${prdContentForAI}
             project_id: projectId || null,
           },
         })
+
+        // ✅ stream_chat 调用完成，说明流式输出已结束
+        console.log('[usePRDAIChat] stream_chat invoke completed')
 
         // 如果使用 CodeFree，优化完成后从文件读取最终的 PRD 内容
         if (activeConfig?.provider === 'codefree' && workspacePath) {
@@ -222,6 +237,12 @@ ${prdContentForAI}
             // 即使读取失败，也不影响已有的流式内容
           }
         }
+
+        // ✅ 所有处理完成后，设置流式状态为 false
+        console.log('[usePRDAIChat] Setting isStreaming to false')
+        isStreamingRef.current = false
+        setIsStreaming(false)
+        cleanup() // 清理所有事件监听器
       } catch (err) {
         console.error('[usePRDAIChat] Error:', err)
         // 使用后端返回的详细错误信息，而不是通用消息
