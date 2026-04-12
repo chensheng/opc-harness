@@ -282,126 +282,126 @@ export function UserStoryManager({
         </TabsList>
 
         {/* Input Tab */}
-        <TabsContent value="input" className="space-y-4">
-          {/* PRD Preview Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                项目 PRD
-              </CardTitle>
-              <CardDescription>AI 将基于以下 PRD 内容拆分用户故事</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px] w-full rounded-md border p-6 bg-card">
-                {prdContent ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={PRDPreviewComponents}>
-                      {prdContent}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center">
-                      <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">暂无 PRD 内容</p>
+        <TabsContent value="input" className="space-y-3">
+          {/* 紧凑布局：PRD 预览和输入框并排 */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* PRD Preview Card - 左侧 */}
+            <Card className="h-[calc(100vh-280px)] flex flex-col">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-4 h-4" />
+                  项目 PRD
+                </CardTitle>
+                <CardDescription className="text-xs">AI 将基于此内容拆分</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden px-4 pb-3">
+                <ScrollArea className="h-full w-full rounded-md border p-3 bg-card">
+                  {prdContent ? (
+                    <div className="prose prose-xs dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={PRDPreviewComponents}>
+                        {prdContent}
+                      </ReactMarkdown>
                     </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      <div className="text-center">
+                        <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs">暂无 PRD 内容</p>
+                      </div>
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Prompt Input Card - 右侧 */}
+            <Card className="h-[calc(100vh-280px)] flex flex-col">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MessageSquare className="w-4 h-4" />
+                  拆分要求
+                </CardTitle>
+                <CardDescription className="text-xs">可选的额外要求</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden px-4 pb-3 flex flex-col space-y-3">
+                <Textarea
+                  placeholder="例如：&#10;- 重点关注用户认证&#10;- 优先核心业务流程&#10;- 考虑技术债务..."
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  className="min-h-[120px] flex-1 resize-none text-sm"
+                />
+
+                {displayError && (
+                  <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                    <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-red-700 dark:text-red-400">{displayError}</div>
                   </div>
                 )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
 
-          {/* Prompt Input Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                拆分要求（可选）
-              </CardTitle>
-              <CardDescription>
-                输入额外的拆分要求或关注点，AI 会根据您的要求优化拆分结果
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="例如：&#10;- 重点关注用户认证和权限管理相关的故事&#10;- 优先拆分核心业务流程&#10;- 考虑技术债务和重构需求&#10;- 需要包含单元测试和文档编写任务..."
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                className="min-h-[150px]"
-              />
-
-              {displayError && (
-                <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-                  <div className="text-sm text-red-700 dark:text-red-400">{displayError}</div>
-                </div>
-              )}
-
-              {/* 流式响应实时显示 */}
-              {showStreamingView && isStreaming && (
-                <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      AI 正在生成用户故事...
-                    </CardTitle>
-                    <CardDescription>实时查看 AI 拆分的用户故事内容</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-background/50">
-                      {markdownContent ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={PRDPreviewComponents}
-                          >
-                            {markdownContent}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">
-                          <div className="text-center space-y-2">
-                            <Loader2 className="w-8 h-8 animate-spin mx-auto" />
-                            <p className="text-sm">正在连接 AI...</p>
+                {/* 流式响应实时显示 - 紧凑版 */}
+                {showStreamingView && isStreaming && (
+                  <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5 flex-1">
+                    <CardHeader className="pb-2 pt-2 px-3">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        AI 生成中...
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      <ScrollArea className="h-[calc(100%-40px)] w-full rounded-md border p-2 bg-background/50">
+                        {markdownContent ? (
+                          <div className="prose prose-xs dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={PRDPreviewComponents}
+                            >
+                              {markdownContent}
+                            </ReactMarkdown>
                           </div>
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Button
-                onClick={handleDecompose}
-                disabled={!prdContent || displayLoading}
-                className="w-full"
-                size="lg"
-              >
-                {displayLoading ? (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2 animate-spin" />
-                    AI 正在拆分中...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2" />
-                    开始拆分用户故事
-                  </>
+                        ) : (
+                          <div className="flex items-center justify-center h-20 text-muted-foreground">
+                            <div className="text-center space-y-1">
+                              <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                              <p className="text-xs">正在连接 AI...</p>
+                            </div>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
                 )}
-              </Button>
 
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>💡 提示：</p>
-                <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>AI 会自动基于项目 PRD 进行拆分</li>
-                  <li>可以输入额外要求来指导拆分方向</li>
-                  <li>遵循 INVEST 原则生成高质量用户故事</li>
-                  <li>每个故事包含验收标准和优先级评估</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+                <Button
+                  onClick={handleDecompose}
+                  disabled={!prdContent || displayLoading}
+                  className="w-full"
+                  size="sm"
+                >
+                  {displayLoading ? (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                      AI 拆分中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      开始拆分用户故事
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p>💡 提示：</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-1 text-[10px]">
+                    <li>AI 自动基于 PRD 拆分</li>
+                    <li>可输入额外要求指导拆分</li>
+                    <li>遵循 INVEST 原则</li>
+                    <li>包含验收标准和优先级</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Stories Tab */}
