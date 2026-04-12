@@ -26,6 +26,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Search,
+  X,
 } from 'lucide-react'
 import type { UserStory } from '@/types'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
@@ -136,6 +138,14 @@ const statusLabels: Record<string, string> = {
   completed: '已完成',
 }
 
+const statusIcons: Record<string, React.ReactNode> = {
+  draft: <Clock className="w-3 h-3" />,
+  refined: <Edit2 className="w-3 h-3" />,
+  approved: <CheckCircle2 className="w-3 h-3" />,
+  in_development: <Loader2 className="w-3 h-3 animate-spin" />,
+  completed: <CheckCircle2 className="w-3 h-3" />,
+}
+
 /**
  * 用户故事管理组件
  *
@@ -157,6 +167,11 @@ export function UserStoryManager({
   // 排序状态（支持多条件排序）
   type SortField = 'priority' | 'storyPoints'
   const [sortConfigs, setSortConfigs] = useState<Array<{ field: SortField; order: 'asc' | 'desc' }>>([])
+  
+  // 筛选状态
+  const [filterKeyword, setFilterKeyword] = useState('') // 关键词筛选
+  const [filterStatus, setFilterStatus] = useState<string>('') // 状态筛选
+  const [filterPriority, setFilterPriority] = useState<string>('') // 优先级筛选
 
   // 使用流式 Hook
   const {
@@ -259,11 +274,38 @@ export function UserStoryManager({
     return { total, p0, p1, avgPoints }
   }
 
-  // 计算分页数据（先排序再分页）
-  const sortedStories = React.useMemo(() => {
-    if (sortConfigs.length === 0) return displayStories
+  // 筛选逻辑（在排序之前执行）
+  const filteredStories = React.useMemo(() => {
+    let result = displayStories
 
-    return [...displayStories].sort((a: UserStory, b: UserStory) => {
+    // 关键词筛选：匹配标题、功能描述、角色
+    if (filterKeyword.trim()) {
+      const keyword = filterKeyword.toLowerCase()
+      result = result.filter((story: UserStory) =>
+        story.title.toLowerCase().includes(keyword) ||
+        story.feature.toLowerCase().includes(keyword) ||
+        story.role.toLowerCase().includes(keyword)
+      )
+    }
+
+    // 状态筛选
+    if (filterStatus) {
+      result = result.filter((story: UserStory) => story.status === filterStatus)
+    }
+
+    // 优先级筛选
+    if (filterPriority) {
+      result = result.filter((story: UserStory) => story.priority === filterPriority)
+    }
+
+    return result
+  }, [displayStories, filterKeyword, filterStatus, filterPriority])
+
+  // 计算分页数据（先筛选，再排序，最后分页）
+  const sortedStories = React.useMemo(() => {
+    if (sortConfigs.length === 0) return filteredStories
+
+    return [...filteredStories].sort((a: UserStory, b: UserStory) => {
       let comparison = 0
 
       for (const config of sortConfigs) {
@@ -287,7 +329,7 @@ export function UserStoryManager({
 
       return 0
     })
-  }, [displayStories, sortConfigs])
+  }, [filteredStories, sortConfigs])
 
   const totalPages = Math.ceil(sortedStories.length / pageSize)
   const startIndex = (currentPage - 1) * pageSize
@@ -331,6 +373,25 @@ export function UserStoryManager({
     const index = sortConfigs.findIndex(config => config.field === field)
     return index >= 0 ? index + 1 : null
   }
+  
+  // 清除所有筛选条件
+  const clearFilters = () => {
+    setFilterKeyword('')
+    setFilterStatus('')
+    setFilterPriority('')
+    setCurrentPage(1)
+  }
+  
+  // 获取所有唯一的筛选选项
+  const uniqueStatuses = React.useMemo(() => {
+    const statuses = new Set(displayStories.map((s: UserStory) => s.status))
+    return Array.from(statuses).sort()
+  }, [displayStories])
+  
+  const uniquePriorities = React.useMemo(() => {
+    const priorities = new Set(displayStories.map((s: UserStory) => s.priority))
+    return Array.from(priorities).sort()
+  }, [displayStories])
   
   // 重置分页（当故事列表变化时）
   React.useEffect(() => {
@@ -517,10 +578,88 @@ export function UserStoryManager({
         <TabsContent value="stories">
           {displayStories && displayStories.length > 0 && (
             <div className="space-y-2">
+              {/* Filter Bar - 筛选栏 */}
+              <Card>
+                <CardContent className="p-2">
+                  <div className="flex items-center gap-2">
+                    {/* 关键词搜索 */}
+                    <div className="relative flex-1 max-w-xs">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="搜索标题、功能、角色..."
+                        value={filterKeyword}
+                        onChange={(e) => {
+                          setFilterKeyword(e.target.value)
+                          setCurrentPage(1)
+                        }}
+                        className="w-full pl-7 pr-7 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      {filterKeyword && (
+                        <button
+                          onClick={() => setFilterKeyword('')}
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 状态筛选 */}
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => {
+                        setFilterStatus(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">所有状态</option>
+                      {uniqueStatuses.map(status => (
+                        <option key={status} value={status}>{statusLabels[status] || status}</option>
+                      ))}
+                    </select>
+
+                    {/* 优先级筛选 */}
+                    <select
+                      value={filterPriority}
+                      onChange={(e) => {
+                        setFilterPriority(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">所有优先级</option>
+                      {uniquePriorities.map(priority => (
+                        <option key={priority} value={priority}>{priority}</option>
+                      ))}
+                    </select>
+
+                    {/* 清除筛选按钮 */}
+                    {(filterKeyword || filterStatus || filterPriority) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="h-6 px-2 text-[10px]"
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        清除
+                      </Button>
+                    )}
+
+                    {/* 筛选结果统计 */}
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {filteredStories.length} / {displayStories.length} 条
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Story List - 表格形式（超紧凑版） */}
               <Card>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-380px)]">
+                  <ScrollArea className="h-[calc(100vh-450px)]">
                     <table className="w-full border-collapse text-xs">
                       <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
