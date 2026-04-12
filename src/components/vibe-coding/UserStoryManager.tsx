@@ -603,8 +603,7 @@ export function UserStoryManager({
                               <div className="space-y-0.5">
                                 <div className="font-medium text-xs leading-tight">{story.title}</div>
                                 <div className="text-[10px] text-muted-foreground line-clamp-1">
-                                  <span className="font-medium">As a</span> {story.role},{' '}
-                                  <span className="font-medium">I want</span> {story.feature}
+                                  {story.feature}
                                 </div>
                               </div>
                             </td>
