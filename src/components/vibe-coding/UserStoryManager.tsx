@@ -438,7 +438,7 @@ export function UserStoryManager({
               {/* Story List - 表格形式（超紧凑版） */}
               <Card>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-340px)]">
+                  <ScrollArea className="h-[calc(100vh-380px)]">
                     <table className="w-full border-collapse text-xs">
                       <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
@@ -511,25 +511,25 @@ export function UserStoryManager({
               </Card>
 
               {/* Pagination Controls - 超紧凑版 */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between py-1 px-1.5 border-t">
-                  <div className="flex items-center gap-1 text-[10px]">
-                    <span className="text-muted-foreground">每页:</span>
-                    <div className="flex gap-0.5">
-                      {[10, 20, 50].map(size => (
-                        <Button
-                          key={size}
-                          variant={pageSize === size ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => handlePageSizeChange(size)}
-                          className="h-5 px-1.5 text-[9px]"
-                        >
-                          {size}
-                        </Button>
-                      ))}
-                    </div>
+              <div className="flex items-center justify-between py-1 px-1.5 border-t">
+                <div className="flex items-center gap-1 text-[10px]">
+                  <span className="text-muted-foreground">每页:</span>
+                  <div className="flex gap-0.5">
+                    {[10, 20, 50].map(size => (
+                      <Button
+                        key={size}
+                        variant={pageSize === size ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePageSizeChange(size)}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        {size}
+                      </Button>
+                    ))}
                   </div>
+                </div>
 
+                {totalPages > 1 && (
                   <div className="flex items-center gap-0.5">
                     <Button
                       variant="outline"
@@ -580,8 +580,8 @@ export function UserStoryManager({
                       <ChevronRight className="w-2.5 h-2.5" />
                     </Button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </TabsContent>
