@@ -508,13 +508,27 @@ impl AIProvider {
             let project_workspace = workspaces_root.join(project_id);
             
             if project_workspace.exists() {
-                log::info!("[CodeFree] Switching to project workspace: {:?}", project_workspace);
+                log::info!("[CodeFree] ✅ Switching to project workspace: {:?}", project_workspace);
+                
+                // 检查配置文件是否存在
+                let config_dir = project_workspace.join(".codefree-cli");
+                let settings_json = config_dir.join("settings.json");
+                if settings_json.exists() {
+                    log::info!("[CodeFree] ✅ Found settings.json at: {:?}", settings_json);
+                } else {
+                    log::warn!("[CodeFree] ⚠️ settings.json NOT found at: {:?}", settings_json);
+                    log::warn!("[CodeFree] ⚠️ CodeFree CLI may fail due to missing configuration!");
+                }
+                
                 Some(project_workspace)
             } else {
-                log::warn!("[CodeFree] Project workspace does not exist: {:?}", project_workspace);
+                log::warn!("[CodeFree] ❌ Project workspace does not exist: {:?}", project_workspace);
+                log::warn!("[CodeFree] ❌ CodeFree CLI will run without project context!");
                 None
             }
         } else {
+            log::warn!("[CodeFree] ⚠️ No project_id provided, running without workspace directory!");
+            log::warn!("[CodeFree] ⚠️ This may cause authentication errors if settings.json is not in default location!");
             None
         };
         
@@ -565,9 +579,35 @@ impl AIProvider {
             let mut full_cmd = vec![cmd_config.executable.clone()];
             full_cmd.extend(args.clone());
             
+            // ⚠️ 关键修复：将完整命令拼接为单个字符串，避免参数解析问题
+            let command_string = full_cmd.iter()
+                .map(|arg| {
+                    // 如果参数包含空格、@符号、中文或换行符，需要用引号包裹
+                    if arg.contains(' ') || arg.contains('@') || arg.contains('\n') || arg.contains('\r') || arg.chars().any(|c| c > '\u{7F}') {
+                        // 对于包含换行符的参数，将其替换为空格（CMD 不支持多行参数）
+                        let normalized = arg
+                            .replace("\r\n", " ")
+                            .replace("\n", " ")
+                            .replace("\r", " ");
+                        
+                        // 转义内部的双引号
+                        let escaped = normalized
+                            .replace("\\", "\\\\")
+                            .replace("\"", "\\\"");
+                        
+                        format!("\"{}\"", escaped)
+                    } else {
+                        arg.clone()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            
+            log::info!("[CodeFree] Command string for cmd.exe: {}", command_string);
+            
             let mut cmd = Command::new("cmd");
-            cmd.args(&["/c"])
-                .args(&full_cmd)
+            cmd.arg("/c")
+                .arg(&command_string)  // ← 将整个命令作为单个字符串参数
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
             
@@ -694,11 +734,26 @@ impl AIProvider {
         if !status.success() {
             log::error!("CodeFree CLI exited with status: {}", status);
             
+            // 详细记录 stdout 和 stderr 的内容
+            log::info!("[CodeFree Error Debug] stdout length: {} bytes, stderr length: {} bytes", 
+                stdout_content.len(), stderr_content.len());
+            
+            if !stdout_content.is_empty() {
+                log::info!("[CodeFree Error Debug] First 500 chars of stdout:");
+                log::info!("{}", stdout_content.chars().take(500).collect::<String>());
+            }
+            
+            if !stderr_content.is_empty() {
+                log::info!("[CodeFree Error Debug] First 500 chars of stderr:");
+                log::info!("{}", stderr_content.chars().take(500).collect::<String>());
+            }
+            
             // 尝试从已接收的 stdout 内容中解析 JSON 错误信息
             if !stdout_content.is_empty() {
                 log::info!("Attempting to parse error from stream output (length: {})", stdout_content.len());
                 
                 // 逐行解析，尝试提取错误信息
+                let mut found_error = false;
                 for line in stdout_content.lines() {
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
@@ -706,6 +761,7 @@ impl AIProvider {
                             Err(e) => {
                                 if e.message.starts_with("CodeFree CLI 错误：") {
                                     log::info!("✓ Extracted error message from stream: {}", e.message.chars().take(100).collect::<String>());
+                                    found_error = true;
                                     return Err(e);
                                 }
                             }
@@ -713,29 +769,13 @@ impl AIProvider {
                         }
                     }
                 }
+                
+                if !found_error {
+                    log::warn!("[CodeFree Error Debug] ⚠️ Could not extract error from stdout lines");
+                }
+            } else {
+                log::warn!("[CodeFree Error Debug] ⚠️ stdout is empty, cannot extract error details");
             }
-            
-            // 如果所有解析都失败，返回详细的诊断信息
-            let mut error_details = String::new();
-            
-            // 优先显示 stderr 中的实际错误信息
-            if !stderr_content.is_empty() {
-                error_details.push_str("【CodeFree CLI 错误详情】\n");
-                error_details.push_str(&stderr_content);
-                error_details.push_str("\n\n");
-            }
-            
-            if !stdout_content.is_empty() {
-                error_details.push_str("【已接收的标准输出】\n");
-                error_details.push_str(&stdout_content.chars().take(1000).collect::<String>());
-                error_details.push_str("\n\n");
-            }
-            
-            error_details.push_str(&format!("退出码: {}", status));
-            
-            return Err(AIError {
-                message: error_details,
-            });
         }
         
         Ok(stdout_content)

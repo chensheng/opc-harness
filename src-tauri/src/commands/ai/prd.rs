@@ -45,7 +45,7 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
             
             // 构建简短的用户消息，通过 @ 引用 AGENTS.md 文件
             format!(
-                "请根据 @.opc-harness/AGENTS.md 中的要求，为以下产品想法生成完整的 PRD 文档，并将结果保存到 @.opc-harness/PRD.md 文件中。\n\n产品想法：{}",
+                "请根据 @.opc-harness/AGENTS.md 中的要求，为以下产品想法生成完整的 PRD 文档，并将结果保存到 @.opc-harness/PRD.md 文件中。 产品想法：{}",
                 request.idea
             )
         } else {
@@ -181,7 +181,7 @@ pub async fn start_prd_stream(
             // 构建简短的用户消息，通过 @ 引用 AGENTS.md 文件
             // CodeFree 会自动读取当前工作目录下的文件
             format!(
-                "请根据 @.opc-harness/AGENTS.md 中的要求，为以下产品想法生成完整的 PRD 文档，并将结果保存到 @.opc-harness/PRD.md 文件中。\n\n产品想法：{}",
+                "请根据 @.opc-harness/AGENTS.md 中的要求，为以下产品想法生成完整的 PRD 文档，并将结果保存到 @.opc-harness/PRD.md 文件中。 产品想法：{}",
                 request.idea
             )
         } else {

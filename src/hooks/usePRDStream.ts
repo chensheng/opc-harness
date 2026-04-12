@@ -128,11 +128,19 @@ export function usePRDStream(): UsePRDStreamReturn {
         )
         unlistenRef.current.push(unlistenComplete)
 
-        // 监听错误事件
+        // 监听错误事件 - 直接显示后端返回的完整错误信息
         const unlistenError = await listen<{ session_id: string; error: string }>(
           'prd-stream-error',
           event => {
-            console.error('[usePRDStream] PRD stream error:', event.payload.error)
+            console.error('[usePRDStream] ========================================')
+            console.error('[usePRDStream] PRD stream error event received:')
+            console.error('[usePRDStream] Session ID:', event.payload.session_id)
+            console.error('[usePRDStream] Error type:', typeof event.payload.error)
+            console.error('[usePRDStream] Error length:', event.payload.error?.length || 0)
+            console.error('[usePRDStream] Full error content:')
+            console.error(event.payload.error)
+            console.error('[usePRDStream] ========================================')
+            
             setError(event.payload.error)
             setIsStreaming(false)
             isStreamingRef.current = false

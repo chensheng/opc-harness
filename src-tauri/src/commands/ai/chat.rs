@@ -1,5 +1,6 @@
-use crate::ai::{AIProvider, AIProviderType, ChatRequest, StreamChunk, StreamComplete, StreamError};
+use crate::ai::{AIProvider, AIProviderType, ChatRequest, StreamChunk, StreamComplete};
 use crate::commands::ai::types::ChatRequestPayload;
+use crate::commands::ai::error_handler::emit_stream_error_detailed;
 use tauri::Emitter;
 use uuid::Uuid;
 
@@ -129,12 +130,8 @@ pub async fn stream_chat(
             Ok(final_content)
         }
         Err(e) => {
-            // 发送错误事件
-            let error_data = StreamError {
-                session_id: session_id.clone(),
-                error: e.to_string(),
-            };
-            let _ = app.emit("ai-stream-error", error_data);
+            // 使用统一的错误处理函数
+            emit_stream_error_detailed(&app, "ai-stream-error", &session_id, &e);
 
             Err(e.to_string())
         }

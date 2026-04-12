@@ -13,6 +13,7 @@ pub mod claude;
 pub mod kimi;
 pub mod glm;
 pub mod provider_info;
+pub mod error_handler;
 
 // 重新导出所有公共 API，保持向后兼容
 pub use api_key::*;
@@ -25,3 +26,4 @@ pub use claude::*;
 pub use kimi::*;
 pub use glm::*;
 pub use provider_info::*;
+// error_handler 中的函数可以直接通过路径访问，无需重新导出
