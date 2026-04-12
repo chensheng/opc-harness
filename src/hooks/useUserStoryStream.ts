@@ -178,6 +178,9 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
       setError(null)
       setSessionId(null)
 
+      // 标记是否已通过事件处理错误（避免重复设置）
+      let errorHandledByEvent = false
+
       try {
         // 监听流式 chunk 事件
         const unlistenChunk = await listen<{
@@ -227,6 +230,9 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
           event => {
             const { error: errorMsg } = event.payload
 
+            // 标记错误已由事件处理
+            errorHandledByEvent = true
+
             setError(errorMsg)
             setIsStreaming(false)
             setIsComplete(false)
@@ -249,11 +255,14 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
 
         // 响应已在事件中处理
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : '流式请求失败'
-        setError(errorMessage)
-        setIsStreaming(false)
-        setIsComplete(false)
-        cleanup()
+        // 只有在错误事件未处理时才使用 invoke 返回的错误
+        if (!errorHandledByEvent) {
+          const errorMessage = err instanceof Error ? err.message : '流式请求失败'
+          setError(errorMessage)
+          setIsStreaming(false)
+          setIsComplete(false)
+          cleanup()
+        }
       }
     },
     [cleanup]
