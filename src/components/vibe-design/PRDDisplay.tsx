@@ -119,10 +119,16 @@ export function PRDDisplay() {
 
   // 当流式 PRD 更新时，同步到本地状态
   useEffect(() => {
-    if (streamingPRD && isStreaming) {
+    // 修复：不仅在流式中更新，在流式完成后也要更新（特别是 CodeFree 从文件读取的内容）
+    if (streamingPRD) {
+      console.log('[PRDDisplay] Syncing streamingPRD to local state:', {
+        hasMarkdownContent: !!streamingPRD.markdownContent,
+        markdownLength: streamingPRD.markdownContent?.length || 0,
+        title: streamingPRD.title,
+      })
       setPrd(streamingPRD)
     }
-  }, [streamingPRD, isStreaming])
+  }, [streamingPRD])
 
   const handleCancelEdit = () => {
     setIsEditing(false)

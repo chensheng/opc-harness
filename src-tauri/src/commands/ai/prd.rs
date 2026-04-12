@@ -269,19 +269,23 @@ pub async fn start_prd_stream(
                         match fs::read_to_string(&prd_md_path) {
                             Ok(content) => {
                                 log::info!("[start_prd_stream] ✅ Successfully read PRD.md, length: {} bytes", content.len());
+                                log::info!("[start_prd_stream] 📄 Using content from PRD.md file");
                                 content
                             }
                             Err(e) => {
                                 log::warn!("[start_prd_stream] ⚠️ Failed to read PRD.md: {}, using streamed content", e);
+                                log::info!("[start_prd_stream] 🔄 Falling back to streamed content, length: {} bytes", final_content.len());
                                 final_content
                             }
                         }
                     } else {
                         log::warn!("[start_prd_stream] ⚠️ CodeFree completed but no project_id, using streamed content");
+                        log::info!("[start_prd_stream] 🔄 Using streamed content, length: {} bytes", final_content.len());
                         final_content
                     }
                 } else {
                     // 非 CodeFree 提供商，直接使用流式内容
+                    log::info!("[start_prd_stream] ℹ️ Using streamed content (non-CodeFree provider), length: {} bytes", final_content.len());
                     final_content
                 };
                 

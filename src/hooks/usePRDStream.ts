@@ -115,7 +115,13 @@ export function usePRDStream(): UsePRDStreamReturn {
         const unlistenComplete = await listen<{ session_id: string; content: string }>(
           'prd-stream-complete',
           event => {
-            console.log('[usePRDStream] PRD stream complete:', event.payload.session_id)
+            console.log('[usePRDStream] ========================================')
+            console.log('[usePRDStream] PRD stream complete event received')
+            console.log('[usePRDStream] Session ID:', event.payload.session_id)
+            console.log('[usePRDStream] Content length:', event.payload.content.length)
+            console.log('[usePRDStream] Content preview (first 200 chars):', event.payload.content.substring(0, 200))
+            console.log('[usePRDStream] ========================================')
+            
             setIsComplete(true)
             setIsStreaming(false)
             isStreamingRef.current = false
