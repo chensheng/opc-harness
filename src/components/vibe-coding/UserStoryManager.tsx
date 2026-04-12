@@ -120,12 +120,20 @@ const priorityColors: Record<string, string> = {
   P3: 'bg-gray-500 text-white',
 }
 
-const statusIcons: Record<string, React.ReactNode> = {
-  draft: <Edit2 className="w-4 h-4" />,
-  refined: <Lightbulb className="w-4 h-4" />,
-  approved: <CheckCircle2 className="w-4 h-4" />,
-  in_development: <Clock className="w-4 h-4" />,
-  completed: <CheckCircle2 className="w-4 h-4 text-green-500" />,
+const statusColors: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700 border border-gray-300',
+  refined: 'bg-blue-50 text-blue-700 border border-blue-200',
+  approved: 'bg-green-50 text-green-700 border border-green-200',
+  in_development: 'bg-purple-50 text-purple-700 border border-purple-200',
+  completed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+}
+
+const statusLabels: Record<string, string> = {
+  draft: '草稿',
+  refined: '已细化',
+  approved: '已批准',
+  in_development: '开发中',
+  completed: '已完成',
 }
 
 /**
@@ -616,12 +624,11 @@ export function UserStoryManager({
                               )}
                             </td>
                             <td className="py-1.5 px-2 align-middle">
-                              <div className="flex items-center gap-0.5">
-                                {statusIcons[story.status]}
-                                <span className="capitalize text-[9px]">
-                                  {story.status.replace('_', ' ')}
-                                </span>
-                              </div>
+                              <Badge 
+                                className={`${statusColors[story.status] || 'bg-gray-100 text-gray-700'} text-[9px] px-1.5 py-0 h-4 font-medium`}
+                              >
+                                {statusLabels[story.status] || story.status}
+                              </Badge>
                             </td>
                             <td className="py-1.5 px-2 align-middle">
                               <div className="flex gap-0.5">
