@@ -19,12 +19,12 @@ export function Sidebar() {
     <aside
       className={cn(
         'flex flex-col border-r bg-card transition-all duration-300',
-        isSidebarOpen ? 'w-64' : 'w-16'
+        isSidebarOpen ? 'w-48' : 'w-16'
       )}
     >
       <div className="flex items-center h-16 px-4 border-b">
         <FolderOpen className="w-6 h-6 text-primary" />
-        {isSidebarOpen && <span className="ml-3 font-semibold text-lg">OPC-HARNESS</span>}
+        {isSidebarOpen && <span className="ml-3 font-semibold text-base">OPC-HARNESS</span>}
       </div>
 
       <nav className="flex-1 p-4 space-y-2">
@@ -34,7 +34,7 @@ export function Sidebar() {
             to={item.path}
             className={({ isActive }) =>
               cn(
-                'flex items-center px-3 py-2.5 rounded-lg transition-colors',
+                'flex items-center px-3 py-2 rounded-lg transition-colors text-sm',
                 isActive
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -42,7 +42,7 @@ export function Sidebar() {
               )
             }
           >
-            <item.icon className="w-5 h-5" />
+            <item.icon className={cn(!isSidebarOpen ? 'w-8 h-8' : 'w-5 h-5')} />
             {isSidebarOpen && <span className="ml-3">{item.label}</span>}
           </NavLink>
         ))}
