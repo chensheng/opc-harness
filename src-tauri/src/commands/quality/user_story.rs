@@ -68,6 +68,7 @@ mod tests {
             provider: "openai".to_string(),
             model: "gpt-4-turbo-preview".to_string(),
             api_key: None,
+            project_id: None,
         };
         
         let result = decompose_user_stories(request).await;
@@ -91,6 +92,7 @@ mod tests {
             provider: "openai".to_string(),
             model: "gpt-4-turbo-preview".to_string(),
             api_key: None, // 将从环境变量读取
+            project_id: None,
         };
         
         let result = decompose_user_stories(request).await;

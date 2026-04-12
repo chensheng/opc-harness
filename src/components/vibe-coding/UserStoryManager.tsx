@@ -163,11 +163,13 @@ export function UserStoryManager({
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10) // 每页显示10个故事
-  
+
   // 排序状态（支持多条件排序）
   type SortField = 'priority' | 'storyPoints'
-  const [sortConfigs, setSortConfigs] = useState<Array<{ field: SortField; order: 'asc' | 'desc' }>>([])
-  
+  const [sortConfigs, setSortConfigs] = useState<
+    Array<{ field: SortField; order: 'asc' | 'desc' }>
+  >([])
+
   // 筛选状态
   const [filterKeyword, setFilterKeyword] = useState('') // 关键词筛选
   const [filterStatus, setFilterStatus] = useState<string>('') // 状态筛选
@@ -264,7 +266,7 @@ export function UserStoryManager({
     setActiveTab('input')
   }
 
-  const getStoryStats = () => {
+  const _getStoryStats = () => {
     const stories = displayStories || []
     const total = stories.length
     const p0 = stories.filter((s: UserStory) => s.priority === 'P0').length
@@ -281,10 +283,11 @@ export function UserStoryManager({
     // 关键词筛选：匹配标题、功能描述、角色
     if (filterKeyword.trim()) {
       const keyword = filterKeyword.toLowerCase()
-      result = result.filter((story: UserStory) =>
-        story.title.toLowerCase().includes(keyword) ||
-        story.feature.toLowerCase().includes(keyword) ||
-        story.role.toLowerCase().includes(keyword)
+      result = result.filter(
+        (story: UserStory) =>
+          story.title.toLowerCase().includes(keyword) ||
+          story.feature.toLowerCase().includes(keyword) ||
+          story.role.toLowerCase().includes(keyword)
       )
     }
 
@@ -337,9 +340,9 @@ export function UserStoryManager({
   const paginatedStories = sortedStories.slice(startIndex, endIndex)
 
   // 处理排序切换（支持多条件排序）
-  const handleSort = (field: SortField, event?: React.MouseEvent) => {
+  const handleSort = (field: SortField, _event?: React.MouseEvent) => {
     const existingConfig = sortConfigs.find(config => config.field === field)
-    
+
     if (existingConfig) {
       // 如果字段已存在，切换排序方向
       const newOrder = existingConfig.order === 'asc' ? 'desc' : 'asc'
@@ -352,28 +355,28 @@ export function UserStoryManager({
       // 如果字段不存在，添加到排序条件列表
       setSortConfigs(prevConfigs => [...prevConfigs, { field, order: 'asc' }])
     }
-    
+
     // 重置到第一页
     setCurrentPage(1)
   }
-  
+
   // 清除所有排序条件
   const clearSort = () => {
     setSortConfigs([])
     setCurrentPage(1)
   }
-  
+
   // 获取字段的排序配置
   const getSortConfig = (field: SortField) => {
     return sortConfigs.find(config => config.field === field)
   }
-  
+
   // 获取字段在排序列表中的序号（用于多条件排序显示）
   const getSortIndex = (field: SortField) => {
     const index = sortConfigs.findIndex(config => config.field === field)
     return index >= 0 ? index + 1 : null
   }
-  
+
   // 清除所有筛选条件
   const clearFilters = () => {
     setFilterKeyword('')
@@ -381,18 +384,18 @@ export function UserStoryManager({
     setFilterPriority('')
     setCurrentPage(1)
   }
-  
+
   // 获取所有唯一的筛选选项
   const uniqueStatuses = React.useMemo(() => {
     const statuses = new Set(displayStories.map((s: UserStory) => s.status))
     return Array.from(statuses).sort()
   }, [displayStories])
-  
+
   const uniquePriorities = React.useMemo(() => {
     const priorities = new Set(displayStories.map((s: UserStory) => s.priority))
     return Array.from(priorities).sort()
   }, [displayStories])
-  
+
   // 重置分页（当故事列表变化时）
   React.useEffect(() => {
     setCurrentPage(1)
@@ -589,7 +592,7 @@ export function UserStoryManager({
                         type="text"
                         placeholder="搜索标题、功能、角色..."
                         value={filterKeyword}
-                        onChange={(e) => {
+                        onChange={e => {
                           setFilterKeyword(e.target.value)
                           setCurrentPage(1)
                         }}
@@ -608,7 +611,7 @@ export function UserStoryManager({
                     {/* 状态筛选 */}
                     <select
                       value={filterStatus}
-                      onChange={(e) => {
+                      onChange={e => {
                         setFilterStatus(e.target.value)
                         setCurrentPage(1)
                       }}
@@ -616,14 +619,16 @@ export function UserStoryManager({
                     >
                       <option value="">所有状态</option>
                       {uniqueStatuses.map(status => (
-                        <option key={status} value={status}>{statusLabels[status] || status}</option>
+                        <option key={status} value={status}>
+                          {statusLabels[status] || status}
+                        </option>
                       ))}
                     </select>
 
                     {/* 优先级筛选 */}
                     <select
                       value={filterPriority}
-                      onChange={(e) => {
+                      onChange={e => {
                         setFilterPriority(e.target.value)
                         setCurrentPage(1)
                       }}
@@ -631,7 +636,9 @@ export function UserStoryManager({
                     >
                       <option value="">所有优先级</option>
                       {uniquePriorities.map(priority => (
-                        <option key={priority} value={priority}>{priority}</option>
+                        <option key={priority} value={priority}>
+                          {priority}
+                        </option>
                       ))}
                     </select>
 
@@ -663,10 +670,12 @@ export function UserStoryManager({
                     <table className="w-full border-collapse text-xs">
                       <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">序号</th>
-                          <th 
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
+                            序号
+                          </th>
+                          <th
                             className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                            onClick={(e) => handleSort('priority', e)}
+                            onClick={e => handleSort('priority', e)}
                             title="点击切换排序，多次点击可添加多条件排序"
                           >
                             <div className="flex items-center gap-0.5">
@@ -675,7 +684,9 @@ export function UserStoryManager({
                                 const config = getSortConfig('priority')
                                 const index = getSortIndex('priority')
                                 if (!config) {
-                                  return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                  return (
+                                    <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                  )
                                 }
                                 return (
                                   <div className="flex items-center gap-0.5">
@@ -695,10 +706,12 @@ export function UserStoryManager({
                             </div>
                           </th>
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px]">标题</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">角色</th>
-                          <th 
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">
+                            角色
+                          </th>
+                          <th
                             className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                            onClick={(e) => handleSort('storyPoints', e)}
+                            onClick={e => handleSort('storyPoints', e)}
                             title="点击切换排序，多次点击可添加多条件排序"
                           >
                             <div className="flex items-center gap-0.5">
@@ -707,7 +720,9 @@ export function UserStoryManager({
                                 const config = getSortConfig('storyPoints')
                                 const index = getSortIndex('storyPoints')
                                 if (!config) {
-                                  return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                  return (
+                                    <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                  )
                                 }
                                 return (
                                   <div className="flex items-center gap-0.5">
@@ -726,8 +741,12 @@ export function UserStoryManager({
                               })()}
                             </div>
                           </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">状态</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">操作</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
+                            状态
+                          </th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
+                            操作
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -742,20 +761,26 @@ export function UserStoryManager({
                               <span className="font-mono text-[10px]">{story.storyNumber}</span>
                             </td>
                             <td className="py-1.5 px-2 align-middle">
-                              <Badge className={`${priorityColors[story.priority]} text-[9px] px-1 py-0 h-4`}>
+                              <Badge
+                                className={`${priorityColors[story.priority]} text-[9px] px-1 py-0 h-4`}
+                              >
                                 {story.priority}
                               </Badge>
                             </td>
                             <td className="py-1.5 px-2 align-middle">
                               <div className="space-y-0.5">
-                                <div className="font-medium text-xs leading-tight">{story.title}</div>
+                                <div className="font-medium text-xs leading-tight">
+                                  {story.title}
+                                </div>
                                 <div className="text-[10px] text-muted-foreground line-clamp-1">
                                   {story.feature}
                                 </div>
                               </div>
                             </td>
                             <td className="py-1.5 px-2 align-middle">
-                              <div className="text-[10px] truncate" title={story.role}>{story.role}</div>
+                              <div className="text-[10px] truncate" title={story.role}>
+                                {story.role}
+                              </div>
                             </td>
                             <td className="py-1.5 px-2 align-middle text-center">
                               {story.storyPoints && (
@@ -763,7 +788,7 @@ export function UserStoryManager({
                               )}
                             </td>
                             <td className="py-1.5 px-2 align-middle">
-                              <Badge 
+                              <Badge
                                 className={`${statusColors[story.status] || 'bg-gray-100 text-gray-700'} text-[9px] px-1.5 py-0 h-4 font-medium`}
                               >
                                 {statusLabels[story.status] || story.status}
@@ -804,7 +829,7 @@ export function UserStoryManager({
                       </Button>
                     ))}
                   </div>
-                  
+
                   {/* 排序状态显示和清除按钮 */}
                   {sortConfigs.length > 0 && (
                     <>
@@ -813,9 +838,9 @@ export function UserStoryManager({
                         <span className="text-muted-foreground">排序:</span>
                         <div className="flex gap-0.5">
                           {sortConfigs.map((config, idx) => (
-                            <Badge 
-                              key={config.field} 
-                              variant="secondary" 
+                            <Badge
+                              key={config.field}
+                              variant="secondary"
                               className="text-[9px] h-4 px-1 flex items-center gap-0.5"
                             >
                               <span>{config.field === 'priority' ? '优先' : '点数'}</span>
@@ -909,7 +934,7 @@ interface UserStoryCardProps {
   compact?: boolean // 紧凑模式
 }
 
-function UserStoryCard({ story, compact = false }: UserStoryCardProps) {
+function _UserStoryCard({ story, compact = false }: UserStoryCardProps) {
   if (compact) {
     return <CompactUserStoryCard story={story} />
   }
@@ -923,7 +948,9 @@ function UserStoryCard({ story, compact = false }: UserStoryCardProps) {
               <Badge variant="outline" className="font-mono text-xs">
                 {story.storyNumber}
               </Badge>
-              <Badge className={`${priorityColors[story.priority]} text-xs`}>{story.priority}</Badge>
+              <Badge className={`${priorityColors[story.priority]} text-xs`}>
+                {story.priority}
+              </Badge>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 {statusIcons[story.status]}
                 <span className="capitalize">{story.status.replace('_', ' ')}</span>
@@ -1000,23 +1027,25 @@ function UserStoryCard({ story, compact = false }: UserStoryCardProps) {
         ) : (
           /* Compact View Summary */
           <div className="space-y-2">
-             <p className="text-sm text-muted-foreground line-clamp-2">
-               <span className="font-medium text-foreground">As a</span> {story.role},{' '}
-               <span className="font-medium text-foreground">I want</span> {story.feature},{' '}
-               <span className="font-medium text-foreground">so that</span> {story.benefit}.
-             </p>
-             
-             {story.acceptanceCriteria.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                   <CheckCircle2 className="w-3 h-3 text-green-500" />
-                   <span>{story.acceptanceCriteria.length} 个验收标准</span>
-                </div>
-             )}
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              <span className="font-medium text-foreground">As a</span> {story.role},{' '}
+              <span className="font-medium text-foreground">I want</span> {story.feature},{' '}
+              <span className="font-medium text-foreground">so that</span> {story.benefit}.
+            </p>
+
+            {story.acceptanceCriteria.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="w-3 h-3 text-green-500" />
+                <span>{story.acceptanceCriteria.length} 个验收标准</span>
+              </div>
+            )}
           </div>
         )}
 
         {/* Meta Info */}
-        <div className={`flex items-center gap-4 text-xs text-muted-foreground ${!compact ? 'pt-2 border-t' : ''}`}>
+        <div
+          className={`flex items-center gap-4 text-xs text-muted-foreground ${!compact ? 'pt-2 border-t' : ''}`}
+        >
           {story.storyPoints && (
             <div className="flex items-center gap-1">
               <Target className="w-3 h-3" />
@@ -1057,7 +1086,9 @@ function CompactUserStoryCard({ story }: { story: UserStory }) {
               <Badge variant="outline" className="font-mono text-xs">
                 {story.storyNumber}
               </Badge>
-              <Badge className={`${priorityColors[story.priority]} text-xs`}>{story.priority}</Badge>
+              <Badge className={`${priorityColors[story.priority]} text-xs`}>
+                {story.priority}
+              </Badge>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 {statusIcons[story.status]}
                 <span className="capitalize">{story.status.replace('_', ' ')}</span>

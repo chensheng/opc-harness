@@ -98,7 +98,7 @@ mod tests {
             raw_output: "test".to_string(),
         };
 
-        let diagnoser = Diagnoser::new();
+        let _diagnoser = Diagnoser::new();
         // 注意：这里不实际调用 diagnose_error，因为它是 async 且需要 AI API
         // 我们只测试数据结构
         assert_eq!(error.error_type, ErrorType::SyntaxError);
