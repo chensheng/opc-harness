@@ -23,6 +23,9 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import type { UserStory } from '@/types'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
@@ -142,6 +145,10 @@ export function UserStoryManager({
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10) // 每页显示10个故事
+  
+  // 排序状态（支持多条件排序）
+  type SortField = 'priority' | 'storyPoints'
+  const [sortConfigs, setSortConfigs] = useState<Array<{ field: SortField; order: 'asc' | 'desc' }>>([])
 
   // 使用流式 Hook
   const {
@@ -244,12 +251,79 @@ export function UserStoryManager({
     return { total, p0, p1, avgPoints }
   }
 
-  // 计算分页数据
-  const totalPages = Math.ceil(displayStories.length / pageSize)
+  // 计算分页数据（先排序再分页）
+  const sortedStories = React.useMemo(() => {
+    if (sortConfigs.length === 0) return displayStories
+
+    return [...displayStories].sort((a: UserStory, b: UserStory) => {
+      let comparison = 0
+
+      for (const config of sortConfigs) {
+        if (config.field === 'priority') {
+          // 优先级排序：P0 < P1 < P2 < P3
+          const priorityOrder: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 }
+          const aPriority = priorityOrder[a.priority] ?? 999
+          const bPriority = priorityOrder[b.priority] ?? 999
+          comparison = aPriority - bPriority
+        } else if (config.field === 'storyPoints') {
+          // 故事点排序
+          const aPoints = a.storyPoints || 0
+          const bPoints = b.storyPoints || 0
+          comparison = aPoints - bPoints
+        }
+
+        if (comparison !== 0) {
+          return config.order === 'asc' ? comparison : -comparison
+        }
+      }
+
+      return 0
+    })
+  }, [displayStories, sortConfigs])
+
+  const totalPages = Math.ceil(sortedStories.length / pageSize)
   const startIndex = (currentPage - 1) * pageSize
   const endIndex = startIndex + pageSize
-  const paginatedStories = displayStories.slice(startIndex, endIndex)
+  const paginatedStories = sortedStories.slice(startIndex, endIndex)
 
+  // 处理排序切换（支持多条件排序）
+  const handleSort = (field: SortField, event?: React.MouseEvent) => {
+    const existingConfig = sortConfigs.find(config => config.field === field)
+    
+    if (existingConfig) {
+      // 如果字段已存在，切换排序方向
+      const newOrder = existingConfig.order === 'asc' ? 'desc' : 'asc'
+      setSortConfigs(prevConfigs =>
+        prevConfigs.map(config =>
+          config.field === field ? { ...config, order: newOrder } : config
+        )
+      )
+    } else {
+      // 如果字段不存在，添加到排序条件列表
+      setSortConfigs(prevConfigs => [...prevConfigs, { field, order: 'asc' }])
+    }
+    
+    // 重置到第一页
+    setCurrentPage(1)
+  }
+  
+  // 清除所有排序条件
+  const clearSort = () => {
+    setSortConfigs([])
+    setCurrentPage(1)
+  }
+  
+  // 获取字段的排序配置
+  const getSortConfig = (field: SortField) => {
+    return sortConfigs.find(config => config.field === field)
+  }
+  
+  // 获取字段在排序列表中的序号（用于多条件排序显示）
+  const getSortIndex = (field: SortField) => {
+    const index = sortConfigs.findIndex(config => config.field === field)
+    return index >= 0 ? index + 1 : null
+  }
+  
   // 重置分页（当故事列表变化时）
   React.useEffect(() => {
     setCurrentPage(1)
@@ -443,10 +517,68 @@ export function UserStoryManager({
                       <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">序号</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">优先</th>
+                          <th 
+                            className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                            onClick={(e) => handleSort('priority', e)}
+                            title="点击切换排序，多次点击可添加多条件排序"
+                          >
+                            <div className="flex items-center gap-0.5">
+                              <span>优先</span>
+                              {(() => {
+                                const config = getSortConfig('priority')
+                                const index = getSortIndex('priority')
+                                if (!config) {
+                                  return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                }
+                                return (
+                                  <div className="flex items-center gap-0.5">
+                                    {config.order === 'asc' ? (
+                                      <ArrowUp className="w-2.5 h-2.5" />
+                                    ) : (
+                                      <ArrowDown className="w-2.5 h-2.5" />
+                                    )}
+                                    {sortConfigs.length > 1 && index && (
+                                      <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
+                                        {index}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          </th>
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px]">标题</th>
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">角色</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">点数</th>
+                          <th 
+                            className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                            onClick={(e) => handleSort('storyPoints', e)}
+                            title="点击切换排序，多次点击可添加多条件排序"
+                          >
+                            <div className="flex items-center gap-0.5">
+                              <span>点数</span>
+                              {(() => {
+                                const config = getSortConfig('storyPoints')
+                                const index = getSortIndex('storyPoints')
+                                if (!config) {
+                                  return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                                }
+                                return (
+                                  <div className="flex items-center gap-0.5">
+                                    {config.order === 'asc' ? (
+                                      <ArrowUp className="w-2.5 h-2.5" />
+                                    ) : (
+                                      <ArrowDown className="w-2.5 h-2.5" />
+                                    )}
+                                    {sortConfigs.length > 1 && index && (
+                                      <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
+                                        {index}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          </th>
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">状态</th>
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">操作</th>
                         </tr>
@@ -527,6 +659,40 @@ export function UserStoryManager({
                       </Button>
                     ))}
                   </div>
+                  
+                  {/* 排序状态显示和清除按钮 */}
+                  {sortConfigs.length > 0 && (
+                    <>
+                      <span className="text-muted-foreground ml-2">|</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">排序:</span>
+                        <div className="flex gap-0.5">
+                          {sortConfigs.map((config, idx) => (
+                            <Badge 
+                              key={config.field} 
+                              variant="secondary" 
+                              className="text-[9px] h-4 px-1 flex items-center gap-0.5"
+                            >
+                              <span>{config.field === 'priority' ? '优先' : '点数'}</span>
+                              {config.order === 'asc' ? '↑' : '↓'}
+                              {sortConfigs.length > 1 && (
+                                <span className="text-[8px] opacity-70">{idx + 1}</span>
+                              )}
+                            </Badge>
+                          ))}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearSort}
+                          className="h-4 px-1 text-[9px] hover:bg-destructive/10 hover:text-destructive"
+                          title="清除所有排序"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {totalPages > 1 && (
