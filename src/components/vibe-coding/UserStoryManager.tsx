@@ -245,7 +245,9 @@ export function UserStoryManager({
         role: story.role,
         feature: story.feature,
       }))
-      console.log(`[UserStoryManager] Found ${existingStories.length} existing stories to avoid duplication`)
+      console.log(
+        `[UserStoryManager] Found ${existingStories.length} existing stories to avoid duplication`
+      )
     }
 
     // 显示流式视图
@@ -271,7 +273,7 @@ export function UserStoryManager({
     )
   }
 
-  const handleReset = () => {
+  const _handleReset = () => {
     _reset()
     resetStream()
     setShowStreamingView(false)

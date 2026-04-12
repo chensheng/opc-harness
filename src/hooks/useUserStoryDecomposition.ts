@@ -50,7 +50,7 @@ export function useUserStoryDecomposition(): UseUserStoryDecompositionReturn {
 
         // 如果提供了 projectId，获取已有的用户故事
         let existingStories: Array<{ title: string; role: string; feature: string }> | undefined
-        
+
         if (projectId) {
           const stories = userStoryStore.getProjectStories(projectId)
           if (stories.length > 0) {
@@ -60,7 +60,9 @@ export function useUserStoryDecomposition(): UseUserStoryDecompositionReturn {
               role: story.role,
               feature: story.feature,
             }))
-            console.log(`[useUserStoryDecomposition] Found ${existingStories.length} existing stories to avoid duplication`)
+            console.log(
+              `[useUserStoryDecomposition] Found ${existingStories.length} existing stories to avoid duplication`
+            )
           }
         }
 
