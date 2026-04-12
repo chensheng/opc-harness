@@ -21,6 +21,8 @@ import {
   Trash2,
   MessageSquare,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import type { UserStory } from '@/types'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
@@ -137,6 +139,10 @@ export function UserStoryManager({
   const [activeTab, setActiveTab] = useState<'input' | 'stories'>('input')
   const [showStreamingView, setShowStreamingView] = useState(false)
 
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5) // 每页显示5个故事
+
   // 使用流式 Hook
   const {
     markdownContent,
@@ -236,6 +242,26 @@ export function UserStoryManager({
     const avgPoints = stories.reduce((sum, s) => sum + (s.storyPoints || 0), 0) / total || 0
 
     return { total, p0, p1, avgPoints }
+  }
+
+  // 计算分页数据
+  const totalPages = Math.ceil(displayStories.length / pageSize)
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const paginatedStories = displayStories.slice(startIndex, endIndex)
+
+  // 重置分页（当故事列表变化时）
+  React.useEffect(() => {
+    setCurrentPage(1)
+  }, [displayStories.length])
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setCurrentPage(1) // 重置到第一页
   }
 
   return (
@@ -408,43 +434,160 @@ export function UserStoryManager({
         {/* Stories Tab */}
         <TabsContent value="stories">
           {displayStories && displayStories.length > 0 && (
-            <div className="space-y-4">
-              {/* Statistics */}
-              <div className="grid grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold">{getStoryStats().total}</div>
-                    <p className="text-xs text-muted-foreground">总故事数</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold text-red-500">{getStoryStats().p0}</div>
-                    <p className="text-xs text-muted-foreground">P0 优先级</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold text-orange-500">{getStoryStats().p1}</div>
-                    <p className="text-xs text-muted-foreground">P1 优先级</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold">{getStoryStats().avgPoints.toFixed(1)}</div>
-                    <p className="text-xs text-muted-foreground">平均故事点</p>
-                  </CardContent>
-                </Card>
-              </div>
+            <div className="space-y-3">
+              {/* Story List - 表格形式 */}
+              <Card>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[calc(100vh-420px)]">
+                    <table className="w-full border-collapse text-sm">
+                      <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                        <tr className="border-b border-border">
+                          <th className="text-left p-3 font-semibold text-xs w-20">序号</th>
+                          <th className="text-left p-3 font-semibold text-xs w-24">优先级</th>
+                          <th className="text-left p-3 font-semibold text-xs">标题</th>
+                          <th className="text-left p-3 font-semibold text-xs w-32">角色</th>
+                          <th className="text-left p-3 font-semibold text-xs w-24">故事点</th>
+                          <th className="text-left p-3 font-semibold text-xs w-24">状态</th>
+                          <th className="text-left p-3 font-semibold text-xs w-20">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedStories.map((story: UserStory, index: number) => (
+                          <tr
+                            key={story.id}
+                            className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${
+                              index % 2 === 0 ? 'bg-background' : 'bg-muted/10'
+                            }`}
+                          >
+                            <td className="p-3 align-top">
+                              <Badge variant="outline" className="font-mono text-xs">
+                                {story.storyNumber}
+                              </Badge>
+                            </td>
+                            <td className="p-3 align-top">
+                              <Badge className={`${priorityColors[story.priority]} text-xs`}>
+                                {story.priority}
+                              </Badge>
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="space-y-1.5">
+                                <div className="font-medium text-sm leading-tight">{story.title}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-2">
+                                  <span className="font-medium">As a</span> {story.role},{' '}
+                                  <span className="font-medium">I want</span> {story.feature},{' '}
+                                  <span className="font-medium">so that</span> {story.benefit}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="text-xs">{story.role}</div>
+                            </td>
+                            <td className="p-3 align-top">
+                              {story.storyPoints && (
+                                <div className="flex items-center gap-1 text-xs">
+                                  <Target className="w-3 h-3" />
+                                  <span>{story.storyPoints}</span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="flex items-center gap-1 text-xs">
+                                {statusIcons[story.status]}
+                                <span className="capitalize text-[10px]">
+                                  {story.status.replace('_', ' ')}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <Edit2 className="w-3 h-3" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
 
-              {/* Story List */}
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-3">
-                  {displayStories.map((story: UserStory) => (
-                    <UserStoryCard key={story.id} story={story} />
-                  ))}
+              {/* Pagination Controls - 底部整合版 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">每页显示：</span>
+                    <div className="flex gap-1">
+                      {[5, 10, 20].map(size => (
+                        <Button
+                          key={size}
+                          variant={pageSize === size ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => handlePageSizeChange(size)}
+                          className="h-7 px-3 text-xs"
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="gap-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      上一页
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum
+                        if (totalPages <= 5) {
+                          pageNum = i + 1
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i
+                        } else {
+                          pageNum = currentPage - 2 + i
+                        }
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        )
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="gap-1"
+                    >
+                      下一页
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-              </ScrollArea>
+              )}
             </div>
           )}
         </TabsContent>
@@ -458,90 +601,117 @@ export function UserStoryManager({
  */
 interface UserStoryCardProps {
   story: UserStory
+  compact?: boolean // 紧凑模式
 }
 
-function UserStoryCard({ story }: UserStoryCardProps) {
+function UserStoryCard({ story, compact = false }: UserStoryCardProps) {
+  if (compact) {
+    return <CompactUserStoryCard story={story} />
+  }
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
+    <Card className={`hover:shadow-md transition-shadow ${compact ? 'py-1' : ''}`}>
+      <CardHeader className={`${compact ? 'py-2 px-4' : 'pb-3'}`}>
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="font-mono text-xs">
                 {story.storyNumber}
               </Badge>
-              <Badge className={priorityColors[story.priority]}>{story.priority}</Badge>
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Badge className={`${priorityColors[story.priority]} text-xs`}>{story.priority}</Badge>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 {statusIcons[story.status]}
                 <span className="capitalize">{story.status.replace('_', ' ')}</span>
               </div>
             </div>
 
-            <CardTitle className="text-lg">{story.title}</CardTitle>
+            <CardTitle className={`${compact ? 'text-base' : 'text-lg'}`}>{story.title}</CardTitle>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm">
-              <Edit2 className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+          {!compact && (
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm">
+                <Edit2 className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* User Story Format */}
-        <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md">
-          <div className="flex items-start gap-2">
-            <Users className="w-4 h-4 text-blue-500 mt-0.5" />
-            <div>
-              <span className="font-medium text-blue-700 dark:text-blue-400">As a </span>
-              <span className="text-blue-600 dark:text-blue-300">{story.role}</span>
+      <CardContent className={`${compact ? 'pt-0 px-4 pb-3' : 'space-y-4'}`}>
+        {!compact ? (
+          <>
+            {/* User Story Format */}
+            <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md">
+              <div className="flex items-start gap-2">
+                <Users className="w-4 h-4 text-blue-500 mt-0.5" />
+                <div>
+                  <span className="font-medium text-blue-700 dark:text-blue-400">As a </span>
+                  <span className="text-blue-600 dark:text-blue-300">{story.role}</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Target className="w-4 h-4 text-blue-500 mt-0.5" />
+                <div>
+                  <span className="font-medium text-blue-700 dark:text-blue-400">I want </span>
+                  <span className="text-blue-600 dark:text-blue-300">{story.feature}</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Lightbulb className="w-4 h-4 text-blue-500 mt-0.5" />
+                <div>
+                  <span className="font-medium text-blue-700 dark:text-blue-400">So that </span>
+                  <span className="text-blue-600 dark:text-blue-300">{story.benefit}</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Target className="w-4 h-4 text-blue-500 mt-0.5" />
-            <div>
-              <span className="font-medium text-blue-700 dark:text-blue-400">I want </span>
-              <span className="text-blue-600 dark:text-blue-300">{story.feature}</span>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Lightbulb className="w-4 h-4 text-blue-500 mt-0.5" />
-            <div>
-              <span className="font-medium text-blue-700 dark:text-blue-400">So that </span>
-              <span className="text-blue-600 dark:text-blue-300">{story.benefit}</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Description */}
-        {story.description && (
-          <div>
-            <p className="text-sm font-medium mb-1">详细描述</p>
-            <p className="text-sm text-muted-foreground">{story.description}</p>
-          </div>
-        )}
+            {/* Description */}
+            {story.description && (
+              <div>
+                <p className="text-sm font-medium mb-1">详细描述</p>
+                <p className="text-sm text-muted-foreground">{story.description}</p>
+              </div>
+            )}
 
-        {/* Acceptance Criteria */}
-        {story.acceptanceCriteria.length > 0 && (
-          <div>
-            <p className="text-sm font-medium mb-2">验收标准</p>
-            <ul className="space-y-1">
-              {story.acceptanceCriteria.map((criteria, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-muted-foreground">{criteria}</span>
-                </li>
-              ))}
-            </ul>
+            {/* Acceptance Criteria */}
+            {story.acceptanceCriteria.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">验收标准</p>
+                <ul className="space-y-1">
+                  {story.acceptanceCriteria.map((criteria, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{criteria}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Compact View Summary */
+          <div className="space-y-2">
+             <p className="text-sm text-muted-foreground line-clamp-2">
+               <span className="font-medium text-foreground">As a</span> {story.role},{' '}
+               <span className="font-medium text-foreground">I want</span> {story.feature},{' '}
+               <span className="font-medium text-foreground">so that</span> {story.benefit}.
+             </p>
+             
+             {story.acceptanceCriteria.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                   <CheckCircle2 className="w-3 h-3 text-green-500" />
+                   <span>{story.acceptanceCriteria.length} 个验收标准</span>
+                </div>
+             )}
           </div>
         )}
 
         {/* Meta Info */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+        <div className={`flex items-center gap-4 text-xs text-muted-foreground ${!compact ? 'pt-2 border-t' : ''}`}>
           {story.storyPoints && (
             <div className="flex items-center gap-1">
               <Target className="w-3 h-3" />
@@ -552,13 +722,122 @@ function UserStoryCard({ story }: UserStoryCardProps) {
           {story.labels.length > 0 && (
             <div className="flex gap-1">
               {story.labels.slice(0, 3).map((label, idx) => (
-                <Badge key={idx} variant="secondary" className="text-xs">
+                <Badge key={idx} variant="secondary" className="text-[10px] px-1 py-0">
                   {label}
                 </Badge>
               ))}
               {story.labels.length > 3 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">
                   +{story.labels.length - 3}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * 紧凑型用户故事卡片组件 - 用于分页列表显示
+ */
+function CompactUserStoryCard({ story }: { story: UserStory }) {
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="font-mono text-xs">
+                {story.storyNumber}
+              </Badge>
+              <Badge className={`${priorityColors[story.priority]} text-xs`}>{story.priority}</Badge>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                {statusIcons[story.status]}
+                <span className="capitalize">{story.status.replace('_', ' ')}</span>
+              </div>
+            </div>
+
+            <CardTitle className="text-base leading-tight">{story.title}</CardTitle>
+          </div>
+
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <Edit2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-2 px-4 pb-3">
+        {/* User Story Format - 紧凑版 */}
+        <div className="space-y-1 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md text-xs">
+          <div className="flex items-start gap-1.5">
+            <Users className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-blue-700 dark:text-blue-400">As a </span>
+              <span className="text-blue-600 dark:text-blue-300">{story.role}</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-1.5">
+            <Target className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-blue-700 dark:text-blue-400">I want </span>
+              <span className="text-blue-600 dark:text-blue-300">{story.feature}</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-1.5">
+            <Lightbulb className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <span className="font-medium text-blue-700 dark:text-blue-400">So that </span>
+              <span className="text-blue-600 dark:text-blue-300">{story.benefit}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Acceptance Criteria - 紧凑版 */}
+        {story.acceptanceCriteria.length > 0 && (
+          <div>
+            <p className="text-xs font-medium mb-1">验收标准</p>
+            <ul className="space-y-0.5">
+              {story.acceptanceCriteria.slice(0, 3).map((criteria, idx) => (
+                <li key={idx} className="flex items-start gap-1.5 text-xs">
+                  <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-muted-foreground line-clamp-1">{criteria}</span>
+                </li>
+              ))}
+              {story.acceptanceCriteria.length > 3 && (
+                <li className="text-xs text-muted-foreground pl-5">
+                  +{story.acceptanceCriteria.length - 3} 更多...
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {/* Meta Info - 紧凑版 */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1.5 border-t">
+          {story.storyPoints && (
+            <div className="flex items-center gap-1">
+              <Target className="w-3 h-3" />
+              <span>{story.storyPoints} 点</span>
+            </div>
+          )}
+          {story.featureModule && <div>模块: {story.featureModule}</div>}
+          {story.labels.length > 0 && (
+            <div className="flex gap-1 flex-wrap">
+              {story.labels.slice(0, 2).map((label, idx) => (
+                <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {label}
+                </Badge>
+              ))}
+              {story.labels.length > 2 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  +{story.labels.length - 2}
                 </Badge>
               )}
             </div>
