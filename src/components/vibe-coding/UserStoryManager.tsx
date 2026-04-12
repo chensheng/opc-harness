@@ -141,7 +141,7 @@ export function UserStoryManager({
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5) // 每页显示5个故事
+  const [pageSize, setPageSize] = useState(10) // 每页显示10个故事
 
   // 使用流式 Hook
   const {
@@ -434,77 +434,71 @@ export function UserStoryManager({
         {/* Stories Tab */}
         <TabsContent value="stories">
           {displayStories && displayStories.length > 0 && (
-            <div className="space-y-3">
-              {/* Story List - 表格形式 */}
+            <div className="space-y-2">
+              {/* Story List - 表格形式（超紧凑版） */}
               <Card>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-420px)]">
-                    <table className="w-full border-collapse text-sm">
-                      <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                  <ScrollArea className="h-[calc(100vh-340px)]">
+                    <table className="w-full border-collapse text-xs">
+                      <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
-                          <th className="text-left p-3 font-semibold text-xs w-20">序号</th>
-                          <th className="text-left p-3 font-semibold text-xs w-24">优先级</th>
-                          <th className="text-left p-3 font-semibold text-xs">标题</th>
-                          <th className="text-left p-3 font-semibold text-xs w-32">角色</th>
-                          <th className="text-left p-3 font-semibold text-xs w-24">故事点</th>
-                          <th className="text-left p-3 font-semibold text-xs w-24">状态</th>
-                          <th className="text-left p-3 font-semibold text-xs w-20">操作</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">序号</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">优先</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px]">标题</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">角色</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">点数</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">状态</th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">操作</th>
                         </tr>
                       </thead>
                       <tbody>
                         {paginatedStories.map((story: UserStory, index: number) => (
                           <tr
                             key={story.id}
-                            className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${
-                              index % 2 === 0 ? 'bg-background' : 'bg-muted/10'
+                            className={`border-b border-border/30 hover:bg-muted/20 transition-colors ${
+                              index % 2 === 0 ? 'bg-background' : 'bg-muted/5'
                             }`}
                           >
-                            <td className="p-3 align-top">
-                              <Badge variant="outline" className="font-mono text-xs">
-                                {story.storyNumber}
-                              </Badge>
+                            <td className="py-1.5 px-2 align-middle">
+                              <span className="font-mono text-[10px]">{story.storyNumber}</span>
                             </td>
-                            <td className="p-3 align-top">
-                              <Badge className={`${priorityColors[story.priority]} text-xs`}>
+                            <td className="py-1.5 px-2 align-middle">
+                              <Badge className={`${priorityColors[story.priority]} text-[9px] px-1 py-0 h-4`}>
                                 {story.priority}
                               </Badge>
                             </td>
-                            <td className="p-3 align-top">
-                              <div className="space-y-1.5">
-                                <div className="font-medium text-sm leading-tight">{story.title}</div>
-                                <div className="text-xs text-muted-foreground line-clamp-2">
+                            <td className="py-1.5 px-2 align-middle">
+                              <div className="space-y-0.5">
+                                <div className="font-medium text-xs leading-tight">{story.title}</div>
+                                <div className="text-[10px] text-muted-foreground line-clamp-1">
                                   <span className="font-medium">As a</span> {story.role},{' '}
-                                  <span className="font-medium">I want</span> {story.feature},{' '}
-                                  <span className="font-medium">so that</span> {story.benefit}
+                                  <span className="font-medium">I want</span> {story.feature}
                                 </div>
                               </div>
                             </td>
-                            <td className="p-3 align-top">
-                              <div className="text-xs">{story.role}</div>
+                            <td className="py-1.5 px-2 align-middle">
+                              <div className="text-[10px] truncate" title={story.role}>{story.role}</div>
                             </td>
-                            <td className="p-3 align-top">
+                            <td className="py-1.5 px-2 align-middle text-center">
                               {story.storyPoints && (
-                                <div className="flex items-center gap-1 text-xs">
-                                  <Target className="w-3 h-3" />
-                                  <span>{story.storyPoints}</span>
-                                </div>
+                                <span className="text-[10px]">{story.storyPoints}</span>
                               )}
                             </td>
-                            <td className="p-3 align-top">
-                              <div className="flex items-center gap-1 text-xs">
+                            <td className="py-1.5 px-2 align-middle">
+                              <div className="flex items-center gap-0.5">
                                 {statusIcons[story.status]}
-                                <span className="capitalize text-[10px]">
+                                <span className="capitalize text-[9px]">
                                   {story.status.replace('_', ' ')}
                                 </span>
                               </div>
                             </td>
-                            <td className="p-3 align-top">
-                              <div className="flex gap-1">
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                  <Edit2 className="w-3 h-3" />
+                            <td className="py-1.5 px-2 align-middle">
+                              <div className="flex gap-0.5">
+                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                                  <Edit2 className="w-2.5 h-2.5" />
                                 </Button>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                  <Trash2 className="w-3 h-3" />
+                                <Button variant="ghost" size="sm" className="h-5 w-5 p-0">
+                                  <Trash2 className="w-2.5 h-2.5" />
                                 </Button>
                               </div>
                             </td>
@@ -516,19 +510,19 @@ export function UserStoryManager({
                 </CardContent>
               </Card>
 
-              {/* Pagination Controls - 底部整合版 */}
+              {/* Pagination Controls - 超紧凑版 */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">每页显示：</span>
-                    <div className="flex gap-1">
-                      {[5, 10, 20].map(size => (
+                <div className="flex items-center justify-between py-1 px-1.5 border-t">
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <span className="text-muted-foreground">每页:</span>
+                    <div className="flex gap-0.5">
+                      {[10, 20, 50].map(size => (
                         <Button
                           key={size}
                           variant={pageSize === size ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => handlePageSizeChange(size)}
-                          className="h-7 px-3 text-xs"
+                          className="h-5 px-1.5 text-[9px]"
                         >
                           {size}
                         </Button>
@@ -536,19 +530,19 @@ export function UserStoryManager({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="gap-1"
+                      className="gap-0.5 h-5 px-1.5 text-[9px]"
                     >
-                      <ChevronLeft className="w-4 h-4" />
-                      上一页
+                      <ChevronLeft className="w-2.5 h-2.5" />
+                      上页
                     </Button>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                         let pageNum
                         if (totalPages <= 5) {
@@ -567,7 +561,7 @@ export function UserStoryManager({
                             variant={currentPage === pageNum ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => handlePageChange(pageNum)}
-                            className="w-8 h-8 p-0"
+                            className="w-5 h-5 p-0 text-[9px]"
                           >
                             {pageNum}
                           </Button>
@@ -580,10 +574,10 @@ export function UserStoryManager({
                       size="sm"
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="gap-1"
+                      className="gap-0.5 h-5 px-1.5 text-[9px]"
                     >
-                      下一页
-                      <ChevronRight className="w-4 h-4" />
+                      下页
+                      <ChevronRight className="w-2.5 h-2.5" />
                     </Button>
                   </div>
                 </div>
