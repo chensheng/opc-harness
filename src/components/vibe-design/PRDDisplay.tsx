@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Download, Edit, ArrowRight, Code } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { ScrollToTop } from '@/components/ui/ScrollToTop'
 import { useProjectStore, useAppStore } from '@/stores'
 import type { PRD } from '@/types'
@@ -179,6 +180,36 @@ export function PRDDisplay() {
         onStopGeneration={handleStopGeneration}
         onRetry={generatePRD}
       />
+    )
+  }
+
+  // 如果有错误但没有 PRD，显示错误信息
+  if (error && !prd) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">PRD 生成失败</h1>
+            <p className="text-muted-foreground mt-1">无法生成产品需求文档</p>
+          </div>
+        </div>
+        
+        <Card className="border-destructive">
+          <CardContent className="py-6">
+            <div className="space-y-4">
+              <p className="text-destructive font-medium">{error}</p>
+              <div className="flex gap-2">
+                <Button onClick={generatePRD}>
+                  重试
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/')}>
+                  返回首页
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 

@@ -146,6 +146,7 @@ ${prdContentForAI}
 请基于以上 PRD 和用户需求，生成优化后的完整 PRD 文档。`
 
         // 发送请求 - 使用 stream_chat 命令
+        // 监听流式数据事件
         const unlisten = await listen('ai-stream', ({ payload }) => {
           accumulatedContentRef.current += payload
           setMessages(prev => {
@@ -161,6 +162,17 @@ ${prdContentForAI}
         })
 
         unlistenRef.current.push(unlisten)
+
+        // 监听错误事件
+        const errorUnlisten = await listen<{ error: string }>('ai-stream-error', ({ payload }) => {
+          console.error('[usePRDAIChat] Stream error event received:', payload)
+          setError(payload.error || '生成 PRD 时发生错误')
+          isStreamingRef.current = false
+          setIsStreaming(false)
+          cleanup()  // 清理事件监听器
+        })
+
+        unlistenRef.current.push(errorUnlisten)
 
         // 构建消息数组
         const messages = [
@@ -212,10 +224,12 @@ ${prdContentForAI}
         }
       } catch (err) {
         console.error('[usePRDAIChat] Error:', err)
-        setError('无法生成优化后的 PRD')
-      } finally {
+        // 使用后端返回的详细错误信息，而不是通用消息
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        setError(`AI 调用失败：${errorMessage}`)
         isStreamingRef.current = false
         setIsStreaming(false)
+        cleanup()
       }
     },
     [aiConfigStore, projectStore, cleanup]

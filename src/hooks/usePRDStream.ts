@@ -141,6 +141,10 @@ export function usePRDStream(): UsePRDStreamReturn {
         )
         unlistenRef.current.push(unlistenError)
 
+        // 等待一小段时间，确保所有监听器都已完全注册
+        // 这样可以避免错过在 invoke 返回后立即发送的错误事件
+        await new Promise(resolve => setTimeout(resolve, 50))
+
         console.log('[usePRDStream] Calling start_prd_stream with:', {
           idea: request.idea.slice(0, 50) + '...',
           provider: request.provider,
@@ -173,6 +177,7 @@ export function usePRDStream(): UsePRDStreamReturn {
         setError(err instanceof Error ? err.message : String(err))
         setIsStreaming(false)
         isStreamingRef.current = false
+        cleanup()
       }
     },
     [cleanup, updatePRDState]
