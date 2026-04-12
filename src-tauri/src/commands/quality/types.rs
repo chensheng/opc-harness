@@ -173,7 +173,7 @@ pub struct DecomposeUserStoriesRequest {
     /// PRD 内容或功能描述
     #[serde(alias = "prdContent")]
     pub prd_content: String,
-    /// AI 提供商 (openai, anthropic, kimi, glm, minimax)
+    /// AI 提供商 (openai, anthropic, kimi, glm, minimax, codefree)
     #[serde(alias = "provider", default = "default_provider")]
     pub provider: String,
     /// AI 模型名称
@@ -182,6 +182,9 @@ pub struct DecomposeUserStoriesRequest {
     /// 可选的 AI API Key
     #[serde(alias = "apiKey")]
     pub api_key: Option<String>,
+    /// 可选：项目 ID（用于 CodeFree 写入文件）
+    #[serde(alias = "projectId")]
+    pub project_id: Option<String>,
 }
 
 pub fn default_provider() -> String {

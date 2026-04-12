@@ -129,6 +129,7 @@ export interface UserStoryStreamRequest {
   provider: string
   model: string
   apiKey: string
+  projectId?: string
 }
 
 export interface UseUserStoryStreamReturn {
@@ -242,6 +243,7 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
             provider: request.provider,
             model: request.model,
             apiKey: request.apiKey,
+            projectId: request.projectId || null,
           },
         })
 

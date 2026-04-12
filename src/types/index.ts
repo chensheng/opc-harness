@@ -296,12 +296,14 @@ export interface UserStory {
 export interface DecomposeUserStoriesRequest {
   /** PRD 内容或功能描述 */
   prdContent: string
-  /** AI 提供商 (openai, anthropic, kimi, glm, minimax) */
+  /** AI 提供商 (openai, anthropic, kimi, glm, minimax, codefree) */
   provider?: string
   /** AI 模型名称 */
   model?: string
   /** 可选：AI API Key */
   apiKey?: string
+  /** 可选：项目 ID（用于 CodeFree 写入文件） */
+  projectId?: string
 }
 
 /**

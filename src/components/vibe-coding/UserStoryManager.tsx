@@ -209,6 +209,7 @@ export function UserStoryManager({
         provider: store.defaultProvider, // ✅ 使用默认厂商而非activeConfig.provider
         model: activeConfig.model,
         apiKey: activeConfig.apiKey || '', // codefree 传空字符串
+        projectId: currentProjectId || undefined, // 传递项目 ID 用于 CodeFree 文件写入
       },
       stories => {
         // 流式完成后自动调用保存回调
