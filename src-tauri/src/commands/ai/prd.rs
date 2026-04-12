@@ -223,6 +223,8 @@ pub async fn start_prd_stream(
     // 4. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
     let app_clone = app.clone();
+    let provider_clone = request.provider.clone();
+    let project_id_clone = request.project_id.clone();
 
     
     let chunk_handler = move |chunk: String| -> Result<(), crate::ai::AIError> {
@@ -241,3 +243,70 @@ pub async fn start_prd_stream(
         
         Ok(())
     };
+    
+    // 5. 在后台启动流式请求
+    let session_id_for_return = session_id.clone();
+    tokio::spawn(async move {
+        match provider.stream_chat(chat_request, chunk_handler).await {
+            Ok(final_content) => {
+                // 如果是 CodeFree，需要从文件读取最终内容
+                let prd_content = if provider_clone == "codefree" {
+                    if let Some(ref pid) = project_id_clone {
+                        use crate::utils::paths::get_workspaces_dir;
+                        use std::fs;
+                        
+                        let workspaces_root = get_workspaces_dir();
+                        let workspace_path = workspaces_root.join(pid);
+                        let context_dir = workspace_path.join(".opc-harness");
+                        let prd_md_path = context_dir.join("PRD.md");
+                        
+                        log::info!("[start_prd_stream] 📖 Reading generated PRD from: {:?}", prd_md_path);
+                        
+                        // 等待一下确保文件写入完成
+                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                        
+                        // 尝试读取 PRD.md 文件
+                        match fs::read_to_string(&prd_md_path) {
+                            Ok(content) => {
+                                log::info!("[start_prd_stream] ✅ Successfully read PRD.md, length: {} bytes", content.len());
+                                content
+                            }
+                            Err(e) => {
+                                log::warn!("[start_prd_stream] ⚠️ Failed to read PRD.md: {}, using streamed content", e);
+                                final_content
+                            }
+                        }
+                    } else {
+                        log::warn!("[start_prd_stream] ⚠️ CodeFree completed but no project_id, using streamed content");
+                        final_content
+                    }
+                } else {
+                    // 非 CodeFree 提供商，直接使用流式内容
+                    final_content
+                };
+                
+                // 发送完成事件（使用从文件读取的内容或流式内容）
+                let complete_data = StreamComplete {
+                    session_id: session_id.clone(),
+                    content: prd_content.clone(),
+                };
+                let _ = app.emit("prd-stream-complete", complete_data);
+                
+                log::info!("Streaming PRD generation completed, content length: {}", prd_content.len());
+            }
+            Err(e) => {
+                // 发送错误事件
+                let error_data = StreamError {
+                    session_id: session_id.clone(),
+                    error: e.to_string(),
+                };
+                let _ = app.emit("prd-stream-error", error_data);
+                
+                log::error!("Streaming PRD generation failed: {}", e);
+            }
+        }
+    });
+    
+    // 立即返回 session_id
+    Ok(StartPRDStreamResponse { session_id: session_id_for_return })
+}
