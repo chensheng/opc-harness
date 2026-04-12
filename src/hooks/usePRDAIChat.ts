@@ -146,20 +146,24 @@ ${prdContentForAI}
 请基于以上 PRD 和用户需求，生成优化后的完整 PRD 文档。`
 
         // 发送请求 - 使用 stream_chat 命令
-        // 监听流式数据事件
-        const unlisten = await listen('ai-stream', ({ payload }) => {
-          accumulatedContentRef.current += payload
-          setMessages(prev => {
-            const lastMsg = prev[prev.length - 1]
-            return [
-              ...prev.slice(0, -1),
-              {
-                role: lastMsg.role,
-                content: accumulatedContentRef.current,
-              },
-            ]
-          })
-        })
+        // ✅ 监听流式数据事件（修正事件名称为 ai-stream-chunk）
+        const unlisten = await listen<{ session_id: string; content: string }>(
+          'ai-stream-chunk',
+          ({ payload }) => {
+            console.log('[usePRDAIChat] Received chunk:', payload.content.substring(0, 50))
+            accumulatedContentRef.current += payload.content
+            setMessages(prev => {
+              const lastMsg = prev[prev.length - 1]
+              return [
+                ...prev.slice(0, -1),
+                {
+                  role: lastMsg.role,
+                  content: accumulatedContentRef.current,
+                },
+              ]
+            })
+          }
+        )
 
         unlistenRef.current.push(unlisten)
 
