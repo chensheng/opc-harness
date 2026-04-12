@@ -1,14 +1,19 @@
 // 用户故事AI服务模块
 // 负责调用AI API进行用户故事分解
 
-use crate::commands::quality::types::UserStory;
+use crate::commands::quality::types::{UserStory, ExistingStoryInfo};
 use crate::commands::quality::user_story_parser;
 use chrono::Utc;
 
 /// 使用 AI 进行用户故事拆分
-pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, api_key: Option<&str>) -> Result<Vec<UserStory>, String> {
+pub async fn decompose_with_ai(
+    prd_content: &str, 
+    provider: &str, 
+    model: &str, 
+    api_key: Option<&str>,
+    existing_stories: Option<&[ExistingStoryInfo]>,
+) -> Result<Vec<UserStory>, String> {
     use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
-    use crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt;
     
     // 获取 API Key - 优先使用传入的 key，否则从环境变量读取
     let api_key = api_key
@@ -21,8 +26,16 @@ pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, a
         .or_else(|| std::env::var("GLM_API_KEY").ok())
         .unwrap_or_default(); // 如果都没有，使用空字符串（AI Provider会处理）
     
-    // 生成提示词
-    let prompt = generate_user_story_decomposition_prompt(prd_content);
+    // 根据是否有已有用户故事，选择合适的提示词生成函数
+    let prompt = if let Some(stories) = existing_stories {
+        log::info!("Including {} existing stories to avoid duplication", stories.len());
+        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(
+            prd_content,
+            stories
+        )
+    } else {
+        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt(prd_content)
+    };
     
     log::info!("Calling AI service for user story decomposition...");
     log::debug!("Prompt length: {} characters", prompt.len());
@@ -48,7 +61,7 @@ pub async fn decompose_with_ai(prd_content: &str, provider: &str, model: &str, a
         messages: vec![
             Message {
                 role: "system".to_string(),
-                content: "你是一位经验丰富的敏捷开发专家和产品经理。请严格按照要求的 JSON 格式输出用户故事列表，不要添加任何额外的解释或说明。".to_string(),
+                content: "你是一位经验丰富的敏捷开发专家和产品经理。请严格按照要求的 Markdown 表格格式输出用户故事列表，不要添加任何额外的解释或说明。".to_string(),
             },
             Message {
                 role: "user".to_string(),
@@ -133,7 +146,8 @@ mod tests {
             "我们需要一个任务管理系统",
             "openai",
             "gpt-4-turbo-preview",
-            None
+            None,
+            None, // existing_stories
         ).await;
         
         // 由于没有有效的 API Key，AI 调用会失败，但不会在参数检查阶段失败
@@ -149,7 +163,8 @@ mod tests {
             "测试内容",
             "invalid_provider",
             "test-model",
-            Some("test-key")
+            Some("test-key"),
+            None, // existing_stories
         ).await;
         
         assert!(result.is_err());

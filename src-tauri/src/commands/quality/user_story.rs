@@ -18,12 +18,15 @@ pub async fn decompose_user_stories(
     log::info!("Starting user story decomposition with AI (provider: {}, model: {})", 
                request.provider, request.model);
     
-    // 使用 AI 进行用户故事拆分
+    // 使用 AI 进行用户故事拆分，传递已有用户故事信息
+    let existing_stories_ref = request.existing_stories.as_deref();
+    
     match user_story_ai_service::decompose_with_ai(
         &request.prd_content, 
         &request.provider, 
         &request.model, 
-        request.api_key.as_deref()
+        request.api_key.as_deref(),
+        existing_stories_ref,
     ).await {
         Ok(user_stories) => {
             log::info!("User story decomposition completed. Generated {} stories", user_stories.len());
@@ -69,6 +72,7 @@ mod tests {
             model: "gpt-4-turbo-preview".to_string(),
             api_key: None,
             project_id: None,
+            existing_stories: None,
         };
         
         let result = decompose_user_stories(request).await;
@@ -93,6 +97,7 @@ mod tests {
             model: "gpt-4-turbo-preview".to_string(),
             api_key: None, // 将从环境变量读取
             project_id: None,
+            existing_stories: None,
         };
         
         let result = decompose_user_stories(request).await;

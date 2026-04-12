@@ -237,6 +237,17 @@ export function UserStoryManager({
       return
     }
 
+    // 获取已有的用户故事，用于避免重复生成
+    let existingStories: Array<{ title: string; role: string; feature: string }> | undefined
+    if (currentProjectId && savedStories.length > 0) {
+      existingStories = savedStories.map(story => ({
+        title: story.title,
+        role: story.role,
+        feature: story.feature,
+      }))
+      console.log(`[UserStoryManager] Found ${existingStories.length} existing stories to avoid duplication`)
+    }
+
     // 显示流式视图
     setShowStreamingView(true)
 
@@ -248,6 +259,7 @@ export function UserStoryManager({
         model: activeConfig.model,
         apiKey: activeConfig.apiKey || '', // codefree 传空字符串
         projectId: currentProjectId || undefined, // 传递项目 ID 用于 CodeFree 文件写入
+        existingStories, // 传递已有用户故事信息
       },
       stories => {
         // 流式完成后自动调用保存回调

@@ -2,7 +2,9 @@
 //! 
 //! 用于将 PRD 或产品需求文档拆分为符合 INVEST 原则的用户故事
 
-/// 用户故事拆分提示词模板
+use crate::commands::quality::types::ExistingStoryInfo;
+
+/// 用户故事拆分提示词模板（基础版，不包含已有故事信息）
 const USER_STORY_DECOMPOSITION_TEMPLATE: &str = r#"# 系统指令
 
 你是一位经验丰富的敏捷开发专家和产品经理，擅长将产品需求拆分为符合 INVEST 原则的用户故事。
@@ -96,7 +98,7 @@ const USER_STORY_DECOMPOSITION_TEMPLATE: &str = r#"# 系统指令
 
 **现在，请分析上述 PRD，以 Markdown 表格格式输出用户故事列表：**"#;
 
-/// 生成用户故事拆分提示词
+/// 生成用户故事拆分提示词（基础版）
 /// 
 /// # Arguments
 /// * `prd_content` - PRD 内容或产品需求描述
@@ -105,6 +107,57 @@ const USER_STORY_DECOMPOSITION_TEMPLATE: &str = r#"# 系统指令
 /// 返回完整的提示词字符串
 pub fn generate_user_story_decomposition_prompt(prd_content: &str) -> String {
     USER_STORY_DECOMPOSITION_TEMPLATE.replace("{prd_content}", prd_content)
+}
+
+/// 生成用户故事拆分提示词（包含已有故事信息，避免重复）
+/// 
+/// # Arguments
+/// * `prd_content` - PRD 内容或产品需求描述
+/// * `existing_stories` - 已有的用户故事列表（用于避免重复生成）
+/// 
+/// # Returns
+/// 返回完整的提示词字符串
+pub fn generate_user_story_decomposition_prompt_with_existing(
+    prd_content: &str,
+    existing_stories: &[ExistingStoryInfo],
+) -> String {
+    // 构建已有故事的文本描述
+    let existing_stories_text = if existing_stories.is_empty() {
+        String::from("当前没有已有的用户故事。")
+    } else {
+        let mut text = String::from("⚠️ **重要：以下用户故事已经存在，请不要重复生成类似的故事！**\n\n");
+        text.push_str("| 序号 | 标题 | 角色 | 功能 |\n");
+        text.push_str("|------|------|------|------|\n");
+        
+        for (idx, story) in existing_stories.iter().enumerate() {
+            text.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                idx + 1,
+                story.title,
+                story.role,
+                story.feature
+            ));
+        }
+        
+        text.push_str("\n**请在拆分新故事时：**\n");
+        text.push_str("1. 避免生成与上述故事重复或高度相似的内容\n");
+        text.push_str("2. 如果需要补充或细化已有故事，请明确说明是改进而非新增\n");
+        text.push_str("3. 重点关注 PRD 中尚未被覆盖的需求\n");
+        
+        text
+    };
+    
+    // 在基础模板的基础上，添加已有故事的信息
+    let base_prompt = USER_STORY_DECOMPOSITION_TEMPLATE.replace("{prd_content}", prd_content);
+    
+    // 在"PRD 内容"之后插入已有故事信息
+    let insert_marker = "---\n\n## INVEST 原则说明";
+    let enhanced_section = format!(
+        "---\n\n## 已有用户故事（避免重复）\n\n{}\n\n---\n\n## INVEST 原则说明",
+        existing_stories_text
+    );
+    
+    base_prompt.replace(insert_marker, &enhanced_section)
 }
 
 #[cfg(test)]
@@ -138,6 +191,51 @@ mod tests {
         let prompt = generate_user_story_decomposition_prompt(prd);
         
         assert!(prompt.contains(prd));
+        assert!(prompt.contains("任务管理系统"));
+    }
+    
+    #[test]
+    fn test_prompt_with_existing_stories() {
+        let prd = "# 任务管理系统\n这是一个简单的任务管理应用。";
+        let existing_stories = vec![
+            ExistingStoryInfo {
+                title: "用户注册".to_string(),
+                role: "新用户".to_string(),
+                feature: "能够通过邮箱注册账号".to_string(),
+            },
+            ExistingStoryInfo {
+                title: "创建任务".to_string(),
+                role: "注册用户".to_string(),
+                feature: "能够创建新的任务".to_string(),
+            },
+        ];
+        
+        let prompt = generate_user_story_decomposition_prompt_with_existing(
+            prd,
+            &existing_stories
+        );
+        
+        // 验证提示词包含已有故事信息
+        assert!(prompt.contains("已有用户故事（避免重复）"));
+        assert!(prompt.contains("用户注册"));
+        assert!(prompt.contains("创建任务"));
+        assert!(prompt.contains("不要重复生成类似的故事"));
+        assert!(prompt.contains("PRD 内容"));
+        assert!(prompt.contains("任务管理系统"));
+    }
+    
+    #[test]
+    fn test_prompt_with_empty_existing_stories() {
+        let prd = "# 任务管理系统";
+        let existing_stories: Vec<ExistingStoryInfo> = vec![];
+        
+        let prompt = generate_user_story_decomposition_prompt_with_existing(
+            prd,
+            &existing_stories
+        );
+        
+        // 验证提示词包含空故事的提示
+        assert!(prompt.contains("当前没有已有的用户故事"));
         assert!(prompt.contains("任务管理系统"));
     }
 }

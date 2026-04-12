@@ -304,6 +304,12 @@ export interface DecomposeUserStoriesRequest {
   apiKey?: string
   /** 可选：项目 ID（用于 CodeFree 写入文件） */
   projectId?: string
+  /** 可选：已有的用户故事列表（用于避免重复生成） */
+  existingStories?: Array<{
+    title: string
+    role: string
+    feature: string
+  }>
 }
 
 /**

@@ -167,6 +167,17 @@ pub struct UserStory {
     pub updated_at: String,
 }
 
+/// 已有用户故事的简要信息（用于避免重复）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExistingStoryInfo {
+    /// 故事标题
+    pub title: String,
+    /// 角色
+    pub role: String,
+    /// 功能
+    pub feature: String,
+}
+
 /// 用户故事拆分请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecomposeUserStoriesRequest {
@@ -185,6 +196,9 @@ pub struct DecomposeUserStoriesRequest {
     /// 可选：项目 ID（用于 CodeFree 写入文件）
     #[serde(alias = "projectId")]
     pub project_id: Option<String>,
+    /// 可选：已有的用户故事列表（用于避免重复生成）
+    #[serde(alias = "existingStories")]
+    pub existing_stories: Option<Vec<ExistingStoryInfo>>,
 }
 
 pub fn default_provider() -> String {

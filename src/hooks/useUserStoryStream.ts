@@ -130,6 +130,11 @@ export interface UserStoryStreamRequest {
   model: string
   apiKey: string
   projectId?: string
+  existingStories?: Array<{
+    title: string
+    role: string
+    feature: string
+  }>
 }
 
 export interface UseUserStoryStreamReturn {
@@ -250,6 +255,7 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
             model: request.model,
             apiKey: request.apiKey,
             projectId: request.projectId || null,
+            existingStories: request.existingStories || null,
           },
         })
 

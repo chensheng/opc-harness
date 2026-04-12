@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { DecomposeUserStoriesRequest, DecomposeUserStoriesResponse, UserStory } from '../types'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { useUserStoryStore } from '@/stores/userStoryStore'
 
 interface UseUserStoryDecompositionReturn {
   /** 用户故事列表 */
@@ -11,7 +12,7 @@ interface UseUserStoryDecompositionReturn {
   /** 错误信息 */
   error: string | null
   /** 执行用户故事拆分，返回拆分后的用户故事数组 */
-  decompose: (prdContent: string) => Promise<UserStory[]>
+  decompose: (prdContent: string, projectId?: string) => Promise<UserStory[]>
   /** 重置状态 */
   reset: () => void
 }
@@ -26,14 +27,16 @@ export function useUserStoryDecomposition(): UseUserStoryDecompositionReturn {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const aiConfigStore = useAIConfigStore()
+  const userStoryStore = useUserStoryStore()
 
   /**
    * 执行用户故事拆分
    * @param prdContent - PRD 内容或功能描述
+   * @param projectId - 可选的项目ID，用于获取已有用户故事避免重复
    * @returns 拆分后的用户故事数组
    */
   const decompose = useCallback(
-    async (prdContent: string): Promise<UserStory[]> => {
+    async (prdContent: string, projectId?: string): Promise<UserStory[]> => {
       setLoading(true)
       setError(null)
 
@@ -45,11 +48,29 @@ export function useUserStoryDecomposition(): UseUserStoryDecompositionReturn {
           throw new Error('未配置 AI API Key，请先在设置中配置')
         }
 
+        // 如果提供了 projectId，获取已有的用户故事
+        let existingStories: Array<{ title: string; role: string; feature: string }> | undefined
+        
+        if (projectId) {
+          const stories = userStoryStore.getProjectStories(projectId)
+          if (stories.length > 0) {
+            // 提取关键信息用于避免重复
+            existingStories = stories.map(story => ({
+              title: story.title,
+              role: story.role,
+              feature: story.feature,
+            }))
+            console.log(`[useUserStoryDecomposition] Found ${existingStories.length} existing stories to avoid duplication`)
+          }
+        }
+
         const request: DecomposeUserStoriesRequest = {
           prdContent,
           provider: activeConfig.provider,
           model: activeConfig.model,
           apiKey: activeConfig.apiKey,
+          projectId,
+          existingStories,
         }
 
         const response = await invoke<DecomposeUserStoriesResponse>('decompose_user_stories', {
@@ -72,7 +93,7 @@ export function useUserStoryDecomposition(): UseUserStoryDecompositionReturn {
         setLoading(false)
       }
     },
-    [aiConfigStore]
+    [aiConfigStore, userStoryStore]
   )
 
   /**
