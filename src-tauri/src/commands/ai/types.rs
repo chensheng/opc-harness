@@ -66,6 +66,18 @@ pub struct GeneratePRDRequest {
     pub api_key: String,
 }
 
+/// PRD 流式生成请求
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PRDStreamRequest {
+    pub idea: String,
+    pub provider: String,
+    pub model: String,
+    pub api_key: String,
+    /// 项目 ID（用于 CodeFree CLI 切换工作目录）
+    #[serde(default)]
+    pub project_id: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PRDResponse {
     pub title: String,

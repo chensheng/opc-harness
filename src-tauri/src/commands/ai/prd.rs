@@ -1,6 +1,6 @@
 use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message as AIMessage, StreamChunk, StreamComplete, StreamError};
 use crate::prompts::prd_template;
-use crate::commands::ai::types::{GeneratePRDRequest, PRDResponse};
+use crate::commands::ai::types::{GeneratePRDRequest, PRDResponse, PRDStreamRequest};
 use crate::commands::ai::parser::parse_prd_from_markdown;
 use serde::Serialize;
 use tauri::Emitter;
@@ -64,27 +64,37 @@ pub struct StartPRDStreamResponse {
 #[tauri::command]
 #[allow(non_snake_case)]
 pub async fn start_prd_stream(
-    idea: String,
-    provider: String,
-    model: String,
-    apiKey: String,
-    project_id: Option<String>,
+    request: PRDStreamRequest,
     app: tauri::AppHandle,
 ) -> Result<StartPRDStreamResponse, String> {
     let session_id = Uuid::new_v4().to_string();
     
-    log::info!("Starting streaming PRD generation for idea: {}", idea);
-    log::info!("[start_prd_stream] Provider: {}, Model: {}", provider, model);
-    log::info!("[start_prd_stream] Project ID: {:?}", project_id);
+    log::info!("Starting streaming PRD generation for idea: {}", request.idea);
+    log::info!("[start_prd_stream] ====== 接收到的参数 ======");
+    log::info!("[start_prd_stream] Provider: {}", request.provider);
+    log::info!("[start_prd_stream] Model: {}", request.model);
+    log::info!("[start_prd_stream] API Key length: {}", request.api_key.len());
+    log::info!("[start_prd_stream] Project ID: {:?}", request.project_id);
+    
+    // 调试：打印原始参数的类型信息
+    log::info!("[start_prd_stream] Project ID is_some: {}", request.project_id.is_some());
+    if let Some(ref pid) = request.project_id {
+        log::info!("[start_prd_stream] Project ID value: '{}'", pid);
+        log::info!("[start_prd_stream] Project ID length: {}", pid.len());
+        log::info!("[start_prd_stream] Project ID is_empty: {}", pid.is_empty());
+    }
+    
+    log::info!("[start_prd_stream] =========================");
     
     // 1. 构建 PRD 提示词
-    let prompt = prd_template::generate_prd_prompt(&idea, None);
+    let prompt = prd_template::generate_prd_prompt(&request.idea, None);
     
     // 2. 如果是 CodeFree，需要写入 AGENTS.md 文件
-    if provider == "codefree" {
-        log::info!("[start_prd_stream] CodeFree provider detected, preparing to write AGENTS.md");
+    if request.provider == "codefree" {
+        log::info!("[start_prd_stream] 🎯 CodeFree provider detected!");
+        log::info!("[start_prd_stream] Project ID: {:?}", request.project_id);
         
-        if let Some(ref pid) = project_id {
+        if let Some(ref pid) = request.project_id {
             use crate::utils::paths::get_workspaces_dir;
             use std::fs;
             
@@ -92,16 +102,34 @@ pub async fn start_prd_stream(
             let workspace_path = workspaces_root.join(pid);
             let context_dir = workspace_path.join(".opc-harness");
             
-            log::info!("[start_prd_stream] Workspace path: {:?}", workspace_path);
-            log::info!("[start_prd_stream] Context directory: {:?}", context_dir);
+            log::info!("[start_prd_stream] 📁 Workspace path: {:?}", workspace_path);
+            log::info!("[start_prd_stream] 📁 Context directory: {:?}", context_dir);
+            
+            // 检查工作区目录是否存在
+            if !workspace_path.exists() {
+                log::warn!("[start_prd_stream] ⚠️ Workspace directory does not exist, creating...");
+                fs::create_dir_all(&workspace_path).map_err(|e| {
+                    log::error!("[start_prd_stream] Failed to create workspace directory: {}", e);
+                    format!("Failed to create workspace directory: {}", e)
+                })?;
+            }
             
             // 确保 .opc-harness 目录存在
+            log::info!("[start_prd_stream] Creating .opc-harness directory...");
             fs::create_dir_all(&context_dir).map_err(|e| {
                 log::error!("[start_prd_stream] Failed to create context directory: {}", e);
                 format!("Failed to create context directory: {}", e)
             })?;
             
-            log::info!("[start_prd_stream] Context directory created/verified");
+            log::info!("[start_prd_stream] ✅ Context directory created/verified");
+            
+            // 写入一个测试文件来确认路径正确
+            let test_file = context_dir.join("test.txt");
+            fs::write(&test_file, "CodeFree PRD generation test").map_err(|e| {
+                log::error!("[start_prd_stream] Failed to write test file: {}", e);
+                format!("Failed to write test file: {}", e)
+            })?;
+            log::info!("[start_prd_stream] ✅ Test file written to: {:?}", test_file);
             
             // 写入 AGENTS.md 作为系统提示词
             let agents_md_path = context_dir.join("AGENTS.md");
@@ -152,21 +180,21 @@ Now, generate the complete PRD document based on the user's idea below.
     }
     
     // 3. 创建 AI Provider
-    let provider_type = match provider.as_str() {
+    let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
         "kimi" => AIProviderType::Kimi,
         "glm" => AIProviderType::GLM,
         "minimax" => AIProviderType::MiniMax,
         "codefree" => AIProviderType::CodeFree,
-        _ => return Err(format!("不支持的 AI 提供商：{}", provider)),
+        _ => return Err(format!("不支持的 AI 提供商：{}", request.provider)),
     };
     
-    let provider = AIProvider::new(provider_type, apiKey.clone());
+    let provider = AIProvider::new(provider_type, request.api_key.clone());
     
     // 4. 构建聊天请求（流式模式）
     let chat_request = ChatRequest {
-        model,
+        model: request.model,
         messages: vec![AIMessage {
             role: "user".to_string(),
             content: prompt,
@@ -174,7 +202,7 @@ Now, generate the complete PRD document based on the user's idea below.
         temperature: Some(0.7),
         max_tokens: Some(4096),
         stream: true,
-        project_id: project_id.clone(),
+        project_id: request.project_id.clone(),
     };
     
     // 5. 创建会话感知的 chunk 处理器

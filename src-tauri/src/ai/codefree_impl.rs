@@ -527,7 +527,10 @@ impl AIProvider {
             .join("\n\n");
         
         log::info!("[CodeFree] Stream query length: {} chars", query.len());
-        log::info!("[CodeFree] Query preview: {}", &query[..100.min(query.len())]);
+        
+        // 安全地截取前100个字符作为预览（避免UTF-8边界问题）
+        let preview = query.chars().take(100).collect::<String>();
+        log::info!("[CodeFree] Query preview: {}{}", preview, if query.chars().count() > 100 { "..." } else { "" });
         
         // 构建命令参数
         // 格式: codefree [query...] -o stream-json [-m model] [-y]

@@ -146,15 +146,26 @@ export function usePRDStream(): UsePRDStreamReturn {
           provider: request.provider,
           model: request.model,
           projectId: request.projectId,
+          project_id_for_backend: request.projectId || null,
         })
 
-        const { session_id } = await invoke<{ session_id: string }>('start_prd_stream', {
-          idea: request.idea,
-          provider: request.provider,
-          model: request.model,
-          apiKey: request.apiKey,
-          project_id: request.projectId || null,
-        })
+        const invokeParams = {
+          request: {
+            idea: request.idea,
+            provider: request.provider,
+            model: request.model,
+            api_key: request.apiKey,  // 使用snake_case与后端结构体匹配
+            project_id: request.projectId || null,
+          }
+        }
+        
+        console.log('[usePRDStream] ====== 准备调用 start_prd_stream ======')
+        console.log('[usePRDStream] request.projectId:', request.projectId)
+        console.log('[usePRDStream] invokeParams.request.project_id:', invokeParams.request.project_id)
+        console.log('[usePRDStream] Full invoke params JSON:', JSON.stringify(invokeParams))
+        console.log('[usePRDStream] ==========================================')
+
+        const { session_id } = await invoke<{ session_id: string }>('start_prd_stream', invokeParams)
 
         setSessionId(session_id)
       } catch (err) {
