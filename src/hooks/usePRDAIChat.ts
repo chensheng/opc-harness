@@ -169,7 +169,7 @@ ${prdContentForAI}
           setError(payload.error || '生成 PRD 时发生错误')
           isStreamingRef.current = false
           setIsStreaming(false)
-          cleanup()  // 清理事件监听器
+          cleanup() // 清理事件监听器
         })
 
         unlistenRef.current.push(errorUnlisten)

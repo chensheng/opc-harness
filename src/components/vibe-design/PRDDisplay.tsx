@@ -193,15 +193,13 @@ export function PRDDisplay() {
             <p className="text-muted-foreground mt-1">无法生成产品需求文档</p>
           </div>
         </div>
-        
+
         <Card className="border-destructive">
           <CardContent className="py-6">
             <div className="space-y-4">
               <p className="text-destructive font-medium">{error}</p>
               <div className="flex gap-2">
-                <Button onClick={generatePRD}>
-                  重试
-                </Button>
+                <Button onClick={generatePRD}>重试</Button>
                 <Button variant="outline" onClick={() => navigate('/')}>
                   返回首页
                 </Button>
