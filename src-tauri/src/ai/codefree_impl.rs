@@ -753,7 +753,6 @@ impl AIProvider {
                 log::info!("Attempting to parse error from stream output (length: {})", stdout_content.len());
                 
                 // 逐行解析，尝试提取错误信息
-                let mut found_error = false;
                 for line in stdout_content.lines() {
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
@@ -761,7 +760,6 @@ impl AIProvider {
                             Err(e) => {
                                 if e.message.starts_with("CodeFree CLI 错误：") {
                                     log::info!("✓ Extracted error message from stream: {}", e.message.chars().take(100).collect::<String>());
-                                    found_error = true;
                                     return Err(e);
                                 }
                             }
@@ -770,9 +768,7 @@ impl AIProvider {
                     }
                 }
                 
-                if !found_error {
-                    log::warn!("[CodeFree Error Debug] ⚠️ Could not extract error from stdout lines");
-                }
+                log::warn!("[CodeFree Error Debug] ⚠️ Could not extract error from stdout lines");
             } else {
                 log::warn!("[CodeFree Error Debug] ⚠️ stdout is empty, cannot extract error details");
             }
