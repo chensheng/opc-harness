@@ -64,6 +64,9 @@ pub struct GeneratePRDRequest {
     pub provider: String,
     pub model: String,
     pub api_key: String,
+    /// 项目 ID（用于 CodeFree CLI 切换工作目录）
+    #[serde(default)]
+    pub project_id: Option<String>,
 }
 
 /// PRD 流式生成请求

@@ -11,10 +11,46 @@ use uuid::Uuid;
 pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, String> {
     log::info!("Generating PRD for idea: {}", request.idea);
     
-    // 1. 构建 PRD 提示词
+    // 1. 如果是 CodeFree，需要写入 AGENTS.md 文件
+    if request.provider == "codefree" {
+        log::info!("[generate_prd] 🎯 CodeFree provider detected!");
+        
+        if let Some(ref pid) = request.project_id {
+            use crate::utils::paths::get_workspaces_dir;
+            use std::fs;
+            
+            let workspaces_root = get_workspaces_dir();
+            let workspace_path = workspaces_root.join(pid);
+            let context_dir = workspace_path.join(".opc-harness");
+            
+            log::info!("[generate_prd] 📁 Workspace path: {:?}", workspace_path);
+            log::info!("[generate_prd] 📁 Context directory: {:?}", context_dir);
+            
+            // 确保 .opc-harness 目录存在
+            fs::create_dir_all(&context_dir).map_err(|e| {
+                log::error!("[generate_prd] Failed to create context directory: {}", e);
+                format!("Failed to create context directory: {}", e)
+            })?;
+            
+            // 写入 AGENTS.md 作为系统提示词（使用统一的 PRD 生成提示词）
+            let agents_md_path = context_dir.join("AGENTS.md");
+            let agents_content = prd_template::generate_prd_prompt(&request.idea, None);
+            
+            fs::write(&agents_md_path, &agents_content).map_err(|e| {
+                log::error!("[generate_prd] Failed to write AGENTS.md: {}", e);
+                format!("Failed to write AGENTS.md: {}", e)
+            })?;
+            
+            log::info!("[generate_prd] ✅ AGENTS.md successfully written to: {:?}", agents_md_path);
+        } else {
+            log::warn!("[generate_prd] ❌ CodeFree provider requires project_id but got None");
+        }
+    }
+    
+    // 2. 构建 PRD 提示词
     let prompt = prd_template::generate_prd_prompt(&request.idea, None);
     
-    // 2. 创建 AI Provider
+    // 3. 创建 AI Provider
     let provider = match request.provider.as_str() {
         "openai" => AIProvider::new(AIProviderType::OpenAI, request.api_key),
         "anthropic" => AIProvider::new(AIProviderType::Anthropic, request.api_key),
@@ -27,7 +63,7 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
         }
     };
     
-    // 3. 构建聊天请求
+    // 4. 构建聊天请求
     let chat_request = ChatRequest {
         model: request.model,
         messages: vec![AIMessage {
@@ -37,15 +73,15 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
         temperature: Some(0.7),
         max_tokens: Some(4096), // PRD 通常较长
         stream: false,
-        project_id: None,
+        project_id: request.project_id.clone(),
     };
     
-    // 4. 调用 AI Provider
+    // 5. 调用 AI Provider
     let response = provider.chat(chat_request)
         .await
         .map_err(|e| format!("AI 调用失败：{}", e))?;
     
-    // 5. 解析 AI 生成的 PRD 内容
+    // 6. 解析 AI 生成的 PRD 内容
     // AI 返回的是 Markdown 格式的 PRD，需要解析为结构化数据
     let prd = parse_prd_from_markdown(&response.content)
         .map_err(|e| format!("PRD 解析失败：{}", e))?;
@@ -131,49 +167,19 @@ pub async fn start_prd_stream(
             })?;
             log::info!("[start_prd_stream] ✅ Test file written to: {:?}", test_file);
             
-            // 写入 AGENTS.md 作为系统提示词
+            // 写入 AGENTS.md 作为系统提示词（使用统一的 PRD 生成提示词）
             let agents_md_path = context_dir.join("AGENTS.md");
-            let agents_content = format!(
-r#"# AI Assistant - PRD Generation
-
-## Role
-You are a professional Product Manager and PRD (Product Requirements Document) writer.
-
-## Task
-Generate a complete, structured PRD document based on the user's product idea.
-
-## Output Rules
-1. **Output ONLY the final PRD document** - no explanations, no reasoning process, no summaries
-2. **Write in Chinese** (简体中文)
-3. **Use Markdown format** with proper headings and structure
-4. **Be comprehensive and detailed** - include all necessary sections
-5. **Ensure professionalism and readability**
-
-## Required PRD Structure
-Your output must include these sections:
-- Product Overview (产品概述)
-- Target Users (目标用户)
-- Core Features (核心功能)
-- User Stories (用户故事)
-- Technical Stack (技术栈)
-- Development Effort Estimate (开发工作量评估)
-- Business Model (商业模式)
-- Pricing Strategy (定价策略)
-
-## Context Files
-- Current working directory contains @.opc-harness/PRD.md (if exists)
-- Read existing PRD content if available for reference
-
-Now, generate the complete PRD document based on the user's idea below.
-"#
-            );
             
-            fs::write(&agents_md_path, agents_content).map_err(|e| {
+            // 使用与所有 AI 厂商统一的 PRD 生成提示词
+            let agents_content = prd_template::generate_prd_prompt(&request.idea, None);
+            
+            fs::write(&agents_md_path, &agents_content).map_err(|e| {
                 log::error!("[start_prd_stream] Failed to write AGENTS.md: {}", e);
                 format!("Failed to write AGENTS.md: {}", e)
             })?;
             
             log::info!("[start_prd_stream] ✅ AGENTS.md successfully written to: {:?}", agents_md_path);
+            log::info!("[start_prd_stream] 📝 AGENTS.md content length: {} bytes", agents_content.len());
         } else {
             log::warn!("[start_prd_stream] ❌ CodeFree provider requires project_id but got None");
         }
