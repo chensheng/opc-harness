@@ -11,8 +11,8 @@ use uuid::Uuid;
 pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, String> {
     log::info!("Generating PRD for idea: {}", request.idea);
     
-    // 1. 如果是 CodeFree，需要写入 AGENTS.md 文件
-    if request.provider == "codefree" {
+    // 1. 如果是 CodeFree，需要写入 AGENTS.md 文件并准备简短的用户消息
+    let user_message = if request.provider == "codefree" {
         log::info!("[generate_prd] 🎯 CodeFree provider detected!");
         
         if let Some(ref pid) = request.project_id {
@@ -42,15 +42,23 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
             })?;
             
             log::info!("[generate_prd] ✅ AGENTS.md successfully written to: {:?}", agents_md_path);
+            
+            // 构建简短的用户消息，通过 @ 引用 AGENTS.md 文件
+            format!(
+                "请根据 @.opc-harness/AGENTS.md 中的要求，为以下产品想法生成完整的 PRD 文档，并将结果保存到 @.opc-harness/PRD.md 文件中。\n\n产品想法：{}",
+                request.idea
+            )
         } else {
             log::warn!("[generate_prd] ❌ CodeFree provider requires project_id but got None");
+            // 如果没有 project_id，回退到完整提示词
+            prd_template::generate_prd_prompt(&request.idea, None)
         }
-    }
+    } else {
+        // 非 CodeFree 提供商，使用完整的提示词
+        prd_template::generate_prd_prompt(&request.idea, None)
+    };
     
-    // 2. 构建 PRD 提示词
-    let prompt = prd_template::generate_prd_prompt(&request.idea, None);
-    
-    // 3. 创建 AI Provider
+    // 2. 创建 AI Provider
     let provider = match request.provider.as_str() {
         "openai" => AIProvider::new(AIProviderType::OpenAI, request.api_key),
         "anthropic" => AIProvider::new(AIProviderType::Anthropic, request.api_key),
@@ -63,12 +71,12 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
         }
     };
     
-    // 4. 构建聊天请求
+    // 3. 构建聊天请求
     let chat_request = ChatRequest {
         model: request.model,
         messages: vec![AIMessage {
             role: "user".to_string(),
-            content: prompt,
+            content: user_message,
         }],
         temperature: Some(0.7),
         max_tokens: Some(4096), // PRD 通常较长
@@ -76,12 +84,12 @@ pub async fn generate_prd(request: GeneratePRDRequest) -> Result<PRDResponse, St
         project_id: request.project_id.clone(),
     };
     
-    // 5. 调用 AI Provider
+    // 4. 调用 AI Provider
     let response = provider.chat(chat_request)
         .await
         .map_err(|e| format!("AI 调用失败：{}", e))?;
     
-    // 6. 解析 AI 生成的 PRD 内容
+    // 5. 解析 AI 生成的 PRD 内容
     // AI 返回的是 Markdown 格式的 PRD，需要解析为结构化数据
     let prd = parse_prd_from_markdown(&response.content)
         .map_err(|e| format!("PRD 解析失败：{}", e))?;
@@ -122,11 +130,8 @@ pub async fn start_prd_stream(
     
     log::info!("[start_prd_stream] =========================");
     
-    // 1. 构建 PRD 提示词
-    let prompt = prd_template::generate_prd_prompt(&request.idea, None);
-    
-    // 2. 如果是 CodeFree，需要写入 AGENTS.md 文件
-    if request.provider == "codefree" {
+    // 1. 如果是 CodeFree，需要写入 AGENTS.md 文件并准备简短的用户消息
+    let user_message = if request.provider == "codefree" {
         log::info!("[start_prd_stream] 🎯 CodeFree provider detected!");
         log::info!("[start_prd_stream] Project ID: {:?}", request.project_id);
         
@@ -159,14 +164,6 @@ pub async fn start_prd_stream(
             
             log::info!("[start_prd_stream] ✅ Context directory created/verified");
             
-            // 写入一个测试文件来确认路径正确
-            let test_file = context_dir.join("test.txt");
-            fs::write(&test_file, "CodeFree PRD generation test").map_err(|e| {
-                log::error!("[start_prd_stream] Failed to write test file: {}", e);
-                format!("Failed to write test file: {}", e)
-            })?;
-            log::info!("[start_prd_stream] ✅ Test file written to: {:?}", test_file);
-            
             // 写入 AGENTS.md 作为系统提示词（使用统一的 PRD 生成提示词）
             let agents_md_path = context_dir.join("AGENTS.md");
             
@@ -180,12 +177,24 @@ pub async fn start_prd_stream(
             
             log::info!("[start_prd_stream] ✅ AGENTS.md successfully written to: {:?}", agents_md_path);
             log::info!("[start_prd_stream] 📝 AGENTS.md content length: {} bytes", agents_content.len());
+            
+            // 构建简短的用户消息，通过 @ 引用 AGENTS.md 文件
+            // CodeFree 会自动读取当前工作目录下的文件
+            format!(
+                "请根据 @.opc-harness/AGENTS.md 中的要求，为以下产品想法生成完整的 PRD 文档，并将结果保存到 @.opc-harness/PRD.md 文件中。\n\n产品想法：{}",
+                request.idea
+            )
         } else {
             log::warn!("[start_prd_stream] ❌ CodeFree provider requires project_id but got None");
+            // 如果没有 project_id，回退到完整提示词
+            prd_template::generate_prd_prompt(&request.idea, None)
         }
-    }
+    } else {
+        // 非 CodeFree 提供商，使用完整的提示词
+        prd_template::generate_prd_prompt(&request.idea, None)
+    };
     
-    // 3. 创建 AI Provider
+    // 2. 创建 AI Provider
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -198,12 +207,12 @@ pub async fn start_prd_stream(
     
     let provider = AIProvider::new(provider_type, request.api_key.clone());
     
-    // 4. 构建聊天请求（流式模式）
+    // 3. 构建聊天请求（流式模式）
     let chat_request = ChatRequest {
         model: request.model,
         messages: vec![AIMessage {
             role: "user".to_string(),
-            content: prompt,
+            content: user_message,
         }],
         temperature: Some(0.7),
         max_tokens: Some(4096),
@@ -211,7 +220,7 @@ pub async fn start_prd_stream(
         project_id: request.project_id.clone(),
     };
     
-    // 5. 创建会话感知的 chunk 处理器
+    // 4. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
     let app_clone = app.clone();
 
@@ -232,34 +241,3 @@ pub async fn start_prd_stream(
         
         Ok(())
     };
-    
-    // 6. 在后台启动流式请求
-    let session_id_for_return = session_id.clone();
-    tokio::spawn(async move {
-        match provider.stream_chat(chat_request, chunk_handler).await {
-            Ok(final_content) => {
-                // 发送完成事件
-                let complete_data = StreamComplete {
-                    session_id: session_id.clone(),
-                    content: final_content.clone(),
-                };
-                let _ = app.emit("prd-stream-complete", complete_data);
-                
-                log::info!("Streaming PRD generation completed");
-            }
-            Err(e) => {
-                // 发送错误事件
-                let error_data = StreamError {
-                    session_id: session_id.clone(),
-                    error: e.to_string(),
-                };
-                let _ = app.emit("prd-stream-error", error_data);
-                
-                log::error!("Streaming PRD generation failed: {}", e);
-            }
-        }
-    });
-    
-    // 立即返回 session_id
-    Ok(StartPRDStreamResponse { session_id: session_id_for_return })
-}
