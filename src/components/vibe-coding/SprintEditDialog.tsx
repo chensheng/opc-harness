@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { Sprint, UserStory } from '@/types'
 import { Badge } from '@/components/ui/badge'
+import { Search, X, Users } from 'lucide-react'
 
 interface SprintEditDialogProps {
   open: boolean
@@ -48,6 +49,10 @@ export function SprintEditDialog({
   const [selectedStoryIds, setSelectedStoryIds] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)
+
+  // 用户故事筛选状态
+  const [storyFilterKeyword, setStoryFilterKeyword] = useState('')
+  const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(false)
 
   // 初始化表单数据
   useEffect(() => {
@@ -173,6 +178,40 @@ export function SprintEditDialog({
     )
   }
 
+  // 全选/取消全选
+  const handleSelectAll = () => {
+    if (filteredStories.length === selectedStoryIds.length) {
+      // 如果已全部选中，则取消全选
+      setSelectedStoryIds([])
+    } else {
+      // 否则全选当前筛选后的故事
+      setSelectedStoryIds(filteredStories.map(s => s.id))
+    }
+  }
+
+  // 筛选后的故事列表
+  const filteredStories = useMemo(() => {
+    let stories = availableStories
+
+    // 关键词筛选
+    if (storyFilterKeyword.trim()) {
+      const keyword = storyFilterKeyword.toLowerCase()
+      stories = stories.filter(
+        story =>
+          story.title.toLowerCase().includes(keyword) ||
+          story.storyNumber.toLowerCase().includes(keyword) ||
+          story.role.toLowerCase().includes(keyword)
+      )
+    }
+
+    // 只显示未分配的故事
+    if (showOnlyUnassigned) {
+      stories = stories.filter(story => !selectedStoryIds.includes(story.id))
+    }
+
+    return stories
+  }, [availableStories, storyFilterKeyword, showOnlyUnassigned, selectedStoryIds])
+
   if (!sprint && !open) return null
 
   return (
@@ -294,13 +333,53 @@ export function SprintEditDialog({
               </Badge>
             </div>
 
-            <ScrollArea className="h-[200px] w-full rounded-md border p-3">
-              {availableStories.length > 0 ? (
+            {/* 搜索和筛选工具栏 */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="搜索故事编号、标题、角色..."
+                  value={storyFilterKeyword}
+                  onChange={e => setStoryFilterKeyword(e.target.value)}
+                  className="pl-7 h-8 text-xs"
+                />
+                {storyFilterKeyword && (
+                  <button
+                    onClick={() => setStoryFilterKeyword('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <Button
+                variant={showOnlyUnassigned ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowOnlyUnassigned(!showOnlyUnassigned)}
+                className="h-8 text-xs"
+              >
+                {showOnlyUnassigned ? '显示全部' : '未分配'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSelectAll} className="h-8 text-xs">
+                {filteredStories.length > 0 &&
+                filteredStories.every(s => selectedStoryIds.includes(s.id))
+                  ? '取消全选'
+                  : '全选'}
+              </Button>
+            </div>
+
+            <ScrollArea className="h-[250px] w-full rounded-md border p-3">
+              {filteredStories.length > 0 ? (
                 <div className="space-y-2">
-                  {availableStories.map(story => (
+                  {filteredStories.map(story => (
                     <div
                       key={story.id}
-                      className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50 transition-colors"
+                      className={`flex items-start space-x-3 p-2 rounded transition-colors ${
+                        selectedStoryIds.includes(story.id)
+                          ? 'bg-primary/5 border border-primary/20'
+                          : 'hover:bg-muted/50'
+                      }`}
                     >
                       <Checkbox
                         id={`story-${story.id}`}
@@ -340,11 +419,53 @@ export function SprintEditDialog({
                   ))}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  暂无可用的用户故事
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-8">
+                  <Users className="w-8 h-8 mb-2 opacity-50" />
+                  <p className="text-sm">
+                    {storyFilterKeyword || showOnlyUnassigned
+                      ? '没有符合条件的用户故事'
+                      : '暂无可用的用户故事'}
+                  </p>
                 </div>
               )}
             </ScrollArea>
+
+            {/* 已选故事统计 */}
+            {selectedStoryIds.length > 0 && (
+              <div className="p-3 bg-muted/30 rounded-md space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">已选择 {selectedStoryIds.length} 个故事</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedStoryIds([])}
+                    className="h-6 text-[10px] px-2"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    清空
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {availableStories
+                    .filter(s => selectedStoryIds.includes(s.id))
+                    .map(story => (
+                      <Badge
+                        key={story.id}
+                        variant="secondary"
+                        className="text-[10px] h-5 px-2 flex items-center gap-1"
+                      >
+                        {story.storyNumber}
+                        <button
+                          onClick={() => toggleStorySelection(story.id)}
+                          className="hover:text-destructive"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 统计信息（只读） */}

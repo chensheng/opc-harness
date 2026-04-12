@@ -28,6 +28,7 @@ import {
   Calendar,
   Target,
   Loader2,
+  Users,
 } from 'lucide-react'
 import type { Sprint } from '@/types'
 import { useProjectStore } from '@/stores/projectStore'
@@ -70,6 +71,10 @@ export function SprintManager() {
   const [deletingSprint, setDeletingSprint] = useState<Sprint | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // 管理故事对话框状态
+  const [managingSprint, setManagingSprint] = useState<Sprint | null>(null)
+  const [showManageStoriesDialog, setShowManageStoriesDialog] = useState(false)
 
   // 获取当前项目ID
   const currentProjectId = useProjectStore(state => state.currentProjectId)
@@ -149,6 +154,21 @@ export function SprintManager() {
   const cancelDelete = () => {
     setShowDeleteConfirm(false)
     setDeletingSprint(null)
+  }
+
+  // 打开管理故事对话框
+  const handleManageStories = (sprint: Sprint) => {
+    setManagingSprint(sprint)
+    setShowManageStoriesDialog(true)
+  }
+
+  // 保存管理后的故事
+  const handleSaveManagedStories = async (updatedSprint: Sprint) => {
+    if (!currentProjectId) return
+
+    await updateSprint(currentProjectId, updatedSprint.id, updatedSprint)
+    setShowManageStoriesDialog(false)
+    setManagingSprint(null)
   }
 
   // 筛选逻辑
@@ -488,6 +508,15 @@ export function SprintManager() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 w-5 p-0"
+                                  onClick={() => handleManageStories(sprint)}
+                                  title="管理用户故事"
+                                >
+                                  <Users className="w-2.5 h-2.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
                                   onClick={() => handleEditSprint(sprint)}
                                   title="编辑Sprint"
                                 >
@@ -681,6 +710,17 @@ export function SprintManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 管理用户故事对话框 */}
+      {managingSprint && (
+        <SprintEditDialog
+          open={showManageStoriesDialog}
+          onOpenChange={setShowManageStoriesDialog}
+          sprint={managingSprint}
+          availableStories={availableStories}
+          onSave={handleSaveManagedStories}
+        />
+      )}
     </div>
   )
 }
