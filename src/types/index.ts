@@ -254,7 +254,9 @@ export interface Milestone {
   dueDate?: string
 }
 
-// User Story Types (用户故事管理)
+/**
+ * 用户故事类型
+ */
 export interface UserStory {
   /** 用户故事 ID */
   id: string
@@ -284,6 +286,34 @@ export interface UserStory {
   featureModule?: string
   /** 标签 */
   labels: string[]
+  /** 创建时间 */
+  createdAt: string
+  /** 更新时间 */
+  updatedAt: string
+}
+
+/**
+ * Sprint 计划类型
+ */
+export interface Sprint {
+  /** Sprint ID */
+  id: string
+  /** Sprint 名称 */
+  name: string
+  /** Sprint 目标 */
+  goal: string
+  /** 开始日期 */
+  startDate: string
+  /** 结束日期 */
+  endDate: string
+  /** 状态 */
+  status: 'planning' | 'active' | 'completed' | 'cancelled'
+  /** 关联的用户故事 ID 列表 */
+  storyIds: string[]
+  /** 总故事点 */
+  totalStoryPoints: number
+  /** 已完成故事点 */
+  completedStoryPoints: number
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */

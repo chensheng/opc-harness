@@ -9,6 +9,7 @@ import {
   ExternalLink,
   RefreshCw,
   Users,
+  Calendar,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -26,6 +27,7 @@ import { useUserStoryStore } from '@/stores/userStoryStore'
 import type { FileNode, CLIOutputLine, UserStory } from '@/types'
 import { FileExplorer } from './FileExplorer'
 import { UserStoryManager } from './UserStoryManager'
+import { SprintManager } from './SprintManager'
 import { ProgressVisualization } from './ProgressVisualization'
 import { AgentMonitor } from './AgentMonitor'
 import { InitializerWorkflow } from './InitializerWorkflow'
@@ -229,6 +231,10 @@ export function CodingWorkspace() {
                 <Users className="w-4 h-4" />
                 用户故事
               </TabsTrigger>
+              <TabsTrigger value="sprints" className="flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4" />
+                Sprint计划
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -366,13 +372,18 @@ export function Component() {
             </div>
           </Card>
         </div>
-      ) : (
+      ) : workspaceMode === 'stories' ? (
         /* User Story Management */
         <div className="flex-1 overflow-auto">
           <UserStoryManager
             prdContent={project?.prdMarkdown || (project?.prd ? prdToMarkdown(project.prd) : '')}
             onStoriesGenerated={handleStoriesGenerated}
           />
+        </div>
+      ) : (
+        /* Sprint Plan Management */
+        <div className="flex-1 overflow-auto">
+          <SprintManager />
         </div>
       )}
     </div>
