@@ -265,3 +265,63 @@ pub struct GetUserStoriesResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
+
+// ============================================================================
+// Sprint 用户故事分配相关类型
+// ============================================================================
+
+/// Sprint 信息（用于分配请求）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SprintInfo {
+    /// Sprint ID
+    pub id: String,
+    /// Sprint 名称
+    pub name: String,
+    /// Sprint 目标
+    pub goal: Option<String>,
+    /// 开始日期
+    pub start_date: String,
+    /// 结束日期
+    pub end_date: String,
+    /// 总故事点
+    pub total_story_points: u32,
+    /// 已完成故事点
+    pub completed_story_points: u32,
+}
+
+/// Sprint 分配请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssignStoriesToSprintRequest {
+    /// Sprint 信息
+    pub sprint: SprintInfo,
+    /// 未分配的用户故事列表
+    pub stories: Vec<UserStory>,
+    /// AI 提供商 (openai, anthropic, kimi, glm, minimax, codefree)
+    #[serde(default = "default_provider")]
+    pub provider: String,
+    /// AI 模型名称
+    #[serde(default = "default_model")]
+    pub model: String,
+    /// 可选的 AI API Key
+    pub api_key: Option<String>,
+    /// 可选：项目 ID（用于 CodeFree 写入文件）
+    pub project_id: Option<String>,
+    /// 可选：用户的分配建议和特殊要求
+    pub user_suggestions: Option<String>,
+}
+
+/// Sprint 分配响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssignStoriesToSprintResponse {
+    /// 是否成功
+    pub success: bool,
+    /// 推荐的故事 ID 列表
+    pub recommended_story_ids: Vec<String>,
+    /// 推荐理由映射（story_id -> reason）
+    pub reasons: std::collections::HashMap<String, String>,
+    /// 置信度映射（story_id -> confidence）
+    pub confidences: std::collections::HashMap<String, u32>,
+    /// 错误信息（如果有）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}

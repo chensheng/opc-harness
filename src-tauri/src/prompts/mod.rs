@@ -7,5 +7,6 @@ pub mod prd_template;
 pub mod user_persona;
 pub mod competitor_analysis;
 pub mod user_story_decomposition;
+pub mod sprint_assignment;
 
 // 重新导出常用项

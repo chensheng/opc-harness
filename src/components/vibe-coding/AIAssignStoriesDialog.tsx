@@ -22,7 +22,6 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  Target,
   Calendar,
   TrendingUp,
   Lightbulb,
@@ -276,7 +275,11 @@ export function AIAssignStoriesDialog({
   }
 
   // 构建分析Prompt
-  const buildAnalysisPrompt = (sprint: Sprint, stories: UserStory[], suggestions?: string): string => {
+  const buildAnalysisPrompt = (
+    sprint: Sprint,
+    stories: UserStory[],
+    suggestions?: string
+  ): string => {
     const sprintInfo = `
 Sprint信息：
 - 名称：${sprint.name}
@@ -303,13 +306,16 @@ Sprint信息：
       )
       .join('\n')
 
-    const userSuggestionsSection = suggestions && suggestions.trim() ? `
+    const userSuggestionsSection =
+      suggestions && suggestions.trim()
+        ? `
 
 用户的分配建议和特殊要求：
 ${suggestions.trim()}
 
 请特别注意并优先考虑上述用户建议，在推荐时充分考虑这些约束条件和要求。
-` : ''
+`
+        : ''
 
     return `
 ${sprintInfo}
@@ -451,7 +457,7 @@ ${userSuggestionsSection}
                 </DialogDescription>
               </div>
             </div>
-            
+
             {/* Sprint信息 - 紧凑展示 */}
             <div className="flex-shrink-0 bg-muted/30 rounded-lg px-4 py-2.5 border">
               <div className="flex items-center gap-4 text-xs">
@@ -466,8 +472,15 @@ ${userSuggestionsSection}
                     时间
                   </div>
                   <div className="text-[10px] whitespace-nowrap">
-                    {new Date(sprint.startDate).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} -{' '}
-                    {new Date(sprint.endDate).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}
+                    {new Date(sprint.startDate).toLocaleDateString('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                    })}{' '}
+                    -{' '}
+                    {new Date(sprint.endDate).toLocaleDateString('zh-CN', {
+                      month: '2-digit',
+                      day: '2-digit',
+                    })}
                   </div>
                 </div>
                 <div className="w-px h-8 bg-border" />
@@ -478,7 +491,9 @@ ${userSuggestionsSection}
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-sm font-bold text-primary">{remainingCapacity}</span>
-                    <span className="text-[10px] text-muted-foreground">/ {sprint.totalStoryPoints || 0} 点</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      / {sprint.totalStoryPoints || 0} 点
+                    </span>
                   </div>
                 </div>
               </div>
@@ -503,7 +518,7 @@ ${userSuggestionsSection}
                   <Textarea
                     placeholder="例如：&#10;- 优先处理与支付功能相关的故事&#10;- 本周专注于前端界面优化&#10;- 避免同时分配多个数据库相关的故事..."
                     value={userSuggestions}
-                    onChange={(e) => setUserSuggestions(e.target.value)}
+                    onChange={e => setUserSuggestions(e.target.value)}
                     className="min-h-[100px] text-xs resize-none"
                     disabled={isAnalyzing}
                   />
@@ -527,7 +542,7 @@ ${userSuggestionsSection}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
-                      
+
                       <div className="flex items-start gap-2 pr-6">
                         <AlertCircle className="w-3.5 h-3.5 text-destructive mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">

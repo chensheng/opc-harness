@@ -18,6 +18,8 @@ pub mod user_story_parser;
 pub mod user_story_ai_service;
 pub mod user_story_streaming;
 pub mod persistence;
+pub mod sprint_assignment;
+pub mod sprint_assignment_streaming;
 
 // 重新导出所有公共 API，保持向后兼容
 pub use consistency::*;
@@ -32,3 +34,4 @@ pub use deep_analysis::*;
 pub use task_decomposition::*;
 pub use user_story::*;
 pub use persistence::*;
+pub use sprint_assignment::*;
