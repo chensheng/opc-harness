@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -29,9 +28,6 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Users,
-  Target,
-  Lightbulb,
   Edit2,
   Trash2,
   MessageSquare,
@@ -43,6 +39,7 @@ import {
   ArrowDown,
   Search,
   X,
+  Users,
 } from 'lucide-react'
 import type { UserStory } from '@/types'
 import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
@@ -51,6 +48,165 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useUserStoryStore } from '@/stores/userStoryStore'
 import { useSprintStore } from '@/stores/sprintStore'
 import { UserStoryEditDialog } from './UserStoryEditDialog'
+
+/**
+ * 拆分配置对话框组件
+ */
+interface DecomposeDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  prdContent: string
+  prompt: string
+  onPromptChange: (prompt: string) => void
+  onDecompose: () => Promise<void>
+  isStreaming: boolean
+  markdownContent: string
+  error?: string
+}
+
+function DecomposeDialog({
+  open,
+  onOpenChange,
+  prdContent,
+  prompt,
+  onPromptChange,
+  onDecompose,
+  isStreaming,
+  markdownContent,
+  error,
+}: DecomposeDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl h-[80vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5" />
+            拆分用户故事
+          </DialogTitle>
+          <DialogDescription>AI 将基于 PRD 内容自动拆分为用户故事</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
+          {/* PRD Preview - 左侧 */}
+          <Card className="h-full flex flex-col">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="w-4 h-4" />
+                项目 PRD
+              </CardTitle>
+              <CardDescription className="text-xs">AI 将基于此内容拆分</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full w-full rounded-md border p-3 bg-card">
+                {prdContent ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={PRDPreviewComponents}>
+                      {prdContent}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-xs">暂无 PRD 内容</p>
+                    </div>
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Prompt Input - 右侧 */}
+          <Card className="h-full flex flex-col">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MessageSquare className="w-4 h-4" />
+                拆分要求
+              </CardTitle>
+              <CardDescription className="text-xs">可选的额外要求</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden flex flex-col space-y-3">
+              <Textarea
+                placeholder="例如：&#10;- 重点关注用户认证&#10;- 优先核心业务流程&#10;- 考虑技术债务..."
+                value={prompt}
+                onChange={e => onPromptChange(e.target.value)}
+                className="min-h-[120px] flex-1 resize-none text-sm"
+              />
+
+              {error && (
+                <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-red-700 dark:text-red-400">{error}</div>
+                </div>
+              )}
+
+              {/* 流式响应实时显示 */}
+              {isStreaming && (
+                <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5 flex-1">
+                  <CardHeader className="pb-2 pt-2 px-3">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      AI 生成中...
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-3 pb-3">
+                    <ScrollArea className="h-[calc(100%-40px)] w-full rounded-md border p-2 bg-background/50">
+                      {markdownContent ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={PRDPreviewComponents}
+                          >
+                            {markdownContent}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-20 text-muted-foreground">
+                          <div className="text-center space-y-1">
+                            <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                            <p className="text-xs">正在连接 AI...</p>
+                          </div>
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Button
+                onClick={onDecompose}
+                disabled={!prdContent || isStreaming}
+                className="w-full"
+              >
+                {isStreaming ? (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                    AI 拆分中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    开始拆分用户故事
+                  </>
+                )}
+              </Button>
+
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <p>💡 提示：</p>
+                <ul className="list-disc list-inside space-y-0.5 ml-1 text-[10px]">
+                  <li>AI 自动基于 PRD 拆分</li>
+                  <li>可输入额外要求指导拆分</li>
+                  <li>遵循 INVEST 原则</li>
+                  <li>包含验收标准和优先级</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 // PRD 预览的自定义 Markdown 组件
 const PRDPreviewComponents = {
@@ -155,7 +311,7 @@ const statusLabels: Record<string, string> = {
   completed: '已完成',
 }
 
-const statusIcons: Record<string, React.ReactNode> = {
+const _statusIcons: Record<string, React.ReactNode> = {
   draft: <Clock className="w-3 h-3" />,
   refined: <Edit2 className="w-3 h-3" />,
   approved: <CheckCircle2 className="w-3 h-3" />,
@@ -174,8 +330,7 @@ export function UserStoryManager({
   onStoriesGenerated,
 }: UserStoryManagerProps) {
   const [prompt, setPrompt] = useState('')
-  const [activeTab, setActiveTab] = useState<'input' | 'stories'>('input')
-  const [showStreamingView, setShowStreamingView] = useState(false)
+  const [showDecomposeDialog, setShowDecomposeDialog] = useState(false)
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -252,8 +407,7 @@ export function UserStoryManager({
   }, [currentProjectId, loadProjectStories, loadProjectSprints])
 
   // 优先使用流式的用户故事，否则使用保存的故事
-  const displayLoading = isStreaming || _loading
-  const displayError = streamError || _error
+  const displayError = streamError || _error || undefined
   const displayStories =
     streamUserStories.length > 0
       ? streamUserStories
@@ -289,8 +443,8 @@ export function UserStoryManager({
       )
     }
 
-    // 显示流式视图
-    setShowStreamingView(true)
+    // 隐藏对话框
+    setShowDecomposeDialog(false)
 
     // 开始流式拆分，并在完成后自动保存
     await startStream(
@@ -307,7 +461,6 @@ export function UserStoryManager({
         if (onStoriesGenerated) {
           onStoriesGenerated(stories)
         }
-        setActiveTab('stories')
       }
     )
   }
@@ -315,8 +468,7 @@ export function UserStoryManager({
   const _handleReset = () => {
     _reset()
     resetStream()
-    setShowStreamingView(false)
-    setActiveTab('input')
+    setPrompt('')
   }
 
   const _getStoryStats = () => {
@@ -540,580 +692,489 @@ export function UserStoryManager({
 
   return (
     <div className="space-y-3">
-      <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'input' | 'stories')}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="input">
-            <FileText className="w-4 h-4 mr-2" />
-            拆分配置
-          </TabsTrigger>
-          <TabsTrigger
-            value="stories"
-            disabled={(!displayStories || displayStories.length === 0) && !isLoadingFromDB}
-          >
-            {isLoadingFromDB ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                加载中...
-              </>
-            ) : (
-              <>
-                <FileText className="w-4 h-4 mr-2" />
-                用户故事 ({displayStories?.length || 0})
-              </>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      {/* Header with Action Buttons */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">用户故事</h2>
+          {displayStories.length > 0 && (
+            <Badge variant="secondary" className="ml-2">
+              {displayStories.length}
+            </Badge>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setShowDecomposeDialog(true)} disabled={!prdContent}>
+            <Sparkles className="w-4 h-4 mr-2" />
+            拆分用户故事
+          </Button>
+          {displayStories.length > 0 && (
+            <Button variant="outline" size="sm" onClick={_handleReset}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              清空列表
+            </Button>
+          )}
+        </div>
+      </div>
 
-        {/* Input Tab */}
-        <TabsContent value="input" className="space-y-3">
-          {/* 紧凑布局：PRD 预览和输入框并排 */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* PRD Preview Card - 左侧 */}
-            <Card className="h-[calc(100vh-280px)] flex flex-col">
-              <CardHeader className="pb-2 pt-3 px-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="w-4 h-4" />
-                  项目 PRD
-                </CardTitle>
-                <CardDescription className="text-xs">AI 将基于此内容拆分</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden px-4 pb-3">
-                <ScrollArea className="h-full w-full rounded-md border p-3 bg-card">
-                  {prdContent ? (
-                    <div className="prose prose-xs dark:prose-invert max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={PRDPreviewComponents}>
-                        {prdContent}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      <div className="text-center">
-                        <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-xs">暂无 PRD 内容</p>
-                      </div>
-                    </div>
+      {/* Loading State */}
+      {isLoadingFromDB && (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+              <p className="text-sm text-muted-foreground">正在加载用户故事...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!isLoadingFromDB && (!displayStories || displayStories.length === 0) && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+              <FileText className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold">暂无用户故事</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                {prdContent
+                  ? '点击右上角"拆分用户故事"按钮，AI 将基于 PRD 内容自动拆分为用户故事'
+                  : '请先在项目设计中生成 PRD，然后再拆分用户故事'}
+              </p>
+            </div>
+            <Button onClick={() => setShowDecomposeDialog(true)} disabled={!prdContent}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              开始拆分
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Story List - 当有故事时显示 */}
+      {displayStories && displayStories.length > 0 && (
+        <div className="space-y-2">
+          {/* Filter Bar - 筛选栏 */}
+          <Card>
+            <CardContent className="p-2">
+              <div className="flex items-center gap-2">
+                {/* 关键词搜索 */}
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="搜索标题、功能、角色..."
+                    value={filterKeyword}
+                    onChange={e => {
+                      setFilterKeyword(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="w-full pl-7 pr-7 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  {filterKeyword && (
+                    <button
+                      onClick={() => setFilterKeyword('')}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                </div>
 
-            {/* Prompt Input Card - 右侧 */}
-            <Card className="h-[calc(100vh-280px)] flex flex-col">
-              <CardHeader className="pb-2 pt-3 px-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <MessageSquare className="w-4 h-4" />
-                  拆分要求
-                </CardTitle>
-                <CardDescription className="text-xs">可选的额外要求</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden px-4 pb-3 flex flex-col space-y-3">
-                <Textarea
-                  placeholder="例如：&#10;- 重点关注用户认证&#10;- 优先核心业务流程&#10;- 考虑技术债务..."
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                  className="min-h-[120px] flex-1 resize-none text-sm"
-                />
+                {/* 状态筛选 */}
+                <select
+                  value={filterStatus}
+                  onChange={e => {
+                    setFilterStatus(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">所有状态</option>
+                  {uniqueStatuses.map(status => (
+                    <option key={status} value={status}>
+                      {statusLabels[status] || status}
+                    </option>
+                  ))}
+                </select>
 
-                {displayError && (
-                  <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                    <div className="text-xs text-red-700 dark:text-red-400">{displayError}</div>
-                  </div>
+                {/* 优先级筛选 */}
+                <select
+                  value={filterPriority}
+                  onChange={e => {
+                    setFilterPriority(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">所有优先级</option>
+                  {uniquePriorities.map(priority => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Sprint筛选 */}
+                <select
+                  value={filterSprint}
+                  onChange={e => {
+                    setFilterSprint(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary max-w-[150px]"
+                  title="按Sprint筛选"
+                >
+                  <option value="">所有Sprint</option>
+                  <option value="unassigned">未分配</option>
+                  {sprints.map(sprint => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* 清除筛选按钮 */}
+                {(filterKeyword || filterStatus || filterPriority || filterSprint) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-6 px-2 text-[10px]"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    清除
+                  </Button>
                 )}
 
-                {/* 流式响应实时显示 - 紧凑版 */}
-                {showStreamingView && isStreaming && (
-                  <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5 flex-1">
-                    <CardHeader className="pb-2 pt-2 px-3">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        AI 生成中...
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3">
-                      <ScrollArea className="h-[calc(100%-40px)] w-full rounded-md border p-2 bg-background/50">
-                        {markdownContent ? (
-                          <div className="prose prose-xs dark:prose-invert max-w-none">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={PRDPreviewComponents}
-                            >
-                              {markdownContent}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-20 text-muted-foreground">
-                            <div className="text-center space-y-1">
-                              <Loader2 className="w-6 h-6 animate-spin mx-auto" />
-                              <p className="text-xs">正在连接 AI...</p>
+                {/* 筛选结果统计 */}
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {filteredStories.length} / {displayStories.length} 条
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Story List - 表格形式（超紧凑版） */}
+          <Card>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[calc(100vh-350px)]">
+                <table className="w-full border-collapse text-xs">
+                  <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
+                    <tr className="border-b border-border">
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">序号</th>
+                      <th
+                        className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                        onClick={e => handleSort('priority', e)}
+                        title="点击切换排序，多次点击可添加多条件排序"
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <span>优先</span>
+                          {(() => {
+                            const config = getSortConfig('priority')
+                            const index = getSortIndex('priority')
+                            if (!config) {
+                              return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                            }
+                            return (
+                              <div className="flex items-center gap-0.5">
+                                {config.order === 'asc' ? (
+                                  <ArrowUp className="w-2.5 h-2.5" />
+                                ) : (
+                                  <ArrowDown className="w-2.5 h-2.5" />
+                                )}
+                                {sortConfigs.length > 1 && index && (
+                                  <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
+                                    {index}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px]">标题</th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">角色</th>
+                      <th
+                        className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                        onClick={e => handleSort('storyPoints', e)}
+                        title="点击切换排序，多次点击可添加多条件排序"
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <span>点数</span>
+                          {(() => {
+                            const config = getSortConfig('storyPoints')
+                            const index = getSortIndex('storyPoints')
+                            if (!config) {
+                              return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                            }
+                            return (
+                              <div className="flex items-center gap-0.5">
+                                {config.order === 'asc' ? (
+                                  <ArrowUp className="w-2.5 h-2.5" />
+                                ) : (
+                                  <ArrowDown className="w-2.5 h-2.5" />
+                                )}
+                                {sortConfigs.length > 1 && index && (
+                                  <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
+                                    {index}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">状态</th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">
+                        Sprint
+                      </th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedStories.map((story: UserStory, index: number) => (
+                      <tr
+                        key={story.id}
+                        className={`border-b border-border/30 hover:bg-muted/20 transition-colors ${
+                          index % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                        }`}
+                      >
+                        <td className="py-1.5 px-2 align-middle">
+                          <span className="font-mono text-[10px]">{story.storyNumber}</span>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <Badge
+                            className={`${priorityColors[story.priority]} text-[9px] px-1 py-0 h-4`}
+                          >
+                            {story.priority}
+                          </Badge>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div className="space-y-0.5">
+                            <div className="font-medium text-xs leading-tight">{story.title}</div>
+                            <div className="text-[10px] text-muted-foreground line-clamp-1">
+                              {story.feature}
                             </div>
                           </div>
-                        )}
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                )}
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div className="text-[10px] truncate" title={story.role}>
+                            {story.role}
+                          </div>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle text-center">
+                          {story.storyPoints && (
+                            <span className="text-[10px]">{story.storyPoints}</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <Badge
+                            className={`${statusColors[story.status] || 'bg-gray-100 text-gray-700'} text-[9px] px-1.5 py-0 h-4 font-medium`}
+                          >
+                            {statusLabels[story.status] || story.status}
+                          </Badge>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          {editingSprintStoryId === story.id ? (
+                            // 快速编辑模式：显示下拉选择器
+                            <Select
+                              value={story.sprintId || 'none'}
+                              onValueChange={value => {
+                                const newSprintId = value === 'none' ? undefined : value
+                                handleQuickUpdateSprint(story.id, newSprintId)
+                              }}
+                              onOpenChange={open => {
+                                if (!open) {
+                                  cancelQuickEdit()
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-6 text-[10px] px-2">
+                                <SelectValue placeholder="选择 Sprint" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none" className="text-[10px]">
+                                  无
+                                </SelectItem>
+                                {sprints.map(sprint => (
+                                  <SelectItem
+                                    key={sprint.id}
+                                    value={sprint.id}
+                                    className="text-[10px]"
+                                  >
+                                    {sprint.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            // 显示模式：可点击切换到编辑
+                            <div
+                              className="text-[10px] truncate cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
+                              title={sprints.find(s => s.id === story.sprintId)?.name || ''}
+                              onClick={() => setEditingSprintStoryId(story.id)}
+                            >
+                              {story.sprintId ? (
+                                sprints.find(s => s.id === story.sprintId)?.name || '-'
+                              ) : (
+                                <span className="text-muted-foreground">未分配</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div className="flex gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0"
+                              onClick={() => handleEditStory(story)}
+                              title="编辑用户故事"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteStory(story)}
+                              title="删除用户故事"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
 
+          {/* Pagination Controls - 超紧凑版 */}
+          <div className="flex items-center justify-between py-1 px-1.5 border-t">
+            <div className="flex items-center gap-1 text-[10px]">
+              <span className="text-muted-foreground">每页:</span>
+              <div className="flex gap-0.5">
+                {[10, 20, 50].map(size => (
+                  <Button
+                    key={size}
+                    variant={pageSize === size ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePageSizeChange(size)}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    {size}
+                  </Button>
+                ))}
+              </div>
+
+              {/* 排序状态显示和清除按钮 */}
+              {sortConfigs.length > 0 && (
+                <>
+                  <span className="text-muted-foreground ml-2">|</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">排序:</span>
+                    <div className="flex gap-0.5">
+                      {sortConfigs.map((config, idx) => (
+                        <Badge
+                          key={config.field}
+                          variant="secondary"
+                          className="text-[9px] h-4 px-1 flex items-center gap-0.5"
+                        >
+                          <span>{config.field === 'priority' ? '优先' : '点数'}</span>
+                          {config.order === 'asc' ? '↑' : '↓'}
+                          {sortConfigs.length > 1 && (
+                            <span className="text-[8px] opacity-70">{idx + 1}</span>
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSort}
+                      className="h-4 px-1 text-[9px] hover:bg-destructive/10 hover:text-destructive"
+                      title="清除所有排序"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-0.5">
                 <Button
-                  onClick={handleDecompose}
-                  disabled={!prdContent || displayLoading}
-                  className="w-full"
+                  variant="outline"
                   size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="gap-0.5 h-5 px-1.5 text-[9px]"
                 >
-                  {displayLoading ? (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                      AI 拆分中...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      开始拆分用户故事
-                    </>
-                  )}
+                  <ChevronLeft className="w-2.5 h-2.5" />
+                  上页
                 </Button>
 
-                <div className="text-xs text-muted-foreground space-y-0.5">
-                  <p>💡 提示：</p>
-                  <ul className="list-disc list-inside space-y-0.5 ml-1 text-[10px]">
-                    <li>AI 自动基于 PRD 拆分</li>
-                    <li>可输入额外要求指导拆分</li>
-                    <li>遵循 INVEST 原则</li>
-                    <li>包含验收标准和优先级</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
 
-        {/* Stories Tab */}
-        <TabsContent value="stories">
-          {displayStories && displayStories.length > 0 && (
-            <div className="space-y-2">
-              {/* Filter Bar - 筛选栏 */}
-              <Card>
-                <CardContent className="p-2">
-                  <div className="flex items-center gap-2">
-                    {/* 关键词搜索 */}
-                    <div className="relative flex-1 max-w-xs">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="搜索标题、功能、角色..."
-                        value={filterKeyword}
-                        onChange={e => {
-                          setFilterKeyword(e.target.value)
-                          setCurrentPage(1)
-                        }}
-                        className="w-full pl-7 pr-7 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                      {filterKeyword && (
-                        <button
-                          onClick={() => setFilterKeyword('')}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* 状态筛选 */}
-                    <select
-                      value={filterStatus}
-                      onChange={e => {
-                        setFilterStatus(e.target.value)
-                        setCurrentPage(1)
-                      }}
-                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">所有状态</option>
-                      {uniqueStatuses.map(status => (
-                        <option key={status} value={status}>
-                          {statusLabels[status] || status}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* 优先级筛选 */}
-                    <select
-                      value={filterPriority}
-                      onChange={e => {
-                        setFilterPriority(e.target.value)
-                        setCurrentPage(1)
-                      }}
-                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">所有优先级</option>
-                      {uniquePriorities.map(priority => (
-                        <option key={priority} value={priority}>
-                          {priority}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* Sprint筛选 */}
-                    <select
-                      value={filterSprint}
-                      onChange={e => {
-                        setFilterSprint(e.target.value)
-                        setCurrentPage(1)
-                      }}
-                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary max-w-[150px]"
-                      title="按Sprint筛选"
-                    >
-                      <option value="">所有Sprint</option>
-                      <option value="unassigned">未分配</option>
-                      {sprints.map(sprint => (
-                        <option key={sprint.id} value={sprint.id}>
-                          {sprint.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* 清除筛选按钮 */}
-                    {(filterKeyword || filterStatus || filterPriority || filterSprint) && (
+                    return (
                       <Button
-                        variant="ghost"
+                        key={pageNum}
+                        variant={currentPage === pageNum ? 'default' : 'outline'}
                         size="sm"
-                        onClick={clearFilters}
-                        className="h-6 px-2 text-[10px]"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="w-5 h-5 p-0 text-[9px]"
                       >
-                        <X className="w-3 h-3 mr-1" />
-                        清除
+                        {pageNum}
                       </Button>
-                    )}
-
-                    {/* 筛选结果统计 */}
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      {filteredStories.length} / {displayStories.length} 条
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Story List - 表格形式（超紧凑版） */}
-              <Card>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-350px)]">
-                    <table className="w-full border-collapse text-xs">
-                      <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
-                        <tr className="border-b border-border">
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
-                            序号
-                          </th>
-                          <th
-                            className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                            onClick={e => handleSort('priority', e)}
-                            title="点击切换排序，多次点击可添加多条件排序"
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <span>优先</span>
-                              {(() => {
-                                const config = getSortConfig('priority')
-                                const index = getSortIndex('priority')
-                                if (!config) {
-                                  return (
-                                    <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
-                                  )
-                                }
-                                return (
-                                  <div className="flex items-center gap-0.5">
-                                    {config.order === 'asc' ? (
-                                      <ArrowUp className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <ArrowDown className="w-2.5 h-2.5" />
-                                    )}
-                                    {sortConfigs.length > 1 && index && (
-                                      <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
-                                        {index}
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px]">标题</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">
-                            角色
-                          </th>
-                          <th
-                            className="text-left py-1.5 px-2 font-semibold text-[10px] w-16 cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                            onClick={e => handleSort('storyPoints', e)}
-                            title="点击切换排序，多次点击可添加多条件排序"
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <span>点数</span>
-                              {(() => {
-                                const config = getSortConfig('storyPoints')
-                                const index = getSortIndex('storyPoints')
-                                if (!config) {
-                                  return (
-                                    <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
-                                  )
-                                }
-                                return (
-                                  <div className="flex items-center gap-0.5">
-                                    {config.order === 'asc' ? (
-                                      <ArrowUp className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <ArrowDown className="w-2.5 h-2.5" />
-                                    )}
-                                    {sortConfigs.length > 1 && index && (
-                                      <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
-                                        {index}
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
-                            状态
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">
-                            Sprint
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
-                            操作
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedStories.map((story: UserStory, index: number) => (
-                          <tr
-                            key={story.id}
-                            className={`border-b border-border/30 hover:bg-muted/20 transition-colors ${
-                              index % 2 === 0 ? 'bg-background' : 'bg-muted/5'
-                            }`}
-                          >
-                            <td className="py-1.5 px-2 align-middle">
-                              <span className="font-mono text-[10px]">{story.storyNumber}</span>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <Badge
-                                className={`${priorityColors[story.priority]} text-[9px] px-1 py-0 h-4`}
-                              >
-                                {story.priority}
-                              </Badge>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div className="space-y-0.5">
-                                <div className="font-medium text-xs leading-tight">
-                                  {story.title}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground line-clamp-1">
-                                  {story.feature}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div className="text-[10px] truncate" title={story.role}>
-                                {story.role}
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle text-center">
-                              {story.storyPoints && (
-                                <span className="text-[10px]">{story.storyPoints}</span>
-                              )}
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <Badge
-                                className={`${statusColors[story.status] || 'bg-gray-100 text-gray-700'} text-[9px] px-1.5 py-0 h-4 font-medium`}
-                              >
-                                {statusLabels[story.status] || story.status}
-                              </Badge>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              {editingSprintStoryId === story.id ? (
-                                // 快速编辑模式：显示下拉选择器
-                                <Select
-                                  value={story.sprintId || 'none'}
-                                  onValueChange={value => {
-                                    const newSprintId = value === 'none' ? undefined : value
-                                    handleQuickUpdateSprint(story.id, newSprintId)
-                                  }}
-                                  onOpenChange={open => {
-                                    if (!open) {
-                                      cancelQuickEdit()
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="h-6 text-[10px] px-2">
-                                    <SelectValue placeholder="选择 Sprint" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none" className="text-[10px]">
-                                      无
-                                    </SelectItem>
-                                    {sprints.map(sprint => (
-                                      <SelectItem
-                                        key={sprint.id}
-                                        value={sprint.id}
-                                        className="text-[10px]"
-                                      >
-                                        {sprint.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                // 显示模式：可点击切换到编辑
-                                <div
-                                  className="text-[10px] truncate cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
-                                  title={sprints.find(s => s.id === story.sprintId)?.name || ''}
-                                  onClick={() => setEditingSprintStoryId(story.id)}
-                                >
-                                  {story.sprintId ? (
-                                    sprints.find(s => s.id === story.sprintId)?.name || '-'
-                                  ) : (
-                                    <span className="text-muted-foreground">未分配</span>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div className="flex gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => handleEditStory(story)}
-                                  title="编辑用户故事"
-                                >
-                                  <Edit2 className="w-2.5 h-2.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => handleDeleteStory(story)}
-                                  title="删除用户故事"
-                                >
-                                  <Trash2 className="w-2.5 h-2.5" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              {/* Pagination Controls - 超紧凑版 */}
-              <div className="flex items-center justify-between py-1 px-1.5 border-t">
-                <div className="flex items-center gap-1 text-[10px]">
-                  <span className="text-muted-foreground">每页:</span>
-                  <div className="flex gap-0.5">
-                    {[10, 20, 50].map(size => (
-                      <Button
-                        key={size}
-                        variant={pageSize === size ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => handlePageSizeChange(size)}
-                        className="h-5 px-1.5 text-[9px]"
-                      >
-                        {size}
-                      </Button>
-                    ))}
-                  </div>
-
-                  {/* 排序状态显示和清除按钮 */}
-                  {sortConfigs.length > 0 && (
-                    <>
-                      <span className="text-muted-foreground ml-2">|</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">排序:</span>
-                        <div className="flex gap-0.5">
-                          {sortConfigs.map((config, idx) => (
-                            <Badge
-                              key={config.field}
-                              variant="secondary"
-                              className="text-[9px] h-4 px-1 flex items-center gap-0.5"
-                            >
-                              <span>{config.field === 'priority' ? '优先' : '点数'}</span>
-                              {config.order === 'asc' ? '↑' : '↓'}
-                              {sortConfigs.length > 1 && (
-                                <span className="text-[8px] opacity-70">{idx + 1}</span>
-                              )}
-                            </Badge>
-                          ))}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearSort}
-                          className="h-4 px-1 text-[9px] hover:bg-destructive/10 hover:text-destructive"
-                          title="清除所有排序"
-                        >
-                          ✕
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                    )
+                  })}
                 </div>
 
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-0.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="gap-0.5 h-5 px-1.5 text-[9px]"
-                    >
-                      <ChevronLeft className="w-2.5 h-2.5" />
-                      上页
-                    </Button>
-
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum
-                        if (totalPages <= 5) {
-                          pageNum = i + 1
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i
-                        } else {
-                          pageNum = currentPage - 2 + i
-                        }
-
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => handlePageChange(pageNum)}
-                            className="w-5 h-5 p-0 text-[9px]"
-                          >
-                            {pageNum}
-                          </Button>
-                        )
-                      })}
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="gap-0.5 h-5 px-1.5 text-[9px]"
-                    >
-                      下页
-                      <ChevronRight className="w-2.5 h-2.5" />
-                    </Button>
-                  </div>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="gap-0.5 h-5 px-1.5 text-[9px]"
+                >
+                  下页
+                  <ChevronRight className="w-2.5 h-2.5" />
+                </Button>
               </div>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Decompose Dialog */}
+      <DecomposeDialog
+        open={showDecomposeDialog}
+        onOpenChange={setShowDecomposeDialog}
+        prdContent={prdContent}
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        onDecompose={handleDecompose}
+        isStreaming={isStreaming}
+        markdownContent={markdownContent}
+        error={displayError}
+      />
 
       {/* 用户故事编辑对话框 */}
       <UserStoryEditDialog
@@ -1121,16 +1182,15 @@ export function UserStoryManager({
         onOpenChange={setShowEditDialog}
         story={editingStory}
         onSave={handleSaveStory}
-        sprints={sprints}
       />
 
-      {/* 用户故事删除确认对话框 */}
+      {/* 删除确认对话框 */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>确认删除</DialogTitle>
             <DialogDescription>
-              确定要删除用户故事 "{deletingStory?.title}" 吗？此操作不可恢复。
+              确定要删除用户故事"{deletingStory?.title}"吗？此操作不可恢复。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1144,7 +1204,7 @@ export function UserStoryManager({
                   删除中...
                 </>
               ) : (
-                '确认删除'
+                '删除'
               )}
             </Button>
           </DialogFooter>
@@ -1155,259 +1215,14 @@ export function UserStoryManager({
 }
 
 /**
- * 用户故事卡片组件
+ * 用户故事卡片组件（已废弃，保留供未来使用）
  */
 interface UserStoryCardProps {
   story: UserStory
   compact?: boolean // 紧凑模式
 }
 
-function _UserStoryCard({ story, compact = false }: UserStoryCardProps) {
-  if (compact) {
-    return <CompactUserStoryCard story={story} />
-  }
-
-  return (
-    <Card className={`hover:shadow-md transition-shadow ${compact ? 'py-1' : ''}`}>
-      <CardHeader className={`${compact ? 'py-2 px-4' : 'pb-3'}`}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="font-mono text-xs">
-                {story.storyNumber}
-              </Badge>
-              <Badge className={`${priorityColors[story.priority]} text-xs`}>
-                {story.priority}
-              </Badge>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                {statusIcons[story.status]}
-                <span className="capitalize">{story.status.replace('_', ' ')}</span>
-              </div>
-            </div>
-
-            <CardTitle className={`${compact ? 'text-base' : 'text-lg'}`}>{story.title}</CardTitle>
-          </div>
-
-          {!compact && (
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm">
-                <Edit2 className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className={`${compact ? 'pt-0 px-4 pb-3' : 'space-y-4'}`}>
-        {!compact ? (
-          <>
-            {/* User Story Format */}
-            <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md">
-              <div className="flex items-start gap-2">
-                <Users className="w-4 h-4 text-blue-500 mt-0.5" />
-                <div>
-                  <span className="font-medium text-blue-700 dark:text-blue-400">As a </span>
-                  <span className="text-blue-600 dark:text-blue-300">{story.role}</span>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Target className="w-4 h-4 text-blue-500 mt-0.5" />
-                <div>
-                  <span className="font-medium text-blue-700 dark:text-blue-400">I want </span>
-                  <span className="text-blue-600 dark:text-blue-300">{story.feature}</span>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Lightbulb className="w-4 h-4 text-blue-500 mt-0.5" />
-                <div>
-                  <span className="font-medium text-blue-700 dark:text-blue-400">So that </span>
-                  <span className="text-blue-600 dark:text-blue-300">{story.benefit}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Description */}
-            {story.description && (
-              <div>
-                <p className="text-sm font-medium mb-1">详细描述</p>
-                <p className="text-sm text-muted-foreground">{story.description}</p>
-              </div>
-            )}
-
-            {/* Acceptance Criteria */}
-            {story.acceptanceCriteria.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">验收标准</p>
-                <ul className="space-y-1">
-                  {story.acceptanceCriteria.map((criteria, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground">{criteria}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        ) : (
-          /* Compact View Summary */
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              <span className="font-medium text-foreground">As a</span> {story.role},{' '}
-              <span className="font-medium text-foreground">I want</span> {story.feature},{' '}
-              <span className="font-medium text-foreground">so that</span> {story.benefit}.
-            </p>
-
-            {story.acceptanceCriteria.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CheckCircle2 className="w-3 h-3 text-green-500" />
-                <span>{story.acceptanceCriteria.length} 个验收标准</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Meta Info */}
-        <div
-          className={`flex items-center gap-4 text-xs text-muted-foreground ${!compact ? 'pt-2 border-t' : ''}`}
-        >
-          {story.storyPoints && (
-            <div className="flex items-center gap-1">
-              <Target className="w-3 h-3" />
-              <span>{story.storyPoints} 故事点</span>
-            </div>
-          )}
-          {story.featureModule && <div>模块: {story.featureModule}</div>}
-          {story.labels.length > 0 && (
-            <div className="flex gap-1">
-              {story.labels.slice(0, 3).map((label, idx) => (
-                <Badge key={idx} variant="secondary" className="text-[10px] px-1 py-0">
-                  {label}
-                </Badge>
-              ))}
-              {story.labels.length > 3 && (
-                <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                  +{story.labels.length - 3}
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-/**
- * 紧凑型用户故事卡片组件 - 用于分页列表显示
- */
-function CompactUserStoryCard({ story }: { story: UserStory }) {
-  return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="font-mono text-xs">
-                {story.storyNumber}
-              </Badge>
-              <Badge className={`${priorityColors[story.priority]} text-xs`}>
-                {story.priority}
-              </Badge>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                {statusIcons[story.status]}
-                <span className="capitalize">{story.status.replace('_', ' ')}</span>
-              </div>
-            </div>
-
-            <CardTitle className="text-base leading-tight">{story.title}</CardTitle>
-          </div>
-
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-              <Edit2 className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-2 px-4 pb-3">
-        {/* User Story Format - 紧凑版 */}
-        <div className="space-y-1 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md text-xs">
-          <div className="flex items-start gap-1.5">
-            <Users className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="font-medium text-blue-700 dark:text-blue-400">As a </span>
-              <span className="text-blue-600 dark:text-blue-300">{story.role}</span>
-            </div>
-          </div>
-          <div className="flex items-start gap-1.5">
-            <Target className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="font-medium text-blue-700 dark:text-blue-400">I want </span>
-              <span className="text-blue-600 dark:text-blue-300">{story.feature}</span>
-            </div>
-          </div>
-          <div className="flex items-start gap-1.5">
-            <Lightbulb className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="font-medium text-blue-700 dark:text-blue-400">So that </span>
-              <span className="text-blue-600 dark:text-blue-300">{story.benefit}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Acceptance Criteria - 紧凑版 */}
-        {story.acceptanceCriteria.length > 0 && (
-          <div>
-            <p className="text-xs font-medium mb-1">验收标准</p>
-            <ul className="space-y-0.5">
-              {story.acceptanceCriteria.slice(0, 3).map((criteria, idx) => (
-                <li key={idx} className="flex items-start gap-1.5 text-xs">
-                  <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-muted-foreground line-clamp-1">{criteria}</span>
-                </li>
-              ))}
-              {story.acceptanceCriteria.length > 3 && (
-                <li className="text-xs text-muted-foreground pl-5">
-                  +{story.acceptanceCriteria.length - 3} 更多...
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
-
-        {/* Meta Info - 紧凑版 */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1.5 border-t">
-          {story.storyPoints && (
-            <div className="flex items-center gap-1">
-              <Target className="w-3 h-3" />
-              <span>{story.storyPoints} 点</span>
-            </div>
-          )}
-          {story.featureModule && <div>模块: {story.featureModule}</div>}
-          {story.labels.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {story.labels.slice(0, 2).map((label, idx) => (
-                <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {label}
-                </Badge>
-              ))}
-              {story.labels.length > 2 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  +{story.labels.length - 2}
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
+function _UserStoryCard({ story: _story, compact: _compact = false }: UserStoryCardProps) {
+  // 当前版本不使用卡片组件，直接使用表格展示
+  return null
 }
