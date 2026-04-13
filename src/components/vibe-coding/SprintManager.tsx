@@ -28,6 +28,7 @@ import {
   Target,
   Loader2,
   Users,
+  Sparkles,
 } from 'lucide-react'
 import type { Sprint } from '@/types'
 import { useProjectStore } from '@/stores/projectStore'
@@ -35,6 +36,7 @@ import { useSprintStore } from '@/stores/sprintStore'
 import { useUserStoryStore } from '@/stores/userStoryStore'
 import { SprintEditDialog } from './SprintEditDialog'
 import { ManageStoriesDialog } from './ManageStoriesDialog'
+import { AIAssignStoriesDialog } from './AIAssignStoriesDialog'
 
 const statusLabels: Record<Sprint['status'], string> = {
   planning: '规划中',
@@ -74,6 +76,10 @@ export function SprintManager() {
   // 管理故事对话框状态
   const [managingSprint, setManagingSprint] = useState<Sprint | null>(null)
   const [showManageStoriesDialog, setShowManageStoriesDialog] = useState(false)
+
+  // AI智能分配对话框状态
+  const [aiAssigningSprint, setAIAssigningSprint] = useState<Sprint | null>(null)
+  const [showAIAssignDialog, setShowAIAssignDialog] = useState(false)
 
   // 获取当前项目ID
   const currentProjectId = useProjectStore(state => state.currentProjectId)
@@ -166,6 +172,12 @@ export function SprintManager() {
     setShowManageStoriesDialog(true)
   }
 
+  // 打开AI智能分配对话框
+  const handleOpenAIAssignDialog = (sprint: Sprint) => {
+    setAIAssigningSprint(sprint)
+    setShowAIAssignDialog(true)
+  }
+
   // 保存管理后的故事
   const handleSaveManagedStories = async (updatedSprint: Sprint, selectedStoryIds: string[]) => {
     if (!currentProjectId) return
@@ -200,6 +212,33 @@ export function SprintManager() {
     } catch (error) {
       console.error('[SprintManager] Failed to save managed stories:', error)
       alert('保存失败，请重试')
+    }
+  }
+
+  // AI智能分配故事（实际执行分配）
+  const handleExecuteAIAssign = async (sprintId: string, storyIds: string[]) => {
+    if (!currentProjectId) return
+
+    try {
+      // 获取当前项目的所有用户故事
+      const allStories = useUserStoryStore.getState().getProjectStories(currentProjectId)
+
+      // 找出需要更新 sprintId 的故事
+      const storiesToUpdate = allStories.filter(story => storyIds.includes(story.id))
+
+      // 批量更新用户故事的 sprintId
+      for (const story of storiesToUpdate) {
+        await updateStory(currentProjectId, story.id, {
+          sprintId: sprintId,
+        })
+      }
+
+      // 重新加载数据
+      await loadProjectSprints(currentProjectId)
+      await loadProjectStories(currentProjectId)
+    } catch (error) {
+      console.error('[SprintManager] Failed to AI assign stories:', error)
+      throw error
     }
   }
 
@@ -567,6 +606,15 @@ export function SprintManager() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-5 w-5 p-0 text-primary hover:text-primary/80"
+                              onClick={() => handleOpenAIAssignDialog(sprint)}
+                              title="AI智能分配用户故事"
+                            >
+                              <Sparkles className="w-2.5 h-2.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-5 w-5 p-0"
                               onClick={() => handleManageStories(sprint)}
                               title="管理用户故事"
@@ -761,6 +809,17 @@ export function SprintManager() {
           sprint={managingSprint}
           availableStories={availableStories}
           onSave={handleSaveManagedStories}
+        />
+      )}
+
+      {/* AI智能分配用户故事对话框 */}
+      {aiAssigningSprint && (
+        <AIAssignStoriesDialog
+          open={showAIAssignDialog}
+          onOpenChange={setShowAIAssignDialog}
+          sprint={aiAssigningSprint}
+          unassignedStories={availableStories.filter(story => !story.sprintId)}
+          onAssign={handleExecuteAIAssign}
         />
       )}
     </div>
