@@ -77,8 +77,8 @@ function DecomposeDialog({
 }: DecomposeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
             拆分用户故事
@@ -86,55 +86,63 @@ function DecomposeDialog({
           <DialogDescription>AI 将基于 PRD 内容自动拆分为用户故事</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
-          {/* PRD Preview - 左侧 */}
-          <Card className="h-full flex flex-col">
-            <CardHeader className="pb-2">
+        {/* 主体内容区域 - 使用flex布局确保高度正确传递 */}
+        <div className="flex-1 min-h-0 grid grid-cols-2 gap-4">
+          {/* PRD Preview - 左侧（可滚动） */}
+          <Card className="h-full flex flex-col min-h-0">
+            <CardHeader className="pb-2 flex-shrink-0">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="w-4 h-4" />
                 项目 PRD
               </CardTitle>
               <CardDescription className="text-xs">AI 将基于此内容拆分</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full w-full rounded-md border p-3 bg-card">
-                {prdContent ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={PRDPreviewComponents}>
-                      {prdContent}
-                    </ReactMarkdown>
+            <CardContent className="flex-1 min-h-0 overflow-hidden p-0">
+              <div className="h-full px-4 pb-4">
+                <ScrollArea className="h-full w-full rounded-md border p-3 bg-card" type="always">
+                  <div className="min-h-full">
+                    {prdContent ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none pr-2">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={PRDPreviewComponents}
+                        >
+                          {prdContent}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <div className="text-center">
+                          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-xs">暂无 PRD 内容</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <div className="text-center">
-                      <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-xs">暂无 PRD 内容</p>
-                    </div>
-                  </div>
-                )}
-              </ScrollArea>
+                </ScrollArea>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Prompt Input - 右侧 */}
-          <Card className="h-full flex flex-col">
-            <CardHeader className="pb-2">
+          {/* Prompt Input - 右侧（固定不滚动） */}
+          <Card className="h-full flex flex-col min-h-0">
+            <CardHeader className="pb-2 flex-shrink-0">
               <CardTitle className="flex items-center gap-2 text-base">
                 <MessageSquare className="w-4 h-4" />
                 拆分要求
               </CardTitle>
               <CardDescription className="text-xs">可选的额外要求</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 overflow-hidden flex flex-col space-y-3">
+            <CardContent className="flex-1 flex flex-col space-y-3 px-4 pb-4">
               <Textarea
                 placeholder="例如：&#10;- 重点关注用户认证&#10;- 优先核心业务流程&#10;- 考虑技术债务..."
                 value={prompt}
                 onChange={e => onPromptChange(e.target.value)}
-                className="min-h-[120px] flex-1 resize-none text-sm"
+                className="min-h-[120px] resize-none text-sm flex-shrink-0"
               />
 
               {error && (
-                <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md flex-shrink-0">
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-red-700 dark:text-red-400">{error}</div>
                 </div>
@@ -142,7 +150,7 @@ function DecomposeDialog({
 
               {/* 流式响应实时显示 */}
               {isStreaming && (
-                <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5 flex-1">
+                <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-purple-500/5 flex-shrink-0">
                   <CardHeader className="pb-2 pt-2 px-3">
                     <CardTitle className="flex items-center gap-2 text-sm">
                       <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -150,7 +158,7 @@ function DecomposeDialog({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="px-3 pb-3">
-                    <ScrollArea className="h-[calc(100%-40px)] w-full rounded-md border p-2 bg-background/50">
+                    <ScrollArea className="h-[200px] w-full rounded-md border p-2 bg-background/50">
                       {markdownContent ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none">
                           <ReactMarkdown
@@ -176,7 +184,7 @@ function DecomposeDialog({
               <Button
                 onClick={onDecompose}
                 disabled={!prdContent || isStreaming}
-                className="w-full"
+                className="w-full flex-shrink-0"
               >
                 {isStreaming ? (
                   <>
@@ -191,7 +199,7 @@ function DecomposeDialog({
                 )}
               </Button>
 
-              <div className="text-xs text-muted-foreground space-y-0.5">
+              <div className="text-xs text-muted-foreground space-y-0.5 flex-shrink-0">
                 <p>💡 提示：</p>
                 <ul className="list-disc list-inside space-y-0.5 ml-1 text-[10px]">
                   <li>AI 自动基于 PRD 拆分</li>
