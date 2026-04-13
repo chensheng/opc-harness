@@ -17,6 +17,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sparkles,
   FileText,
   CheckCircle2,
@@ -195,6 +202,9 @@ export function UserStoryManager({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // 快速编辑 Sprint 的状态
+  const [editingSprintStoryId, setEditingSprintStoryId] = useState<string | null>(null)
+
   // 使用流式 Hook
   const {
     markdownContent,
@@ -361,6 +371,25 @@ export function UserStoryManager({
   const cancelDelete = () => {
     setShowDeleteConfirm(false)
     setDeletingStory(null)
+  }
+
+  // 快速更新用户故事的 Sprint
+  const handleQuickUpdateSprint = async (storyId: string, sprintId: string | undefined) => {
+    if (!currentProjectId) return
+
+    try {
+      await updateStory(currentProjectId, storyId, { sprintId })
+      // 关闭编辑状态
+      setEditingSprintStoryId(null)
+    } catch (error) {
+      console.error('更新 Sprint 失败:', error)
+      alert('更新失败，请重试')
+    }
+  }
+
+  // 取消快速编辑
+  const cancelQuickEdit = () => {
+    setEditingSprintStoryId(null)
   }
 
   // 筛选逻辑（在排序之前执行）
@@ -898,15 +927,51 @@ export function UserStoryManager({
                               </Badge>
                             </td>
                             <td className="py-1.5 px-2 align-middle">
-                              {story.sprintId ? (
-                                <div
-                                  className="text-[10px] truncate"
-                                  title={sprints.find(s => s.id === story.sprintId)?.name || ''}
+                              {editingSprintStoryId === story.id ? (
+                                // 快速编辑模式：显示下拉选择器
+                                <Select
+                                  value={story.sprintId || 'none'}
+                                  onValueChange={value => {
+                                    const newSprintId = value === 'none' ? undefined : value
+                                    handleQuickUpdateSprint(story.id, newSprintId)
+                                  }}
+                                  onOpenChange={open => {
+                                    if (!open) {
+                                      cancelQuickEdit()
+                                    }
+                                  }}
                                 >
-                                  {sprints.find(s => s.id === story.sprintId)?.name || '-'}
-                                </div>
+                                  <SelectTrigger className="h-6 text-[10px] px-2">
+                                    <SelectValue placeholder="选择 Sprint" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none" className="text-[10px]">
+                                      无
+                                    </SelectItem>
+                                    {sprints.map(sprint => (
+                                      <SelectItem
+                                        key={sprint.id}
+                                        value={sprint.id}
+                                        className="text-[10px]"
+                                      >
+                                        {sprint.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               ) : (
-                                <span className="text-[10px] text-muted-foreground">未分配</span>
+                                // 显示模式：可点击切换到编辑
+                                <div
+                                  className="text-[10px] truncate cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 transition-colors"
+                                  title={sprints.find(s => s.id === story.sprintId)?.name || ''}
+                                  onClick={() => setEditingSprintStoryId(story.id)}
+                                >
+                                  {story.sprintId ? (
+                                    sprints.find(s => s.id === story.sprintId)?.name || '-'
+                                  ) : (
+                                    <span className="text-muted-foreground">未分配</span>
+                                  )}
+                                </div>
                               )}
                             </td>
                             <td className="py-1.5 px-2 align-middle">
@@ -1056,6 +1121,7 @@ export function UserStoryManager({
         onOpenChange={setShowEditDialog}
         story={editingStory}
         onSave={handleSaveStory}
+        sprints={sprints}
       />
 
       {/* 用户故事删除确认对话框 */}

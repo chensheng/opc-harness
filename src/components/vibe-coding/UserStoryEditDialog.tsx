@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { UserStory } from '@/types'
+import type { UserStory, Sprint } from '@/types'
 import { X, Plus } from 'lucide-react'
 
 interface UserStoryEditDialogProps {
@@ -25,6 +25,7 @@ interface UserStoryEditDialogProps {
   onOpenChange: (open: boolean) => void
   story: UserStory | null
   onSave: (updatedStory: UserStory) => Promise<void>
+  sprints?: Sprint[] // 可选的 Sprint 列表
 }
 
 export function UserStoryEditDialog({
@@ -32,6 +33,7 @@ export function UserStoryEditDialog({
   onOpenChange,
   story,
   onSave,
+  sprints = [],
 }: UserStoryEditDialogProps) {
   const [formData, setFormData] = useState<Partial<UserStory>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -360,6 +362,30 @@ export function UserStoryEditDialog({
                   placeholder="关联的功能模块"
                 />
               </div>
+
+              {sprints.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="sprintId">所属 Sprint</Label>
+                  <Select
+                    value={formData.sprintId || 'none'}
+                    onValueChange={value =>
+                      updateField('sprintId', value === 'none' ? undefined : value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择 Sprint" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">无</SelectItem>
+                      {sprints.map(sprint => (
+                        <SelectItem key={sprint.id} value={sprint.id}>
+                          {sprint.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="labels">标签（逗号分隔）</Label>
