@@ -293,6 +293,9 @@ pub struct UserStory {
     /// 依赖关系 (JSON数组)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dependencies: Option<String>,
+    /// 所属 Sprint ID（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sprint_id: Option<String>,
     /// 创建时间
     pub created_at: String,
     /// 更新时间
@@ -308,23 +311,24 @@ impl Entity for UserStory {
     
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(UserStory {
-            id: row.get(0)?,
-            project_id: row.get(1)?,
-            story_number: row.get(2)?,
-            title: row.get(3)?,
-            role: row.get(4)?,
-            feature: row.get(5)?,
-            benefit: row.get(6)?,
-            description: row.get(7)?,
-            acceptance_criteria: row.get(8)?,
-            priority: row.get(9)?,
-            story_points: row.get(10)?,
-            status: row.get(11)?,
-            epic: row.get(12)?,
-            labels: row.get(13)?,
-            dependencies: row.get(14)?,
-            created_at: row.get(15)?,
-            updated_at: row.get(16)?,
+            id: row.get("id")?,
+            project_id: row.get("project_id")?,
+            story_number: row.get("story_number")?,
+            title: row.get("title")?,
+            role: row.get("role")?,
+            feature: row.get("feature")?,
+            benefit: row.get("benefit")?,
+            description: row.get("description")?,
+            acceptance_criteria: row.get("acceptance_criteria")?,
+            priority: row.get("priority")?,
+            story_points: row.get("story_points")?,
+            status: row.get("status")?,
+            epic: row.get("epic")?,
+            labels: row.get("labels")?,
+            dependencies: row.get("dependencies")?,
+            sprint_id: row.get("sprint_id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
         })
     }
 }
@@ -347,10 +351,12 @@ pub struct Sprint {
     pub end_date: String,
     /// 状态: planning/active/completed/cancelled
     pub status: String,
-    /// 关联的用户故事 IDs
+    /// 关联的用户故事 IDs（已废弃，使用 user_stories.sprint_id 代替）
+    /// 保留此字段仅用于向后兼容，不再主动维护
     #[serde(
         serialize_with = "serialize_story_ids",
-        deserialize_with = "deserialize_story_ids"
+        deserialize_with = "deserialize_story_ids",
+        default = "default_story_ids"
     )]
     pub story_ids: Vec<String>,
     /// 总故事点
@@ -361,6 +367,11 @@ pub struct Sprint {
     pub created_at: String,
     /// 更新时间
     pub updated_at: String,
+}
+
+// 默认的空 story_ids
+fn default_story_ids() -> Vec<String> {
+    vec![]
 }
 
 // 自定义序列化函数：Vec<String> -> JSON字符串

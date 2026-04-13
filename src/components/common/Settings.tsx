@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useAppStore } from '@/stores'
 import { ToolDetector } from './ToolDetector'
 import { GitDetector } from './GitDetector'
+import { DatabaseMigrationTool } from '../DatabaseMigrationTool'
 
 export function Settings() {
   const { settings, setSettings } = useAppStore()
@@ -21,6 +22,9 @@ export function Settings() {
 
       {/* Git 仓库状态检测 */}
       <GitDetector projectPath={currentProjectPath} />
+
+      {/* 数据库迁移工具 */}
+      <DatabaseMigrationTool />
 
       <Card>
         <CardHeader>

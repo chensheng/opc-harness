@@ -42,6 +42,7 @@ pub async fn save_user_stories(
             epic: story.feature_module.clone(),
             labels: Some(serde_json::to_string(&story.labels).unwrap_or_else(|_| "[]".to_string())),
             dependencies: story.dependencies.as_ref().map(|d| serde_json::to_string(d).unwrap_or_else(|_| "[]".to_string())),
+            sprint_id: story.sprint_id.clone(),
             created_at: story.created_at.clone(),
             updated_at: now,
         }
@@ -110,6 +111,7 @@ pub async fn get_user_stories(
             status: story.status.clone(),
             dependencies: story.dependencies.as_ref().and_then(|d| serde_json::from_str(d).ok()),
             feature_module: story.epic.clone(),
+            sprint_id: story.sprint_id.clone(),
             labels: story.labels.as_ref().and_then(|l| serde_json::from_str(l).ok()).unwrap_or_default(),
             created_at: story.created_at.clone(),
             updated_at: story.updated_at.clone(),

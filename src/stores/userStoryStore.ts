@@ -18,6 +18,7 @@ interface BackendUserStory {
   story_points?: number
   dependencies: string[]
   feature_module?: string
+  sprint_id?: string
   labels: string[]
   created_at: string
   updated_at: string
@@ -38,6 +39,9 @@ interface UserStoryActions {
 
   // 获取项目的用户故事
   getProjectStories: (projectId: string) => UserStory[]
+
+  // 获取指定Sprint下的用户故事
+  getSprintStories: (projectId: string, sprintId: string) => UserStory[]
 
   // 添加单个用户故事
   addStory: (projectId: string, story: UserStory) => Promise<void>
@@ -84,6 +88,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             storyPoints: story.story_points,
             dependencies: story.dependencies,
             featureModule: story.feature_module,
+            sprintId: story.sprint_id,
             labels: story.labels,
             createdAt: story.created_at,
             updatedAt: story.updated_at,
@@ -119,6 +124,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
           story_points: story.storyPoints,
           dependencies: story.dependencies,
           feature_module: story.featureModule,
+          sprint_id: story.sprintId,
           labels: story.labels,
           created_at: story.createdAt,
           updated_at: story.updatedAt,
@@ -145,6 +151,11 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
 
     getProjectStories: projectId => {
       return get().storiesByProject[projectId] || []
+    },
+
+    getSprintStories: (projectId, sprintId) => {
+      const stories = get().getProjectStories(projectId)
+      return stories.filter(story => story.sprintId === sprintId)
     },
 
     addStory: async (projectId, story) => {

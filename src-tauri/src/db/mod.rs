@@ -1,6 +1,6 @@
 // Database module - organized by entity repositories
 
-mod database;
+pub mod database;  // 改为公开模块，以便commands可以访问迁移函数
 mod repository;
 
 // Entity repositories
@@ -56,7 +56,13 @@ pub use issue_repository::{
 };
 
 // Re-export User Story CRUD operations
-pub use user_story_repository::{get_user_stories_by_project, upsert_user_stories};
+pub use user_story_repository::{
+    get_user_stories_by_project, 
+    // TODO: 待后续使用
+    // get_user_stories_by_sprint,
+    // update_story_sprint,
+    upsert_user_stories
+};
 
 // Re-export Sprint CRUD operations
 pub use sprint_repository::{delete_sprint, get_sprints_by_project, upsert_sprints};

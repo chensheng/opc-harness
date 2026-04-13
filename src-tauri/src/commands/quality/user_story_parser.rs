@@ -249,6 +249,7 @@ fn convert_table_row_to_story(headers: &[String], cells: &[String], index: usize
         story_points: Some(story_points),
         dependencies,
         feature_module: Some(feature_module),
+        sprint_id: None, // 解析时默认为None，后续由用户分配
         labels,
         created_at: "".to_string(),
         updated_at: "".to_string(),
@@ -572,6 +573,7 @@ fn parse_single_user_story(value: &serde_json::Value, index: usize) -> Result<Us
         story_points,
         dependencies,
         feature_module,
+        sprint_id: None, // 解析时默认为None，后续由用户分配
         labels,
         created_at: "".to_string(),
         updated_at: "".to_string(),

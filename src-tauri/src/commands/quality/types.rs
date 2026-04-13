@@ -159,6 +159,8 @@ pub struct UserStory {
     pub dependencies: Option<Vec<String>>,
     /// 关联的功能模块
     pub feature_module: Option<String>,
+    /// 所属 Sprint ID
+    pub sprint_id: Option<String>,
     /// 标签
     pub labels: Vec<String>,
     /// 创建时间

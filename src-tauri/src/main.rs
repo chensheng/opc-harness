@@ -208,6 +208,8 @@ fn main() {
             commands::database::get_all_cli_sessions,
             commands::database::get_cli_session_by_id,
             commands::database::delete_cli_session,
+            // Database migration command (one-time operation)
+            commands::database::run_database_migration,
             // Milestone commands (DB-002)
             commands::database::create_milestone,
             commands::database::get_milestones_by_project,

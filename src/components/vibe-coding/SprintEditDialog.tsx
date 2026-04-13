@@ -34,12 +34,7 @@ const statusColors: Record<Sprint['status'], string> = {
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 }
 
-export function SprintEditDialog({
-  open,
-  onOpenChange,
-  sprint,
-  onSave,
-}: SprintEditDialogProps) {
+export function SprintEditDialog({ open, onOpenChange, sprint, onSave }: SprintEditDialogProps) {
   const [formData, setFormData] = useState<Partial<Sprint>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)

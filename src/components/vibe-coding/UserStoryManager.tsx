@@ -42,6 +42,7 @@ import { useUserStoryDecomposition } from '@/hooks/useUserStoryDecomposition'
 import { useUserStoryStream } from '@/hooks/useUserStoryStream'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUserStoryStore } from '@/stores/userStoryStore'
+import { useSprintStore } from '@/stores/sprintStore'
 import { UserStoryEditDialog } from './UserStoryEditDialog'
 
 // PRD 预览的自定义 Markdown 组件
@@ -183,6 +184,7 @@ export function UserStoryManager({
   const [filterKeyword, setFilterKeyword] = useState('') // 关键词筛选
   const [filterStatus, setFilterStatus] = useState<string>('') // 状态筛选
   const [filterPriority, setFilterPriority] = useState<string>('') // 优先级筛选
+  const [filterSprint, setFilterSprint] = useState<string>('') // Sprint筛选
 
   // 编辑对话框状态
   const [editingStory, setEditingStory] = useState<UserStory | null>(null)
@@ -220,17 +222,24 @@ export function UserStoryManager({
   const deleteStory = useUserStoryStore(state => state.deleteStory)
   const isLoadingFromDB = useUserStoryStore(state => state.isLoading)
 
+  // 获取Sprint Store
+  const loadProjectSprints = useSprintStore(state => state.loadProjectSprints)
+  const sprints = useSprintStore(state =>
+    currentProjectId ? state.sprintsByProject[currentProjectId] || [] : []
+  )
+
   // 直接从 Store 订阅用户故事(响应式)
   const savedStories = useUserStoryStore(state =>
     currentProjectId ? state.storiesByProject[currentProjectId] || [] : []
   )
 
-  // 组件挂载时加载用户故事
+  // 组件挂载时加载用户故事和Sprints
   React.useEffect(() => {
     if (currentProjectId) {
       loadProjectStories(currentProjectId)
+      loadProjectSprints(currentProjectId)
     }
-  }, [currentProjectId, loadProjectStories])
+  }, [currentProjectId, loadProjectStories, loadProjectSprints])
 
   // 优先使用流式的用户故事，否则使用保存的故事
   const displayLoading = isStreaming || _loading
@@ -379,8 +388,19 @@ export function UserStoryManager({
       result = result.filter((story: UserStory) => story.priority === filterPriority)
     }
 
+    // Sprint筛选
+    if (filterSprint) {
+      if (filterSprint === 'unassigned') {
+        // 筛选未分配Sprint的故事
+        result = result.filter((story: UserStory) => !story.sprintId)
+      } else {
+        // 筛选特定Sprint的故事
+        result = result.filter((story: UserStory) => story.sprintId === filterSprint)
+      }
+    }
+
     return result
-  }, [displayStories, filterKeyword, filterStatus, filterPriority])
+  }, [displayStories, filterKeyword, filterStatus, filterPriority, filterSprint])
 
   // 计算分页数据（先筛选，再排序，最后分页）
   const sortedStories = React.useMemo(() => {
@@ -460,6 +480,7 @@ export function UserStoryManager({
     setFilterKeyword('')
     setFilterStatus('')
     setFilterPriority('')
+    setFilterSprint('')
     setCurrentPage(1)
   }
 
@@ -702,8 +723,27 @@ export function UserStoryManager({
                       ))}
                     </select>
 
+                    {/* Sprint筛选 */}
+                    <select
+                      value={filterSprint}
+                      onChange={e => {
+                        setFilterSprint(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary max-w-[150px]"
+                      title="按Sprint筛选"
+                    >
+                      <option value="">所有Sprint</option>
+                      <option value="unassigned">未分配</option>
+                      {sprints.map(sprint => (
+                        <option key={sprint.id} value={sprint.id}>
+                          {sprint.name}
+                        </option>
+                      ))}
+                    </select>
+
                     {/* 清除筛选按钮 */}
-                    {(filterKeyword || filterStatus || filterPriority) && (
+                    {(filterKeyword || filterStatus || filterPriority || filterSprint) && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -804,6 +844,9 @@ export function UserStoryManager({
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
                             状态
                           </th>
+                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-24">
+                            Sprint
+                          </th>
                           <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
                             操作
                           </th>
@@ -853,6 +896,18 @@ export function UserStoryManager({
                               >
                                 {statusLabels[story.status] || story.status}
                               </Badge>
+                            </td>
+                            <td className="py-1.5 px-2 align-middle">
+                              {story.sprintId ? (
+                                <div
+                                  className="text-[10px] truncate"
+                                  title={sprints.find(s => s.id === story.sprintId)?.name || ''}
+                                >
+                                  {sprints.find(s => s.id === story.sprintId)?.name || '-'}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">未分配</span>
+                              )}
                             </td>
                             <td className="py-1.5 px-2 align-middle">
                               <div className="flex gap-0.5">

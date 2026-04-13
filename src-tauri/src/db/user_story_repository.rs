@@ -24,8 +24,8 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
             "INSERT INTO user_stories (
                 id, project_id, story_number, title, role, feature, benefit, 
                 description, acceptance_criteria, priority, story_points, status,
-                epic, labels, dependencies, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                epic, labels, dependencies, sprint_id, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             rusqlite::params![
                 story.id,
                 story.project_id,
@@ -42,6 +42,7 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
                 story.epic,
                 story.labels,
                 story.dependencies,
+                story.sprint_id,
                 story.created_at,
                 story.updated_at
             ],
@@ -75,4 +76,46 @@ pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Resul
     println!("[DB::get_user_stories_by_project] Retrieved {} stories", result.len());
 
     Ok(result)
+}
+
+/// 获取指定 Sprint 下的所有用户故事
+pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<Vec<UserStory>> {
+    println!("[DB::get_user_stories_by_sprint] Querying for sprint_id: {}", sprint_id);
+    
+    let mut stmt = conn.prepare(
+        "SELECT * FROM user_stories WHERE sprint_id = ?1 ORDER BY story_number ASC"
+    )?;
+    
+    let stories = stmt.query_map([sprint_id], |row| {
+        UserStory::from_row(row)
+    })?;
+
+    let mut result = Vec::new();
+    for story_result in stories {
+        result.push(story_result?);
+    }
+    
+    println!("[DB::get_user_stories_by_sprint] Retrieved {} stories", result.len());
+
+    Ok(result)
+}
+
+/// 更新用户故事的 Sprint 关联
+pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<&str>) -> Result<usize> {
+    println!("[DB::update_story_sprint] Updating story_id: {} to sprint_id: {:?}", 
+             story_id, sprint_id);
+    
+    let updated = match sprint_id {
+        Some(sid) => conn.execute(
+            "UPDATE user_stories SET sprint_id = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            rusqlite::params![sid, story_id],
+        )?,
+        None => conn.execute(
+            "UPDATE user_stories SET sprint_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            [story_id],
+        )?,
+    };
+    
+    println!("[DB::update_story_sprint] Updated {} story(s)", updated);
+    Ok(updated)
 }

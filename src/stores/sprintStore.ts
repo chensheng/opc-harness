@@ -12,7 +12,7 @@ interface BackendSprint {
   startDate: string
   endDate: string
   status: string
-  storyIds: string  // JSON 字符串格式
+  storyIds: string // JSON 字符串格式
   totalStoryPoints: number
   completedStoryPoints: number
   createdAt: string
@@ -67,8 +67,8 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           goal: sprint.goal,
           startDate: sprint.startDate,
           endDate: sprint.endDate,
-          status: sprint.status as Sprint['status'],  // 类型断言，确保 status 符合联合类型
-          storyIds: JSON.parse(sprint.storyIds || '[]'),  // 从 JSON 字符串解析为数组
+          status: sprint.status as Sprint['status'], // 类型断言，确保 status 符合联合类型
+          storyIds: JSON.parse(sprint.storyIds || '[]'), // 从 JSON 字符串解析为数组
           totalStoryPoints: sprint.totalStoryPoints,
           completedStoryPoints: sprint.completedStoryPoints,
           createdAt: sprint.createdAt,
@@ -98,7 +98,7 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           startDate: string
           endDate: string
           status: string
-          storyIds: string  // JSON 字符串格式
+          storyIds: string // JSON 字符串格式
           totalStoryPoints: number
           completedStoryPoints: number
           createdAt: string
@@ -114,7 +114,7 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           startDate: sprint.startDate,
           endDate: sprint.endDate,
           status: sprint.status,
-          storyIds: JSON.stringify(sprint.storyIds),  // 转换为 JSON 字符串，匹配后端的自定义反序列化
+          storyIds: JSON.stringify(sprint.storyIds), // 转换为 JSON 字符串，匹配后端的自定义反序列化
           totalStoryPoints: sprint.totalStoryPoints,
           completedStoryPoints: sprint.completedStoryPoints,
           createdAt: sprint.createdAt,
@@ -124,8 +124,8 @@ export const useSprintStore = create<SprintState & SprintActions>()(
         // 保存到后端数据库
         await invoke<number>('save_sprints', {
           request: {
-            project_id: projectId,  // SaveSprintsRequest 使用 snake_case
-            sprints: rustSprints,   // Sprint 模型使用 camelCase
+            project_id: projectId, // SaveSprintsRequest 使用 snake_case
+            sprints: rustSprints, // Sprint 模型使用 camelCase
           },
         })
 

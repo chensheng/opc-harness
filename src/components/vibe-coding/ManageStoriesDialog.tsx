@@ -1,10 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,7 +31,8 @@ export function ManageStoriesDialog({
   // 初始化已选故事
   useEffect(() => {
     if (open && sprint) {
-      setSelectedStoryIds([...sprint.storyIds])
+      // storyIds 现在是可选的，默认为空数组
+      setSelectedStoryIds([...(sprint.storyIds || [])])
       setStoryFilterKeyword('')
       setShowOnlyUnassigned(false)
     }
@@ -199,7 +195,10 @@ export function ManageStoriesDialog({
                       checked={selectedStoryIds.includes(story.id)}
                       onChange={() => toggleStorySelection(story.id)}
                     />
-                    <div className="flex-1 space-y-1 cursor-pointer" onClick={() => toggleStorySelection(story.id)}>
+                    <div
+                      className="flex-1 space-y-1 cursor-pointer"
+                      onClick={() => toggleStorySelection(story.id)}
+                    >
                       <div className="text-sm font-medium leading-none">
                         {story.storyNumber} - {story.title}
                       </div>

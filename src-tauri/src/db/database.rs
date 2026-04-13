@@ -168,6 +168,7 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
             epic TEXT,
             labels TEXT,
             dependencies TEXT,
+            sprint_id TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -190,6 +191,10 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
     )?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_user_stories_story_number ON user_stories(story_number)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_stories_sprint_id ON user_stories(sprint_id)",
         [],
     )?;
 
@@ -227,7 +232,80 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
+    // 运行迁移脚本以添加 sprint_id 支持（如果列不存在）
+    // 注意：这里不关闭连接，让迁移函数使用同一个连接
+    migrate_add_sprint_id_support_internal(&conn).map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(1),
+            Some(format!("Migration failed: {}", e)),
+        )
+    })?;
+
     Ok(())
+}
+
+/// 内部迁移函数：为 user_stories 表添加 sprint_id 字段支持
+/// 
+/// 此函数会在数据库初始化时自动调用，确保数据库结构是最新的
+fn migrate_add_sprint_id_support_internal(conn: &Connection) -> Result<(), String> {
+    println!("[DB Migration] Checking sprint_id column in user_stories table...");
+    
+    // 检查 sprint_id 列是否已存在
+    let column_exists = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('user_stories') WHERE name='sprint_id'",
+        [],
+        |row| row.get::<_, i64>(0)
+    ).map_err(|e| format!("Failed to check column existence: {}", e))?;
+    
+    if column_exists == 0 {
+        println!("[DB Migration] Adding sprint_id column to user_stories table");
+        
+        // 添加 sprint_id 列
+        conn.execute(
+            "ALTER TABLE user_stories ADD COLUMN sprint_id TEXT",
+            []
+        ).map_err(|e| format!("Failed to add sprint_id column: {}", e))?;
+        
+        println!("[DB Migration] ✓ sprint_id column added successfully");
+    } else {
+        println!("[DB Migration] ✓ sprint_id column already exists, skipping");
+    }
+    
+    // 检查索引是否存在
+    let index_exists = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_user_stories_sprint_id'",
+        [],
+        |row| row.get::<_, i64>(0)
+    ).map_err(|e| format!("Failed to check index existence: {}", e))?;
+    
+    if index_exists == 0 {
+        println!("[DB Migration] Creating index on user_stories.sprint_id");
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_stories_sprint_id ON user_stories(sprint_id)",
+            []
+        ).map_err(|e| format!("Failed to create index: {}", e))?;
+        
+        println!("[DB Migration] ✓ Index created successfully");
+    } else {
+        println!("[DB Migration] ✓ Index already exists, skipping");
+    }
+    
+    println!("[DB Migration] Sprint ID support migration completed");
+    Ok(())
+}
+
+/// 迁移脚本：为现有数据库添加 sprint_id 字段支持（公开版本）
+/// 
+/// 此函数可以在应用运行时手动调用，用于修复旧数据库
+pub fn migrate_add_sprint_id_support() -> Result<(), String> {
+    println!("[DB Migration] Running manual migration: add sprint_id support");
+    
+    let db_path = paths::get_database_path();
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open database: {}", e))?;
+    
+    migrate_add_sprint_id_support_internal(&conn)
 }
 
 /// 检查并修复所有项目的工作区目录
