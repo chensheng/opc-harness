@@ -3,7 +3,7 @@ import { immer } from 'zustand/middleware/immer'
 import { invoke } from '@tauri-apps/api/core'
 import type { Sprint } from '@/types'
 
-// 后端返回的 camelCase 格式的 Sprint 类型（因为 Sprint 模型使用 rename_all = "camelCase"）
+// 后端返回的 camelCase 格式的 Sprint 类型
 interface BackendSprint {
   id: string
   projectId: string
@@ -12,9 +12,8 @@ interface BackendSprint {
   startDate: string
   endDate: string
   status: string
-  storyIds: string // JSON 字符串格式
-  totalStoryPoints: number
-  completedStoryPoints: number
+  totalStoryPoints?: number
+  completedStoryPoints?: number
   createdAt: string
   updatedAt: string
 }
@@ -60,15 +59,14 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           request: { project_id: projectId },
         })
 
-        // 将 Rust 后端的 camelCase Sprint 转换为前端的 camelCase 格式（实际上字段名相同，只需处理 storyIds）
+        // 将 Rust 后端的 camelCase Sprint 转换为前端的 camelCase 格式
         const frontendSprints = rustSprints.map(sprint => ({
           id: sprint.id,
           name: sprint.name,
           goal: sprint.goal,
           startDate: sprint.startDate,
           endDate: sprint.endDate,
-          status: sprint.status as Sprint['status'], // 类型断言，确保 status 符合联合类型
-          storyIds: JSON.parse(sprint.storyIds || '[]'), // 从 JSON 字符串解析为数组
+          status: sprint.status as Sprint['status'],
           totalStoryPoints: sprint.totalStoryPoints,
           completedStoryPoints: sprint.completedStoryPoints,
           createdAt: sprint.createdAt,
@@ -89,24 +87,8 @@ export const useSprintStore = create<SprintState & SprintActions>()(
       try {
         set({ isLoading: true })
 
-        // 定义 Rust 后端期望的 Sprint 格式（camelCase）
-        interface RustSprint {
-          id: string
-          projectId: string
-          name: string
-          goal: string
-          startDate: string
-          endDate: string
-          status: string
-          storyIds: string // JSON 字符串格式
-          totalStoryPoints: number
-          completedStoryPoints: number
-          createdAt: string
-          updatedAt: string
-        }
-
         // 将前端的 camelCase Sprint 转换为 Rust 后端期望的格式
-        const rustSprints: RustSprint[] = sprints.map(sprint => ({
+        const rustSprints = sprints.map(sprint => ({
           id: sprint.id,
           projectId: projectId,
           name: sprint.name,
@@ -114,9 +96,8 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           startDate: sprint.startDate,
           endDate: sprint.endDate,
           status: sprint.status,
-          storyIds: JSON.stringify(sprint.storyIds), // 转换为 JSON 字符串，匹配后端的自定义反序列化
-          totalStoryPoints: sprint.totalStoryPoints,
-          completedStoryPoints: sprint.completedStoryPoints,
+          totalStoryPoints: sprint.totalStoryPoints || 0,
+          completedStoryPoints: sprint.completedStoryPoints || 0,
           createdAt: sprint.createdAt,
           updatedAt: sprint.updatedAt,
         }))
@@ -124,8 +105,8 @@ export const useSprintStore = create<SprintState & SprintActions>()(
         // 保存到后端数据库
         await invoke<number>('save_sprints', {
           request: {
-            project_id: projectId, // SaveSprintsRequest 使用 snake_case
-            sprints: rustSprints, // Sprint 模型使用 camelCase
+            project_id: projectId,
+            sprints: rustSprints,
           },
         })
 

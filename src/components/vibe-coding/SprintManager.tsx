@@ -91,6 +91,7 @@ export function SprintManager() {
 
   // User Story Store - 获取可用的用户故事
   const loadProjectStories = useUserStoryStore(state => state.loadProjectStories)
+  const updateStory = useUserStoryStore(state => state.updateStory)
   const availableStories = useUserStoryStore(state =>
     currentProjectId ? state.storiesByProject[currentProjectId] || [] : []
   )
@@ -167,12 +168,40 @@ export function SprintManager() {
   }
 
   // 保存管理后的故事
-  const handleSaveManagedStories = async (updatedSprint: Sprint) => {
+  const handleSaveManagedStories = async (updatedSprint: Sprint, selectedStoryIds: string[]) => {
     if (!currentProjectId) return
 
-    await updateSprint(currentProjectId, updatedSprint.id, updatedSprint)
-    setShowManageStoriesDialog(false)
-    setManagingSprint(null)
+    try {
+      // 获取当前项目的所有用户故事
+      const allStories = useUserStoryStore.getState().getProjectStories(currentProjectId)
+
+      // 找出需要更新 sprintId 的故事（包括新分配到这个 Sprint 的和从这个 Sprint 移除的）
+      const storiesToUpdate = allStories.filter(
+        story => selectedStoryIds.includes(story.id) || story.sprintId === managingSprint?.id
+      )
+
+      // 批量更新用户故事的 sprintId
+      for (const story of storiesToUpdate) {
+        const shouldAssignToSprint = selectedStoryIds.includes(story.id)
+        const newSprintId = shouldAssignToSprint ? updatedSprint.id : undefined
+
+        // 只有当 sprintId 真正改变时才更新
+        if (story.sprintId !== newSprintId) {
+          await updateStory(currentProjectId, story.id, {
+            sprintId: newSprintId,
+          })
+        }
+      }
+
+      // 更新 Sprint
+      await updateSprint(currentProjectId, updatedSprint.id, updatedSprint)
+
+      setShowManageStoriesDialog(false)
+      setManagingSprint(null)
+    } catch (error) {
+      console.error('[SprintManager] Failed to save managed stories:', error)
+      alert('保存失败，请重试')
+    }
   }
 
   // 筛选逻辑

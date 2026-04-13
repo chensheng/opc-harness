@@ -310,15 +310,10 @@ export interface Sprint {
   endDate: string
   /** 状态 */
   status: 'planning' | 'active' | 'completed' | 'cancelled'
-  /**
-   * 关联的用户故事 ID 列表（已废弃）
-   * @deprecated 使用 user_stories.sprintId 代替，通过查询获取故事列表
-   */
-  storyIds?: string[]
-  /** 总故事点 */
-  totalStoryPoints: number
-  /** 已完成故事点 */
-  completedStoryPoints: number
+  /** 总故事点（通过查询 user_stories.sprint_id 计算得出） */
+  totalStoryPoints?: number
+  /** 已完成故事点（通过查询 user_stories 计算得出） */
+  completedStoryPoints?: number
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */

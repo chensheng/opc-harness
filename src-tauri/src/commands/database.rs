@@ -593,6 +593,39 @@ pub fn delete_sprint(
     }
 }
 
+/// 获取指定 Sprint 下的用户故事列表请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct GetSprintStoriesRequest {
+    /// Sprint ID
+    pub sprint_id: String,
+}
+
+/// 获取指定 Sprint 下的用户故事列表
+#[tauri::command]
+pub fn get_sprint_stories(
+    app_handle: tauri::AppHandle,
+    request: GetSprintStoriesRequest,
+) -> Result<Vec<crate::models::UserStory>, String> {
+    println!("[get_sprint_stories] Querying for sprint_id: {}", request.sprint_id);
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        eprintln!("[get_sprint_stories] Failed to get DB connection: {}", e);
+        format!("Failed to get DB connection: {}", e)
+    })?;
+    
+    match db::get_user_stories_by_sprint(&conn, &request.sprint_id) {
+        Ok(stories) => {
+            println!("[get_sprint_stories] Retrieved {} stories", stories.len());
+            Ok(stories)
+        },
+        Err(e) => {
+            eprintln!("[get_sprint_stories] Failed to get stories: {}", e);
+            Err(format!("Failed to get stories: {}", e))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

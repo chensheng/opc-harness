@@ -13,7 +13,7 @@ interface ManageStoriesDialogProps {
   onOpenChange: (open: boolean) => void
   sprint: Sprint
   availableStories: UserStory[]
-  onSave: (sprint: Sprint) => Promise<void>
+  onSave: (sprint: Sprint, selectedStoryIds: string[]) => Promise<void>
 }
 
 export function ManageStoriesDialog({
@@ -28,15 +28,19 @@ export function ManageStoriesDialog({
   const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  // 初始化已选故事
+  // 初始化已选故事（通过查询 user_stories.sprint_id 获取）
   useEffect(() => {
     if (open && sprint) {
-      // storyIds 现在是可选的，默认为空数组
-      setSelectedStoryIds([...(sprint.storyIds || [])])
+      // 从 availableStories 中筛选出属于当前 Sprint 的故事
+      const assignedStoryIds = availableStories
+        .filter(story => story.sprintId === sprint.id)
+        .map(story => story.id)
+
+      setSelectedStoryIds(assignedStoryIds)
       setStoryFilterKeyword('')
       setShowOnlyUnassigned(false)
     }
-  }, [open, sprint])
+  }, [open, sprint, availableStories])
 
   // 计算总故事点
   const calculateTotalStoryPoints = () => {
@@ -84,18 +88,17 @@ export function ManageStoriesDialog({
     return stories
   }, [availableStories, storyFilterKeyword, showOnlyUnassigned, selectedStoryIds])
 
-  // 处理保存
+  // 处理保存（只更新 Sprint 的基本信息，用户故事的 sprintId 由 SprintManager 处理）
   const handleSave = async () => {
     setIsSaving(true)
     try {
       const updatedSprint: Sprint = {
         ...sprint,
-        storyIds: selectedStoryIds,
         totalStoryPoints: calculateTotalStoryPoints(),
         updatedAt: new Date().toISOString(),
       }
 
-      await onSave(updatedSprint)
+      await onSave(updatedSprint, selectedStoryIds)
       onOpenChange(false)
     } catch (error) {
       console.error('Failed to save managed stories:', error)

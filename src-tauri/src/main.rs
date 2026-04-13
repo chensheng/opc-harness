@@ -61,7 +61,7 @@ fn expand_environment_strings(input: &str) -> String {
         return input.to_string();
     }
     
-    // 杞崲涓?Rust 瀛楃涓?
+    // 杞崲涓?Rust 瀧楃涓?
     let len = buffer.iter().position(|&x| x == 0).unwrap_or(buffer.len());
     OsString::from_wide(&buffer[..len])
         .to_string_lossy()
@@ -146,7 +146,7 @@ fn main() {
             });
 
             // Check and create workspace directories for all projects
-            if let Err(e) = db::ensure_all_project_workspaces() {
+            if let Err(e) = db::ensure_all_project_workspaces(&app.app_handle()) {
                 log::warn!("Failed to ensure project workspaces: {}", e);
             } else {
                 log::info!("All project workspace directories verified");
@@ -285,6 +285,7 @@ fn main() {
             commands::database::save_sprints,
             commands::database::get_sprints_by_project,
             commands::database::delete_sprint,
+            commands::database::get_sprint_stories,
             // Streaming Output commands (US-048)
             commands::ai::start_prd_stream,
             // User Preference commands (US-055)

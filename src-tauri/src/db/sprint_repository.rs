@@ -20,15 +20,11 @@ pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -
     // 批量插入新Sprint
     let mut inserted_count = 0;
     for sprint in sprints {
-        // 将story_ids序列化为JSON字符串
-        let story_ids_json = serde_json::to_string(&sprint.story_ids)
-            .unwrap_or_else(|_| "[]".to_string());
-        
         tx.execute(
             "INSERT INTO sprints (
                 id, project_id, name, goal, start_date, end_date, status,
-                story_ids, total_story_points, completed_story_points, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                total_story_points, completed_story_points, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 sprint.id,
                 sprint.project_id,
@@ -37,9 +33,8 @@ pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -
                 sprint.start_date,
                 sprint.end_date,
                 sprint.status,
-                story_ids_json,
-                sprint.total_story_points,
-                sprint.completed_story_points,
+                sprint.total_story_points.unwrap_or(0),
+                sprint.completed_story_points.unwrap_or(0),
                 sprint.created_at,
                 sprint.updated_at
             ],

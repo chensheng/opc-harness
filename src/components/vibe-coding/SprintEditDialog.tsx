@@ -116,7 +116,6 @@ export function SprintEditDialog({ open, onOpenChange, sprint, onSave }: SprintE
         startDate: formData.startDate || '',
         endDate: formData.endDate || '',
         status: formData.status || 'planning',
-        storyIds: sprint?.storyIds || [],
         totalStoryPoints: sprint?.totalStoryPoints || 0,
         completedStoryPoints: sprint?.completedStoryPoints || 0,
         createdAt: sprint?.createdAt || new Date().toISOString(),

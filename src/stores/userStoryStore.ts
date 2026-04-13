@@ -88,7 +88,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             storyPoints: story.story_points,
             dependencies: story.dependencies,
             featureModule: story.feature_module,
-            sprintId: story.sprint_id,
+            sprintId: story.sprint_id || undefined, // 将 null 转换为 undefined
             labels: story.labels,
             createdAt: story.created_at,
             updatedAt: story.updated_at,

@@ -1,6 +1,18 @@
 use rusqlite::{Connection, Result};
 use crate::utils::paths;
 
+/// 获取数据库连接
+pub fn get_connection(_app_handle: &tauri::AppHandle) -> Result<Connection> {
+    let db_path = paths::get_database_path();
+    Connection::open(&db_path)
+}
+
+/// 确保所有项目工作区目录存在（占位函数，实际逻辑在 utils/paths.rs 中）
+pub fn ensure_all_project_workspaces(_app_handle: &tauri::AppHandle) -> Result<()> {
+    // 此函数已废弃，保留仅用于向后兼容
+    Ok(())
+}
+
 /// 初始化数据库连接和表结构
 pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
     // 确保应用目录结构存在
@@ -198,7 +210,7 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
-    // Create sprints table
+    // Create sprints table (story_ids 已移除，通过 user_stories.sprint_id 关联)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sprints (
             id TEXT PRIMARY KEY,
@@ -208,7 +220,6 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
             start_date TEXT NOT NULL,
             end_date TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'planning',
-            story_ids TEXT NOT NULL DEFAULT '[]',
             total_story_points INTEGER NOT NULL DEFAULT 0,
             completed_story_points INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -233,8 +244,15 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
     )?;
 
     // 运行迁移脚本以添加 sprint_id 支持（如果列不存在）
-    // 注意：这里不关闭连接，让迁移函数使用同一个连接
     migrate_add_sprint_id_support_internal(&conn).map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(1),
+            Some(format!("Migration failed: {}", e)),
+        )
+    })?;
+
+    // 运行迁移脚本以移除 sprints 表的 story_ids 字段
+    migrate_remove_story_ids_from_sprints_internal(&conn).map_err(|e| {
         rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error::new(1),
             Some(format!("Migration failed: {}", e)),
@@ -245,12 +263,9 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
 }
 
 /// 内部迁移函数：为 user_stories 表添加 sprint_id 字段支持
-/// 
-/// 此函数会在数据库初始化时自动调用，确保数据库结构是最新的
 fn migrate_add_sprint_id_support_internal(conn: &Connection) -> Result<(), String> {
     println!("[DB Migration] Checking sprint_id column in user_stories table...");
     
-    // 检查 sprint_id 列是否已存在
     let column_exists = conn.query_row(
         "SELECT COUNT(*) FROM pragma_table_info('user_stories') WHERE name='sprint_id'",
         [],
@@ -260,7 +275,6 @@ fn migrate_add_sprint_id_support_internal(conn: &Connection) -> Result<(), Strin
     if column_exists == 0 {
         println!("[DB Migration] Adding sprint_id column to user_stories table");
         
-        // 添加 sprint_id 列
         conn.execute(
             "ALTER TABLE user_stories ADD COLUMN sprint_id TEXT",
             []
@@ -271,7 +285,6 @@ fn migrate_add_sprint_id_support_internal(conn: &Connection) -> Result<(), Strin
         println!("[DB Migration] ✓ sprint_id column already exists, skipping");
     }
     
-    // 检查索引是否存在
     let index_exists = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_user_stories_sprint_id'",
         [],
@@ -295,210 +308,55 @@ fn migrate_add_sprint_id_support_internal(conn: &Connection) -> Result<(), Strin
     Ok(())
 }
 
-/// 迁移脚本：为现有数据库添加 sprint_id 字段支持（公开版本）
-/// 
-/// 此函数可以在应用运行时手动调用，用于修复旧数据库
-#[allow(dead_code)]
-pub fn migrate_add_sprint_id_support() -> Result<(), String> {
-    println!("[DB Migration] Running manual migration: add sprint_id support");
+/// 内部迁移函数：从 sprints 表移除 story_ids 字段
+fn migrate_remove_story_ids_from_sprints_internal(conn: &Connection) -> Result<(), String> {
+    println!("[DB Migration] Checking story_ids column in sprints table...");
     
-    let db_path = paths::get_database_path();
-    let conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
+    let column_exists = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('sprints') WHERE name='story_ids'",
+        [],
+        |row| row.get::<_, i64>(0)
+    ).map_err(|e| format!("Failed to check column existence: {}", e))?;
     
-    migrate_add_sprint_id_support_internal(&conn)
-}
-
-/// 检查并修复所有项目的工作区目录
-/// 
-/// 遍历数据库中所有项目，确保每个项目在 ~/.opc-harness/workspaces/ 下都有对应的子目录
-/// 如果目录不存在，则自动创建
-pub fn ensure_all_project_workspaces() -> Result<(), String> {
-    log::info!("Checking project workspace directories...");
-    
-    // 获取数据库连接
-    let db_path = paths::get_database_path();
-    let conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
-    
-    // 查询所有项目（只需要ID）
-    let mut stmt = conn.prepare("SELECT id FROM projects")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    let projects = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(0)?)
-    })
-    .map_err(|e| format!("Failed to query projects: {}", e))?;
-    
-    let mut verified_count = 0;
-    let mut error_count = 0;
-    
-    for project_result in projects {
-        match project_result {
-            Ok(project_id) => {
-                // 确保工作区目录存在（使用项目ID）
-                match ensure_project_workspace(&project_id) {
-                    Ok(path) => {
-                        log::debug!("Workspace directory verified for project '{}': {:?}", project_id, path);
-                        verified_count += 1;
-                    }
-                    Err(e) => {
-                        log::error!("Failed to ensure workspace directory for project '{}': {}", project_id, e);
-                        error_count += 1;
-                    }
-                }
-            }
-            Err(e) => {
-                log::warn!("Failed to read project from database: {}", e);
-                error_count += 1;
-            }
-        }
-    }
-    
-    log::info!(
-        "Workspace directory check completed: {} verified, {} errors",
-        verified_count,
-        error_count
-    );
-    
-    if error_count > 0 {
-        Err(format!("Failed to create {} workspace directories", error_count))
+    if column_exists > 0 {
+        println!("[DB Migration] Removing story_ids column from sprints table");
+        
+        // SQLite 不支持直接删除列，需要重建表
+        conn.execute(
+            "CREATE TABLE sprints_new (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                goal TEXT NOT NULL DEFAULT '',
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'planning',
+                total_story_points INTEGER NOT NULL DEFAULT 0,
+                completed_story_points INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            )",
+            []
+        ).map_err(|e| format!("Failed to create new sprints table: {}", e))?;
+        
+        conn.execute(
+            "INSERT INTO sprints_new (id, project_id, name, goal, start_date, end_date, status, total_story_points, completed_story_points, created_at, updated_at)
+             SELECT id, project_id, name, goal, start_date, end_date, status, total_story_points, completed_story_points, created_at, updated_at FROM sprints",
+            []
+        ).map_err(|e| format!("Failed to copy data: {}", e))?;
+        
+        conn.execute("DROP TABLE sprints", [])
+            .map_err(|e| format!("Failed to drop old table: {}", e))?;
+        
+        conn.execute("ALTER TABLE sprints_new RENAME TO sprints", [])
+            .map_err(|e| format!("Failed to rename table: {}", e))?;
+        
+        println!("[DB Migration] ✓ story_ids column removed successfully");
     } else {
-        Ok(())
-    }
-}
-
-/// 确保项目的工作区目录存在
-/// 
-/// 如果目录不存在则创建，如果存在则返回路径
-fn ensure_project_workspace(project_id: &str) -> Result<std::path::PathBuf, String> {
-    use std::fs;
-    
-    // 获取工作区根目录
-    let workspaces_root = paths::get_workspaces_dir();
-    
-    // 确保工作区根目录存在
-    fs::create_dir_all(&workspaces_root)
-        .map_err(|e| format!("Failed to create workspaces directory: {}", e))?;
-    
-    // 构建项目工作区路径（直接使用项目ID作为目录名）
-    let project_workspace = workspaces_root.join(project_id);
-    
-    // 如果目录已存在，直接返回路径
-    if project_workspace.exists() {
-        return Ok(project_workspace);
+        println!("[DB Migration] ✓ story_ids column does not exist, skipping");
     }
     
-    // 创建新的工作区目录
-    fs::create_dir_all(&project_workspace)
-        .map_err(|e| format!("Failed to create project workspace directory: {}", e))?;
-    log::info!("Created workspace directory for project '{}': {:?}", project_id, project_workspace);
-    
-    Ok(project_workspace)
-}
-
-/// 获取数据库连接
-pub fn get_connection(_app_handle: &tauri::AppHandle) -> Result<Connection> {
-    let db_path = paths::get_database_path();
-    Connection::open(&db_path)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use uuid::Uuid;
-    use crate::test_utils::{TEST_MUTEX, TestCleanup};
-
-    #[test]
-    fn test_ensure_project_workspace_creates_directory() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-        
-        // 清除可能存在的环境变量
-        std::env::remove_var("OPC_HARNESS_HOME");
-        
-        // 使用唯一的临时目录进行测试
-        let temp_dir = std::env::temp_dir().join(format!("test-opc-harness-{}", Uuid::new_v4()));
-        
-        // 清理可能存在的旧测试目录（确保幂等性）
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).ok();
-        }
-        
-        // 创建 RAII 守卫，确保无论如何都会清理
-        let _cleanup = TestCleanup::new(temp_dir.clone());
-        
-        // 先设置独立的环境变量，再调用任何 paths 函数
-        std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
-        
-        // 现在获取工作区根目录（应该在临时目录下）
-        let workspaces_root = paths::get_workspaces_dir();
-        
-        // 验证临时目录路径正确（防止路径穿越）
-        assert!(workspaces_root.starts_with(&temp_dir), 
-                "Workspaces root {:?} should be under temp dir {:?}", 
-                workspaces_root, temp_dir);
-        
-        // 确保基础目录存在
-        paths::ensure_app_directories().expect("Failed to ensure app directories");
-        
-        // 使用 UUID 作为项目 ID
-        let project_id = Uuid::new_v4().to_string();
-        let test_dir = workspaces_root.join(&project_id);
-        
-        // 调用函数
-        let result = ensure_project_workspace(&project_id);
-        
-        // 验证结果
-        assert!(result.is_ok(), "Failed to ensure project workspace: {:?}", result.err());
-        assert!(test_dir.exists(), "Workspace directory was not created");
-        assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
-        
-        // 不需要手动清理，_cleanup 会在函数退出时自动调用 Drop
-    }
-
-    #[test]
-    fn test_ensure_project_workspace_existing_directory() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-        
-        // 清除可能存在的环境变量
-        std::env::remove_var("OPC_HARNESS_HOME");
-        
-        // 使用唯一的临时目录进行测试
-        let temp_dir = std::env::temp_dir().join(format!("test-opc-harness-{}", Uuid::new_v4()));
-        
-        // 清理可能存在的旧测试目录
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).ok();
-        }
-        
-        // 创建 RAII 守卫，确保无论如何都会清理
-        let _cleanup = TestCleanup::new(temp_dir.clone());
-        
-        // 先设置环境变量
-        std::env::set_var("OPC_HARNESS_HOME", temp_dir.to_str().unwrap());
-        
-        // 获取工作区根目录
-        let workspaces_root = paths::get_workspaces_dir();
-        
-        // 确保基础目录存在
-        paths::ensure_app_directories().expect("Failed to ensure app directories");
-        
-        // 使用 UUID 作为项目 ID
-        let project_id = Uuid::new_v4().to_string();
-        let test_dir = workspaces_root.join(&project_id);
-        
-        // 先创建目录
-        fs::create_dir_all(&test_dir).expect("Failed to create test directory");
-        
-        // 调用函数
-        let result = ensure_project_workspace(&project_id);
-        
-        // 验证结果
-        assert!(result.is_ok(), "Failed to ensure existing project workspace: {:?}", result.err());
-        assert!(test_dir.exists(), "Existing workspace directory should still exist");
-        assert_eq!(test_dir.file_name().unwrap().to_string_lossy(), project_id);
-        
-        // 不需要手动清理，_cleanup 会在函数退出时自动调用 Drop
-    }
+    println!("[DB Migration] Remove story_ids from sprints migration completed");
+    Ok(())
 }

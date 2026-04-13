@@ -58,9 +58,7 @@ pub use issue_repository::{
 // Re-export User Story CRUD operations
 pub use user_story_repository::{
     get_user_stories_by_project, 
-    // TODO: 待后续使用
-    // get_user_stories_by_sprint,
-    // update_story_sprint,
+    get_user_stories_by_sprint,
     upsert_user_stories
 };
 

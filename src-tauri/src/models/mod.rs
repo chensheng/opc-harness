@@ -351,45 +351,16 @@ pub struct Sprint {
     pub end_date: String,
     /// 状态: planning/active/completed/cancelled
     pub status: String,
-    /// 关联的用户故事 IDs（已废弃，使用 user_stories.sprint_id 代替）
-    /// 保留此字段仅用于向后兼容，不再主动维护
-    #[serde(
-        serialize_with = "serialize_story_ids",
-        deserialize_with = "deserialize_story_ids",
-        default = "default_story_ids"
-    )]
-    pub story_ids: Vec<String>,
-    /// 总故事点
-    pub total_story_points: i32,
-    /// 已完成故事点
-    pub completed_story_points: i32,
+    /// 总故事点（通过查询 user_stories.sprint_id 计算得出，不存储在数据库中）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_story_points: Option<i32>,
+    /// 已完成故事点（通过查询 user_stories 计算得出，不存储在数据库中）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_story_points: Option<i32>,
     /// 创建时间
     pub created_at: String,
     /// 更新时间
     pub updated_at: String,
-}
-
-// 默认的空 story_ids
-fn default_story_ids() -> Vec<String> {
-    vec![]
-}
-
-// 自定义序列化函数：Vec<String> -> JSON字符串
-fn serialize_story_ids<S>(story_ids: &Vec<String>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let json_string = serde_json::to_string(story_ids).map_err(serde::ser::Error::custom)?;
-    serializer.serialize_str(&json_string)
-}
-
-// 自定义反序列化函数：JSON字符串 -> Vec<String>
-fn deserialize_story_ids<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s: String = String::deserialize(deserializer)?;
-    serde_json::from_str(&s).map_err(serde::de::Error::custom)
 }
 
 impl Entity for Sprint {
@@ -400,11 +371,6 @@ impl Entity for Sprint {
     fn get_primary_key(&self) -> &str { &self.id }
     
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
-        // 从数据库读取JSON字符串并解析为Vec<String>
-        let story_ids_str: String = row.get(7)?;
-        let story_ids: Vec<String> = serde_json::from_str(&story_ids_str)
-            .unwrap_or_else(|_| vec![]);
-        
         Ok(Sprint {
             id: row.get(0)?,
             project_id: row.get(1)?,
@@ -413,11 +379,10 @@ impl Entity for Sprint {
             start_date: row.get(4)?,
             end_date: row.get(5)?,
             status: row.get(6)?,
-            story_ids,
-            total_story_points: row.get(8)?,
-            completed_story_points: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            total_story_points: Some(row.get(7)?),
+            completed_story_points: Some(row.get(8)?),
+            created_at: row.get(9)?,
+            updated_at: row.get(10)?,
         })
     }
 }
