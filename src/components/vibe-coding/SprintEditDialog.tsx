@@ -46,7 +46,15 @@ export function SprintEditDialog({
 
   // 初始化表单数据
   useEffect(() => {
+    console.log('[SprintEditDialog] sprint prop changed:', sprint)
     if (sprint) {
+      console.log('[SprintEditDialog] Setting form data from sprint:', {
+        name: sprint.name,
+        goal: sprint.goal,
+        startDate: sprint.startDate,
+        endDate: sprint.endDate,
+        status: sprint.status,
+      })
       setFormData({
         name: sprint.name,
         goal: sprint.goal,
@@ -59,6 +67,7 @@ export function SprintEditDialog({
       // 新建Sprint时的默认值
       const today = new Date().toISOString().split('T')[0]
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      console.log('[SprintEditDialog] Setting default form data for new sprint')
       setFormData({
         name: '',
         goal: '',

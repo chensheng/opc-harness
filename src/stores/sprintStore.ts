@@ -3,19 +3,20 @@ import { immer } from 'zustand/middleware/immer'
 import { invoke } from '@tauri-apps/api/core'
 import type { Sprint } from '@/types'
 
-// 后端返回的 snake_case 格式的 Sprint 类型
+// 后端返回的 camelCase 格式的 Sprint 类型（因为 Sprint 模型使用 rename_all = "camelCase"）
 interface BackendSprint {
   id: string
+  projectId: string
   name: string
   goal: string
-  start_date: string
-  end_date: string
+  startDate: string
+  endDate: string
   status: string
-  story_ids: string | string[]
-  total_story_points: number
-  completed_story_points: number
-  created_at: string
-  updated_at: string
+  storyIds: string  // JSON 字符串格式
+  totalStoryPoints: number
+  completedStoryPoints: number
+  createdAt: string
+  updatedAt: string
 }
 
 interface SprintState {
@@ -59,19 +60,19 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           request: { project_id: projectId },
         })
 
-        // 将 Rust 后端的 snake_case Sprint 转换为前端的 camelCase 格式
+        // 将 Rust 后端的 camelCase Sprint 转换为前端的 camelCase 格式（实际上字段名相同，只需处理 storyIds）
         const frontendSprints = rustSprints.map(sprint => ({
           id: sprint.id,
           name: sprint.name,
           goal: sprint.goal,
-          startDate: sprint.start_date,
-          endDate: sprint.end_date,
+          startDate: sprint.startDate,
+          endDate: sprint.endDate,
           status: sprint.status as Sprint['status'],  // 类型断言，确保 status 符合联合类型
-          storyIds: Array.isArray(sprint.story_ids) ? sprint.story_ids : JSON.parse(sprint.story_ids || '[]'),
-          totalStoryPoints: sprint.total_story_points,
-          completedStoryPoints: sprint.completed_story_points,
-          createdAt: sprint.created_at,
-          updatedAt: sprint.updated_at,
+          storyIds: JSON.parse(sprint.storyIds || '[]'),  // 从 JSON 字符串解析为数组
+          totalStoryPoints: sprint.totalStoryPoints,
+          completedStoryPoints: sprint.completedStoryPoints,
+          createdAt: sprint.createdAt,
+          updatedAt: sprint.updatedAt,
         }))
 
         set(state => {

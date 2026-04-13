@@ -109,6 +109,7 @@ export function SprintManager() {
 
   // 编辑Sprint
   const handleEditSprint = (sprint: Sprint) => {
+    console.log('[SprintManager] handleEditSprint called with:', sprint)
     setEditingSprint(sprint)
     setShowEditDialog(true)
   }
