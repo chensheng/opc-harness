@@ -708,12 +708,6 @@ export function UserStoryManager({
             <Sparkles className="w-4 h-4 mr-2" />
             拆分用户故事
           </Button>
-          {displayStories.length > 0 && (
-            <Button variant="outline" size="sm" onClick={_handleReset}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              清空列表
-            </Button>
-          )}
         </div>
       </div>
 
