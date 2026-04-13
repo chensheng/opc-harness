@@ -298,6 +298,7 @@ fn migrate_add_sprint_id_support_internal(conn: &Connection) -> Result<(), Strin
 /// 迁移脚本：为现有数据库添加 sprint_id 字段支持（公开版本）
 /// 
 /// 此函数可以在应用运行时手动调用，用于修复旧数据库
+#[allow(dead_code)]
 pub fn migrate_add_sprint_id_support() -> Result<(), String> {
     println!("[DB Migration] Running manual migration: add sprint_id support");
     

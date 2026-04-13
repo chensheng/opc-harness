@@ -79,6 +79,7 @@ pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Resul
 }
 
 /// 获取指定 Sprint 下的所有用户故事
+#[allow(dead_code)]
 pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<Vec<UserStory>> {
     println!("[DB::get_user_stories_by_sprint] Querying for sprint_id: {}", sprint_id);
     
@@ -101,6 +102,7 @@ pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<
 }
 
 /// 更新用户故事的 Sprint 关联
+#[allow(dead_code)]
 pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<&str>) -> Result<usize> {
     println!("[DB::update_story_sprint] Updating story_id: {} to sprint_id: {:?}", 
              story_id, sprint_id);
