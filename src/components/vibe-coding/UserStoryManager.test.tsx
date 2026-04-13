@@ -3,6 +3,16 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UserStoryManager } from './UserStoryManager'
 
+// Mock ResizeObserver for ScrollArea component in tests
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+global.ResizeObserver = ResizeObserverMock as any
+
 const mockPRD = `# 任务管理系统
 
 ## 产品概述
