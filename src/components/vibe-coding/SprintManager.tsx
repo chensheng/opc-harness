@@ -4,7 +4,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -52,7 +51,6 @@ const statusColors: Record<Sprint['status'], string> = {
 }
 
 export function SprintManager() {
-  const [activeTab, setActiveTab] = useState<'list'>('list')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [filterKeyword, setFilterKeyword] = useState('')
@@ -88,6 +86,7 @@ export function SprintManager() {
   const savedSprints = useSprintStore(state =>
     currentProjectId ? state.sprintsByProject[currentProjectId] || [] : []
   )
+  const isLoadingFromDB = useSprintStore(state => state.isLoading)
 
   // User Story Store - 获取可用的用户故事
   const loadProjectStories = useUserStoryStore(state => state.loadProjectStories)
@@ -327,386 +326,397 @@ export function SprintManager() {
 
   return (
     <div className="space-y-3">
-      <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'list')}>
-        <TabsList className="grid w-full grid-cols-1">
-          <TabsTrigger value="list">
-            <Calendar className="w-4 h-4 mr-2" />
-            Sprint计划 ({savedSprints.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="list">
+      {/* Header with Action Button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Sprint计划</h2>
           {savedSprints.length > 0 && (
-            <div className="space-y-2">
-              {/* Filter Bar */}
-              <Card>
-                <CardContent className="p-2">
-                  <div className="flex items-center gap-2">
-                    {/* 关键词搜索 */}
-                    <div className="relative flex-1 max-w-xs">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="搜索名称、目标..."
-                        value={filterKeyword}
-                        onChange={e => {
-                          setFilterKeyword(e.target.value)
-                          setCurrentPage(1)
-                        }}
-                        className="pl-7 pr-7 py-1 text-[10px] h-7"
-                      />
-                      {filterKeyword && (
-                        <button
-                          onClick={() => setFilterKeyword('')}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
+            <Badge variant="secondary" className="ml-2">
+              {savedSprints.length}
+            </Badge>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={handleNewSprint}>
+            <Plus className="w-4 h-4 mr-2" />
+            新建Sprint
+          </Button>
+        </div>
+      </div>
 
-                    {/* 状态筛选 */}
-                    <select
-                      value={filterStatus}
-                      onChange={e => {
-                        setFilterStatus(e.target.value)
-                        setCurrentPage(1)
-                      }}
-                      className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary h-7"
+      {/* Loading State */}
+      {isLoadingFromDB && (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+              <p className="text-sm text-muted-foreground">正在加载Sprint计划...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!isLoadingFromDB && savedSprints.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+              <Calendar className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold">暂无Sprint计划</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                开始创建你的第一个Sprint计划吧
+              </p>
+            </div>
+            <Button onClick={handleNewSprint}>
+              <Plus className="w-4 h-4 mr-2" />
+              新建Sprint
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sprint List - 当有Sprint时显示 */}
+      {savedSprints.length > 0 && (
+        <div className="space-y-2">
+          {/* Filter Bar */}
+          <Card>
+            <CardContent className="p-2">
+              <div className="flex items-center gap-2">
+                {/* 关键词搜索 */}
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="搜索名称、目标..."
+                    value={filterKeyword}
+                    onChange={e => {
+                      setFilterKeyword(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                    className="pl-7 pr-7 py-1 text-[10px] h-7"
+                  />
+                  {filterKeyword && (
+                    <button
+                      onClick={() => setFilterKeyword('')}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      <option value="">所有状态</option>
-                      {uniqueStatuses.map(status => (
-                        <option key={status} value={status}>
-                          {statusLabels[status] || status}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* 清除筛选按钮 */}
-                    {(filterKeyword || filterStatus) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="h-6 px-2 text-[10px]"
-                      >
-                        <X className="w-3 h-3 mr-1" />
-                        清除
-                      </Button>
-                    )}
-
-                    {/* 筛选结果统计 */}
-                    <span className="text-[10px] text-muted-foreground ml-auto">
-                      {filteredSprints.length} / {savedSprints.length} 条
-                    </span>
-
-                    {/* 新建按钮 */}
-                    <Button size="sm" onClick={handleNewSprint} className="h-7">
-                      <Plus className="w-3 h-3 mr-1" />
-                      新建Sprint
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Sprint List - 表格形式 */}
-              <Card>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[calc(100vh-350px)]">
-                    <table className="w-full border-collapse text-xs">
-                      <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
-                        <tr className="border-b border-border">
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px]">序号</th>
-                          <th
-                            className="text-left py-1.5 px-2 font-semibold text-[10px] cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                            onClick={() => handleSort('name')}
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <span>名称</span>
-                              {(() => {
-                                const config = getSortConfig('name')
-                                const index = getSortIndex('name')
-                                if (!config) {
-                                  return (
-                                    <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
-                                  )
-                                }
-                                return (
-                                  <div className="flex items-center gap-0.5">
-                                    {config.order === 'asc' ? (
-                                      <ArrowUp className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <ArrowDown className="w-2.5 h-2.5" />
-                                    )}
-                                    {sortConfigs.length > 1 && index && (
-                                      <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
-                                        {index}
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px]">目标</th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-32">
-                            时间范围
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-20">
-                            状态
-                          </th>
-                          <th
-                            className="text-left py-1.5 px-2 font-semibold text-[10px] w-20 cursor-pointer hover:bg-muted/50 transition-colors select-none"
-                            onClick={() => handleSort('totalStoryPoints')}
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <span>故事点</span>
-                              {(() => {
-                                const config = getSortConfig('totalStoryPoints')
-                                const index = getSortIndex('totalStoryPoints')
-                                if (!config) {
-                                  return (
-                                    <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
-                                  )
-                                }
-                                return (
-                                  <div className="flex items-center gap-0.5">
-                                    {config.order === 'asc' ? (
-                                      <ArrowUp className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <ArrowDown className="w-2.5 h-2.5" />
-                                    )}
-                                    {sortConfigs.length > 1 && index && (
-                                      <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
-                                        {index}
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                          </th>
-                          <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">
-                            操作
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedSprints.map((sprint: Sprint, index: number) => (
-                          <tr
-                            key={sprint.id}
-                            className={`border-b border-border/30 hover:bg-muted/20 transition-colors ${
-                              index % 2 === 0 ? 'bg-background' : 'bg-muted/5'
-                            }`}
-                          >
-                            <td className="py-1.5 px-2 align-middle">
-                              <span className="font-mono text-[10px]">
-                                {index + 1 + startIndex}
-                              </span>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div className="font-medium text-xs">{sprint.name}</div>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div
-                                className="text-[10px] text-muted-foreground line-clamp-1"
-                                title={sprint.goal}
-                              >
-                                {sprint.goal || '-'}
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div className="text-[10px]">
-                                {formatDate(sprint.startDate)} - {formatDate(sprint.endDate)}
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <Badge
-                                className={`${statusColors[sprint.status]} text-[9px] px-1.5 py-0 h-4 font-medium`}
-                              >
-                                {statusLabels[sprint.status] || sprint.status}
-                              </Badge>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Target className="w-3 h-3 text-muted-foreground" />
-                                <span className="text-[10px]">
-                                  {sprint.completedStoryPoints || 0}/{sprint.totalStoryPoints || 0}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-1.5 px-2 align-middle">
-                              <div className="flex gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => handleManageStories(sprint)}
-                                  title="管理用户故事"
-                                >
-                                  <Users className="w-2.5 h-2.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => handleEditSprint(sprint)}
-                                  title="编辑Sprint"
-                                >
-                                  <Edit2 className="w-2.5 h-2.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => handleDeleteSprint(sprint)}
-                                  title="删除Sprint"
-                                >
-                                  <Trash2 className="w-2.5 h-2.5" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-
-              {/* Pagination Controls */}
-              <div className="flex items-center justify-between py-1 px-1.5 border-t">
-                <div className="flex items-center gap-1 text-[10px]">
-                  <span className="text-muted-foreground">每页:</span>
-                  <div className="flex gap-0.5">
-                    {[10, 20, 50].map(size => (
-                      <Button
-                        key={size}
-                        variant={pageSize === size ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => handlePageSizeChange(size)}
-                        className="h-5 px-1.5 text-[9px]"
-                      >
-                        {size}
-                      </Button>
-                    ))}
-                  </div>
-
-                  {/* 排序状态显示 */}
-                  {sortConfigs.length > 0 && (
-                    <>
-                      <span className="text-muted-foreground ml-2">|</span>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">排序:</span>
-                        <div className="flex gap-0.5">
-                          {sortConfigs.map((config, idx) => (
-                            <Badge
-                              key={config.field}
-                              variant="secondary"
-                              className="text-[9px] h-4 px-1 flex items-center gap-0.5"
-                            >
-                              <span>
-                                {config.field === 'name'
-                                  ? '名称'
-                                  : config.field === 'startDate'
-                                    ? '开始'
-                                    : config.field === 'endDate'
-                                      ? '结束'
-                                      : '点数'}
-                              </span>
-                              {config.order === 'asc' ? '↑' : '↓'}
-                              {sortConfigs.length > 1 && (
-                                <span className="text-[8px] opacity-70">{idx + 1}</span>
-                              )}
-                            </Badge>
-                          ))}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearSort}
-                          className="h-4 px-1 text-[9px] hover:bg-destructive/10 hover:text-destructive"
-                          title="清除所有排序"
-                        >
-                          ✕
-                        </Button>
-                      </div>
-                    </>
+                      <X className="w-3 h-3" />
+                    </button>
                   )}
                 </div>
 
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-0.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="gap-0.5 h-5 px-1.5 text-[9px]"
-                    >
-                      <ChevronLeft className="w-2.5 h-2.5" />
-                      上页
-                    </Button>
+                {/* 状态筛选 */}
+                <select
+                  value={filterStatus}
+                  onChange={e => {
+                    setFilterStatus(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="px-2 py-1 text-[10px] border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary h-7"
+                >
+                  <option value="">所有状态</option>
+                  {uniqueStatuses.map(status => (
+                    <option key={status} value={status}>
+                      {statusLabels[status] || status}
+                    </option>
+                  ))}
+                </select>
 
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum
-                        if (totalPages <= 5) {
-                          pageNum = i + 1
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i
-                        } else {
-                          pageNum = currentPage - 2 + i
-                        }
+                {/* 清除筛选按钮 */}
+                {(filterKeyword || filterStatus) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-6 px-2 text-[10px]"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    清除
+                  </Button>
+                )}
 
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => handlePageChange(pageNum)}
-                            className="w-5 h-5 p-0 text-[9px]"
+                {/* 筛选结果统计 */}
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {filteredSprints.length} / {savedSprints.length} 条
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sprint List - 表格形式 */}
+          <Card>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[calc(100vh-350px)]">
+                <table className="w-full border-collapse text-xs">
+                  <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10">
+                    <tr className="border-b border-border">
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px]">序号</th>
+                      <th
+                        className="text-left py-1.5 px-2 font-semibold text-[10px] cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <span>名称</span>
+                          {(() => {
+                            const config = getSortConfig('name')
+                            const index = getSortIndex('name')
+                            if (!config) {
+                              return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                            }
+                            return (
+                              <div className="flex items-center gap-0.5">
+                                {config.order === 'asc' ? (
+                                  <ArrowUp className="w-2.5 h-2.5" />
+                                ) : (
+                                  <ArrowDown className="w-2.5 h-2.5" />
+                                )}
+                                {sortConfigs.length > 1 && index && (
+                                  <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
+                                    {index}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px]">目标</th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-32">
+                        时间范围
+                      </th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-20">状态</th>
+                      <th
+                        className="text-left py-1.5 px-2 font-semibold text-[10px] w-20 cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                        onClick={() => handleSort('totalStoryPoints')}
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <span>故事点</span>
+                          {(() => {
+                            const config = getSortConfig('totalStoryPoints')
+                            const index = getSortIndex('totalStoryPoints')
+                            if (!config) {
+                              return <ArrowUpDown className="w-2.5 h-2.5 text-muted-foreground" />
+                            }
+                            return (
+                              <div className="flex items-center gap-0.5">
+                                {config.order === 'asc' ? (
+                                  <ArrowUp className="w-2.5 h-2.5" />
+                                ) : (
+                                  <ArrowDown className="w-2.5 h-2.5" />
+                                )}
+                                {sortConfigs.length > 1 && index && (
+                                  <span className="text-[8px] bg-primary text-primary-foreground rounded-full w-3 h-3 flex items-center justify-center">
+                                    {index}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </th>
+                      <th className="text-left py-1.5 px-2 font-semibold text-[10px] w-16">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSprints.map((sprint: Sprint, index: number) => (
+                      <tr
+                        key={sprint.id}
+                        className={`border-b border-border/30 hover:bg-muted/20 transition-colors ${
+                          index % 2 === 0 ? 'bg-background' : 'bg-muted/5'
+                        }`}
+                      >
+                        <td className="py-1.5 px-2 align-middle">
+                          <span className="font-mono text-[10px]">{index + 1 + startIndex}</span>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div className="font-medium text-xs">{sprint.name}</div>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div
+                            className="text-[10px] text-muted-foreground line-clamp-1"
+                            title={sprint.goal}
                           >
-                            {pageNum}
-                          </Button>
-                        )
-                      })}
-                    </div>
+                            {sprint.goal || '-'}
+                          </div>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div className="text-[10px]">
+                            {formatDate(sprint.startDate)} - {formatDate(sprint.endDate)}
+                          </div>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <Badge
+                            className={`${statusColors[sprint.status]} text-[9px] px-1.5 py-0 h-4 font-medium`}
+                          >
+                            {statusLabels[sprint.status] || sprint.status}
+                          </Badge>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Target className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-[10px]">
+                              {sprint.completedStoryPoints || 0}/{sprint.totalStoryPoints || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-1.5 px-2 align-middle">
+                          <div className="flex gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0"
+                              onClick={() => handleManageStories(sprint)}
+                              title="管理用户故事"
+                            >
+                              <Users className="w-2.5 h-2.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0"
+                              onClick={() => handleEditSprint(sprint)}
+                              title="编辑Sprint"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteSprint(sprint)}
+                              title="删除Sprint"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
 
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between py-1 px-1.5 border-t">
+            <div className="flex items-center gap-1 text-[10px]">
+              <span className="text-muted-foreground">每页:</span>
+              <div className="flex gap-0.5">
+                {[10, 20, 50].map(size => (
+                  <Button
+                    key={size}
+                    variant={pageSize === size ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePageSizeChange(size)}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    {size}
+                  </Button>
+                ))}
+              </div>
+
+              {/* 排序状态显示 */}
+              {sortConfigs.length > 0 && (
+                <>
+                  <span className="text-muted-foreground ml-2">|</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">排序:</span>
+                    <div className="flex gap-0.5">
+                      {sortConfigs.map((config, idx) => (
+                        <Badge
+                          key={config.field}
+                          variant="secondary"
+                          className="text-[9px] h-4 px-1 flex items-center gap-0.5"
+                        >
+                          <span>
+                            {config.field === 'name'
+                              ? '名称'
+                              : config.field === 'startDate'
+                                ? '开始'
+                                : config.field === 'endDate'
+                                  ? '结束'
+                                  : '点数'}
+                          </span>
+                          {config.order === 'asc' ? '↑' : '↓'}
+                          {sortConfigs.length > 1 && (
+                            <span className="text-[8px] opacity-70">{idx + 1}</span>
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="gap-0.5 h-5 px-1.5 text-[9px]"
+                      onClick={clearSort}
+                      className="h-4 px-1 text-[9px] hover:bg-destructive/10 hover:text-destructive"
+                      title="清除所有排序"
                     >
-                      下页
-                      <ChevronRight className="w-2.5 h-2.5" />
+                      ✕
                     </Button>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
-          )}
 
-          {/* 空状态 */}
-          {savedSprints.length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Calendar className="w-12 h-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">暂无Sprint计划</h3>
-                <p className="text-sm text-muted-foreground mb-4">开始创建你的第一个Sprint计划吧</p>
-                <Button onClick={handleNewSprint}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  新建Sprint
+            {totalPages > 1 && (
+              <div className="flex items-center gap-0.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="gap-0.5 h-5 px-1.5 text-[9px]"
+                >
+                  <ChevronLeft className="w-2.5 h-2.5" />
+                  上页
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="w-5 h-5 p-0 text-[9px]"
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="gap-0.5 h-5 px-1.5 text-[9px]"
+                >
+                  下页
+                  <ChevronRight className="w-2.5 h-2.5" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sprint编辑对话框 */}
       <SprintEditDialog
