@@ -66,7 +66,7 @@ export const useSprintStore = create<SprintState & SprintActions>()(
           goal: sprint.goal,
           startDate: sprint.start_date,
           endDate: sprint.end_date,
-          status: sprint.status,
+          status: sprint.status as Sprint['status'],  // 类型断言，确保 status 符合联合类型
           storyIds: Array.isArray(sprint.story_ids) ? sprint.story_ids : JSON.parse(sprint.story_ids || '[]'),
           totalStoryPoints: sprint.total_story_points,
           completedStoryPoints: sprint.completed_story_points,
@@ -88,27 +88,43 @@ export const useSprintStore = create<SprintState & SprintActions>()(
       try {
         set({ isLoading: true })
 
-        // 将前端的 camelCase Sprint 转换为 Rust 后端期望的 snake_case 格式
-        const rustSprints = sprints.map(sprint => ({
+        // 定义 Rust 后端期望的 Sprint 格式（camelCase）
+        interface RustSprint {
+          id: string
+          projectId: string
+          name: string
+          goal: string
+          startDate: string
+          endDate: string
+          status: string
+          storyIds: string  // JSON 字符串格式
+          totalStoryPoints: number
+          completedStoryPoints: number
+          createdAt: string
+          updatedAt: string
+        }
+
+        // 将前端的 camelCase Sprint 转换为 Rust 后端期望的格式
+        const rustSprints: RustSprint[] = sprints.map(sprint => ({
           id: sprint.id,
-          project_id: projectId,
+          projectId: projectId,
           name: sprint.name,
           goal: sprint.goal,
-          start_date: sprint.startDate,
-          end_date: sprint.endDate,
+          startDate: sprint.startDate,
+          endDate: sprint.endDate,
           status: sprint.status,
-          story_ids: sprint.storyIds,
-          total_story_points: sprint.totalStoryPoints,
-          completed_story_points: sprint.completedStoryPoints,
-          created_at: sprint.createdAt,
-          updated_at: sprint.updatedAt,
+          storyIds: JSON.stringify(sprint.storyIds),  // 转换为 JSON 字符串，匹配后端的自定义反序列化
+          totalStoryPoints: sprint.totalStoryPoints,
+          completedStoryPoints: sprint.completedStoryPoints,
+          createdAt: sprint.createdAt,
+          updatedAt: sprint.updatedAt,
         }))
 
         // 保存到后端数据库
         await invoke<number>('save_sprints', {
           request: {
-            project_id: projectId,
-            sprints: rustSprints,
+            project_id: projectId,  // SaveSprintsRequest 使用 snake_case
+            sprints: rustSprints,   // Sprint 模型使用 camelCase
           },
         })
 
