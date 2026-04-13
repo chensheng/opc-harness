@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Users,
   Sparkles,
@@ -24,6 +25,7 @@ import {
   Target,
   Calendar,
   TrendingUp,
+  Lightbulb,
 } from 'lucide-react'
 import type { Sprint, UserStory } from '@/types'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -59,6 +61,7 @@ export function AIAssignStoriesDialog({
   const [filterKeyword, setFilterKeyword] = useState('')
   const [showOnlyRecommended, setShowOnlyRecommended] = useState(false)
   const [aiThinkingProcess, setAiThinkingProcess] = useState<string>('') // AI思考过程
+  const [userSuggestions, setUserSuggestions] = useState<string>('') // 用户分配建议
 
   const activeConfig = useAIConfigStore(state => state.getActiveConfig())
 
@@ -71,6 +74,7 @@ export function AIAssignStoriesDialog({
       setFilterKeyword('')
       setShowOnlyRecommended(false)
       setAiThinkingProcess('')
+      setUserSuggestions('')
     }
   }, [open])
 
@@ -97,8 +101,8 @@ export function AIAssignStoriesDialog({
     setAiThinkingProcess('')
 
     try {
-      // 构建Prompt
-      const prompt = buildAnalysisPrompt(sprint, unassignedStories)
+      // 构建Prompt（包含用户建议）
+      const prompt = buildAnalysisPrompt(sprint, unassignedStories, userSuggestions)
 
       // 调用AI流式接口
       const messages = [
@@ -272,7 +276,7 @@ export function AIAssignStoriesDialog({
   }
 
   // 构建分析Prompt
-  const buildAnalysisPrompt = (sprint: Sprint, stories: UserStory[]): string => {
+  const buildAnalysisPrompt = (sprint: Sprint, stories: UserStory[], suggestions?: string): string => {
     const sprintInfo = `
 Sprint信息：
 - 名称：${sprint.name}
@@ -299,11 +303,20 @@ Sprint信息：
       )
       .join('\n')
 
+    const userSuggestionsSection = suggestions && suggestions.trim() ? `
+
+用户的分配建议和特殊要求：
+${suggestions.trim()}
+
+请特别注意并优先考虑上述用户建议，在推荐时充分考虑这些约束条件和要求。
+` : ''
+
     return `
 ${sprintInfo}
 
 未分配的用户故事列表：
 ${storiesInfo}
+${userSuggestionsSection}
 
 请分析以上Sprint信息和未分配的用户故事，推荐最适合分配到该Sprint的故事。
 
@@ -313,6 +326,7 @@ ${storiesInfo}
 3. 故事之间的依赖关系
 4. 业务价值和Sprint目标的匹配度
 5. 技术实现的可行性
+6. 用户的特殊建议和约束（如果有）
 
 请以JSON格式返回推荐结果，格式如下：
 \`\`\`json
@@ -320,7 +334,7 @@ ${storiesInfo}
   "recommendations": [
     {
       "storyId": "故事ID",
-      "reason": "推荐理由（详细说明为什么这个故事适合这个Sprint）",
+      "reason": "推荐理由（详细说明为什么这个故事适合这个Sprint，包括如何满足用户的特殊要求）",
       "confidence": 85 // 置信度 0-100
     }
   ]
@@ -329,10 +343,11 @@ ${storiesInfo}
 
 注意：
 - 只返回JSON，不要有其他内容
-- 推荐理由要具体、有说服力
+- 推荐理由要具体、有说服力，如果用户提供了建议，需要说明如何遵循了这些建议
 - 置信度反映你对推荐的确定程度
 - 优先推荐高优先级、高价值、低依赖的故事
 - 确保总故事点不超过Sprint剩余容量
+- 严格遵循用户提出的任何特殊要求或约束
 `
   }
 
@@ -422,18 +437,50 @@ ${storiesInfo}
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[85vh] flex flex-col p-0">
-        {/* 固定头部 */}
-        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+        {/* 固定头部 - 包含Sprint信息 */}
+        <DialogHeader className="flex-shrink-0 px-6 pt-5 pb-3 border-b">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-5 h-5 text-primary" />
               </div>
-              <div>
-                <DialogTitle className="text-xl">AI智能分配用户故事</DialogTitle>
-                <DialogDescription className="text-sm mt-1">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-xl mb-1">AI智能分配用户故事</DialogTitle>
+                <DialogDescription className="text-xs">
                   让AI帮你分析并推荐最适合当前Sprint的用户故事
                 </DialogDescription>
+              </div>
+            </div>
+            
+            {/* Sprint信息 - 紧凑展示 */}
+            <div className="flex-shrink-0 bg-muted/30 rounded-lg px-4 py-2.5 border">
+              <div className="flex items-center gap-4 text-xs">
+                <div>
+                  <div className="text-[9px] text-muted-foreground font-medium mb-0.5">Sprint</div>
+                  <div className="font-semibold text-sm">{sprint.name}</div>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div>
+                  <div className="text-[9px] text-muted-foreground font-medium mb-0.5 flex items-center gap-1">
+                    <Calendar className="w-2.5 h-2.5" />
+                    时间
+                  </div>
+                  <div className="text-[10px] whitespace-nowrap">
+                    {new Date(sprint.startDate).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })} -{' '}
+                    {new Date(sprint.endDate).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}
+                  </div>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div>
+                  <div className="text-[9px] text-muted-foreground font-medium mb-0.5 flex items-center gap-1">
+                    <TrendingUp className="w-2.5 h-2.5" />
+                    容量
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-sm font-bold text-primary">{remainingCapacity}</span>
+                    <span className="text-[10px] text-muted-foreground">/ {sprint.totalStoryPoints || 0} 点</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -442,57 +489,27 @@ ${storiesInfo}
         {/* 滚动主体区域 */}
         <div className="flex-1 overflow-hidden">
           <div className="h-full flex gap-4 p-6">
-            {/* 左侧：Sprint信息和操作区 - 添加滚动支持 */}
-            <div className="w-1/3 space-y-3 flex flex-col overflow-y-auto pr-2">
-              {/* Sprint信息卡片 - 紧凑版 */}
+            {/* 左侧：操作区 - 移除Sprint信息 */}
+            <div className="w-1/3 space-y-2 flex flex-col overflow-y-auto pr-2">
+              {/* 用户分配建议输入框 */}
               <Card className="flex-shrink-0">
-                <CardHeader className="pb-2 px-4 pt-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    Sprint信息
+                <CardHeader className="pb-1 px-3 pt-3">
+                  <CardTitle className="text-xs flex items-center gap-1.5">
+                    <Lightbulb className="w-3.5 h-3.5 text-yellow-500" />
+                    分配建议（可选）
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm px-4 pb-4">
-                  <div>
-                    <div className="font-medium text-muted-foreground text-[10px] mb-0.5">名称</div>
-                    <div className="text-xs">{sprint.name}</div>
-                  </div>
-                  {sprint.goal && (
-                    <div>
-                      <div className="font-medium text-muted-foreground text-[10px] mb-0.5">目标</div>
-                      <div className="text-[11px] line-clamp-2">{sprint.goal}</div>
-                    </div>
-                  )}
-                  <div>
-                    <div className="font-medium text-muted-foreground text-[10px] mb-0.5 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      时间范围
-                    </div>
-                    <div className="text-[11px]">
-                      {new Date(sprint.startDate).toLocaleDateString()} -{' '}
-                      {new Date(sprint.endDate).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-muted-foreground text-[10px] mb-0.5 flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" />
-                      容量情况
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="flex justify-between text-[11px]">
-                        <span>总容量:</span>
-                        <span className="font-medium">{sprint.totalStoryPoints || 0} 点</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span>已使用:</span>
-                        <span className="font-medium">{sprint.completedStoryPoints || 0} 点</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span>剩余:</span>
-                        <span className="font-medium text-primary">{remainingCapacity} 点</span>
-                      </div>
-                    </div>
-                  </div>
+                <CardContent className="pt-0 px-3 pb-3">
+                  <Textarea
+                    placeholder="例如：&#10;- 优先处理与支付功能相关的故事&#10;- 本周专注于前端界面优化&#10;- 避免同时分配多个数据库相关的故事..."
+                    value={userSuggestions}
+                    onChange={(e) => setUserSuggestions(e.target.value)}
+                    className="min-h-[100px] text-xs resize-none"
+                    disabled={isAnalyzing}
+                  />
+                  <p className="text-[9px] text-muted-foreground mt-1.5">
+                    💡 提供具体建议可帮助AI给出更精准的推荐
+                  </p>
                 </CardContent>
               </Card>
 
