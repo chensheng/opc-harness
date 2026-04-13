@@ -158,11 +158,8 @@ export function AIAssignStoriesDialog({
 
       const unlistenError = await listen<{ error: string }>('ai-stream-error', event => {
         console.error('[AIAssignStoriesDialog] AI stream error:', event.payload)
-        // 格式化错误信息，使其更易读
-        const errorMessage = formatErrorMessage(event.payload.error || 'AI分析失败')
-        console.log('[AIAssignStoriesDialog] Setting error state:', errorMessage)
-        setError(errorMessage)
-        console.log('[AIAssignStoriesDialog] Error state set, stopping analysis')
+        // 直接显示原始错误信息
+        setError(event.payload.error || 'AI分析失败')
         unlistenFns.forEach(unlisten => unlisten())
         setIsAnalyzing(false)
       })
@@ -181,16 +178,14 @@ export function AIAssignStoriesDialog({
       })
     } catch (err) {
       console.error('[AIAssignStoriesDialog] AI analysis error:', err)
-      // 格式化错误信息
-      const errorMessage = formatErrorMessage(err instanceof Error ? err.message : String(err))
-      console.log('[AIAssignStoriesDialog] Catch block - Setting error state:', errorMessage)
-      setError(errorMessage)
+      // 直接显示原始错误信息
+      setError(err instanceof Error ? err.message : String(err))
       setIsAnalyzing(false)
     }
   }
 
-  // 格式化错误信息，使其更易读
-  const formatErrorMessage = (error: string): string => {
+  // 格式化错误信息，使其更易读（已废弃，保留供参考）
+  const _formatErrorMessage = (error: string): string => {
     // 如果已经是友好的错误信息，直接返回
     if (error.startsWith('请先配置') || error.startsWith('没有未分配')) {
       return error
@@ -589,8 +584,8 @@ ${storiesInfo}
                 </Card>
               )}
 
-              {/* 错误提示 */}
-              {error && (
+              {/* 错误提示 - 已禁用，使用操作按钮Card内的紧凑版本 */}
+              {false && error && (
                 <>
                   {console.log('[AIAssignStoriesDialog] Rendering error card with message:', error)}
                   <Card
