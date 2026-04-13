@@ -281,6 +281,10 @@ fn main() {
             // User Story Persistence commands
             commands::quality::save_user_stories,
             commands::quality::get_user_stories,
+            // Sprint Persistence commands
+            commands::database::save_sprints,
+            commands::database::get_sprints_by_project,
+            commands::database::delete_sprint,
             // Streaming Output commands (US-048)
             commands::ai::start_prd_stream,
             // User Preference commands (US-055)

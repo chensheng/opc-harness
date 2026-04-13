@@ -482,6 +482,117 @@ pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> R
     db::delete_agent_session(&conn, &agent_id).map_err(|e| e.to_string())
 }
 
+// ==================== Sprint Commands ====================
+
+use serde::{Deserialize, Serialize};
+
+/// 保存Sprint计划请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct SaveSprintsRequest {
+    /// 项目 ID
+    pub project_id: String,
+    /// Sprint列表
+    pub sprints: Vec<crate::models::Sprint>,
+}
+
+/// 保存项目的Sprint计划（批量Upsert）
+#[tauri::command]
+pub fn save_sprints(
+    app_handle: tauri::AppHandle,
+    request: SaveSprintsRequest,
+) -> Result<usize, String> {
+    println!("[save_sprints] Received request for project_id: {}, sprints count: {}", 
+             request.project_id, request.sprints.len());
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        eprintln!("[save_sprints] Failed to get DB connection: {}", e);
+        format!("Failed to get DB connection: {}", e)
+    })?;
+    
+    // 批量保存到数据库
+    match db::upsert_sprints(&conn, &request.project_id, &request.sprints) {
+        Ok(_) => {
+            println!("[save_sprints] Successfully saved {} sprints to database for project {}", 
+                     request.sprints.len(), request.project_id);
+            Ok(request.sprints.len())
+        },
+        Err(e) => {
+            eprintln!("[save_sprints] Failed to save sprints: {}", e);
+            Err(format!("Failed to save sprints: {}", e))
+        }
+    }
+}
+
+/// 获取Sprint计划请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct GetSprintsRequest {
+    /// 项目 ID
+    pub project_id: String,
+}
+
+/// 获取项目的所有Sprint计划
+#[tauri::command]
+pub fn get_sprints_by_project(
+    app_handle: tauri::AppHandle,
+    request: GetSprintsRequest,
+) -> Result<Vec<crate::models::Sprint>, String> {
+    println!("[get_sprints_by_project] Querying for project_id: {}", request.project_id);
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        eprintln!("[get_sprints_by_project] Failed to get DB connection: {}", e);
+        format!("Failed to get DB connection: {}", e)
+    })?;
+    
+    match db::get_sprints_by_project(&conn, &request.project_id) {
+        Ok(sprints) => {
+            println!("[get_sprints_by_project] Retrieved {} sprints", sprints.len());
+            Ok(sprints)
+        },
+        Err(e) => {
+            eprintln!("[get_sprints_by_project] Failed to get sprints: {}", e);
+            Err(format!("Failed to get sprints: {}", e))
+        }
+    }
+}
+
+/// 删除Sprint计划请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct DeleteSprintRequest {
+    /// Sprint ID
+    pub sprint_id: String,
+}
+
+/// 删除单个Sprint计划
+#[tauri::command]
+pub fn delete_sprint(
+    app_handle: tauri::AppHandle,
+    request: DeleteSprintRequest,
+) -> Result<(), String> {
+    println!("[delete_sprint] Deleting sprint_id: {}", request.sprint_id);
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        eprintln!("[delete_sprint] Failed to get DB connection: {}", e);
+        format!("Failed to get DB connection: {}", e)
+    })?;
+    
+    match db::delete_sprint(&conn, &request.sprint_id) {
+        Ok(deleted) => {
+            if deleted == 0 {
+                return Err(format!("Sprint not found: {}", request.sprint_id));
+            }
+            println!("[delete_sprint] Successfully deleted sprint");
+            Ok(())
+        },
+        Err(e) => {
+            eprintln!("[delete_sprint] Failed to delete sprint: {}", e);
+            Err(format!("Failed to delete sprint: {}", e))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

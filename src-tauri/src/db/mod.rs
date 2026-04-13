@@ -1,4 +1,4 @@
-﻿// Database module - organized by entity repositories
+// Database module - organized by entity repositories
 
 mod database;
 mod repository;
@@ -11,6 +11,7 @@ mod agent_session_repository;
 mod milestone_repository;
 mod issue_repository;
 mod user_story_repository;
+mod sprint_repository;
 
 // Re-export database functions
 pub use database::{get_connection, init_database, ensure_all_project_workspaces};
@@ -56,3 +57,6 @@ pub use issue_repository::{
 
 // Re-export User Story CRUD operations
 pub use user_story_repository::{get_user_stories_by_project, upsert_user_stories};
+
+// Re-export Sprint CRUD operations
+pub use sprint_repository::{delete_sprint, get_sprints_by_project, upsert_sprints};

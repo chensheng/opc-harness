@@ -35,6 +35,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useSprintStore } from '@/stores/sprintStore'
 import { useUserStoryStore } from '@/stores/userStoryStore'
 import { SprintEditDialog } from './SprintEditDialog'
+import { ManageStoriesDialog } from './ManageStoriesDialog'
 
 const statusLabels: Record<Sprint['status'], string> = {
   planning: '规划中',
@@ -680,7 +681,6 @@ export function SprintManager() {
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         sprint={editingSprint}
-        availableStories={availableStories}
         onSave={handleSaveSprint}
       />
 
@@ -713,7 +713,7 @@ export function SprintManager() {
 
       {/* 管理用户故事对话框 */}
       {managingSprint && (
-        <SprintEditDialog
+        <ManageStoriesDialog
           open={showManageStoriesDialog}
           onOpenChange={setShowManageStoriesDialog}
           sprint={managingSprint}

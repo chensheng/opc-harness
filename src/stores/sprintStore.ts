@@ -1,6 +1,22 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import { invoke } from '@tauri-apps/api/core'
 import type { Sprint } from '@/types'
+
+// 后端返回的 snake_case 格式的 Sprint 类型
+interface BackendSprint {
+  id: string
+  name: string
+  goal: string
+  start_date: string
+  end_date: string
+  status: string
+  story_ids: string | string[]
+  total_story_points: number
+  completed_story_points: number
+  created_at: string
+  updated_at: string
+}
 
 interface SprintState {
   // 按项目ID存储Sprint计划
@@ -36,19 +52,31 @@ export const useSprintStore = create<SprintState & SprintActions>()(
     sprintsByProject: {},
     isLoading: false,
 
-    loadProjectSprints: async _projectId => {
-      // TODO: 实现从后端加载Sprint的逻辑
-      // 目前使用空数组作为占位
+    loadProjectSprints: async projectId => {
       try {
         set({ isLoading: true })
-        // const response = await invoke<{ success: boolean; sprints: any[] }>('get_sprints', {
-        //   request: { project_id: projectId },
-        // })
-        // if (response.success) {
-        //   set(state => {
-        //     state.sprintsByProject[projectId] = response.sprints
-        //   })
-        // }
+        const rustSprints = await invoke<BackendSprint[]>('get_sprints_by_project', {
+          request: { project_id: projectId },
+        })
+
+        // 将 Rust 后端的 snake_case Sprint 转换为前端的 camelCase 格式
+        const frontendSprints = rustSprints.map(sprint => ({
+          id: sprint.id,
+          name: sprint.name,
+          goal: sprint.goal,
+          startDate: sprint.start_date,
+          endDate: sprint.end_date,
+          status: sprint.status,
+          storyIds: Array.isArray(sprint.story_ids) ? sprint.story_ids : JSON.parse(sprint.story_ids || '[]'),
+          totalStoryPoints: sprint.total_story_points,
+          completedStoryPoints: sprint.completed_story_points,
+          createdAt: sprint.created_at,
+          updatedAt: sprint.updated_at,
+        }))
+
+        set(state => {
+          state.sprintsByProject[projectId] = frontendSprints
+        })
       } catch (error) {
         console.error('[SprintStore] Failed to load sprints:', error)
       } finally {
@@ -59,13 +87,30 @@ export const useSprintStore = create<SprintState & SprintActions>()(
     setProjectSprints: async (projectId, sprints) => {
       try {
         set({ isLoading: true })
-        // TODO: 实现保存到后端的逻辑
-        // await invoke<{ success: boolean; count: number }>('save_sprints', {
-        //   request: {
-        //     project_id: projectId,
-        //     sprints: sprints,
-        //   },
-        // })
+
+        // 将前端的 camelCase Sprint 转换为 Rust 后端期望的 snake_case 格式
+        const rustSprints = sprints.map(sprint => ({
+          id: sprint.id,
+          project_id: projectId,
+          name: sprint.name,
+          goal: sprint.goal,
+          start_date: sprint.startDate,
+          end_date: sprint.endDate,
+          status: sprint.status,
+          story_ids: sprint.storyIds,
+          total_story_points: sprint.totalStoryPoints,
+          completed_story_points: sprint.completedStoryPoints,
+          created_at: sprint.createdAt,
+          updated_at: sprint.updatedAt,
+        }))
+
+        // 保存到后端数据库
+        await invoke<number>('save_sprints', {
+          request: {
+            project_id: projectId,
+            sprints: rustSprints,
+          },
+        })
 
         // 更新本地状态
         set(state => {
@@ -98,9 +143,27 @@ export const useSprintStore = create<SprintState & SprintActions>()(
     },
 
     deleteSprint: async (projectId, sprintId) => {
-      const currentSprints = get().getProjectSprints(projectId)
-      const updatedSprints = currentSprints.filter(s => s.id !== sprintId)
-      await get().setProjectSprints(projectId, updatedSprints)
+      try {
+        set({ isLoading: true })
+        // 从后端数据库删除
+        await invoke<void>('delete_sprint', {
+          request: {
+            sprint_id: sprintId,
+          },
+        })
+
+        // 更新本地状态
+        const currentSprints = get().getProjectSprints(projectId)
+        const updatedSprints = currentSprints.filter(s => s.id !== sprintId)
+        set(state => {
+          state.sprintsByProject[projectId] = updatedSprints
+        })
+      } catch (error) {
+        console.error('[SprintStore] Failed to delete sprint:', error)
+        throw error
+      } finally {
+        set({ isLoading: false })
+      }
     },
 
     clearProjectSprints: projectId => {

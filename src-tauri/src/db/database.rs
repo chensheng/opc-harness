@@ -193,6 +193,40 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
+    // Create sprints table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sprints (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            goal TEXT NOT NULL DEFAULT '',
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'planning',
+            story_ids TEXT NOT NULL DEFAULT '[]',
+            total_story_points INTEGER NOT NULL DEFAULT 0,
+            completed_story_points INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // Create indexes for sprints table
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sprints_start_date ON sprints(start_date)",
+        [],
+    )?;
+
     Ok(())
 }
 
