@@ -187,15 +187,12 @@ export function ManageStoriesDialog({
                     <Checkbox
                       id={`story-${story.id}`}
                       checked={selectedStoryIds.includes(story.id)}
-                      onCheckedChange={() => toggleStorySelection(story.id)}
+                      onChange={() => toggleStorySelection(story.id)}
                     />
-                    <div className="flex-1 space-y-1">
-                      <label
-                        htmlFor={`story-${story.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
+                    <div className="flex-1 space-y-1 cursor-pointer" onClick={() => toggleStorySelection(story.id)}>
+                      <div className="text-sm font-medium leading-none">
                         {story.storyNumber} - {story.title}
-                      </label>
+                      </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{story.role}</span>
                         {story.storyPoints && (

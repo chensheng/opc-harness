@@ -90,16 +90,18 @@ export function SprintManager() {
   )
 
   // User Story Store - 获取可用的用户故事
+  const loadProjectStories = useUserStoryStore(state => state.loadProjectStories)
   const availableStories = useUserStoryStore(state =>
     currentProjectId ? state.storiesByProject[currentProjectId] || [] : []
   )
 
-  // 组件挂载时加载Sprint计划
+  // 组件挂载时加载Sprint计划和用户故事
   useEffect(() => {
     if (currentProjectId) {
       loadProjectSprints(currentProjectId)
+      loadProjectStories(currentProjectId)
     }
-  }, [currentProjectId, loadProjectSprints])
+  }, [currentProjectId, loadProjectSprints, loadProjectStories])
 
   // 新建Sprint
   const handleNewSprint = () => {
