@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -121,20 +120,31 @@ export function ManageStoriesDialog({
           <DialogTitle>管理用户故事 - {sprint.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        {/* 顶部操作和统计区域 */}
+        <div className="flex items-center justify-between py-2 border-b">
           {/* 统计信息 */}
-          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">
-                已选择 <span className="text-primary">{selectedStoryIds.length}</span> 个故事
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">
+              已选择 <span className="text-primary">{selectedStoryIds.length}</span> 个故事
+            </span>
             <Badge variant="secondary" className="text-xs">
               总故事点: {calculateTotalStoryPoints()}
             </Badge>
           </div>
 
+          {/* 操作按钮 */}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+              取消
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? '保存中...' : '保存'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-4 py-4">
           {/* 搜索和筛选工具栏 */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -267,15 +277,6 @@ export function ManageStoriesDialog({
             </div>
           )}
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
-            取消
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? '保存中...' : '保存'}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
