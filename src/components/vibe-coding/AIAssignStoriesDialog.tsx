@@ -447,52 +447,52 @@ ${storiesInfo}
         {/* 滚动主体区域 */}
         <div className="flex-1 overflow-hidden">
           <div className="h-full flex gap-4 p-6">
-            {/* 左侧：Sprint信息和操作区 */}
-            <div className="w-1/3 space-y-4 flex flex-col">
-              {/* Sprint信息卡片 */}
+            {/* 左侧：Sprint信息和操作区 - 添加滚动支持 */}
+            <div className="w-1/3 space-y-3 flex flex-col overflow-y-auto pr-2">
+              {/* Sprint信息卡片 - 紧凑版 */}
               <Card className="flex-shrink-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
+                <CardHeader className="pb-2 px-4 pt-4">
+                  <CardTitle className="text-sm flex items-center gap-2">
                     <Target className="w-4 h-4" />
                     Sprint信息
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
+                <CardContent className="space-y-2 text-sm px-4 pb-4">
                   <div>
-                    <div className="font-medium text-muted-foreground text-xs mb-1">名称</div>
-                    <div>{sprint.name}</div>
+                    <div className="font-medium text-muted-foreground text-[10px] mb-0.5">名称</div>
+                    <div className="text-xs">{sprint.name}</div>
                   </div>
                   {sprint.goal && (
                     <div>
-                      <div className="font-medium text-muted-foreground text-xs mb-1">目标</div>
-                      <div className="text-xs">{sprint.goal}</div>
+                      <div className="font-medium text-muted-foreground text-[10px] mb-0.5">目标</div>
+                      <div className="text-[11px] line-clamp-2">{sprint.goal}</div>
                     </div>
                   )}
                   <div>
-                    <div className="font-medium text-muted-foreground text-xs mb-1 flex items-center gap-1">
+                    <div className="font-medium text-muted-foreground text-[10px] mb-0.5 flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       时间范围
                     </div>
-                    <div className="text-xs">
+                    <div className="text-[11px]">
                       {new Date(sprint.startDate).toLocaleDateString()} -{' '}
                       {new Date(sprint.endDate).toLocaleDateString()}
                     </div>
                   </div>
                   <div>
-                    <div className="font-medium text-muted-foreground text-xs mb-1 flex items-center gap-1">
+                    <div className="font-medium text-muted-foreground text-[10px] mb-0.5 flex items-center gap-1">
                       <TrendingUp className="w-3 h-3" />
                       容量情况
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between text-[11px]">
                         <span>总容量:</span>
                         <span className="font-medium">{sprint.totalStoryPoints || 0} 点</span>
                       </div>
-                      <div className="flex justify-between text-xs">
+                      <div className="flex justify-between text-[11px]">
                         <span>已使用:</span>
                         <span className="font-medium">{sprint.completedStoryPoints || 0} 点</span>
                       </div>
-                      <div className="flex justify-between text-xs">
+                      <div className="flex justify-between text-[11px]">
                         <span>剩余:</span>
                         <span className="font-medium text-primary">{remainingCapacity} 点</span>
                       </div>
@@ -501,9 +501,34 @@ ${storiesInfo}
                 </CardContent>
               </Card>
 
-              {/* 操作按钮 */}
+              {/* 操作按钮 - 紧凑版 */}
               <Card className="flex-shrink-0">
-                <CardContent className="pt-6 space-y-3">
+                <CardContent className="pt-4 space-y-2 px-4 pb-4">
+                  {/* 错误提示 - 右上角关闭图标 */}
+                  {error && (
+                    <div className="relative rounded-md border border-destructive/40 bg-destructive/10 p-2.5 mb-2">
+                      {/* 关闭按钮 - 右上角 */}
+                      <button
+                        onClick={() => setError(null)}
+                        className="absolute top-1.5 right-1.5 text-destructive/60 hover:text-destructive transition-colors"
+                        title="关闭错误提示"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      
+                      <div className="flex items-start gap-2 pr-6">
+                        <AlertCircle className="w-3.5 h-3.5 text-destructive mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <ScrollArea className="h-[60px] w-full">
+                            <div className="text-[11px] leading-relaxed whitespace-pre-wrap text-destructive pr-1 break-all">
+                              {error}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <Button
                     onClick={handleAIAnalysis}
                     disabled={isAnalyzing || unassignedStories.length === 0}
