@@ -1,4 +1,4 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+﻿// Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
@@ -14,25 +14,25 @@ mod prompts;
 mod quality;
 mod services;
 #[cfg(test)]
-mod test_utils;  // 测试工具模块（仅在测试时编译）
+mod test_utils;  // 娴嬭瘯宸ュ叿妯″潡锛堜粎鍦ㄦ祴璇曟椂缂栬瘧锛?
 mod user_preference;
 mod utils;
 pub mod agent;
 pub mod agent_protocol;
 pub mod websocket;
 
-// 导出统一错误类型
+// 瀵煎嚭缁熶竴閿欒绫诲瀷
 pub use error::{AppError, AppResult, ErrorCode};
 
-/// 展开环境变量字符串（Windows）
-/// 将 %VAR% 形式的引用替换为实际值
+/// 灞曞紑鐜鍙橀噺瀛楃涓诧紙Windows锛?
+/// 灏?%VAR% 褰㈠紡鐨勫紩鐢ㄦ浛鎹负瀹為檯鍊?
 #[cfg(windows)]
 fn expand_environment_strings(input: &str) -> String {
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsW;
     
-    // 首先获取需要的缓冲区大小
+    // 棣栧厛鑾峰彇闇€瑕佺殑缂撳啿鍖哄ぇ灏?
     let input_wide: Vec<u16> = input.encode_utf16().chain(std::iter::once(0)).collect();
     let size = unsafe {
         ExpandEnvironmentStringsW(
@@ -43,11 +43,11 @@ fn expand_environment_strings(input: &str) -> String {
     };
     
     if size == 0 {
-        // 如果失败，返回原始字符串
+        // 濡傛灉澶辫触锛岃繑鍥炲師濮嬪瓧绗︿覆
         return input.to_string();
     }
     
-    // 分配缓冲区并再次调用
+    // 鍒嗛厤缂撳啿鍖哄苟鍐嶆璋冪敤
     let mut buffer = vec![0u16; size as usize];
     let result = unsafe {
         ExpandEnvironmentStringsW(
@@ -61,7 +61,7 @@ fn expand_environment_strings(input: &str) -> String {
         return input.to_string();
     }
     
-    // 转换为 Rust 字符串
+    // 杞崲涓?Rust 瀛楃涓?
     let len = buffer.iter().position(|&x| x == 0).unwrap_or(buffer.len());
     OsString::from_wide(&buffer[..len])
         .to_string_lossy()
@@ -69,7 +69,7 @@ fn expand_environment_strings(input: &str) -> String {
 }
 
 fn main() {
-    // 初始化日志记录
+    // 鍒濆鍖栨棩蹇楄褰?
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp(None)
         .format_target(false)
@@ -80,7 +80,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            // 确保继承系统的环境变量（特别是 PATH）
+            // 纭繚缁ф壙绯荤粺鐨勭幆澧冨彉閲忥紙鐗瑰埆鏄?PATH锛?
             #[cfg(windows)]
             {
                 use std::env;
@@ -89,20 +89,20 @@ fn main() {
                 
                 log::info!("Ensuring system PATH is inherited on Windows...");
                 
-                // 获取系统 PATH（机器级别）
+                // 鑾峰彇绯荤粺 PATH锛堟満鍣ㄧ骇鍒級
                 let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
                 if let Ok(env_key) = hklm.open_subkey("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment") {
                     if let Ok(system_path) = env_key.get_value::<String, _>("Path") {
                         log::info!("System PATH found, length: {}", system_path.len());
                         
-                        // 展开环境变量引用（如 %SystemRoot% 等）
+                        // 灞曞紑鐜鍙橀噺寮曠敤锛堝 %SystemRoot% 绛夛級
                         let expanded_system_path = expand_environment_strings(&system_path);
                         log::debug!("Expanded system PATH: {}", expanded_system_path);
                         
-                        // 获取当前进程的 PATH
+                        // 鑾峰彇褰撳墠杩涚▼鐨?PATH
                         let current_path = env::var("PATH").unwrap_or_default();
                         
-                        // 如果当前 PATH 不包含系统 PATH 的内容，则合并
+                        // 濡傛灉褰撳墠 PATH 涓嶅寘鍚郴缁?PATH 鐨勫唴瀹癸紝鍒欏悎骞?
                         if !current_path.contains(&expanded_system_path) {
                             let merged_path = if current_path.is_empty() {
                                 expanded_system_path.clone()
@@ -118,11 +118,11 @@ fn main() {
                     }
                 }
                 
-                // 也检查用户级别的 PATH
+                // 涔熸鏌ョ敤鎴风骇鍒殑 PATH
                 let hkcu = RegKey::predef(HKEY_CURRENT_USER);
                 if let Ok(env_key) = hkcu.open_subkey("Environment") {
                     if let Ok(user_path) = env_key.get_value::<String, _>("Path") {
-                        // 展开用户 PATH 中的环境变量
+                        // 灞曞紑鐢ㄦ埛 PATH 涓殑鐜鍙橀噺
                         let expanded_user_path = expand_environment_strings(&user_path);
                         log::debug!("Expanded user PATH: {}", expanded_user_path);
                         
@@ -208,8 +208,6 @@ fn main() {
             commands::database::get_all_cli_sessions,
             commands::database::get_cli_session_by_id,
             commands::database::delete_cli_session,
-            // Database migration command (one-time operation)
-            commands::database::run_database_migration,
             // Milestone commands (DB-002)
             commands::database::create_milestone,
             commands::database::get_milestones_by_project,
@@ -275,7 +273,7 @@ fn main() {
             // PRD Iteration Optimization commands (US-053)
             commands::quality::create_initial_version,
             commands::quality::iterate_prd,
-            // commands::quality::get_iteration_history,  // 暂时注释（尚未实现）
+            // commands::quality::get_iteration_history,  // 鏆傛椂娉ㄩ噴锛堝皻鏈疄鐜帮級
             commands::quality::rollback_to_version,
             // User Story Decomposition commands (US-XXX)
             commands::quality::decompose_user_stories,
