@@ -522,7 +522,6 @@ Sprint信息：
 - 时间范围：${sprint.startDate} 至 ${sprint.endDate}
 - 当前容量：${sprint.totalStoryPoints || 0} 故事点
 - 已完成：${sprint.completedStoryPoints || 0} 故事点
-- 剩余容量：${(sprint.totalStoryPoints || 0) - (sprint.completedStoryPoints || 0)} 故事点
 `
 
     const storiesInfo = stories
@@ -563,7 +562,6 @@ ${userSuggestionsSection}
 
 考虑因素：
 1. 优先级（P0 > P1 > P2 > P3）
-2. Sprint剩余容量（不要超出容量限制）
 3. 故事之间的依赖关系
 4. 业务价值和Sprint目标的匹配度
 5. 技术实现的可行性
@@ -574,7 +572,7 @@ ${userSuggestionsSection}
 | 故事ID | 推荐理由 | 置信度 |
 |--------|----------|--------|
 | US-001 | 这是P0优先级故事，与Sprint目标高度匹配 | 95 |
-| US-003 | 虽然优先级为P1，但故事点较小，可以在剩余容量内完成 | 85 |
+| US-003 | 虽然优先级为P1，但故事点较小，可以快速完成 | 85 |
 
 注意：
 - **故事ID**列必须使用故事编号格式（如 US-001、US-002）
@@ -582,7 +580,6 @@ ${userSuggestionsSection}
 - 推荐理由要具体、有说服力，如果用户提供了建议，需要说明如何遵循了这些建议
 - 置信度反映你对推荐的确定程度（0-100的整数）
 - 优先推荐高优先级、高价值、低依赖的故事
-- 确保总故事点不超过Sprint剩余容量
 - 严格遵循用户提出的任何特殊要求或约束
 `
   }
@@ -681,9 +678,6 @@ ${userSuggestionsSection}
       completedCount: assignedStories.filter(story => story.status === 'completed').length,
     }
   }, [allStories, unassignedStories, sprint.id])
-
-  // 计算剩余容量（用于警告提示）
-  const remainingCapacity = (sprint.totalStoryPoints || 0) - assignedStoriesStats.completedPoints
 
   // 格式化AI思考过程，增强可读性
   const formatThinkingProcess = (text: string) => {
@@ -857,14 +851,6 @@ ${userSuggestionsSection}
                           共 {selectedStoryPoints} 点
                         </span>
                       </div>
-                      {selectedStoryPoints > remainingCapacity && (
-                        <div className="flex items-start gap-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
-                          <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                          <span>
-                            选中的故事点 ({selectedStoryPoints}) 超过剩余容量 ({remainingCapacity})
-                          </span>
-                        </div>
-                      )}
                     </div>
                   )}
                 </CardContent>
