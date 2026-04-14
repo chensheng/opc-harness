@@ -232,13 +232,13 @@ export function CodingWorkspace() {
                 <Users className="w-4 h-4" />
                 用户故事
               </TabsTrigger>
-              <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
+              {/* <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
                 <FileCode className="w-4 h-4" />
                 代码工作区
-              </TabsTrigger>
+              </TabsTrigger> */}
               <TabsTrigger value="agents" className="flex items-center gap-2 text-sm">
                 <Bot className="w-4 h-4" />
-                智能体管理
+                智能体
               </TabsTrigger>
             </TabsList>
           </Tabs>
