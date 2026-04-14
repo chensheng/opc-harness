@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useProjectStore } from '@/stores'
 import { formatDate } from '@/lib/utils'
+import { ProjectListFloatingButton } from '@/components/vibe-design/ProjectListFloatingButton'
 
 const statusLabels: Record<string, string> = {
   idea: '构思中',
@@ -191,6 +192,9 @@ export function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 项目列表悬浮按钮 */}
+      <ProjectListFloatingButton />
     </div>
   )
 }
