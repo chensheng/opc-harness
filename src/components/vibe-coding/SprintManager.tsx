@@ -166,6 +166,35 @@ export function SprintManager() {
     setDeletingSprint(null)
   }
 
+  // 实时计算Sprint的总故事点（基于当前用户故事）
+  const calculateSprintStoryPoints = React.useCallback(
+    (sprintId: string) => {
+      const sprintStories = availableStories.filter(story => story.sprintId === sprintId)
+      return sprintStories.reduce((sum, story) => sum + (story.storyPoints || 0), 0)
+    },
+    [availableStories]
+  )
+
+  // 实时计算Sprint的已完成故事点
+  const calculateCompletedStoryPoints = React.useCallback(
+    (sprintId: string) => {
+      const sprintStories = availableStories.filter(
+        story => story.sprintId === sprintId && story.status === 'completed'
+      )
+      return sprintStories.reduce((sum, story) => sum + (story.storyPoints || 0), 0)
+    },
+    [availableStories]
+  )
+
+  // 为Sprint列表添加实时计算的字段
+  const sprintsWithCalculatedPoints = React.useMemo(() => {
+    return savedSprints.map(sprint => ({
+      ...sprint,
+      totalStoryPoints: calculateSprintStoryPoints(sprint.id),
+      completedStoryPoints: calculateCompletedStoryPoints(sprint.id),
+    }))
+  }, [savedSprints, calculateSprintStoryPoints, calculateCompletedStoryPoints])
+
   // 打开管理故事对话框
   const handleManageStories = (sprint: Sprint) => {
     setManagingSprint(sprint)
@@ -244,7 +273,7 @@ export function SprintManager() {
 
   // 筛选逻辑
   const filteredSprints = React.useMemo(() => {
-    let result = savedSprints
+    let result = sprintsWithCalculatedPoints
 
     // 关键词筛选
     if (filterKeyword.trim()) {
@@ -261,7 +290,7 @@ export function SprintManager() {
     }
 
     return result
-  }, [savedSprints, filterKeyword, filterStatus])
+  }, [sprintsWithCalculatedPoints, filterKeyword, filterStatus])
 
   // 排序逻辑
   const sortedSprints = React.useMemo(() => {
@@ -339,9 +368,9 @@ export function SprintManager() {
 
   // 获取唯一的状态选项
   const uniqueStatuses = React.useMemo(() => {
-    const statuses = new Set(savedSprints.map(s => s.status))
+    const statuses = new Set(sprintsWithCalculatedPoints.map(s => s.status))
     return Array.from(statuses).sort()
-  }, [savedSprints])
+  }, [sprintsWithCalculatedPoints])
 
   // 重置分页
   useEffect(() => {

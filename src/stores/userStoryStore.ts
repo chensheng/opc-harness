@@ -169,6 +169,7 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
       const updatedStories = currentStories.map(s =>
         s.id === storyId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
       )
+      
       await get().setProjectStories(projectId, updatedStories)
     },
 

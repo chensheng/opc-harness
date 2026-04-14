@@ -94,7 +94,6 @@ export function ManageStoriesDialog({
     try {
       const updatedSprint: Sprint = {
         ...sprint,
-        totalStoryPoints: calculateTotalStoryPoints(),
         updatedAt: new Date().toISOString(),
       }
 
