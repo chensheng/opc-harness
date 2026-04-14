@@ -41,7 +41,8 @@ interface AIAssignStoriesDialogProps {
 }
 
 interface AIRecommendation {
-  storyId: string
+  storyId: string // 故事的UUID
+  storyNumber: string // 故事编号（如 US-001）
   reason: string
   confidence: number // 0-100
 }
@@ -154,8 +155,15 @@ export function AIAssignStoriesDialog({
 
           if (recommendations && recommendations.length > 0) {
             setRecommendations(recommendations)
-            // 默认选中所有推荐的故事
-            setSelectedStoryIds(recommendations.map((r: AIRecommendation) => r.storyId))
+            // 通过storyNumber匹配故事ID，然后自动选中所有推荐的故事
+            const recommendedStoryIds = unassignedStories
+              .filter(story => 
+                recommendations.some(rec => rec.storyNumber === story.storyNumber)
+              )
+              .map(story => story.id)
+            
+            console.log('[AIAssignStoriesDialog] Auto-selecting stories:', recommendedStoryIds)
+            setSelectedStoryIds(recommendedStoryIds)
           } else {
             setError('AI返回的数据格式不正确')
           }
@@ -262,18 +270,21 @@ export function AIAssignStoriesDialog({
     unlistenFns.push(unlistenChunk)
 
     const unlistenComplete = await listen('ai-stream-complete', () => {
-      // 解析AI返回的JSON
+      // 解析AI返回的Markdown表格
       try {
-        // 尝试从Markdown中提取JSON
-        const jsonMatch = accumulatedContent.match(/```json\n([\s\S]*?)\n```/)
-        const jsonString = jsonMatch ? jsonMatch[1] : accumulatedContent
-
-        const result = JSON.parse(jsonString)
-
-        if (result.recommendations && Array.isArray(result.recommendations)) {
-          setRecommendations(result.recommendations)
-          // 默认选中所有推荐的故事
-          setSelectedStoryIds(result.recommendations.map((r: AIRecommendation) => r.storyId))
+        const recommendations = parseMarkdownTable(accumulatedContent)
+        
+        if (recommendations && recommendations.length > 0) {
+          setRecommendations(recommendations)
+          // 通过storyNumber匹配故事ID，然后自动选中所有推荐的故事
+          const recommendedStoryIds = unassignedStories
+            .filter(story => 
+              recommendations.some(rec => rec.storyNumber === story.storyNumber)
+            )
+            .map(story => story.id)
+          
+          console.log('[AIAssignStoriesDialog] Auto-selecting stories:', recommendedStoryIds)
+          setSelectedStoryIds(recommendedStoryIds)
         } else {
           setError('AI返回的数据格式不正确')
         }
@@ -456,20 +467,20 @@ export function AIAssignStoriesDialog({
           continue
         }
 
-        // 提取故事ID（可能在第一列或第二列）
-        const storyIdCell = cells[0] || ''
+        // 提取故事编号（格式如 US-001）
+        const storyNumberCell = cells[0] || ''
         const reasonCell = cells[1] || ''
         const confidenceCell = cells[2] || ''
 
-        // 尝试从单元格中提取故事ID（格式如 US-001）
-        const storyIdMatch = storyIdCell.match(/(US-\d+)/i) || reasonCell.match(/(US-\d+)/i)
-
-        if (!storyIdMatch) {
-          console.warn('[AIAssignStoriesDialog] Could not extract story ID from:', cells)
+        // 尝试从单元格中提取故事编号（格式如 US-001）
+        const storyNumberMatch = storyNumberCell.match(/(US-\d+)/i)
+        
+        if (!storyNumberMatch) {
+          console.warn('[AIAssignStoriesDialog] Could not extract story number from:', cells)
           continue
         }
 
-        const storyId = storyIdMatch[1]
+        const storyNumber = storyNumberMatch[1].toUpperCase()
 
         // 提取置信度（数字）
         const confidenceMatch = confidenceCell.match(/(\d+)/)
@@ -479,7 +490,8 @@ export function AIAssignStoriesDialog({
         const reason = reasonCell || 'AI推荐'
 
         recommendations.push({
-          storyId,
+          storyId: '', // 暂时为空，后续通过storyNumber匹配
+          storyNumber,
           reason,
           confidence: Math.min(100, Math.max(0, confidence)), // 确保在0-100范围内
         })
@@ -553,23 +565,18 @@ ${userSuggestionsSection}
 5. 技术实现的可行性
 6. 用户的特殊建议和约束（如果有）
 
-请以JSON格式返回推荐结果，格式如下：
-\`\`\`json
-{
-  "recommendations": [
-    {
-      "storyId": "故事ID",
-      "reason": "推荐理由（详细说明为什么这个故事适合这个Sprint，包括如何满足用户的特殊要求）",
-      "confidence": 85 // 置信度 0-100
-    }
-  ]
-}
-\`\`\`
+请以Markdown表格格式返回推荐结果，格式如下：
+
+| 故事ID | 推荐理由 | 置信度 |
+|--------|----------|--------|
+| US-001 | 这是P0优先级故事，与Sprint目标高度匹配 | 95 |
+| US-003 | 虽然优先级为P1，但故事点较小，可以在剩余容量内完成 | 85 |
 
 注意：
-- 只返回JSON，不要有其他内容
+- **故事ID**列必须使用故事编号格式（如 US-001、US-002）
+- 只返回Markdown表格，不要有其他内容
 - 推荐理由要具体、有说服力，如果用户提供了建议，需要说明如何遵循了这些建议
-- 置信度反映你对推荐的确定程度
+- 置信度反映你对推荐的确定程度（0-100的整数）
 - 优先推荐高优先级、高价值、低依赖的故事
 - 确保总故事点不超过Sprint剩余容量
 - 严格遵循用户提出的任何特殊要求或约束
@@ -585,7 +592,14 @@ ${userSuggestionsSection}
 
   // 全选推荐
   const selectAllRecommended = () => {
-    setSelectedStoryIds(recommendations.map(r => r.storyId))
+    // 通过storyNumber匹配故事ID
+    const recommendedStoryIds = unassignedStories
+      .filter(story => 
+        recommendations.some(rec => rec.storyNumber === story.storyNumber)
+      )
+      .map(story => story.id)
+    
+    setSelectedStoryIds(recommendedStoryIds)
   }
 
   // 清空选择
@@ -633,7 +647,11 @@ ${userSuggestionsSection}
 
   // 获取故事的推荐信息
   const getRecommendation = (storyId: string) => {
-    return recommendations.find(r => r.storyId === storyId)
+    // 通过storyId找到对应的story,然后通过storyNumber匹配recommendation
+    const story = unassignedStories.find(s => s.id === storyId)
+    if (!story) return undefined
+    
+    return recommendations.find(r => r.storyNumber === story.storyNumber)
   }
 
   // 计算选中的故事点
