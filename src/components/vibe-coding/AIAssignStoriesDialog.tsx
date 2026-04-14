@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
+  TrendingUp,
   Lightbulb,
   Target,
 } from 'lucide-react'
@@ -64,6 +65,7 @@ export function AIAssignStoriesDialog({
   const [filterKeyword, setFilterKeyword] = useState('')
   const [showOnlyRecommended, setShowOnlyRecommended] = useState(false)
   const [aiThinkingProcess, setAiThinkingProcess] = useState<string>('') // AI思考过程
+  const [showThinkingProcess, setShowThinkingProcess] = useState<boolean>(false) // 控制AI分析过程区域显示
   const [userSuggestions, setUserSuggestions] = useState<string>('') // 用户分配建议
 
   const activeConfig = useAIConfigStore(state => state.getActiveConfig())
@@ -77,6 +79,7 @@ export function AIAssignStoriesDialog({
       setFilterKeyword('')
       setShowOnlyRecommended(false)
       setAiThinkingProcess('')
+      setShowThinkingProcess(false)
       setUserSuggestions('')
     }
   }, [open])
@@ -102,6 +105,7 @@ export function AIAssignStoriesDialog({
     setError(null)
     setRecommendations([])
     setAiThinkingProcess('')
+    setShowThinkingProcess(true) // 开始分析时显示思考过程区域
 
     try {
       // CodeFree 模式特殊处理
@@ -875,19 +879,30 @@ ${userSuggestionsSection}
               </Card>
 
               {/* AI思考过程实时显示 */}
-              {isAnalyzing && aiThinkingProcess && (
+              {showThinkingProcess && aiThinkingProcess && (
                 <Card className="flex-shrink-0 border-primary/30 bg-primary/5">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2 text-primary">
-                      <Sparkles className="w-4 h-4 animate-pulse" />
-                      AI分析过程
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm flex items-center gap-2 text-primary">
+                        <Sparkles className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+                        AI分析过程
+                      </CardTitle>
+                      <button
+                        onClick={() => setShowThinkingProcess(false)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="关闭分析过程"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-0">
                     <ScrollArea className="h-[200px] w-full">
                       <div className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground pr-2 font-mono">
                         {formatThinkingProcess(aiThinkingProcess)}
-                        <span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse" />
+                        {isAnalyzing && (
+                          <span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse" />
+                        )}
                       </div>
                     </ScrollArea>
                   </CardContent>
