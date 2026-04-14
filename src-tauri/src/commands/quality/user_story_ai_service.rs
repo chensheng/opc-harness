@@ -28,13 +28,9 @@ pub async fn decompose_with_ai(
     
     // 根据提供商类型和是否有已有用户故事，选择合适的提示词生成函数
     let prompt = if provider == "codefree" {
-        // CodeFree 提供商：使用文件引用方式
-        if let Some(stories) = existing_stories {
-            log::info!("Including {} existing stories to avoid duplication", stories.len());
-            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(stories)
-        } else {
-            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
-        }
+        // CodeFree 提供商：非流式版本不支持，因为需要 project_id 来写入文件
+        log::warn!("CodeFree provider in non-streaming mode is not supported");
+        return Err("CodeFree 提供商需要使用流式接口（decompose_user_stories_streaming），请更新前端调用".to_string());
     } else {
         // 非 CodeFree 提供商：将 PRD 内容直接嵌入提示词中
         if let Some(stories) = existing_stories {

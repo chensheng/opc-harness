@@ -40,6 +40,15 @@ pub async fn decompose_user_stories_streaming(
             format!("Failed to create context directory: {}", e)
         })?;
         
+        // ⚠️ 重要：先写入 PRD.md 文件，确保 AI 可以读取
+        let prd_md_path = context_dir.join("PRD.md");
+        fs::write(&prd_md_path, &request.prd_content).map_err(|e| {
+            log::error!("[decompose_user_stories_streaming] Failed to write PRD.md: {}", e);
+            format!("Failed to write PRD.md: {}", e)
+        })?;
+        log::info!("[decompose_user_stories_streaming] ✅ PRD.md written to: {:?}", prd_md_path);
+        log::info!("[decompose_user_stories_streaming] 📝 PRD.md content length: {} bytes", request.prd_content.len());
+        
         // 写入 AGENTS.md 作为系统提示词
         let agents_md_path = context_dir.join("AGENTS.md");
         let agents_content = if let Some(ref existing_stories) = request.existing_stories {
