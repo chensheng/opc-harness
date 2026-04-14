@@ -79,7 +79,7 @@ export interface LogStats {
 /**
  * 工作区模式
  */
-export type WorkspaceMode = 'coding' | 'stories'
+export type WorkspaceMode = 'sprints' | 'stories' | 'coding'
 
 /**
  * Mock 文件树数据

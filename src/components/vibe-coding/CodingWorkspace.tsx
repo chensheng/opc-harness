@@ -59,7 +59,7 @@ export function CodingWorkspace() {
   const [cliInput, setCliInput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [activeTab, setActiveTab] = useState('code')
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('coding')
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('sprints')
   const outputEndRef = useRef<HTMLDivElement>(null)
 
   // 如果没有 projectId，重定向到最近的项目
