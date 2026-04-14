@@ -122,7 +122,7 @@ export function AIAssignStoriesDialog({
     const currentProjectId = useProjectStore.getState().currentProjectId
 
     if (!currentProjectId) {
-      throw new Error('未找到项目ID，CodeFree模式需要项目上下文')
+      throw new Error('未找到项目ID,CodeFree模式需要项目上下文')
     }
 
     console.log('[AIAssignStoriesDialog] 🎯 Starting CodeFree analysis mode')
@@ -130,10 +130,10 @@ export function AIAssignStoriesDialog({
     let accumulatedContent = ''
     const unlistenFns: UnlistenFn[] = []
 
-    // 监听流式数据 - 实时更新思考过程
-    const unlistenChunk = await listen<{ content: string }>('ai-stream-chunk', event => {
+    // 监听 Sprint 分配流式数据 - 实时更新思考过程
+    const unlistenChunk = await listen<{ content: string }>('sprint-assignment-stream-chunk', event => {
       accumulatedContent += event.payload.content
-      // 实时更新AI思考过程（去除Markdown代码块标记）
+      // 实时更新AI思考过程(去除Markdown代码块标记)
       const displayContent = accumulatedContent
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
@@ -142,38 +142,46 @@ export function AIAssignStoriesDialog({
     })
     unlistenFns.push(unlistenChunk)
 
-    const unlistenComplete = await listen('ai-stream-complete', () => {
-      console.log('[AIAssignStoriesDialog] ✅ CodeFree analysis complete')
-      // 解析AI返回的Markdown表格
-      try {
-        const recommendations = parseMarkdownTable(accumulatedContent)
+    const unlistenComplete = await listen<{ session_id: string; content: string }>(
+      'sprint-assignment-stream-complete',
+      event => {
+        console.log('[AIAssignStoriesDialog] ✅ CodeFree analysis complete')
+        const { content } = event.payload
+        
+        // 解析AI返回的Markdown表格
+        try {
+          const recommendations = parseMarkdownTable(content)
 
-        if (recommendations && recommendations.length > 0) {
-          setRecommendations(recommendations)
-          // 默认选中所有推荐的故事
-          setSelectedStoryIds(recommendations.map((r: AIRecommendation) => r.storyId))
-        } else {
-          setError('AI返回的数据格式不正确')
+          if (recommendations && recommendations.length > 0) {
+            setRecommendations(recommendations)
+            // 默认选中所有推荐的故事
+            setSelectedStoryIds(recommendations.map((r: AIRecommendation) => r.storyId))
+          } else {
+            setError('AI返回的数据格式不正确')
+          }
+        } catch (parseError) {
+          console.error('[AIAssignStoriesDialog] Failed to parse AI response:', parseError)
+          console.error('[AIAssignStoriesDialog] Raw content:', content)
+          setError('解析AI推荐结果失败,请重试')
         }
-      } catch (parseError) {
-        console.error('[AIAssignStoriesDialog] Failed to parse AI response:', parseError)
-        console.error('[AIAssignStoriesDialog] Raw content:', accumulatedContent)
-        setError('解析AI推荐结果失败，请重试')
-      }
 
-      // 清理监听器
-      unlistenFns.forEach(unlisten => unlisten())
-      setIsAnalyzing(false)
-    })
+        // 清理监听器
+        unlistenFns.forEach(unlisten => unlisten())
+        setIsAnalyzing(false)
+      }
+    )
     unlistenFns.push(unlistenComplete)
 
-    const unlistenError = await listen<{ error: string }>('ai-stream-error', event => {
-      console.error('[AIAssignStoriesDialog] AI stream error:', event.payload)
-      // 直接显示原始错误信息
-      setError(event.payload.error || 'AI分析失败')
-      unlistenFns.forEach(unlisten => unlisten())
-      setIsAnalyzing(false)
-    })
+    const unlistenError = await listen<{ session_id: string; error: string }>(
+      'sprint-assignment-stream-error',
+      event => {
+        console.error('[AIAssignStoriesDialog] AI stream error:', event.payload)
+        // 直接显示原始错误信息
+        setError(event.payload.error || 'AI分析失败')
+        unlistenFns.forEach(unlisten => unlisten())
+        setIsAnalyzing(false)
+      }
+    )
     unlistenFns.push(unlistenError)
 
     // 启动专门的Sprint分配流式请求（后端会自动写入AGENTS.md等文件）
