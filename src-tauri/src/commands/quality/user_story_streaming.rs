@@ -154,15 +154,17 @@ pub async fn decompose_user_stories_streaming(
             Ok(us_content)
         }
         Err(e) => {
+            let error_message = e.to_string();
+            
             // 发送错误事件
             let error_data = crate::ai::StreamError {
                 session_id: session_id.clone(),
-                error: e.to_string(),
+                error: error_message.clone(),
             };
             let _ = app.emit("user-story-stream-error", &error_data);
             
-            log::error!("Streaming user story decomposition failed: {}", e);
-            Err(e.to_string())
+            log::error!("Streaming user story decomposition failed: {}", error_message);
+            Err(error_message)
         }
     }
 }

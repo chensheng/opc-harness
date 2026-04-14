@@ -277,7 +277,7 @@ fn main() {
             commands::quality::rollback_to_version,
             // User Story Decomposition commands (US-XXX)
             commands::quality::decompose_user_stories,
-
+            commands::quality::decompose_user_stories_streaming,
             // Sprint Story Assignment commands
             commands::quality::assign_stories_to_sprint_streaming,
             // User Story Persistence commands

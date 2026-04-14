@@ -51,7 +51,6 @@ pub async fn decompose_user_stories(
 }
 
 /// 分解用户故事(流式版本)
-#[allow(dead_code)]
 #[tauri::command]
 pub async fn decompose_user_stories_streaming(
     request: DecomposeUserStoriesRequest,

@@ -75,6 +75,13 @@ function DecomposeDialog({
   markdownContent,
   error,
 }: DecomposeDialogProps) {
+  // 调试日志：当 error prop 变化时输出
+  React.useEffect(() => {
+    if (error) {
+      console.log('[DecomposeDialog] Error prop received:', error)
+    }
+  }, [error])
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
@@ -416,6 +423,14 @@ export function UserStoryManager({
 
   // 优先使用流式的用户故事，否则使用保存的故事
   const displayError = streamError || _error || undefined
+  
+  // 调试日志：当错误状态变化时输出
+  React.useEffect(() => {
+    if (displayError) {
+      console.log('[UserStoryManager] Display error changed:', displayError)
+    }
+  }, [displayError])
+  
   const displayStories =
     streamUserStories.length > 0
       ? streamUserStories
