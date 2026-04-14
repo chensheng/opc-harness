@@ -177,6 +177,28 @@ export function AIAssignStoriesDialog({
     unlistenFns.push(unlistenError)
 
     // 启动专门的Sprint分配流式请求（后端会自动写入AGENTS.md等文件）
+
+    // 确保所有用户故事都有必需的字段，并进行字段名转换（驼峰 -> 蛇形）
+    const validatedStories = unassignedStories.map(story => ({
+      id: story.id,
+      story_number: story.storyNumber || `US-${story.id.slice(-3)}`,
+      title: story.title,
+      role: story.role,
+      feature: story.feature,
+      benefit: story.benefit,
+      description: story.description || '',
+      acceptance_criteria: story.acceptanceCriteria || [],
+      priority: story.priority,
+      status: story.status,
+      story_points: story.storyPoints,
+      dependencies: story.dependencies || null,
+      feature_module: story.featureModule || null,
+      sprint_id: story.sprintId || null,
+      labels: story.labels || [],
+      created_at: story.createdAt,
+      updated_at: story.updatedAt,
+    }))
+
     await invoke('assign_stories_to_sprint_streaming', {
       request: {
         sprint: {
@@ -188,7 +210,7 @@ export function AIAssignStoriesDialog({
           total_story_points: sprint.totalStoryPoints,
           completed_story_points: sprint.completedStoryPoints,
         },
-        stories: unassignedStories,
+        stories: validatedStories,
         provider: activeConfig!.provider,
         model: activeConfig!.model,
         api_key: activeConfig!.apiKey || '',
