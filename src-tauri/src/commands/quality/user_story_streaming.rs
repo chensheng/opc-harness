@@ -16,75 +16,30 @@ pub async fn decompose_user_stories_streaming(
     log::info!("Starting streaming user story decomposition (provider: {}, model: {})", 
                request.provider, request.model);
     
-    // 1. 如果是 CodeFree，需要写入 AGENTS.md 和 PRD.md 文件
+    // 1. 构建提示词 - 根据提供商类型选择不同的策略
     let user_message = if request.provider == "codefree" {
-        log::info!("[decompose_user_stories_streaming] 🎯 CodeFree provider detected!");
-        
-        if let Some(ref pid) = request.project_id {
-            use crate::utils::paths::get_workspaces_dir;
-            use std::fs;
-            
-            let workspaces_root = get_workspaces_dir();
-            let workspace_path = workspaces_root.join(pid);
-            let context_dir = workspace_path.join(".opc-harness");
-            
-            log::info!("[decompose_user_stories_streaming] 📁 Workspace path: {:?}", workspace_path);
-            log::info!("[decompose_user_stories_streaming] 📁 Context directory: {:?}", context_dir);
-            
-            // 确保 .opc-harness 目录存在
-            fs::create_dir_all(&context_dir).map_err(|e| {
-                log::error!("[decompose_user_stories_streaming] Failed to create context directory: {}", e);
-                format!("Failed to create context directory: {}", e)
-            })?;
-            
-            // 写入 PRD.md
-            let prd_md_path = context_dir.join("PRD.md");
-            fs::write(&prd_md_path, &request.prd_content).map_err(|e| {
-                log::error!("[decompose_user_stories_streaming] Failed to write PRD.md: {}", e);
-                format!("Failed to write PRD.md: {}", e)
-            })?;
-            log::info!("[decompose_user_stories_streaming] ✅ PRD.md written to: {:?}", prd_md_path);
-            
-            // 写入 AGENTS.md 作为系统提示词（使用与其他 AI 厂商统一的提示词）
-            let agents_md_path = context_dir.join("AGENTS.md");
-            
-            // 根据是否有已有用户故事，选择合适的提示词生成函数
-            let agents_content = if let Some(ref existing_stories) = request.existing_stories {
-                log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(existing_stories)
-            } else {
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
-            };
-            
-            fs::write(&agents_md_path, &agents_content).map_err(|e| {
-                log::error!("[decompose_user_stories_streaming] Failed to write AGENTS.md: {}", e);
-                format!("Failed to write AGENTS.md: {}", e)
-            })?;
-            log::info!("[decompose_user_stories_streaming] ✅ AGENTS.md written to: {:?}", agents_md_path);
-            log::info!("[decompose_user_stories_streaming] 📝 AGENTS.md content length: {} bytes", agents_content.len());
-            
-            // 构建简短的用户消息，通过 @ 引用文件
-            // ⚠️ 注意：移除换行符，避免 cmd.exe /c 解析错误
-            format!(
-                "请读取 @.opc-harness/AGENTS.md 了解任务规则，读取 @.opc-harness/PRD.md 获取 PRD 内容，然后将拆分的用户故事结果保存到 @.opc-harness/US.md 文件中。"
-            )
-        } else {
+        // CodeFree 提供商：使用文件引用方式（不嵌入 PRD 内容）
+        if request.project_id.is_none() {
             log::warn!("[decompose_user_stories_streaming] ❌ CodeFree provider requires project_id but got None");
-            // 如果没有 project_id，回退到完整提示词
-            if let Some(ref existing_stories) = request.existing_stories {
-                log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(existing_stories)
-            } else {
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
-            }
+            return Err("CodeFree 提供商需要提供 project_id".to_string());
         }
-    } else {
-        // 非 CodeFree 提供商，使用完整的提示词
+        
         if let Some(ref existing_stories) = request.existing_stories {
             log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
             crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(existing_stories)
         } else {
             crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
+        }
+    } else {
+        // 非 CodeFree 提供商：将 PRD 内容直接嵌入提示词中
+        if let Some(ref existing_stories) = request.existing_stories {
+            log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_embedded_with_existing(
+                &request.prd_content,
+                existing_stories
+            )
+        } else {
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_embedded(&request.prd_content)
         }
     };
     

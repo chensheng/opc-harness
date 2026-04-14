@@ -7,7 +7,7 @@ use chrono::Utc;
 
 /// 使用 AI 进行用户故事拆分
 pub async fn decompose_with_ai(
-    _prd_content: &str, 
+    prd_content: &str, 
     provider: &str, 
     model: &str, 
     api_key: Option<&str>,
@@ -26,12 +26,26 @@ pub async fn decompose_with_ai(
         .or_else(|| std::env::var("GLM_API_KEY").ok())
         .unwrap_or_default(); // 如果都没有，使用空字符串（AI Provider会处理）
     
-    // 根据是否有已有用户故事，选择合适的提示词生成函数
-    let prompt = if let Some(stories) = existing_stories {
-        log::info!("Including {} existing stories to avoid duplication", stories.len());
-        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(stories)
+    // 根据提供商类型和是否有已有用户故事，选择合适的提示词生成函数
+    let prompt = if provider == "codefree" {
+        // CodeFree 提供商：使用文件引用方式
+        if let Some(stories) = existing_stories {
+            log::info!("Including {} existing stories to avoid duplication", stories.len());
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(stories)
+        } else {
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
+        }
     } else {
-        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
+        // 非 CodeFree 提供商：将 PRD 内容直接嵌入提示词中
+        if let Some(stories) = existing_stories {
+            log::info!("Including {} existing stories to avoid duplication", stories.len());
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_embedded_with_existing(
+                prd_content,
+                stories
+            )
+        } else {
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_embedded(prd_content)
+        }
     };
     
     log::info!("Calling AI service for user story decomposition...");
