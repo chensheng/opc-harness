@@ -794,10 +794,10 @@ ${userSuggestionsSection}
                 </CardHeader>
                 <CardContent className="pt-0 px-3 pb-3">
                   <Textarea
-                    placeholder="例如：&#10;- 优先处理与支付功能相关的故事&#10;- 本周专注于前端界面优化&#10;- 避免同时分配多个数据库相关的故事..."
+                    placeholder="例如：优先处理支付功能相关的故事，本周专注于前端界面优化..."
                     value={userSuggestions}
                     onChange={e => setUserSuggestions(e.target.value)}
-                    className="min-h-[100px] text-xs resize-none"
+                    className="min-h-[60px] text-xs resize-none"
                     disabled={isAnalyzing}
                   />
                   <p className="text-[9px] text-muted-foreground mt-1.5">
