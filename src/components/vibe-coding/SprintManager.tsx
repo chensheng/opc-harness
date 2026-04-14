@@ -848,6 +848,7 @@ export function SprintManager() {
           onOpenChange={setShowAIAssignDialog}
           sprint={aiAssigningSprint}
           unassignedStories={availableStories.filter(story => !story.sprintId)}
+          allStories={availableStories}
           onAssign={handleExecuteAIAssign}
         />
       )}

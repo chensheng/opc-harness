@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import React from 'react'
 import {
   Dialog,
   DialogContent,
@@ -23,8 +24,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
-  TrendingUp,
   Lightbulb,
+  Target,
 } from 'lucide-react'
 import type { Sprint, UserStory } from '@/types'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -37,6 +38,7 @@ interface AIAssignStoriesDialogProps {
   onOpenChange: (open: boolean) => void
   sprint: Sprint
   unassignedStories: UserStory[]
+  allStories?: UserStory[] // 所有故事，用于计算已分配故事的统计
   onAssign: (sprintId: string, storyIds: string[]) => Promise<void>
 }
 
@@ -52,6 +54,7 @@ export function AIAssignStoriesDialog({
   onOpenChange,
   sprint,
   unassignedStories,
+  allStories = [],
   onAssign,
 }: AIAssignStoriesDialogProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -659,7 +662,32 @@ ${userSuggestionsSection}
     .filter(story => selectedStoryIds.includes(story.id))
     .reduce((sum, story) => sum + (story.storyPoints || 0), 0)
 
-  const remainingCapacity = (sprint.totalStoryPoints || 0) - (sprint.completedStoryPoints || 0)
+  // 计算已分配的故事统计
+  const assignedStoriesStats = React.useMemo(() => {
+    // 优先使用传入的allStories，否则从unassignedStories推断
+    const stories = allStories.length > 0 ? allStories : unassignedStories
+    
+    // 找出已分配到当前Sprint的故事
+    const assignedStories = stories.filter(story => story.sprintId === sprint.id)
+    
+    const totalPoints = assignedStories.reduce(
+      (sum, story) => sum + (story.storyPoints || 0),
+      0
+    )
+    const completedPoints = assignedStories
+      .filter(story => story.status === 'completed')
+      .reduce((sum, story) => sum + (story.storyPoints || 0), 0)
+    
+    return {
+      totalPoints,
+      completedPoints,
+      totalCount: assignedStories.length,
+      completedCount: assignedStories.filter(story => story.status === 'completed').length,
+    }
+  }, [allStories, unassignedStories, sprint.id])
+
+  // 计算剩余容量（用于警告提示）
+  const remainingCapacity = (sprint.totalStoryPoints || 0) - assignedStoriesStats.completedPoints
 
   // 格式化AI思考过程，增强可读性
   const formatThinkingProcess = (text: string) => {
@@ -695,9 +723,9 @@ ${userSuggestionsSection}
               </div>
             </div>
 
-            {/* Sprint信息 - 紧凑展示 */}
+            {/* Sprint信息 - 详细统计展示 */}
             <div className="flex-shrink-0 bg-muted/30 rounded-lg px-4 py-2.5 border">
-              <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-5 text-xs">
                 <div>
                   <div className="text-[9px] text-muted-foreground font-medium mb-0.5">Sprint</div>
                   <div className="font-semibold text-sm">{sprint.name}</div>
@@ -722,14 +750,27 @@ ${userSuggestionsSection}
                 </div>
                 <div className="w-px h-8 bg-border" />
                 <div>
-                  <div className="text-[9px] text-muted-foreground font-medium mb-0.5 flex items-center gap-1">
-                    <TrendingUp className="w-2.5 h-2.5" />
-                    容量
-                  </div>
+                  <div className="text-[9px] text-muted-foreground font-medium mb-0.5">故事数</div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-sm font-bold text-primary">{remainingCapacity}</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      / {sprint.totalStoryPoints || 0} 点
+                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {assignedStoriesStats.completedCount}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">/</span>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                      {assignedStoriesStats.totalCount}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div>
+                  <div className="text-[9px] text-muted-foreground font-medium mb-0.5">故事点</div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {assignedStoriesStats.completedPoints}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">/</span>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                      {assignedStoriesStats.totalPoints}
                     </span>
                   </div>
                 </div>
@@ -915,7 +956,7 @@ ${userSuggestionsSection}
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Users className="w-4 h-4" />
-                      用户故事列表
+                      待分配用户故事
                       {unassignedStories.length > 0 && (
                         <Badge variant="secondary" className="ml-2">
                           {unassignedStories.length}
