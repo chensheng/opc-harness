@@ -48,6 +48,7 @@ pub fn generate_sprint_assignment_system_prompt() -> String {
 }
 
 /// Sprint分配用户提示词模板（包含Sprint信息、用户故事和用户建议）
+#[cfg(test)]
 pub fn generate_sprint_assignment_user_prompt(
     sprint_name: &str,
     sprint_goal: Option<&str>,

@@ -311,6 +311,7 @@ pub struct AssignStoriesToSprintRequest {
 }
 
 /// Sprint 分配响应
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssignStoriesToSprintResponse {
     /// 是否成功
