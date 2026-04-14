@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Users,
   Calendar,
+  Bot,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -235,6 +236,10 @@ export function CodingWorkspace() {
                 <FileCode className="w-4 h-4" />
                 代码工作区
               </TabsTrigger>
+              <TabsTrigger value="agents" className="flex items-center gap-2 text-sm">
+                <Bot className="w-4 h-4" />
+                智能体管理
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -379,6 +384,11 @@ export function Component() {
             prdContent={project?.prdMarkdown || (project?.prd ? prdToMarkdown(project.prd) : '')}
             onStoriesGenerated={handleStoriesGenerated}
           />
+        </div>
+      ) : workspaceMode === 'agents' ? (
+        /* Agent Management */
+        <div className="flex-1 overflow-auto">
+          <AgentMonitor />
         </div>
       ) : (
         /* Sprint Plan Management */
