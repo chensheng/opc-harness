@@ -120,30 +120,21 @@ r#"# Sprint 信息
             })?;
             log::info!("[assign_stories_to_sprint_streaming] ✅ SPRINT_INFO.md written to: {:?}", sprint_info_md_path);
             
-            // 如果有用户建议，写入 USER_SUGGESTIONS.md
-            if let Some(ref suggestions) = request.user_suggestions {
-                if !suggestions.trim().is_empty() {
-                    let suggestions_md_path = context_dir.join("USER_SUGGESTIONS.md");
-                    fs::write(&suggestions_md_path, suggestions).map_err(|e| {
-                        log::error!("[assign_stories_to_sprint_streaming] Failed to write USER_SUGGESTIONS.md: {}", e);
-                        format!("Failed to write USER_SUGGESTIONS.md: {}", e)
-                    })?;
-                    log::info!("[assign_stories_to_sprint_streaming] ✅ USER_SUGGESTIONS.md written to: {:?}", suggestions_md_path);
-                }
-            }
-            
-            // 构建简短的用户消息，通过 @ 引用文件
+            // 构建简短的用户消息，通过 @ 引用文件，并将用户建议直接放入query中
             let mut message = String::from(
                 "请读取 @.opc-harness/AGENTS.md 了解任务规则，"
             );
             message.push_str("读取 @.opc-harness/US.md 获取未分配的用户故事，");
             message.push_str("读取 @.opc-harness/SPRINT_INFO.md 获取Sprint信息，");
-            
-            if request.user_suggestions.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false) {
-                message.push_str("读取 @.opc-harness/USER_SUGGESTIONS.md 获取用户的特殊要求，");
-            }
-            
             message.push_str("然后将分配结果保存到 @.opc-harness/SPRINT.md 文件中。");
+            
+            // 如果有用户建议，直接追加到消息中
+            if let Some(ref suggestions) = request.user_suggestions {
+                if !suggestions.trim().is_empty() {
+                    message.push_str(" 用户的特殊要求：");
+                    message.push_str(suggestions);
+                }
+            }
             
             // ⚠️ 注意：移除换行符，避免 cmd.exe /c 解析错误
             message.replace('\n', " ").replace('\r', "")

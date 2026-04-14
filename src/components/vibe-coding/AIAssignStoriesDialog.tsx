@@ -100,91 +100,185 @@ export function AIAssignStoriesDialog({
     setAiThinkingProcess('')
 
     try {
-      // 构建Prompt（包含用户建议）
-      const prompt = buildAnalysisPrompt(sprint, unassignedStories, userSuggestions)
-
-      // 调用AI流式接口
-      const messages = [
-        {
-          role: 'system' as const,
-          content:
-            '你是一个专业的敏捷开发教练，擅长Sprint规划和用户故事优先级排序。请分析给定的Sprint信息和未分配的用户故事，推荐最适合分配到该Sprint的故事。',
-        },
-        {
-          role: 'user' as const,
-          content: prompt,
-        },
-      ]
-
-      let accumulatedContent = ''
-      const unlistenFns: UnlistenFn[] = []
-
-      // 监听流式数据 - 实时更新思考过程
-      const unlistenChunk = await listen<{ content: string }>('ai-stream-chunk', event => {
-        accumulatedContent += event.payload.content
-        // 实时更新AI思考过程（去除JSON代码块标记）
-        const displayContent = accumulatedContent
-          .replace(/```json\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim()
-        setAiThinkingProcess(displayContent)
-      })
-      unlistenFns.push(unlistenChunk)
-
-      const unlistenComplete = await listen('ai-stream-complete', () => {
-        // 解析AI返回的JSON
-        try {
-          // 尝试从Markdown中提取JSON
-          const jsonMatch = accumulatedContent.match(/```json\n([\s\S]*?)\n```/)
-          const jsonString = jsonMatch ? jsonMatch[1] : accumulatedContent
-
-          const result = JSON.parse(jsonString)
-
-          if (result.recommendations && Array.isArray(result.recommendations)) {
-            setRecommendations(result.recommendations)
-            // 默认选中所有推荐的故事
-            setSelectedStoryIds(result.recommendations.map((r: AIRecommendation) => r.storyId))
-          } else {
-            setError('AI返回的数据格式不正确')
-          }
-        } catch (parseError) {
-          console.error('[AIAssignStoriesDialog] Failed to parse AI response:', parseError)
-          console.error('[AIAssignStoriesDialog] Raw content:', accumulatedContent)
-          setError('解析AI推荐结果失败，请重试')
-        }
-
-        // 清理监听器
-        unlistenFns.forEach(unlisten => unlisten())
-        setIsAnalyzing(false)
-      })
-      unlistenFns.push(unlistenComplete)
-
-      const unlistenError = await listen<{ error: string }>('ai-stream-error', event => {
-        console.error('[AIAssignStoriesDialog] AI stream error:', event.payload)
-        // 直接显示原始错误信息
-        setError(event.payload.error || 'AI分析失败')
-        unlistenFns.forEach(unlisten => unlisten())
-        setIsAnalyzing(false)
-      })
-      unlistenFns.push(unlistenError)
-
-      // 启动流式请求
-      await invoke('stream_chat', {
-        request: {
-          provider: activeConfig.provider,
-          model: activeConfig.model,
-          api_key: activeConfig.apiKey,
-          messages,
-          temperature: 0.7,
-          max_tokens: 4000,
-        },
-      })
+      // CodeFree 模式特殊处理
+      if (activeConfig.provider === 'codefree') {
+        await handleCodeFreeAnalysis()
+      } else {
+        // 其他 AI 提供商的标准处理流程
+        await handleStandardAIAnalysis()
+      }
     } catch (err) {
       console.error('[AIAssignStoriesDialog] AI analysis error:', err)
       // 直接显示原始错误信息
       setError(err instanceof Error ? err.message : String(err))
       setIsAnalyzing(false)
     }
+  }
+
+  // CodeFree 模式的AI分析处理
+  const handleCodeFreeAnalysis = async () => {
+    // 获取当前项目ID
+    const { useProjectStore } = await import('@/stores/projectStore')
+    const currentProjectId = useProjectStore.getState().currentProjectId
+
+    if (!currentProjectId) {
+      throw new Error('未找到项目ID，CodeFree模式需要项目上下文')
+    }
+
+    console.log('[AIAssignStoriesDialog] 🎯 Starting CodeFree analysis mode')
+
+    let accumulatedContent = ''
+    const unlistenFns: UnlistenFn[] = []
+
+    // 监听流式数据 - 实时更新思考过程
+    const unlistenChunk = await listen<{ content: string }>('ai-stream-chunk', event => {
+      accumulatedContent += event.payload.content
+      // 实时更新AI思考过程（去除Markdown代码块标记）
+      const displayContent = accumulatedContent
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim()
+      setAiThinkingProcess(displayContent)
+    })
+    unlistenFns.push(unlistenChunk)
+
+    const unlistenComplete = await listen('ai-stream-complete', () => {
+      console.log('[AIAssignStoriesDialog] ✅ CodeFree analysis complete')
+      // 解析AI返回的Markdown表格
+      try {
+        const recommendations = parseMarkdownTable(accumulatedContent)
+
+        if (recommendations && recommendations.length > 0) {
+          setRecommendations(recommendations)
+          // 默认选中所有推荐的故事
+          setSelectedStoryIds(recommendations.map((r: AIRecommendation) => r.storyId))
+        } else {
+          setError('AI返回的数据格式不正确')
+        }
+      } catch (parseError) {
+        console.error('[AIAssignStoriesDialog] Failed to parse AI response:', parseError)
+        console.error('[AIAssignStoriesDialog] Raw content:', accumulatedContent)
+        setError('解析AI推荐结果失败，请重试')
+      }
+
+      // 清理监听器
+      unlistenFns.forEach(unlisten => unlisten())
+      setIsAnalyzing(false)
+    })
+    unlistenFns.push(unlistenComplete)
+
+    const unlistenError = await listen<{ error: string }>('ai-stream-error', event => {
+      console.error('[AIAssignStoriesDialog] AI stream error:', event.payload)
+      // 直接显示原始错误信息
+      setError(event.payload.error || 'AI分析失败')
+      unlistenFns.forEach(unlisten => unlisten())
+      setIsAnalyzing(false)
+    })
+    unlistenFns.push(unlistenError)
+
+    // 启动专门的Sprint分配流式请求（后端会自动写入AGENTS.md等文件）
+    await invoke('assign_stories_to_sprint_streaming', {
+      request: {
+        sprint: {
+          id: sprint.id,
+          name: sprint.name,
+          goal: sprint.goal,
+          start_date: sprint.startDate,
+          end_date: sprint.endDate,
+          total_story_points: sprint.totalStoryPoints,
+          completed_story_points: sprint.completedStoryPoints,
+        },
+        stories: unassignedStories,
+        provider: activeConfig!.provider,
+        model: activeConfig!.model,
+        api_key: activeConfig!.apiKey || '',
+        project_id: currentProjectId,
+        user_suggestions: userSuggestions.trim() || undefined,
+      },
+    })
+  }
+
+  // 标准AI分析处理（原有逻辑）
+  const handleStandardAIAnalysis = async () => {
+    // 构建Prompt（包含用户建议）
+    const prompt = buildAnalysisPrompt(sprint, unassignedStories, userSuggestions)
+
+    // 调用AI流式接口
+    const messages = [
+      {
+        role: 'system' as const,
+        content:
+          '你是一个专业的敏捷开发教练，擅长Sprint规划和用户故事优先级排序。请分析给定的Sprint信息和未分配的用户故事，推荐最适合分配到该Sprint的故事。',
+      },
+      {
+        role: 'user' as const,
+        content: prompt,
+      },
+    ]
+
+    let accumulatedContent = ''
+    const unlistenFns: UnlistenFn[] = []
+
+    // 监听流式数据 - 实时更新思考过程
+    const unlistenChunk = await listen<{ content: string }>('ai-stream-chunk', event => {
+      accumulatedContent += event.payload.content
+      // 实时更新AI思考过程（去除JSON代码块标记）
+      const displayContent = accumulatedContent
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim()
+      setAiThinkingProcess(displayContent)
+    })
+    unlistenFns.push(unlistenChunk)
+
+    const unlistenComplete = await listen('ai-stream-complete', () => {
+      // 解析AI返回的JSON
+      try {
+        // 尝试从Markdown中提取JSON
+        const jsonMatch = accumulatedContent.match(/```json\n([\s\S]*?)\n```/)
+        const jsonString = jsonMatch ? jsonMatch[1] : accumulatedContent
+
+        const result = JSON.parse(jsonString)
+
+        if (result.recommendations && Array.isArray(result.recommendations)) {
+          setRecommendations(result.recommendations)
+          // 默认选中所有推荐的故事
+          setSelectedStoryIds(result.recommendations.map((r: AIRecommendation) => r.storyId))
+        } else {
+          setError('AI返回的数据格式不正确')
+        }
+      } catch (parseError) {
+        console.error('[AIAssignStoriesDialog] Failed to parse AI response:', parseError)
+        console.error('[AIAssignStoriesDialog] Raw content:', accumulatedContent)
+        setError('解析AI推荐结果失败，请重试')
+      }
+
+      // 清理监听器
+      unlistenFns.forEach(unlisten => unlisten())
+      setIsAnalyzing(false)
+    })
+    unlistenFns.push(unlistenComplete)
+
+    const unlistenError = await listen<{ error: string }>('ai-stream-error', event => {
+      console.error('[AIAssignStoriesDialog] AI stream error:', event.payload)
+      // 直接显示原始错误信息
+      setError(event.payload.error || 'AI分析失败')
+      unlistenFns.forEach(unlisten => unlisten())
+      setIsAnalyzing(false)
+    })
+    unlistenFns.push(unlistenError)
+
+    // 启动流式请求
+    await invoke('stream_chat', {
+      request: {
+        provider: activeConfig!.provider,
+        model: activeConfig!.model,
+        api_key: activeConfig!.apiKey,
+        messages,
+        temperature: 0.7,
+        max_tokens: 4000,
+      },
+    })
   }
 
   // 格式化错误信息，使其更易读（已废弃，保留供参考）
@@ -272,6 +366,101 @@ export function AIAssignStoriesDialog({
 
     // 默认返回原始错误，但添加前缀
     return `❌ AI分析失败\n\n${error}`
+  }
+
+  // 解析Markdown表格为AIRecommendation数组
+  const parseMarkdownTable = (markdown: string): AIRecommendation[] | null => {
+    try {
+      console.log('[AIAssignStoriesDialog] Parsing markdown table:', markdown.substring(0, 200))
+
+      // 提取表格内容（去除表头和分隔线）
+      const lines = markdown.split('\n')
+      const tableRows: string[] = []
+      let inTable = false
+
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+
+        // 检测表格开始（以 | 开头的行）
+        if (trimmedLine.startsWith('|') && !inTable) {
+          inTable = true
+          continue // 跳过表头
+        }
+
+        // 跳过分隔线（包含 --- 的行）
+        if (inTable && trimmedLine.includes('---')) {
+          continue
+        }
+
+        // 收集表格数据行
+        if (inTable && trimmedLine.startsWith('|')) {
+          tableRows.push(trimmedLine)
+        }
+
+        // 遇到空行或新段落，结束表格
+        if (inTable && trimmedLine === '') {
+          break
+        }
+      }
+
+      if (tableRows.length === 0) {
+        console.warn('[AIAssignStoriesDialog] No table rows found')
+        return null
+      }
+
+      console.log(`[AIAssignStoriesDialog] Found ${tableRows.length} table rows`)
+
+      // 解析每一行
+      const recommendations: AIRecommendation[] = []
+
+      for (const row of tableRows) {
+        // 移除首尾的 | 并分割
+        const cells = row
+          .replace(/^\|/, '')
+          .replace(/\|$/, '')
+          .split('|')
+          .map(cell => cell.trim())
+
+        if (cells.length < 3) {
+          console.warn('[AIAssignStoriesDialog] Row has insufficient cells:', cells)
+          continue
+        }
+
+        // 提取故事ID（可能在第一列或第二列）
+        const storyIdCell = cells[0] || ''
+        const reasonCell = cells[1] || ''
+        const confidenceCell = cells[2] || ''
+
+        // 尝试从单元格中提取故事ID（格式如 US-001）
+        const storyIdMatch = storyIdCell.match(/(US-\d+)/i) || reasonCell.match(/(US-\d+)/i)
+
+        if (!storyIdMatch) {
+          console.warn('[AIAssignStoriesDialog] Could not extract story ID from:', cells)
+          continue
+        }
+
+        const storyId = storyIdMatch[1]
+
+        // 提取置信度（数字）
+        const confidenceMatch = confidenceCell.match(/(\d+)/)
+        const confidence = confidenceMatch ? parseInt(confidenceMatch[1], 10) : 50
+
+        // 使用推荐理由，如果没有则使用默认文本
+        const reason = reasonCell || 'AI推荐'
+
+        recommendations.push({
+          storyId,
+          reason,
+          confidence: Math.min(100, Math.max(0, confidence)), // 确保在0-100范围内
+        })
+      }
+
+      console.log(`[AIAssignStoriesDialog] Parsed ${recommendations.length} recommendations`)
+      return recommendations.length > 0 ? recommendations : null
+    } catch (error) {
+      console.error('[AIAssignStoriesDialog] Failed to parse markdown table:', error)
+      return null
+    }
   }
 
   // 构建分析Prompt
