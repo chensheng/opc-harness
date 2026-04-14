@@ -59,7 +59,7 @@ export function CodingWorkspace() {
   const [cliInput, setCliInput] = useState('')
   const [isRunning, setIsRunning] = useState(false)
   const [activeTab, setActiveTab] = useState('code')
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('coding')
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('sprints')
   const outputEndRef = useRef<HTMLDivElement>(null)
 
   // 如果没有 projectId，重定向到最近的项目
@@ -223,17 +223,17 @@ export function CodingWorkspace() {
             className="w-auto"
           >
             <TabsList className="h-9">
-              <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
-                <FileCode className="w-4 h-4" />
-                代码工作区
+              <TabsTrigger value="sprints" className="flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4" />
+                Sprint计划
               </TabsTrigger>
               <TabsTrigger value="stories" className="flex items-center gap-2 text-sm">
                 <Users className="w-4 h-4" />
                 用户故事
               </TabsTrigger>
-              <TabsTrigger value="sprints" className="flex items-center gap-2 text-sm">
-                <Calendar className="w-4 h-4" />
-                Sprint计划
+              <TabsTrigger value="coding" className="flex items-center gap-2 text-sm">
+                <FileCode className="w-4 h-4" />
+                代码工作区
               </TabsTrigger>
             </TabsList>
           </Tabs>
