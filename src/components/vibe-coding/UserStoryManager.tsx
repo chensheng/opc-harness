@@ -451,10 +451,7 @@ export function UserStoryManager({
       )
     }
 
-    // 隐藏对话框
-    setShowDecomposeDialog(false)
-
-    // 开始流式拆分，并在完成后自动保存
+    // 开始流式拆分（不立即关闭对话框，等待结果）
     await startStream(
       {
         prdContent: fullContent,
@@ -469,8 +466,13 @@ export function UserStoryManager({
         if (onStoriesGenerated) {
           onStoriesGenerated(stories)
         }
+        
+        // 成功后关闭对话框
+        setShowDecomposeDialog(false)
       }
     )
+    
+    // 如果发生错误，streamError 会被设置，对话框保持打开状态让用户看到错误
   }
 
   const _handleReset = () => {
