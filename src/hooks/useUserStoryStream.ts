@@ -245,7 +245,7 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
             setIsComplete(false)
 
             console.log('[useUserStoryStream] Error state set, streaming stopped')
-            
+
             cleanup()
           }
         )
@@ -265,14 +265,17 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
 
         // 响应已在事件中处理
       } catch (err) {
-        console.log('[useUserStoryStream] Catch block entered, errorHandledByEvent:', errorHandledByEvent)
+        console.log(
+          '[useUserStoryStream] Catch block entered, errorHandledByEvent:',
+          errorHandledByEvent
+        )
         console.log('[useUserStoryStream] Raw error:', err)
-        
+
         // 只有在错误事件未处理时才使用 invoke 返回的错误
         if (!errorHandledByEvent) {
           // 提取错误信息：优先使用 err.message，其次是 err 本身（如果是字符串），最后是默认消息
           let errorMessage = '流式请求失败'
-          
+
           if (err instanceof Error) {
             errorMessage = err.message
           } else if (typeof err === 'string') {
@@ -280,7 +283,7 @@ export function useUserStoryStream(): UseUserStoryStreamReturn {
           } else if (err && typeof err === 'object' && 'message' in err) {
             errorMessage = String(err.message)
           }
-          
+
           console.log('[useUserStoryStream] Setting error from catch block:', errorMessage)
           setError(errorMessage)
           setIsStreaming(false)

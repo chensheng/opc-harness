@@ -81,7 +81,7 @@ function DecomposeDialog({
       console.log('[DecomposeDialog] Error prop received:', error)
     }
   }, [error])
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
@@ -423,14 +423,14 @@ export function UserStoryManager({
 
   // 优先使用流式的用户故事，否则使用保存的故事
   const displayError = streamError || _error || undefined
-  
+
   // 调试日志：当错误状态变化时输出
   React.useEffect(() => {
     if (displayError) {
       console.log('[UserStoryManager] Display error changed:', displayError)
     }
   }, [displayError])
-  
+
   const displayStories =
     streamUserStories.length > 0
       ? streamUserStories
@@ -481,12 +481,12 @@ export function UserStoryManager({
         if (onStoriesGenerated) {
           onStoriesGenerated(stories)
         }
-        
+
         // 成功后关闭对话框
         setShowDecomposeDialog(false)
       }
     )
-    
+
     // 如果发生错误，streamError 会被设置，对话框保持打开状态让用户看到错误
   }
 
