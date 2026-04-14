@@ -12,11 +12,13 @@ import {
   FileText,
   Terminal,
   GitBranch,
+  Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { AgentInfo } from './CodingWorkspaceTypes'
+import { CreateAgentDialog } from './CreateAgentDialog'
 
 export function AgentMonitor() {
   const [agents, setAgents] = useState<AgentInfo[]>([
@@ -67,6 +69,7 @@ export function AgentMonitor() {
   ])
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [isAutoScroll, setIsAutoScroll] = useState(true)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   // Mock real-time updates
   useEffect(() => {
@@ -105,6 +108,24 @@ export function AgentMonitor() {
         a.agentId === agentId ? { ...a, status: 'stopped', progress: 0, cpuUsage: 0 } : a
       )
     )
+  }
+
+  const handleAgentCreated = (agentId: string) => {
+    // 创建成功后，添加一个新的占位智能体到列表中
+    const newAgent: AgentInfo = {
+      agentId,
+      type: 'coding', // 默认类型，实际应该从对话框获取
+      status: 'idle',
+      currentTask: '等待启动',
+      progress: 0,
+      cpuUsage: 0,
+      memoryUsage: 0,
+      logs: ['智能体已创建'],
+      sessionId: `session-${Date.now()}`,
+    }
+
+    setAgents(prev => [...prev, newAgent])
+    console.log('智能体创建成功:', agentId)
   }
 
   const getStatusColor = (status: AgentInfo['status']) => {
@@ -177,6 +198,10 @@ export function AgentMonitor() {
           <Button>
             <RefreshCw className="w-4 h-4 mr-2" />
             刷新状态
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            创建 Agent
           </Button>
         </div>
       </div>
@@ -397,6 +422,13 @@ export function AgentMonitor() {
           </Card>
         </div>
       )}
+
+      {/* Create Agent Dialog */}
+      <CreateAgentDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSuccess={handleAgentCreated}
+      />
     </div>
   )
 }
