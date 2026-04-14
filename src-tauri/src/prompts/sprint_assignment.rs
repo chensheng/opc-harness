@@ -24,25 +24,23 @@ pub fn generate_sprint_assignment_system_prompt() -> String {
 | 故事ID | 推荐理由 | 置信度 |
 |--------|----------|--------|
 | US-001 | 这是P0优先级故事，与Sprint目标"提升用户体验"高度匹配，且无外部依赖，可以快速完成 | 95 |
-| US-003 | 虽然优先级为P1，但故事点较小(3点)，可以在剩余容量内完成，符合用户建议的"优先处理小功能" | 85 |
+| US-003 | 虽然优先级为P1，但故事点较小(3点)，可以快速完成，符合用户建议的"优先处理小功能" | 85 |
 | US-005 | 该故事与US-001有技术协同效应，可以复用部分代码，提高开发效率 | 80 |
 
 ---
 
 ## 考虑因素
 1. **优先级**：P0 > P1 > P2 > P3
-2. **Sprint剩余容量**：不要超出容量限制
-3. **故事之间的依赖关系**：优先推荐低依赖或依赖已满足的故事
-4. **业务价值和Sprint目标的匹配度**：优先推荐与Sprint目标高度相关的故事
-5. **技术实现的可行性**：考虑技术复杂度和风险
-6. **用户的特殊建议和约束**：严格遵循用户提出的任何特殊要求
+2. **故事之间的依赖关系**：优先推荐低依赖或依赖已满足的故事
+3. **业务价值和Sprint目标的匹配度**：优先推荐与Sprint目标高度相关的故事
+4. **技术实现的可行性**：考虑技术复杂度和风险
+5. **用户的特殊建议和约束**：严格遵循用户提出的任何特殊要求
 
 ## 重要提示
 - 只返回Markdown表格，不要有其他多余内容
 - 推荐理由要具体、有说服力
 - 置信度反映你对推荐的确定程度
 - 优先推荐高优先级、高价值、低依赖的故事
-- 确保推荐的故事总故事点不超过Sprint剩余容量
 - 严格遵循用户提出的任何特殊要求或约束
 "#.to_string()
 }
@@ -56,7 +54,7 @@ pub fn generate_sprint_assignment_user_prompt(
     end_date: &str,
     total_points: u32,
     completed_points: u32,
-    remaining_points: u32,
+    _remaining_points: u32,
     stories_info: &str,
     user_suggestions: Option<&str>,
 ) -> String {
@@ -70,7 +68,6 @@ r#"# Sprint信息
 - **时间范围**：{start_date} 至 {end_date}
 - **当前容量**：{total_points} 故事点
 - **已完成**：{completed_points} 故事点
-- **剩余容量**：{remaining_points} 故事点
 
 # 未分配的用户故事列表
 
@@ -138,5 +135,7 @@ mod tests {
         assert!(prompt.contains("实现核心功能"));
         assert!(prompt.contains("US-001"));
         assert!(prompt.contains("优先处理认证相关功能"));
+        // Ensure remaining capacity info is removed
+        assert!(!prompt.contains("剩余容量"));
     }
 }

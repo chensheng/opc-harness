@@ -1,4 +1,4 @@
-// Sprint 用户故事分配流式处理模块
+﻿// Sprint 用户故事分配流式处理模块
 // 负责流式分析并推荐最适合分配到指定Sprint的用户故事
 
 use crate::commands::quality::types::{AssignStoriesToSprintRequest, UserStory};
@@ -92,7 +92,6 @@ pub async fn assign_stories_to_sprint_streaming(
             
             // 写入 SPRINT_INFO.md（Sprint信息）
             let sprint_info_md_path = context_dir.join("SPRINT_INFO.md");
-            let remaining_points = request.sprint.total_story_points - request.sprint.completed_story_points;
             let goal_text = request.sprint.goal.as_deref().unwrap_or("未设置");
             
             let sprint_info_content = format!(
@@ -103,7 +102,6 @@ r#"# Sprint 信息
 - **时间范围**：{start_date} 至 {end_date}
 - **当前容量**：{total_points} 故事点
 - **已完成**：{completed_points} 故事点
-- **剩余容量**：{remaining_points} 故事点
 "#,
                 name = request.sprint.name,
                 goal = goal_text,
@@ -111,7 +109,6 @@ r#"# Sprint 信息
                 end_date = request.sprint.end_date,
                 total_points = request.sprint.total_story_points,
                 completed_points = request.sprint.completed_story_points,
-                remaining_points = remaining_points,
             );
             
             fs::write(&sprint_info_md_path, &sprint_info_content).map_err(|e| {
@@ -274,7 +271,6 @@ r#"# Sprint 信息
 
 /// 生成完整的提示词（用于非CodeFree模式或CodeFree无project_id时的fallback）
 fn generate_full_prompt(request: &AssignStoriesToSprintRequest) -> String {
-    let remaining_points = request.sprint.total_story_points - request.sprint.completed_story_points;
     let goal_text = request.sprint.goal.as_deref().unwrap_or("未设置");
     
     let sprint_info = format!(
@@ -284,7 +280,6 @@ r#"Sprint信息：
 - 时间范围：{start_date} 至 {end_date}
 - 当前容量：{total_points} 故事点
 - 已完成：{completed_points} 故事点
-- 剩余容量：{remaining_points} 故事点
 "#,
         name = request.sprint.name,
         goal = goal_text,
@@ -292,7 +287,6 @@ r#"Sprint信息：
         end_date = request.sprint.end_date,
         total_points = request.sprint.total_story_points,
         completed_points = request.sprint.completed_story_points,
-        remaining_points = remaining_points,
     );
     
     let stories_info = format_unassigned_stories(&request.stories);
