@@ -10,7 +10,7 @@ const USER_STORY_DECOMPOSITION_TEMPLATE: &str = r#"# 系统指令
 你是一位经验丰富的敏捷开发专家和产品经理，擅长将产品需求拆分为符合 INVEST 原则的用户故事。
 
 ## 任务
-请分析以下 PRD（产品需求文档），将其拆分为符合 INVEST 原则的用户故事列表。
+请读取 @.opc-harness/PRD.md 获取 PRD 内容，将其拆分为符合 INVEST 原则的用户故事列表。
 
 ## ⚠️ 输出格式要求（非常重要）
 **你必须以 Markdown 表格格式输出用户故事，不要输出 JSON！**
@@ -38,10 +38,10 @@ const USER_STORY_DECOMPOSITION_TEMPLATE: &str = r#"# 系统指令
 ---
 
 ## PRD 内容
-{prd_content}
+请读取 @.opc-harness/PRD.md 文件获取完整的 PRD 内容。
 
 **重要提示**: 
-- 如果上述 PRD 内容非常长,请重点关注其中的**核心功能需求**和**用户场景**
+- 如果 PRD 内容非常长,请重点关注其中的**核心功能需求**和**用户场景**
 - 忽略技术实现细节、UI设计描述等非功能性内容
 - 只提取需要拆分为用户故事的业务需求部分
 
@@ -96,29 +96,24 @@ const USER_STORY_DECOMPOSITION_TEMPLATE: &str = r#"# 系统指令
 5. 没有依赖时填写"无"
 6. 故事编号从 US-001 开始连续编号
 
-**现在，请分析上述 PRD，以 Markdown 表格格式输出用户故事列表：**"#;
+**现在，请读取 @.opc-harness/PRD.md，以 Markdown 表格格式输出用户故事列表：**"#;
 
 /// 生成用户故事拆分提示词（基础版）
 /// 
-/// # Arguments
-/// * `prd_content` - PRD 内容或产品需求描述
-/// 
 /// # Returns
 /// 返回完整的提示词字符串
-pub fn generate_user_story_decomposition_prompt(prd_content: &str) -> String {
-    USER_STORY_DECOMPOSITION_TEMPLATE.replace("{prd_content}", prd_content)
+pub fn generate_user_story_decomposition_prompt() -> String {
+    USER_STORY_DECOMPOSITION_TEMPLATE.to_string()
 }
 
 /// 生成用户故事拆分提示词（包含已有故事信息，避免重复）
 /// 
 /// # Arguments
-/// * `prd_content` - PRD 内容或产品需求描述
 /// * `existing_stories` - 已有的用户故事列表（用于避免重复生成）
 /// 
 /// # Returns
 /// 返回完整的提示词字符串
 pub fn generate_user_story_decomposition_prompt_with_existing(
-    prd_content: &str,
     existing_stories: &[ExistingStoryInfo],
 ) -> String {
     // 构建已有故事的文本描述
@@ -148,7 +143,7 @@ pub fn generate_user_story_decomposition_prompt_with_existing(
     };
     
     // 在基础模板的基础上，添加已有故事的信息
-    let base_prompt = USER_STORY_DECOMPOSITION_TEMPLATE.replace("{prd_content}", prd_content);
+    let base_prompt = USER_STORY_DECOMPOSITION_TEMPLATE.to_string();
     
     // 在"PRD 内容"之后插入已有故事信息
     let insert_marker = "---\n\n## INVEST 原则说明";
@@ -166,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_template_contains_required_sections() {
-        let prompt = generate_user_story_decomposition_prompt("Test PRD");
+        let prompt = generate_user_story_decomposition_prompt();
         
         assert!(prompt.contains("INVEST"));
         assert!(prompt.contains("As a"));
@@ -176,7 +171,7 @@ mod tests {
         assert!(prompt.contains("验收标准"));
         assert!(prompt.contains("故事点"));
         assert!(prompt.contains("| 序号 |"));
-        assert!(prompt.contains("Test PRD"));
+        assert!(prompt.contains("@.opc-harness/PRD.md"));
     }
 
     #[test]
@@ -187,16 +182,14 @@ mod tests {
 
     #[test]
     fn test_prompt_generation() {
-        let prd = "# 任务管理系统\n这是一个简单的任务管理应用。";
-        let prompt = generate_user_story_decomposition_prompt(prd);
+        let prompt = generate_user_story_decomposition_prompt();
         
-        assert!(prompt.contains(prd));
-        assert!(prompt.contains("任务管理系统"));
+        assert!(prompt.contains("@.opc-harness/PRD.md"));
+        assert!(prompt.contains("任务")); // From template context or general expectation if specific PRD content was removed
     }
     
     #[test]
     fn test_prompt_with_existing_stories() {
-        let prd = "# 任务管理系统\n这是一个简单的任务管理应用。";
         let existing_stories = vec![
             ExistingStoryInfo {
                 title: "用户注册".to_string(),
@@ -211,7 +204,6 @@ mod tests {
         ];
         
         let prompt = generate_user_story_decomposition_prompt_with_existing(
-            prd,
             &existing_stories
         );
         
@@ -221,21 +213,17 @@ mod tests {
         assert!(prompt.contains("创建任务"));
         assert!(prompt.contains("不要重复生成类似的故事"));
         assert!(prompt.contains("PRD 内容"));
-        assert!(prompt.contains("任务管理系统"));
     }
     
     #[test]
     fn test_prompt_with_empty_existing_stories() {
-        let prd = "# 任务管理系统";
         let existing_stories: Vec<ExistingStoryInfo> = vec![];
         
         let prompt = generate_user_story_decomposition_prompt_with_existing(
-            prd,
             &existing_stories
         );
         
         // 验证提示词包含空故事的提示
         assert!(prompt.contains("当前没有已有的用户故事"));
-        assert!(prompt.contains("任务管理系统"));
     }
 }

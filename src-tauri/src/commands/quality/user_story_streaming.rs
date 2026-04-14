@@ -51,12 +51,9 @@ pub async fn decompose_user_stories_streaming(
             // 根据是否有已有用户故事，选择合适的提示词生成函数
             let agents_content = if let Some(ref existing_stories) = request.existing_stories {
                 log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(
-                    &request.prd_content,
-                    existing_stories
-                )
+                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(existing_stories)
             } else {
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt(&request.prd_content)
+                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
             };
             
             fs::write(&agents_md_path, &agents_content).map_err(|e| {
@@ -76,24 +73,18 @@ pub async fn decompose_user_stories_streaming(
             // 如果没有 project_id，回退到完整提示词
             if let Some(ref existing_stories) = request.existing_stories {
                 log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(
-                    &request.prd_content,
-                    existing_stories
-                )
+                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(existing_stories)
             } else {
-                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt(&request.prd_content)
+                crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
             }
         }
     } else {
         // 非 CodeFree 提供商，使用完整的提示词
         if let Some(ref existing_stories) = request.existing_stories {
             log::info!("[decompose_user_stories_streaming] 📋 Including {} existing stories to avoid duplication", existing_stories.len());
-            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(
-                &request.prd_content,
-                existing_stories
-            )
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(existing_stories)
         } else {
-            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt(&request.prd_content)
+            crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
         }
     };
     

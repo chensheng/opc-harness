@@ -24,9 +24,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
-  TrendingUp,
   Lightbulb,
-  Target,
 } from 'lucide-react'
 import type { Sprint, UserStory } from '@/types'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -139,15 +137,18 @@ export function AIAssignStoriesDialog({
     const unlistenFns: UnlistenFn[] = []
 
     // 监听 Sprint 分配流式数据 - 实时更新思考过程
-    const unlistenChunk = await listen<{ content: string }>('sprint-assignment-stream-chunk', event => {
-      accumulatedContent += event.payload.content
-      // 实时更新AI思考过程(去除Markdown代码块标记)
-      const displayContent = accumulatedContent
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim()
-      setAiThinkingProcess(displayContent)
-    })
+    const unlistenChunk = await listen<{ content: string }>(
+      'sprint-assignment-stream-chunk',
+      event => {
+        accumulatedContent += event.payload.content
+        // 实时更新AI思考过程(去除Markdown代码块标记)
+        const displayContent = accumulatedContent
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim()
+        setAiThinkingProcess(displayContent)
+      }
+    )
     unlistenFns.push(unlistenChunk)
 
     const unlistenComplete = await listen<{ session_id: string; content: string }>(
@@ -155,7 +156,7 @@ export function AIAssignStoriesDialog({
       event => {
         console.log('[AIAssignStoriesDialog] ✅ CodeFree analysis complete')
         const { content } = event.payload
-        
+
         // 解析AI返回的Markdown表格
         try {
           const recommendations = parseMarkdownTable(content)
@@ -164,11 +165,9 @@ export function AIAssignStoriesDialog({
             setRecommendations(recommendations)
             // 通过storyNumber匹配故事ID，然后自动选中所有推荐的故事
             const recommendedStoryIds = unassignedStories
-              .filter(story => 
-                recommendations.some(rec => rec.storyNumber === story.storyNumber)
-              )
+              .filter(story => recommendations.some(rec => rec.storyNumber === story.storyNumber))
               .map(story => story.id)
-            
+
             console.log('[AIAssignStoriesDialog] Auto-selecting stories:', recommendedStoryIds)
             setSelectedStoryIds(recommendedStoryIds)
           } else {
@@ -280,16 +279,14 @@ export function AIAssignStoriesDialog({
       // 解析AI返回的Markdown表格
       try {
         const recommendations = parseMarkdownTable(accumulatedContent)
-        
+
         if (recommendations && recommendations.length > 0) {
           setRecommendations(recommendations)
           // 通过storyNumber匹配故事ID，然后自动选中所有推荐的故事
           const recommendedStoryIds = unassignedStories
-            .filter(story => 
-              recommendations.some(rec => rec.storyNumber === story.storyNumber)
-            )
+            .filter(story => recommendations.some(rec => rec.storyNumber === story.storyNumber))
             .map(story => story.id)
-          
+
           console.log('[AIAssignStoriesDialog] Auto-selecting stories:', recommendedStoryIds)
           setSelectedStoryIds(recommendedStoryIds)
         } else {
@@ -481,7 +478,7 @@ export function AIAssignStoriesDialog({
 
         // 尝试从单元格中提取故事编号（格式如 US-001）
         const storyNumberMatch = storyNumberCell.match(/(US-\d+)/i)
-        
+
         if (!storyNumberMatch) {
           console.warn('[AIAssignStoriesDialog] Could not extract story number from:', cells)
           continue
@@ -601,11 +598,9 @@ ${userSuggestionsSection}
   const selectAllRecommended = () => {
     // 通过storyNumber匹配故事ID
     const recommendedStoryIds = unassignedStories
-      .filter(story => 
-        recommendations.some(rec => rec.storyNumber === story.storyNumber)
-      )
+      .filter(story => recommendations.some(rec => rec.storyNumber === story.storyNumber))
       .map(story => story.id)
-    
+
     setSelectedStoryIds(recommendedStoryIds)
   }
 
@@ -657,7 +652,7 @@ ${userSuggestionsSection}
     // 通过storyId找到对应的story,然后通过storyNumber匹配recommendation
     const story = unassignedStories.find(s => s.id === storyId)
     if (!story) return undefined
-    
+
     return recommendations.find(r => r.storyNumber === story.storyNumber)
   }
 
@@ -670,18 +665,15 @@ ${userSuggestionsSection}
   const assignedStoriesStats = React.useMemo(() => {
     // 优先使用传入的allStories，否则从unassignedStories推断
     const stories = allStories.length > 0 ? allStories : unassignedStories
-    
+
     // 找出已分配到当前Sprint的故事
     const assignedStories = stories.filter(story => story.sprintId === sprint.id)
-    
-    const totalPoints = assignedStories.reduce(
-      (sum, story) => sum + (story.storyPoints || 0),
-      0
-    )
+
+    const totalPoints = assignedStories.reduce((sum, story) => sum + (story.storyPoints || 0), 0)
     const completedPoints = assignedStories
       .filter(story => story.status === 'completed')
       .reduce((sum, story) => sum + (story.storyPoints || 0), 0)
-    
+
     return {
       totalPoints,
       completedPoints,

@@ -7,7 +7,7 @@ use chrono::Utc;
 
 /// 使用 AI 进行用户故事拆分
 pub async fn decompose_with_ai(
-    prd_content: &str, 
+    _prd_content: &str, 
     provider: &str, 
     model: &str, 
     api_key: Option<&str>,
@@ -29,12 +29,9 @@ pub async fn decompose_with_ai(
     // 根据是否有已有用户故事，选择合适的提示词生成函数
     let prompt = if let Some(stories) = existing_stories {
         log::info!("Including {} existing stories to avoid duplication", stories.len());
-        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(
-            prd_content,
-            stories
-        )
+        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt_with_existing(stories)
     } else {
-        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt(prd_content)
+        crate::prompts::user_story_decomposition::generate_user_story_decomposition_prompt()
     };
     
     log::info!("Calling AI service for user story decomposition...");
