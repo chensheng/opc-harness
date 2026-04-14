@@ -31,7 +31,7 @@ export function ProjectListFloatingButton({ className = '' }: ProjectListFloatin
   const navigate = useNavigate()
   const { projects, loadProjectsFromDatabase } = useProjectStore()
   const [open, setOpen] = useState(false)
-  
+
   // 筛选和分页状态
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -85,7 +85,7 @@ export function ProjectListFloatingButton({ className = '' }: ProjectListFloatin
       if (statusFilter !== 'all' && project.status !== statusFilter) {
         return false
       }
-      
+
       // 关键词搜索
       if (searchKeyword.trim()) {
         const keyword = searchKeyword.toLowerCase()
@@ -93,7 +93,7 @@ export function ProjectListFloatingButton({ className = '' }: ProjectListFloatin
         const matchDescription = project.description?.toLowerCase().includes(keyword)
         return matchName || matchDescription
       }
-      
+
       return true
     })
   }, [projects, statusFilter, searchKeyword])
@@ -153,7 +153,7 @@ export function ProjectListFloatingButton({ className = '' }: ProjectListFloatin
                 className="pl-8 h-8 text-sm"
               />
             </div>
-            
+
             {/* 状态筛选 */}
             <Select
               value={statusFilter}

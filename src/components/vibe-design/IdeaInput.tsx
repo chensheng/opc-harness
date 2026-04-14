@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Sparkles, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import {
@@ -148,7 +148,9 @@ export function IdeaInput() {
         {/* Header - Compact */}
         <div className="text-center shrink-0">
           <h1 className="text-2xl font-bold mb-1">💡 输入你的产品想法</h1>
-          <p className="text-sm text-muted-foreground">用自然语言描述你的想法，AI 将帮你完善产品构思</p>
+          <p className="text-sm text-muted-foreground">
+            用自然语言描述你的想法，AI 将帮你完善产品构思
+          </p>
         </div>
 
         {/* Combined Form Card */}
@@ -159,7 +161,9 @@ export function IdeaInput() {
           <CardContent className="flex-1 flex flex-col gap-3 px-4 pb-4 overflow-y-auto">
             {/* Project Name */}
             <div>
-              <label className="text-xs font-medium mb-1 block text-muted-foreground">项目名称</label>
+              <label className="text-xs font-medium mb-1 block text-muted-foreground">
+                项目名称
+              </label>
               <Input
                 placeholder="例如：SoloFlow - 一人项目管理系统"
                 value={projectName}
@@ -170,7 +174,9 @@ export function IdeaInput() {
 
             {/* Product Idea */}
             <div className="flex-1 flex flex-col">
-              <label className="text-xs font-medium mb-1 block text-muted-foreground">产品想法</label>
+              <label className="text-xs font-medium mb-1 block text-muted-foreground">
+                产品想法
+              </label>
               <Textarea
                 placeholder="我想做一个..."
                 value={idea}
