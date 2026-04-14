@@ -10,28 +10,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import type { Sprint } from '@/types'
-import { Badge } from '@/components/ui/badge'
 
 interface SprintEditDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sprint: Sprint | null
   onSave: (updatedSprint: Sprint) => Promise<void>
-}
-
-const statusColors: Record<Sprint['status'], string> = {
-  planning: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  active: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 }
 
 export function SprintEditDialog({ open, onOpenChange, sprint, onSave }: SprintEditDialogProps) {
@@ -223,41 +208,6 @@ export function SprintEditDialog({ open, onOpenChange, sprint, onSave }: SprintE
                 {errors.endDate && <p className="text-xs text-red-500">{errors.endDate}</p>}
               </div>
             </div>
-          </div>
-
-          {/* 状态 */}
-          <div className="space-y-2">
-            <Label htmlFor="status">状态</Label>
-            <Select
-              value={formData.status}
-              onValueChange={value => updateField('status', value as Sprint['status'])}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="选择状态" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="planning">
-                  <div className="flex items-center gap-2">
-                    <Badge className={statusColors.planning}>规划中</Badge>
-                  </div>
-                </SelectItem>
-                <SelectItem value="active">
-                  <div className="flex items-center gap-2">
-                    <Badge className={statusColors.active}>进行中</Badge>
-                  </div>
-                </SelectItem>
-                <SelectItem value="completed">
-                  <div className="flex items-center gap-2">
-                    <Badge className={statusColors.completed}>已完成</Badge>
-                  </div>
-                </SelectItem>
-                <SelectItem value="cancelled">
-                  <div className="flex items-center gap-2">
-                    <Badge className={statusColors.cancelled}>已取消</Badge>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {/* 提交错误提示 */}
