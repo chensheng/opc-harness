@@ -75,9 +75,9 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
-    // Create agent_sessions table (VC-005) - 移除外键约束以支持灵活的项目关联
+    // Create agent_sessions table (VC-005)
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS agent_sessions_new (
+        "CREATE TABLE IF NOT EXISTS agent_sessions (
             session_id TEXT NOT NULL,
             agent_id TEXT PRIMARY KEY,
             agent_type TEXT NOT NULL,
@@ -89,38 +89,11 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
             updated_at TEXT NOT NULL,
             stdio_channel_id TEXT,
             registered_to_daemon INTEGER NOT NULL DEFAULT 0,
-            metadata TEXT
+            metadata TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )",
         [],
     )?;
-
-    // 如果旧表存在，迁移数据并替换
-    let table_exists = conn.query_row(
-        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_sessions'",
-        [],
-        |row| row.get::<_, i32>(0)
-    ).unwrap_or(0);
-
-    if table_exists > 0 {
-        log::info!("Migrating agent_sessions table to remove foreign key constraint...");
-        
-        // 迁移数据
-        conn.execute(
-            "INSERT OR REPLACE INTO agent_sessions_new SELECT * FROM agent_sessions",
-            []
-        )?;
-        
-        // 删除旧表
-        conn.execute("DROP TABLE agent_sessions", [])?;
-        
-        // 重命名新表
-        conn.execute("ALTER TABLE agent_sessions_new RENAME TO agent_sessions", [])?;
-        
-        log::info!("agent_sessions table migration completed");
-    } else {
-        // 如果旧表不存在，直接重命名新表
-        conn.execute("ALTER TABLE agent_sessions_new RENAME TO agent_sessions", [])?;
-    }
 
     // Create milestones table (DB-002)
     conn.execute(
@@ -272,74 +245,5 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
-    // 迁移：如果 agent_sessions 表存在 project_path 列，则迁移到 project_id
-    migrate_agent_sessions_project_path_to_id(&conn)?;
-
-    Ok(())
-}
-
-/// 迁移 agent_sessions 表的 project_path 到 project_id
-fn migrate_agent_sessions_project_path_to_id(conn: &Connection) -> Result<()> {
-    // 检查是否存在 project_path 列
-    let mut stmt = conn.prepare("PRAGMA table_info(agent_sessions)")?;
-    let columns: Vec<String> = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(1)?) // name column
-    })?.collect::<Result<Vec<_>, _>>()?;
-    
-    let has_project_path = columns.iter().any(|col| col == "project_path");
-    let has_project_id = columns.iter().any(|col| col == "project_id");
-    
-    if has_project_path && !has_project_id {
-        log::info!("Migrating agent_sessions: project_path -> project_id");
-        
-        // SQLite 不支持直接重命名列或修改列类型
-        // 需要创建新表，复制数据，删除旧表，重命名新表
-        
-        // 1. 创建临时表
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS agent_sessions_new (
-                session_id TEXT NOT NULL,
-                agent_id TEXT PRIMARY KEY,
-                agent_type TEXT NOT NULL,
-                project_id TEXT NOT NULL,
-                name TEXT,
-                status TEXT NOT NULL,
-                phase TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                stdio_channel_id TEXT,
-                registered_to_daemon INTEGER NOT NULL DEFAULT 0,
-                metadata TEXT,
-                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-            )",
-            [],
-        )?;
-        
-        // 2. 复制数据（将 project_path 映射到第一个项目的 ID，或使用空字符串）
-        // 注意：这是一个简化的迁移，实际项目中可能需要更复杂的逻辑来映射 path 到 id
-        conn.execute(
-            "INSERT INTO agent_sessions_new 
-             SELECT session_id, agent_id, agent_type, 
-                    COALESCE((SELECT id FROM projects LIMIT 1), '') as project_id,
-                    NULL as name,
-                    status, phase, created_at, updated_at, 
-                    stdio_channel_id, registered_to_daemon, metadata
-             FROM agent_sessions",
-            [],
-        )?;
-        
-        // 3. 删除旧表
-        conn.execute("DROP TABLE agent_sessions", [])?;
-        
-        // 4. 重命名新表
-        conn.execute("ALTER TABLE agent_sessions_new RENAME TO agent_sessions", [])?;
-        
-        log::info!("✅ agent_sessions migration completed: project_path -> project_id");
-    } else if !has_project_id {
-        log::warn!("agent_sessions table exists but missing both project_path and project_id columns");
-    } else {
-        log::info!("No migration needed for agent_sessions table");
-    }
-    
     Ok(())
 }
