@@ -33,11 +33,15 @@ use crate::db;
 /// 创建新的 Agent
 #[tauri::command]
 pub async fn create_agent(
+    app_handle: tauri::AppHandle,
     state: State<'_, Arc<RwLock<AgentManager>>>,
     agent_type: String,
     session_id: String,
-    project_path: String,
+    project_id: String,
 ) -> Result<String, String> {
+    use chrono::Utc;
+    use crate::models::AgentSession;
+    
     let manager = state.read().await;
     
     let parsed_type = match agent_type.as_str() {
@@ -47,8 +51,121 @@ pub async fn create_agent(
         _ => return Err(format!("Unknown agent type: {}", agent_type)),
     };
 
-    let result = manager.create_agent(parsed_type, session_id, project_path).await;
+    // 注意：这里仍然需要project_path来创建Agent，但从project_id获取
+    // 暂时使用空字符串，实际使用时需要从项目信息中获取project_path
+    let project_path = String::new();
+    let result = manager.create_agent(parsed_type.clone(), session_id.clone(), project_path.clone()).await;
     drop(manager);
+    
+    // 如果 Agent 创建成功，将其持久化到数据库
+    match &result {
+        Ok(agent_id) => {
+            // 创建 AgentSession 记录
+            let session = AgentSession {
+                session_id: session_id.clone(),
+                agent_id: agent_id.clone(),
+                agent_type: format!("{:?}", parsed_type),
+                project_id: project_id.clone(),
+                status: "created".to_string(),
+                phase: "initialized".to_string(),
+                created_at: Utc::now().to_rfc3339(),
+                updated_at: Utc::now().to_rfc3339(),
+                stdio_channel_id: None,
+                registered_to_daemon: false,
+                metadata: None,
+            };
+            
+            // 保存到数据库
+            let conn = db::get_connection(&app_handle)
+                .map_err(|e| format!("Failed to get database connection: {}", e))?;
+            
+            db::create_agent_session(&conn, &session)
+                .map_err(|e| format!("Failed to save agent session to database: {}", e))?;
+            
+            log::info!("Agent session saved to database: agent_id={}, session_id={}, project_id={}", agent_id, session_id, project_id);
+        }
+        Err(e) => {
+            log::warn!("Agent creation failed, skipping database persistence: {}", e);
+        }
+    }
+    
+    result
+}
+
+/// 创建新的 Agent（使用 CLI 类型和 AGENTS.md 内容）
+#[tauri::command]
+pub async fn create_agent_with_cli(
+    app_handle: tauri::AppHandle,
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    cli_type: String,
+    agents_content: String,
+    project_id: String,
+) -> Result<String, String> {
+    use std::fs;
+    use std::path::PathBuf;
+    use chrono::Utc;
+    use crate::models::AgentSession;
+    
+    // 注意：这里仍需要project_path来写入AGENTS.md文件
+    // 暂时使用当前工作目录，实际使用时需要从项目信息中获取project_path
+    let project_path = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?
+        .to_string_lossy()
+        .to_string();
+    
+    // 生成唯一的 session_id
+    let session_id = format!("session-{}", uuid::Uuid::new_v4());
+    
+    // 根据 CLI 类型确定 Agent 类型
+    let agent_type = match cli_type.as_str() {
+        "codefree" | "kimi" | "claude" | "codex" => AgentType::Coding,
+        _ => return Err(format!("Unsupported CLI type: {}. Supported types: codefree, kimi, claude, codex", cli_type)),
+    };
+    
+    // 写入 AGENTS.md 文件到项目根目录
+    let agents_file_path = PathBuf::from(&project_path).join("AGENTS.md");
+    fs::write(&agents_file_path, &agents_content)
+        .map_err(|e| format!("Failed to write AGENTS.md file: {}", e))?;
+    
+    log::info!("AGENTS.md written to: {:?}", agents_file_path);
+    
+    // 创建 Agent
+    let manager = state.read().await;
+    let result = manager.create_agent(agent_type.clone(), session_id.clone(), project_path.clone()).await;
+    drop(manager);
+    
+    // 如果 Agent 创建成功，将其持久化到数据库
+    match &result {
+        Ok(agent_id) => {
+            // 创建 AgentSession 记录
+            let session = AgentSession {
+                session_id: session_id.clone(),
+                agent_id: agent_id.clone(),
+                agent_type: format!("{:?}", agent_type),
+                project_id: project_id.clone(),
+                status: "created".to_string(),
+                phase: "initialized".to_string(),
+                created_at: Utc::now().to_rfc3339(),
+                updated_at: Utc::now().to_rfc3339(),
+                stdio_channel_id: None,
+                registered_to_daemon: false,
+                metadata: Some(format!("{{\"cli_type\":\"{}\"}}", cli_type)),
+            };
+            
+            // 保存到数据库
+            let conn = db::get_connection(&app_handle)
+                .map_err(|e| format!("Failed to get database connection: {}", e))?;
+            
+            db::create_agent_session(&conn, &session)
+                .map_err(|e| format!("Failed to save agent session to database: {}", e))?;
+            
+            log::info!("Agent session saved to database: agent_id={}, session_id={}, project_id={}", agent_id, session_id, project_id);
+        }
+        Err(e) => {
+            log::warn!("Agent creation failed, skipping database persistence: {}", e);
+        }
+    }
+    
     result
 }
 

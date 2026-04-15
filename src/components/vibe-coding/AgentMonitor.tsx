@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   Play,
   Square,
@@ -21,6 +22,7 @@ import type { AgentInfo } from './CodingWorkspaceTypes'
 import { CreateAgentDialog } from './CreateAgentDialog'
 
 export function AgentMonitor() {
+  const { projectId } = useParams<{ projectId: string }>()
   const [agents, setAgents] = useState<AgentInfo[]>([
     {
       agentId: 'agent-001',
@@ -428,6 +430,7 @@ export function AgentMonitor() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={handleAgentCreated}
+        projectId={projectId}
       />
     </div>
   )

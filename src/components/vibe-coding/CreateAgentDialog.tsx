@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, Loader2 } from 'lucide-react'
+import { Bot, Loader2, FileText } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -24,18 +24,31 @@ interface CreateAgentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: (agentId: string) => void
+  projectId?: string
 }
 
-export function CreateAgentDialog({ open, onOpenChange, onSuccess }: CreateAgentDialogProps) {
-  const [agentType, setAgentType] = useState<string>('coding')
-  const [sessionId, setSessionId] = useState<string>('')
-  const [projectPath, setProjectPath] = useState<string>('')
+// CLI 工具类型定义
+const CLI_TYPES = [
+  { value: 'codefree', label: 'CodeFree CLI', description: 'AI 编码助手，支持流式输出' },
+  { value: 'kimi', label: 'Kimi CLI', description: '月之暗面官方 CLI，中文支持优秀' },
+  { value: 'claude', label: 'Claude Code', description: 'Anthropic 官方 CLI，英文场景强大' },
+  { value: 'codex', label: 'OpenAI Codex', description: 'OpenAI 官方 CLI，基于 GPT-4o' },
+] as const
+
+export function CreateAgentDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  projectId,
+}: CreateAgentDialogProps) {
+  const [cliType, setCliType] = useState<string>('codefree')
+  const [agentsContent, setAgentsContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleCreate = async () => {
-    if (!sessionId || !projectPath) {
-      setError('请填写所有必填字段')
+    if (!agentsContent.trim()) {
+      setError('请填写 AGENTS.md 内容')
       return
     }
 
@@ -43,18 +56,17 @@ export function CreateAgentDialog({ open, onOpenChange, onSuccess }: CreateAgent
     setError(null)
 
     try {
-      const agentId = await invoke<string>('create_agent', {
-        agentType,
-        sessionId,
-        projectPath,
+      const agentId = await invoke<string>('create_agent_with_cli', {
+        cliType,
+        agentsContent,
+        projectId: projectId || '',
       })
 
       onSuccess?.(agentId)
       onOpenChange(false)
 
       // 重置表单
-      setSessionId('')
-      setProjectPath('')
+      setAgentsContent('')
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : '创建智能体失败')
@@ -72,79 +84,66 @@ export function CreateAgentDialog({ open, onOpenChange, onSuccess }: CreateAgent
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="w-5 h-5" />
             创建智能体
           </DialogTitle>
-          <DialogDescription>配置并创建一个新的 AI 智能体来执行特定任务</DialogDescription>
+          <DialogDescription>
+            配置并创建一个新的 AI 智能体，只需选择 CLI 类型并提供 AGENTS.md 内容
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          {/* Agent Type */}
+          {/* CLI Type */}
           <div className="grid gap-2">
-            <Label htmlFor="agent-type">智能体类型</Label>
-            <Select value={agentType} onValueChange={setAgentType} disabled={isLoading}>
-              <SelectTrigger id="agent-type">
-                <SelectValue placeholder="选择智能体类型" />
+            <Label htmlFor="cli-type">CLI 类型</Label>
+            <Select value={cliType} onValueChange={setCliType} disabled={isLoading}>
+              <SelectTrigger id="cli-type">
+                <SelectValue placeholder="选择 CLI 类型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="initializer">
-                  <div className="flex items-center gap-2">
-                    <span>🚀</span>
-                    <div>
-                      <div className="font-medium">初始化智能体</div>
-                      <div className="text-xs text-muted-foreground">项目初始化和任务分解</div>
+                {CLI_TYPES.map(type => (
+                  <SelectItem key={type.value} value={type.value}>
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {type.value === 'codefree'
+                          ? '🤖'
+                          : type.value === 'kimi'
+                            ? '🌙'
+                            : type.value === 'claude'
+                              ? '🎭'
+                              : '🧠'}
+                      </span>
+                      <div>
+                        <div className="font-medium">{type.label}</div>
+                        <div className="text-xs text-muted-foreground">{type.description}</div>
+                      </div>
                     </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="coding">
-                  <div className="flex items-center gap-2">
-                    <span>💻</span>
-                    <div>
-                      <div className="font-medium">编码智能体</div>
-                      <div className="text-xs text-muted-foreground">代码生成和修改</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="mr_creation">
-                  <div className="flex items-center gap-2">
-                    <span>🔀</span>
-                    <div>
-                      <div className="font-medium">MR 创建智能体</div>
-                      <div className="text-xs text-muted-foreground">合并请求创建和管理</div>
-                    </div>
-                  </div>
-                </SelectItem>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Session ID */}
+          {/* AGENTS.md Content */}
           <div className="grid gap-2">
-            <Label htmlFor="session-id">会话 ID *</Label>
-            <Input
-              id="session-id"
-              placeholder="例如: session-001"
-              value={sessionId}
-              onChange={e => setSessionId(e.target.value)}
+            <Label htmlFor="agents-content" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              AGENTS.md 内容 *
+            </Label>
+            <Textarea
+              id="agents-content"
+              placeholder="# Agent Instructions&#10;&#10;You are an AI coding assistant...&#10;&#10;## Guidelines&#10;- Follow best practices&#10;- Write clean code&#10;- Add comments when necessary"
+              value={agentsContent}
+              onChange={e => setAgentsContent(e.target.value)}
               disabled={isLoading}
+              className="min-h-[200px] font-mono text-sm"
             />
-            <p className="text-xs text-muted-foreground">用于关联同一会话的多个智能体</p>
-          </div>
-
-          {/* Project Path */}
-          <div className="grid gap-2">
-            <Label htmlFor="project-path">项目路径 *</Label>
-            <Input
-              id="project-path"
-              placeholder="例如: /home/user/my-project"
-              value={projectPath}
-              onChange={e => setProjectPath(e.target.value)}
-              disabled={isLoading}
-            />
-            <p className="text-xs text-muted-foreground">智能体将在此项目目录下工作</p>
+            <p className="text-xs text-muted-foreground">
+              此内容将保存为项目的 AGENTS.md 文件，用于指导 AI 智能体的行为
+            </p>
           </div>
 
           {/* Error Message */}

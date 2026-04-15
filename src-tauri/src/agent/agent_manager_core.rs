@@ -86,21 +86,25 @@ impl AgentManager {
         &self,
         agent_type: AgentType,
         session_id: String,
-        project_path: String,
+        project_id: String,
     ) -> Result<String, String> {
         // 保存 agent_type 的引用，避免移动
         let agent_type_clone = agent_type.clone();
         
         // 创建 Agent 句柄
-        let mut handle = AgentHandle::new(agent_type, session_id.clone(), project_path.clone());
+        let mut handle = AgentHandle::new(agent_type, session_id.clone(), project_id.clone());
 
+        // 注意：这里需要project_path来创建Stdio通道，应该从项目信息中获取
+        // 暂时使用空字符串，后续需要从project_id查询项目路径
+        let project_path = String::new();
+        
         // 创建 Stdio 通道 - 直接传递 AgentConfig
         let agent_config = AgentConfig {
             agent_id: handle.agent_id.clone(),
             agent_type: agent_type_clone.clone(),
             phase: handle.phase.clone(),
             status: handle.status.clone(),
-            project_path: handle.project_path.clone(),
+            project_path,
             session_id: handle.session_id.clone(),
             ai_config: None,
             metadata: None,

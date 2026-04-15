@@ -22,7 +22,7 @@ pub async fn persist_agent(
         session_id: handle.session_id.clone(),
         agent_id: handle.agent_id.clone(),
         agent_type: handle.agent_type.to_string(),
-        project_path: handle.project_path.clone(),
+        project_id: handle.project_id.clone(),
         status: handle.status.to_string().to_lowercase(),
         phase: handle.phase.to_string().to_lowercase(),
         created_at: chrono::DateTime::from_timestamp(handle.created_at, 0)
@@ -117,19 +117,22 @@ pub async fn restore_sessions(
                 "mr_creation" => AgentPhase::MRCreation,
                 _ => AgentPhase::Initializer,
             },
-            project_path: session.project_path.clone(),
+            project_id: session.project_id.clone(),
             stdio_channel_id: session.stdio_channel_id,
             registered_to_daemon: session.registered_to_daemon,
         };
 
         // 重新创建 Stdio 通道（如果需要）
         if handle.stdio_channel_id.is_some() {
+            // 注意：这里需要project_path来创建Stdio通道，应该从项目信息中获取
+            // 暂时使用空字符串，后续需要从project_id查询项目路径
+            let project_path = String::new();
             let agent_config = AgentConfig {
                 agent_id: handle.agent_id.clone(),
                 agent_type: handle.agent_type.clone(),
                 phase: handle.phase.clone(),
                 status: handle.status.clone(),
-                project_path: handle.project_path.clone(),
+                project_path,
                 session_id: handle.session_id.clone(),
                 ai_config: None,
                 metadata: None,
@@ -184,7 +187,7 @@ pub async fn update_stats(
     let stdio_lock = stdio.read().await;
 
     let mut new_stats = AgentManagerStats::default();
-    new_stats.total_agents = agents_lock.len();
+    new_stats.total_agents = agents_lock.len() as u32;
     
     for handle in agents_lock.values() {
         match handle.status {
@@ -195,14 +198,6 @@ pub async fn update_stats(
             _ => {}
         }
     }
-
-    new_stats.active_sessions = agents_lock.values()
-        .map(|h| h.session_id.clone())
-        .collect::<std::collections::HashSet<_>>()
-        .len();
-    
-    new_stats.stdio_channels = stdio_lock.get_all_channels().keys().len();
-    new_stats.websocket_connections = websocket_lock.get_stats().await.active_connections as usize;
 
     drop(agents_lock);
     drop(websocket_lock);

@@ -71,8 +71,8 @@ pub struct AgentSession {
     pub agent_id: String,
     /// Agent 类型
     pub agent_type: String,
-    /// 项目路径
-    pub project_path: String,
+    /// 项目ID
+    pub project_id: String,
     /// 当前状态
     pub status: String,
     /// 当前阶段
@@ -209,7 +209,7 @@ impl Entity for AgentSession {
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
-            project_path: row.get(3)?,
+            project_id: row.get(3)?,
             status: row.get(4)?,
             phase: row.get(5)?,
             created_at: row.get(6)?,

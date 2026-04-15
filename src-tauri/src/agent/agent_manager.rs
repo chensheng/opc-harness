@@ -140,7 +140,7 @@ mod tests {
             session_id: "test-session-123".to_string(),
             agent_id: "agent-456".to_string(),
             agent_type: "initializer".to_string(),
-            project_path: "/tmp/test".to_string(),
+            project_id: "project-uuid-789".to_string(),
             status: "running".to_string(),
             phase: "initializer".to_string(),
             created_at: chrono::Utc::now().to_rfc3339(),

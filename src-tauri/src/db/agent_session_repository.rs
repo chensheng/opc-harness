@@ -5,13 +5,13 @@ use rusqlite::{Connection, Result};
 /// 创建 Agent Session
 pub fn create_agent_session(conn: &Connection, session: &AgentSession) -> Result<()> {
     conn.execute(
-        "INSERT INTO agent_sessions (session_id, agent_id, agent_type, project_path, status, phase, created_at, updated_at, stdio_channel_id, registered_to_daemon, metadata)
+        "INSERT INTO agent_sessions (session_id, agent_id, agent_type, project_id, status, phase, created_at, updated_at, stdio_channel_id, registered_to_daemon, metadata)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         (
             &session.session_id,
             &session.agent_id,
             &session.agent_type,
-            &session.project_path,
+            &session.project_id,
             &session.status,
             &session.phase,
             &session.created_at,
@@ -25,14 +25,14 @@ pub fn create_agent_session(conn: &Connection, session: &AgentSession) -> Result
 }
 
 /// 获取项目的所有 Sessions
-pub fn get_sessions_by_project(conn: &Connection, project_path: &str) -> Result<Vec<AgentSession>> {
-    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE project_path = ?1 ORDER BY created_at DESC")?;
-    let sessions = stmt.query_map([project_path], |row| {
+pub fn get_sessions_by_project(conn: &Connection, project_id: &str) -> Result<Vec<AgentSession>> {
+    let mut stmt = conn.prepare("SELECT * FROM agent_sessions WHERE project_id = ?1 ORDER BY created_at DESC")?;
+    let sessions = stmt.query_map([project_id], |row| {
         Ok(AgentSession {
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
-            project_path: row.get(3)?,
+            project_id: row.get(3)?,
             status: row.get(4)?,
             phase: row.get(5)?,
             created_at: row.get(6)?,
@@ -58,7 +58,7 @@ pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<AgentSession>> {
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
-            project_path: row.get(3)?,
+            project_id: row.get(3)?,
             status: row.get(4)?,
             phase: row.get(5)?,
             created_at: row.get(6)?,
@@ -84,7 +84,7 @@ pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Opti
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
-            project_path: row.get(3)?,
+            project_id: row.get(3)?,
             status: row.get(4)?,
             phase: row.get(5)?,
             created_at: row.get(6)?,
@@ -109,7 +109,7 @@ pub fn get_agent_session_by_session_id(conn: &Connection, session_id: &str) -> R
             session_id: row.get(0)?,
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
-            project_path: row.get(3)?,
+            project_id: row.get(3)?,
             status: row.get(4)?,
             phase: row.get(5)?,
             created_at: row.get(6)?,
@@ -143,14 +143,14 @@ pub fn update_agent_session(conn: &Connection, session: &AgentSession) -> Result
     let updated_at = Utc::now().to_rfc3339();
     conn.execute(
         "UPDATE agent_sessions 
-         SET session_id = ?2, agent_type = ?3, project_path = ?4, status = ?5, phase = ?6, 
+         SET session_id = ?2, agent_type = ?3, project_id = ?4, status = ?5, phase = ?6, 
              updated_at = ?7, stdio_channel_id = ?8, registered_to_daemon = ?9, metadata = ?10
          WHERE agent_id = ?1",
         [
             &session.agent_id,
             &session.session_id,
             &session.agent_type,
-            &session.project_path,
+            &session.project_id,
             &session.status,
             &session.phase,
             &updated_at,

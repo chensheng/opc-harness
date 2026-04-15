@@ -400,7 +400,7 @@ pub fn create_agent_session(
     session_id: String,
     agent_id: String,
     agent_type: String,
-    project_path: String,
+    project_id: String,
     status: String,
     phase: String,
     stdio_channel_id: Option<String>,
@@ -412,7 +412,7 @@ pub fn create_agent_session(
         session_id,
         agent_id: agent_id.clone(),
         agent_type,
-        project_path,
+        project_id,
         status,
         phase,
         created_at: Utc::now().to_rfc3339(),
@@ -430,10 +430,10 @@ pub fn create_agent_session(
 #[tauri::command]
 pub fn get_sessions_by_project(
     app_handle: tauri::AppHandle,
-    project_path: String,
+    project_id: String,
 ) -> Result<Vec<AgentSession>, String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    db::get_sessions_by_project(&conn, &project_path).map_err(|e| e.to_string())
+    db::get_sessions_by_project(&conn, &project_id).map_err(|e| e.to_string())
 }
 
 /// 获取单个 Agent Session（按 agent_id）

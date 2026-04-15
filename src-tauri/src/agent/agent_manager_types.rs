@@ -16,6 +16,8 @@ pub struct AgentHandle {
     pub agent_type: AgentType,
     /// Session ID
     pub session_id: String,
+    /// 项目ID
+    pub project_id: String,
     /// 创建时间戳
     pub created_at: i64,
     /// 最后更新时间戳
@@ -24,8 +26,6 @@ pub struct AgentHandle {
     pub status: AgentStatus,
     /// 当前阶段
     pub phase: AgentPhase,
-    /// 项目路径
-    pub project_path: String,
     /// 关联的 Stdio 通道 ID
     pub stdio_channel_id: Option<String>,
     /// 是否已注册到 Daemon
@@ -37,7 +37,7 @@ impl AgentHandle {
     pub fn new(
         agent_type: AgentType,
         session_id: String,
-        project_path: String,
+        project_id: String,
     ) -> Self {
         let now = chrono::Utc::now().timestamp();
         let phase = match &agent_type {
@@ -50,11 +50,11 @@ impl AgentHandle {
             agent_id: Uuid::new_v4().to_string(),
             agent_type,
             session_id,
+            project_id,
             created_at: now,
             updated_at: now,
             status: AgentStatus::Idle,
             phase,
-            project_path,
             stdio_channel_id: None,
             registered_to_daemon: false,
         }
@@ -79,22 +79,28 @@ impl AgentHandle {
 }
 
 /// Agent Manager 统计信息
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentManagerStats {
-    /// 总 Agent 数
-    pub total_agents: usize,
-    /// 运行中的 Agent 数
-    pub running_agents: usize,
-    /// 空闲的 Agent 数
-    pub idle_agents: usize,
-    /// 已完成的 Agent 数
-    pub completed_agents: usize,
-    /// 失败的 Agent 数
-    pub failed_agents: usize,
-    /// 当前 Session 数
-    pub active_sessions: usize,
-    /// Stdio 通道总数
-    pub stdio_channels: usize,
-    /// WebSocket 连接数
-    pub websocket_connections: usize,
+    /// Agent 总数
+    pub total_agents: u32,
+    /// 运行中的 Agent 数量
+    pub running_agents: u32,
+    /// 空闲的 Agent 数量
+    pub idle_agents: u32,
+    /// 已完成的 Agent 数量
+    pub completed_agents: u32,
+    /// 失败的 Agent 数量
+    pub failed_agents: u32,
+}
+
+impl Default for AgentManagerStats {
+    fn default() -> Self {
+        Self {
+            total_agents: 0,
+            running_agents: 0,
+            idle_agents: 0,
+            completed_agents: 0,
+            failed_agents: 0,
+        }
+    }
 }
