@@ -15,10 +15,19 @@ import {
   Terminal,
   GitBranch,
   Plus,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import type { AgentInfo } from './CodingWorkspaceTypes'
 import { CreateAgentDialog } from './CreateAgentDialog'
 
@@ -92,6 +101,12 @@ export function AgentMonitor() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [isAutoScroll, setIsAutoScroll] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [agentToDelete, setAgentToDelete] = useState<string | null>(null)
+
+  // 监听 agentToDelete 状态变化
+  useEffect(() => {
+    console.log('[AgentMonitor] agentToDelete state changed:', agentToDelete)
+  }, [agentToDelete])
 
   // 从数据库加载智能体列表
   const loadAgents = async () => {
@@ -157,6 +172,33 @@ export function AgentMonitor() {
         a.agentId === agentId ? { ...a, status: 'stopped', progress: 0, cpuUsage: 0 } : a
       )
     )
+  }
+
+  const handleDeleteAgent = async (agentId: string) => {
+    console.log('[AgentMonitor] handleDeleteAgent called with agentId:', agentId)
+    try {
+      console.log('[AgentMonitor] Calling delete_agent_session command...')
+      await invoke('delete_agent_session', { agentId })
+      console.log('[AgentMonitor] delete_agent_session command succeeded')
+      // 从列表中移除已删除的智能体
+      setAgents(prev => {
+        const newAgents = prev.filter(a => a.agentId !== agentId)
+        console.log(
+          '[AgentMonitor] Updated agents list, removed agent:',
+          agentId,
+          'remaining:',
+          newAgents.length
+        )
+        return newAgents
+      })
+      console.log('[AgentMonitor] Agent deleted successfully:', agentId)
+    } catch (error) {
+      console.error('[AgentMonitor] Failed to delete agent:', error)
+      alert(`删除智能体失败: ${error}`)
+    } finally {
+      console.log('[AgentMonitor] Closing dialog and clearing agentToDelete')
+      setAgentToDelete(null)
+    }
   }
 
   const handleAgentCreated = (agentId: string) => {
@@ -368,6 +410,20 @@ export function AgentMonitor() {
                     >
                       <EyeIcon className="w-3 h-3" />
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        console.log(
+                          '[AgentMonitor] Delete button clicked for agent:',
+                          agent.agentId
+                        )
+                        setAgentToDelete(agent.agentId)
+                      }}
+                      title="删除智能体"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
 
@@ -481,8 +537,51 @@ export function AgentMonitor() {
         </div>
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        key="delete-dialog"
+        open={!!agentToDelete}
+        onOpenChange={open => {
+          console.log('[AgentMonitor] Dialog onOpenChange called, open:', open)
+          if (!open) {
+            console.log('[AgentMonitor] Dialog closed, clearing agentToDelete')
+            setAgentToDelete(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除智能体</DialogTitle>
+            <DialogDescription>
+              您确定要删除智能体 <strong>{agentToDelete}</strong>{' '}
+              吗？此操作不可恢复，智能体的所有数据和日志将被永久删除。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAgentToDelete(null)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                console.log(
+                  '[AgentMonitor] Confirm delete button clicked, agentToDelete:',
+                  agentToDelete
+                )
+                if (agentToDelete) {
+                  handleDeleteAgent(agentToDelete)
+                }
+              }}
+            >
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create Agent Dialog */}
       <CreateAgentDialog
+        key="create-agent-dialog"
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={handleAgentCreated}
