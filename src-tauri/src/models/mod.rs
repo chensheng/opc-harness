@@ -219,7 +219,7 @@ impl Entity for AgentSession {
             created_at: row.get(7)?,
             updated_at: row.get(8)?,
             stdio_channel_id: row.get(9)?,
-            registered_to_daemon: row.get::<_, String>(10)? == "1",
+            registered_to_daemon: row.get::<_, i32>(10)? != 0,
             metadata: row.get(11)?,
         })
     }
