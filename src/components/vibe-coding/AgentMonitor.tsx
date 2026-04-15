@@ -33,6 +33,16 @@ import { CreateAgentDialog } from './CreateAgentDialog'
 
 // 后端 AgentSession 类型定义
 interface AgentSession {
+  // 驼峰命名（实际返回的格式）
+  sessionId?: string
+  agentId?: string
+  agentType?: string
+  projectId?: string
+  createdAt?: string
+  updatedAt?: string
+  stdioChannelId?: string
+  registeredToDaemon?: boolean
+
   session_id: string
   agent_id: string
   agent_type: string
@@ -82,15 +92,15 @@ const convertSessionToAgentInfo = (session: AgentSession): AgentInfo => {
   }
 
   return {
-    agentId: session.agent_id,
-    type: typeMap[session.agent_type] || 'coding',
-    status: statusMap[session.status] || 'idle',
+    agentId: session.agentId || session.agent_id || '',
+    type: typeMap[session.agentType || session.agent_type] || 'coding',
+    status: statusMap[session.status || 'idle'] || 'idle',
     currentTask,
     progress,
     cpuUsage: 0, // 需要从实时监控获取
     memoryUsage: 0, // 需要从实时监控获取
     logs,
-    sessionId: session.session_id,
+    sessionId: session.sessionId || session.session_id || '',
   }
 }
 
