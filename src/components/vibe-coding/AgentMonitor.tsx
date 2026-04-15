@@ -470,7 +470,7 @@ export function AgentMonitor() {
                 {/* Recent Logs */}
                 <div className="bg-black/5 dark:bg-white/5 rounded-md p-2 font-mono text-xs max-h-24 overflow-y-auto">
                   {agent.logs.slice(-5).map((log, idx) => (
-                    <div key={idx} className="text-gray-700 dark:text-gray-300 truncate">
+                    <div key={`${agent.agentId}-log-${idx}`} className="text-gray-700 dark:text-gray-300 truncate">
                       {log}
                     </div>
                   ))}
@@ -524,7 +524,7 @@ export function AgentMonitor() {
                       <h4 className="font-semibold mb-2">完整日志</h4>
                       <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs max-h-48 overflow-y-auto space-y-1">
                         {agent.logs.map((log, idx) => (
-                          <div key={idx} className="text-gray-700 dark:text-gray-300">
+                          <div key={`${agent.agentId}-full-log-${idx}`} className="text-gray-700 dark:text-gray-300">
                             {log}
                           </div>
                         ))}
