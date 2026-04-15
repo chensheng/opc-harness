@@ -153,6 +153,7 @@ mod tests {
             stdio_channel_id: Some("channel-789".to_string()),
             registered_to_daemon: true,
             metadata: None,
+            agents_md_content: None,
         };
 
         // Test serialization

@@ -53,9 +53,9 @@ export function EditAgentDialog({
 
     try {
       // 从数据库获取完整的session信息(包含agents_md_content)
-      const session = await invoke('get_agent_session_by_id', {
+      const session = (await invoke('get_agent_session_by_id', {
         agentId: agent.agentId,
-      })
+      })) as { agentsMdContent?: string }
 
       if (session && session.agentsMdContent) {
         setAgentsContent(session.agentsMdContent)
