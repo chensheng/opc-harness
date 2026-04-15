@@ -180,11 +180,8 @@ export function AgentMonitor() {
   }
 
   const handleDeleteAgent = async (agentId: string) => {
-    console.log('[AgentMonitor] handleDeleteAgent called with agentId:', agentId)
     try {
-      console.log('[AgentMonitor] Calling delete_agent_session command...')
       await invoke('delete_agent_session', { agentId })
-      console.log('[AgentMonitor] delete_agent_session command succeeded')
       // 从列表中移除已删除的智能体
       setAgents(prev => {
         const newAgents = prev.filter(a => a.agentId !== agentId)
@@ -196,12 +193,10 @@ export function AgentMonitor() {
         )
         return newAgents
       })
-      console.log('[AgentMonitor] Agent deleted successfully:', agentId)
     } catch (error) {
       console.error('[AgentMonitor] Failed to delete agent:', error)
       alert(`删除智能体失败: ${error}`)
     } finally {
-      console.log('[AgentMonitor] Closing dialog and clearing agentToDelete')
       setAgentToDelete(null)
     }
   }
@@ -419,10 +414,6 @@ export function AgentMonitor() {
                       size="sm"
                       variant="destructive"
                       onClick={() => {
-                        console.log(
-                          '[AgentMonitor] Delete button clicked for agent:',
-                          agent.agentId
-                        )
                         setAgentToDelete(agent.agentId)
                       }}
                       title="删除智能体"
@@ -547,9 +538,7 @@ export function AgentMonitor() {
         key="delete-dialog"
         open={!!agentToDelete}
         onOpenChange={open => {
-          console.log('[AgentMonitor] Dialog onOpenChange called, open:', open)
           if (!open) {
-            console.log('[AgentMonitor] Dialog closed, clearing agentToDelete')
             setAgentToDelete(null)
           }
         }}
@@ -569,10 +558,6 @@ export function AgentMonitor() {
             <Button
               variant="destructive"
               onClick={() => {
-                console.log(
-                  '[AgentMonitor] Confirm delete button clicked, agentToDelete:',
-                  agentToDelete
-                )
                 if (agentToDelete) {
                   handleDeleteAgent(agentToDelete)
                 }
