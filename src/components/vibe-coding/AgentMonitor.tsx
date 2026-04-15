@@ -258,6 +258,17 @@ export function AgentMonitor() {
     }
   }
 
+  const getAgentTypeLabel = (type: AgentInfo['type']) => {
+    switch (type) {
+      case 'initializer':
+        return '初始化'
+      case 'coding':
+        return '编码'
+      case 'mr_creation':
+        return '创建 MR'
+    }
+  }
+
   const totalAgents = agents.length
   const runningAgents = agents.filter(a => a.status === 'running').length
   const avgProgress = agents.reduce((sum, a) => sum + a.progress, 0) / totalAgents
@@ -372,14 +383,7 @@ export function AgentMonitor() {
                     <div className={`w-3 h-3 rounded-full ${getStatusColor(agent.status)}`} />
                     <div className="flex items-center gap-2">
                       {getAgentTypeIcon(agent.type)}
-                      <div className="flex flex-col">
-                        <span className="font-semibold">{agent.name || agent.agentId}</span>
-                        {agent.name && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {agent.agentId}
-                          </span>
-                        )}
-                      </div>
+                      <span className="font-semibold">{agent.name || getAgentTypeLabel(agent.type)}</span>
                       {getStatusBadge(agent.status)}
                     </div>
                   </div>
@@ -498,7 +502,7 @@ export function AgentMonitor() {
                     return (
                       <>
                         <h3 className="text-lg font-bold">
-                          Agent 详情：{agent?.name || selectedAgent}
+                          Agent 详情：{agent?.name || getAgentTypeLabel(agent?.type || 'coding')}
                         </h3>
                         {agent?.name && (
                           <p className="text-xs text-muted-foreground font-mono mt-1">
