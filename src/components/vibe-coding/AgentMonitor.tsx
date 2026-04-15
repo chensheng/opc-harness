@@ -96,10 +96,12 @@ export function AgentMonitor() {
   // 从数据库加载智能体列表
   const loadAgents = async () => {
     if (!projectId) {
-      console.warn('Project ID is not available')
+      console.warn('[AgentMonitor] Project ID is not available')
       setLoading(false)
       return
     }
+
+    console.log('[AgentMonitor] Loading agents for project:', projectId)
 
     try {
       setLoading(true)
@@ -107,10 +109,15 @@ export function AgentMonitor() {
         projectId,
       })
 
+      console.log('[AgentMonitor] Received sessions from backend:', sessions.length, 'sessions')
+      console.log('[AgentMonitor] Sessions data:', sessions)
+
       const agentInfos = sessions.map(convertSessionToAgentInfo)
+      console.log('[AgentMonitor] Converted to AgentInfo:', agentInfos.length, 'agents')
+
       setAgents(agentInfos)
     } catch (error) {
-      console.error('Failed to load agents:', error)
+      console.error('[AgentMonitor] Failed to load agents:', error)
       // 失败时显示空列表，不阻塞用户操作
       setAgents([])
     } finally {

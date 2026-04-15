@@ -75,9 +75,9 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         [],
     )?;
 
-    // Create agent_sessions table (VC-005)
+    // Create agent_sessions table (VC-005) - 移除外键约束以支持灵活的项目关联
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS agent_sessions (
+        "CREATE TABLE IF NOT EXISTS agent_sessions_new (
             session_id TEXT NOT NULL,
             agent_id TEXT PRIMARY KEY,
             agent_type TEXT NOT NULL,
@@ -88,11 +88,38 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
             updated_at TEXT NOT NULL,
             stdio_channel_id TEXT,
             registered_to_daemon INTEGER NOT NULL DEFAULT 0,
-            metadata TEXT,
-            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            metadata TEXT
         )",
         [],
     )?;
+
+    // 如果旧表存在，迁移数据并替换
+    let table_exists = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_sessions'",
+        [],
+        |row| row.get::<_, i32>(0)
+    ).unwrap_or(0);
+
+    if table_exists > 0 {
+        log::info!("Migrating agent_sessions table to remove foreign key constraint...");
+        
+        // 迁移数据
+        conn.execute(
+            "INSERT OR REPLACE INTO agent_sessions_new SELECT * FROM agent_sessions",
+            []
+        )?;
+        
+        // 删除旧表
+        conn.execute("DROP TABLE agent_sessions", [])?;
+        
+        // 重命名新表
+        conn.execute("ALTER TABLE agent_sessions_new RENAME TO agent_sessions", [])?;
+        
+        log::info!("agent_sessions table migration completed");
+    } else {
+        // 如果旧表不存在，直接重命名新表
+        conn.execute("ALTER TABLE agent_sessions_new RENAME TO agent_sessions", [])?;
+    }
 
     // Create milestones table (DB-002)
     conn.execute(

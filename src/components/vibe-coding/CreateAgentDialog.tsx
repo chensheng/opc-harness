@@ -55,13 +55,20 @@ export function CreateAgentDialog({
     setIsLoading(true)
     setError(null)
 
+    console.log('[CreateAgentDialog] Starting agent creation...')
+    console.log('[CreateAgentDialog] cliType:', cliType)
+    console.log('[CreateAgentDialog] projectId:', projectId)
+    console.log('[CreateAgentDialog] agentsContent length:', agentsContent.length)
+
     try {
+      console.log('[CreateAgentDialog] Invoking create_agent_with_cli...')
       const agentId = await invoke<string>('create_agent_with_cli', {
         cliType,
         agentsContent,
         projectId: projectId || '',
       })
 
+      console.log('[CreateAgentDialog] Agent created successfully:', agentId)
       onSuccess?.(agentId)
       onOpenChange(false)
 
@@ -69,7 +76,10 @@ export function CreateAgentDialog({
       setAgentsContent('')
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '创建智能体失败')
+      console.error('[CreateAgentDialog] Failed to create agent:', err)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error('[CreateAgentDialog] Error message:', errorMessage)
+      setError(errorMessage || '创建智能体失败')
     } finally {
       setIsLoading(false)
     }

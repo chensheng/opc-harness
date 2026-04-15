@@ -4,10 +4,12 @@ use rusqlite::{Connection, Result};
 
 /// 创建 Agent Session
 pub fn create_agent_session(conn: &Connection, session: &AgentSession) -> Result<()> {
+    let registered_value: i32 = if session.registered_to_daemon { 1 } else { 0 };
+    
     conn.execute(
         "INSERT INTO agent_sessions (session_id, agent_id, agent_type, project_id, status, phase, created_at, updated_at, stdio_channel_id, registered_to_daemon, metadata)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        (
+        rusqlite::params![
             &session.session_id,
             &session.agent_id,
             &session.agent_type,
@@ -17,9 +19,9 @@ pub fn create_agent_session(conn: &Connection, session: &AgentSession) -> Result
             &session.created_at,
             &session.updated_at,
             &session.stdio_channel_id,
-            &(if session.registered_to_daemon { "1".to_string() } else { "0".to_string() }),
+            registered_value,
             &session.metadata,
-        ),
+        ],
     )?;
     Ok(())
 }
@@ -38,7 +40,7 @@ pub fn get_sessions_by_project(conn: &Connection, project_id: &str) -> Result<Ve
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, String>(9)? == "1",
+            registered_to_daemon: row.get::<_, i32>(9)? != 0,
             metadata: row.get(10)?,
         })
     })?;
@@ -64,7 +66,7 @@ pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<AgentSession>> {
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, String>(9)? == "1",
+            registered_to_daemon: row.get::<_, i32>(9)? != 0,
             metadata: row.get(10)?,
         })
     })?;
@@ -90,7 +92,7 @@ pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Opti
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, String>(9)? == "1",
+            registered_to_daemon: row.get::<_, i32>(9)? != 0,
             metadata: row.get(10)?,
         })
     })?;
@@ -115,7 +117,7 @@ pub fn get_agent_session_by_session_id(conn: &Connection, session_id: &str) -> R
             created_at: row.get(6)?,
             updated_at: row.get(7)?,
             stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, String>(9)? == "1",
+            registered_to_daemon: row.get::<_, i32>(9)? != 0,
             metadata: row.get(10)?,
         })
     })?;
@@ -141,12 +143,14 @@ pub fn update_agent_session_status(conn: &Connection, agent_id: &str, status: &s
 /// 更新 Agent Session 完整信息
 pub fn update_agent_session(conn: &Connection, session: &AgentSession) -> Result<()> {
     let updated_at = Utc::now().to_rfc3339();
+    let registered_value: i32 = if session.registered_to_daemon { 1 } else { 0 };
+    
     conn.execute(
         "UPDATE agent_sessions 
          SET session_id = ?2, agent_type = ?3, project_id = ?4, status = ?5, phase = ?6, 
              updated_at = ?7, stdio_channel_id = ?8, registered_to_daemon = ?9, metadata = ?10
          WHERE agent_id = ?1",
-        [
+        rusqlite::params![
             &session.agent_id,
             &session.session_id,
             &session.agent_type,
@@ -155,7 +159,7 @@ pub fn update_agent_session(conn: &Connection, session: &AgentSession) -> Result
             &session.phase,
             &updated_at,
             &session.stdio_channel_id.clone().unwrap_or_default(),
-            &(if session.registered_to_daemon { "1".to_string() } else { "0".to_string() }),
+            registered_value,
             &session.metadata.clone().unwrap_or_default(),
         ],
     )?;

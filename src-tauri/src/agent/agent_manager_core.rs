@@ -87,16 +87,18 @@ impl AgentManager {
         agent_type: AgentType,
         session_id: String,
         project_id: String,
+        project_path: String,
     ) -> Result<String, String> {
+        log::info!("[AgentManager::create_agent] Creating agent: type={:?}, session_id={}, project_id={}, project_path={}", 
+            agent_type, session_id, project_id, project_path);
+        
         // 保存 agent_type 的引用，避免移动
         let agent_type_clone = agent_type.clone();
         
-        // 创建 Agent 句柄
+        // 创建 Agent 句柄（传入 project_id）
         let mut handle = AgentHandle::new(agent_type, session_id.clone(), project_id.clone());
 
-        // 注意：这里需要project_path来创建Stdio通道，应该从项目信息中获取
-        // 暂时使用空字符串，后续需要从project_id查询项目路径
-        let project_path = String::new();
+        log::info!("[AgentManager::create_agent] Agent handle created: agent_id={}", handle.agent_id);
         
         // 创建 Stdio 通道 - 直接传递 AgentConfig
         let agent_config = AgentConfig {
@@ -104,33 +106,52 @@ impl AgentManager {
             agent_type: agent_type_clone.clone(),
             phase: handle.phase.clone(),
             status: handle.status.clone(),
-            project_path,
+            project_path: project_path.clone(),
             session_id: handle.session_id.clone(),
             ai_config: None,
             metadata: None,
         };
 
+        log::info!("[AgentManager::create_agent] Creating stdio channel...");
         let mut stdio_manager = self.stdio.write().await;
-        let channel_id = stdio_manager.create_channel(agent_config)?;
+        let channel_result = stdio_manager.create_channel(agent_config);
         drop(stdio_manager);
+        
+        let channel_id = match channel_result {
+            Ok(id) => {
+                log::info!("[AgentManager::create_agent] Stdio channel created: {}", id);
+                id
+            }
+            Err(e) => {
+                log::error!("[AgentManager::create_agent] Failed to create stdio channel: {}", e);
+                return Err(format!("Failed to create stdio channel: {}", e));
+            }
+        };
 
         // 更新句柄
         handle.set_stdio_channel(channel_id);
 
         // 持久化到数据库 (VC-005)
+        log::info!("[AgentManager::create_agent] Persisting agent to database...");
         if let Err(e) = self.persist_agent(&handle).await {
-            log::warn!("Failed to persist agent {}: {}", handle.agent_id, e);
+            log::warn!("[AgentManager::create_agent] Failed to persist agent {}: {}", handle.agent_id, e);
+        } else {
+            log::info!("[AgentManager::create_agent] Agent persisted successfully");
         }
 
         // 添加到管理器
         let agent_id = handle.agent_id.clone();
-        let mut agents = self.agents.write().await;
-        agents.insert(agent_id.clone(), handle);
+        log::info!("[AgentManager::create_agent] Adding agent to manager: {}", agent_id);
+        {
+            let mut agents = self.agents.write().await;
+            agents.insert(agent_id.clone(), handle);
+        } // ✅ 在这里释放 agents 锁
 
-        // 更新统计
+        // 更新统计（在释放锁之后调用，避免死锁）
+        log::info!("[AgentManager::create_agent] Updating stats...");
         self.update_stats().await;
 
-        log::info!("Created Agent {} of type {:?}", agent_id, agent_type_clone);
+        log::info!("[AgentManager::create_agent] Agent created successfully: {}", agent_id);
         Ok(agent_id)
     }
 

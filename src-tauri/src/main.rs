@@ -1,6 +1,8 @@
-﻿// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use tauri::Manager;
 
 mod ai;
@@ -144,6 +146,11 @@ fn main() {
                     eprintln!("Failed to initialize database: {}", e);
                 }
             });
+
+            // Initialize AgentManager state
+            let agent_manager = Arc::new(RwLock::new(agent::AgentManager::new(app.app_handle().clone())));
+            app.manage(agent_manager);
+            log::info!("AgentManager state initialized");
 
             // Check and create workspace directories for all projects
             if let Err(e) = db::ensure_all_project_workspaces(&app.app_handle()) {

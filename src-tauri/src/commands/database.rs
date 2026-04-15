@@ -432,8 +432,29 @@ pub fn get_sessions_by_project(
     app_handle: tauri::AppHandle,
     project_id: String,
 ) -> Result<Vec<AgentSession>, String> {
-    let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
-    db::get_sessions_by_project(&conn, &project_id).map_err(|e| e.to_string())
+    log::info!("[get_sessions_by_project] Querying sessions for project_id: {}", project_id);
+    
+    let conn = db::get_connection(&app_handle).map_err(|e| {
+        log::error!("[get_sessions_by_project] Failed to get database connection: {}", e);
+        format!("Failed to get database connection: {}", e)
+    })?;
+    
+    match db::get_sessions_by_project(&conn, &project_id) {
+        Ok(sessions) => {
+            log::info!("[get_sessions_by_project] Found {} sessions for project_id={}", sessions.len(), project_id);
+            if !sessions.is_empty() {
+                for (i, session) in sessions.iter().enumerate() {
+                    log::info!("[get_sessions_by_project] Session {}: agent_id={}, status={}, phase={}", 
+                        i+1, session.agent_id, session.status, session.phase);
+                }
+            }
+            Ok(sessions)
+        },
+        Err(e) => {
+            log::error!("[get_sessions_by_project] Failed to query sessions: {}", e);
+            Err(format!("Failed to query sessions: {}", e))
+        }
+    }
 }
 
 /// 获取单个 Agent Session（按 agent_id）

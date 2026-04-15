@@ -15,8 +15,14 @@ pub async fn persist_agent(
     app_handle: &AppHandle,
     handle: &AgentHandle,
 ) -> Result<(), String> {
+    log::info!("[persist_agent] Persisting agent to database: agent_id={}, session_id={}, project_id={}", 
+        handle.agent_id, handle.session_id, handle.project_id);
+    
     let conn = db::get_connection(app_handle)
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+        .map_err(|e| {
+            log::error!("[persist_agent] Failed to get database connection: {}", e);
+            format!("Failed to get database connection: {}", e)
+        })?;
 
     let session = crate::models::AgentSession {
         session_id: handle.session_id.clone(),
@@ -35,9 +41,20 @@ pub async fn persist_agent(
         registered_to_daemon: handle.registered_to_daemon,
         metadata: None,
     };
+    
+    log::info!("[persist_agent] Session data prepared: agent_type={}, status={}, phase={}", 
+        session.agent_type, session.status, session.phase);
 
-    db::create_agent_session(&conn, &session)
-        .map_err(|e| format!("Failed to create agent session: {}", e))
+    match db::create_agent_session(&conn, &session) {
+        Ok(_) => {
+            log::info!("[persist_agent] Agent session persisted successfully");
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("[persist_agent] Failed to create agent session: {}", e);
+            Err(format!("Failed to create agent session: {}", e))
+        }
+    }
 }
 
 /// 更新 Agent 状态并持久化 (VC-005)
