@@ -50,8 +50,6 @@ pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -
 
 /// 获取项目的所有Sprint
 pub fn get_sprints_by_project(conn: &Connection, project_id: &str) -> Result<Vec<Sprint>> {
-    println!("[DB::get_sprints_by_project] Querying for project_id: {}", project_id);
-    
     let mut stmt = conn.prepare(
         "SELECT * FROM sprints WHERE project_id = ?1 ORDER BY start_date DESC"
     )?;
@@ -65,8 +63,6 @@ pub fn get_sprints_by_project(conn: &Connection, project_id: &str) -> Result<Vec
         result.push(sprint_result?);
     }
     
-    println!("[DB::get_sprints_by_project] Retrieved {} sprints", result.len());
-
     Ok(result)
 }
 

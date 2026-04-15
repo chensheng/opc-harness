@@ -58,8 +58,6 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
 
 /// 获取项目的所有用户故事
 pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Result<Vec<UserStory>> {
-    println!("[DB::get_user_stories_by_project] Querying for project_id: {}", project_id);
-    
     let mut stmt = conn.prepare(
         "SELECT * FROM user_stories WHERE project_id = ?1 ORDER BY story_number ASC"
     )?;
@@ -73,8 +71,6 @@ pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Resul
         result.push(story_result?);
     }
     
-    println!("[DB::get_user_stories_by_project] Retrieved {} stories", result.len());
-
     Ok(result)
 }
 

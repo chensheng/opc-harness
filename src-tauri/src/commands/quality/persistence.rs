@@ -75,8 +75,6 @@ pub async fn get_user_stories(
     app_handle: tauri::AppHandle,
     request: GetUserStoriesRequest,
 ) -> Result<GetUserStoriesResponse, String> {
-    println!("[get_user_stories] Querying stories for project_id: {}", request.project_id);
-    
     let conn = db::get_connection(&app_handle).map_err(|e| {
         eprintln!("[get_user_stories] Failed to get DB connection: {}", e);
         format!("Failed to get DB connection: {}", e)
@@ -85,8 +83,6 @@ pub async fn get_user_stories(
     // 从数据库查询
     let db_stories = match db::get_user_stories_by_project(&conn, &request.project_id) {
         Ok(stories) => {
-            println!("[get_user_stories] Found {} stories in database for project {}", 
-                     stories.len(), request.project_id);
             stories
         },
         Err(e) => {
@@ -117,8 +113,6 @@ pub async fn get_user_stories(
             updated_at: story.updated_at.clone(),
         }
     }).collect();
-    
-    println!("[get_user_stories] Returning {} stories to frontend", user_stories.len());
     
     Ok(GetUserStoriesResponse {
         success: true,

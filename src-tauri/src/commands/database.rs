@@ -434,8 +434,6 @@ pub fn get_sessions_by_project(
     app_handle: tauri::AppHandle,
     project_id: String,
 ) -> Result<Vec<AgentSession>, String> {
-    log::info!("[get_sessions_by_project] Querying sessions for project_id: {}", project_id);
-    
     let conn = db::get_connection(&app_handle).map_err(|e| {
         log::error!("[get_sessions_by_project] Failed to get database connection: {}", e);
         format!("Failed to get database connection: {}", e)
@@ -443,13 +441,6 @@ pub fn get_sessions_by_project(
     
     match db::get_sessions_by_project(&conn, &project_id) {
         Ok(sessions) => {
-            log::info!("[get_sessions_by_project] Found {} sessions for project_id={}", sessions.len(), project_id);
-            if !sessions.is_empty() {
-                for (i, session) in sessions.iter().enumerate() {
-                    log::info!("[get_sessions_by_project] Session {}: agent_id={}, status={}, phase={}", 
-                        i+1, session.agent_id, session.status, session.phase);
-                }
-            }
             Ok(sessions)
         },
         Err(e) => {
@@ -561,8 +552,6 @@ pub fn get_sprints_by_project(
     app_handle: tauri::AppHandle,
     request: GetSprintsRequest,
 ) -> Result<Vec<crate::models::Sprint>, String> {
-    println!("[get_sprints_by_project] Querying for project_id: {}", request.project_id);
-    
     let conn = db::get_connection(&app_handle).map_err(|e| {
         eprintln!("[get_sprints_by_project] Failed to get DB connection: {}", e);
         format!("Failed to get DB connection: {}", e)
@@ -570,8 +559,7 @@ pub fn get_sprints_by_project(
     
     match db::get_sprints_by_project(&conn, &request.project_id) {
         Ok(sprints) => {
-            println!("[get_sprints_by_project] Retrieved {} sprints", sprints.len());
-            Ok(sprints)
+           Ok(sprints)
         },
         Err(e) => {
             eprintln!("[get_sprints_by_project] Failed to get sprints: {}", e);
