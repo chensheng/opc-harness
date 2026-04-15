@@ -151,3 +151,37 @@ pub async fn write_file_to_project(
     
     Ok(file_path.to_string_lossy().to_string())
 }
+
+/// 从项目目录读取指定文件的内容
+/// 通用文件读取命令，用于读取 AGENTS.md 等上下文文件
+#[tauri::command]
+pub async fn read_file_from_project(
+    project_path: String,
+    file_name: String,
+) -> Result<String, String> {
+    use tokio::fs;
+    
+    log::info!("[read_file_from_project] Reading file '{}' from project: {}", file_name, project_path);
+    
+    // 构建文件路径
+    let mut file_path = PathBuf::from(&project_path);
+    file_path.push(&file_name);
+    
+    log::info!("[read_file_from_project] File path: {:?}", file_path);
+    
+    // 检查文件是否存在
+    if !file_path.exists() {
+        log::warn!("[read_file_from_project] File does not exist: {:?}", file_path);
+        return Err(format!("文件不存在: {}", file_name));
+    }
+    
+    // 读取文件内容
+    let content = fs::read_to_string(&file_path).await.map_err(|e| {
+        log::error!("[read_file_from_project] Failed to read file: {}", e);
+        format!("读取文件失败: {}", e)
+    })?;
+    
+    log::info!("[read_file_from_project] Successfully read {} bytes from {:?}", content.len(), file_path);
+    
+    Ok(content)
+}

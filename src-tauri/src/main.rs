@@ -321,6 +321,7 @@ fn main() {
             commands::system::read_prd_from_file,
             commands::system::get_project_workspace_path,
             commands::system::write_file_to_project,
+            commands::system::read_file_from_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

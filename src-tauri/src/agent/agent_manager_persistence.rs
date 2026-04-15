@@ -41,6 +41,7 @@ pub async fn persist_agent(
         stdio_channel_id: handle.stdio_channel_id.clone(),
         registered_to_daemon: handle.registered_to_daemon,
         metadata: None,
+        agents_md_content: None,
     };
     
     log::info!("[persist_agent] Session data prepared: agent_type={}, status={}, phase={}", 

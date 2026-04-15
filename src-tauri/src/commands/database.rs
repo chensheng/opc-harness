@@ -421,6 +421,7 @@ pub fn create_agent_session(
         stdio_channel_id,
         registered_to_daemon: false,
         metadata,
+        agents_md_content: None,
     };
 
     db::create_agent_session(&conn, &session).map_err(|e| e.to_string())?;

@@ -92,6 +92,9 @@ pub struct AgentSession {
     /// 元数据（JSON）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<String>,
+    /// AGENTS.md 内容
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents_md_content: Option<String>,
 }
 
 /// 项目里程碑
@@ -221,6 +224,7 @@ impl Entity for AgentSession {
             stdio_channel_id: row.get(9)?,
             registered_to_daemon: row.get::<_, i32>(10)? != 0,
             metadata: row.get(11)?,
+            agents_md_content: row.get(12)?,
         })
     }
 }

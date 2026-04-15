@@ -16,6 +16,7 @@ import {
   GitBranch,
   Plus,
   Trash2,
+  Edit,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import type { AgentInfo } from './CodingWorkspaceTypes'
 import { CreateAgentDialog } from './CreateAgentDialog'
+import { EditAgentDialog } from './EditAgentDialog'
 
 // 后端 AgentSession 类型定义
 interface AgentSession {
@@ -43,6 +45,7 @@ interface AgentSession {
   updatedAt?: string
   stdioChannelId?: string
   registeredToDaemon?: boolean
+  agentsMdContent?: string
 
   session_id: string
   agent_id: string
@@ -55,6 +58,7 @@ interface AgentSession {
   stdio_channel_id?: string
   registered_to_daemon: boolean
   metadata?: string
+  agents_md_content?: string
 }
 
 // 将后端 AgentSession 转换为前端 AgentInfo
@@ -114,6 +118,7 @@ export function AgentMonitor() {
   const [isAutoScroll, setIsAutoScroll] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null)
+  const [agentToEdit, setAgentToEdit] = useState<AgentInfo | null>(null)
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
@@ -202,6 +207,12 @@ export function AgentMonitor() {
 
   const handleAgentCreated = (agentId: string) => {
     console.log('智能体创建成功:', agentId)
+    // 重新加载智能体列表
+    loadAgents()
+  }
+
+  const handleAgentEdited = () => {
+    console.log('智能体编辑成功')
     // 重新加载智能体列表
     loadAgents()
   }
@@ -383,7 +394,9 @@ export function AgentMonitor() {
                     <div className={`w-3 h-3 rounded-full ${getStatusColor(agent.status)}`} />
                     <div className="flex items-center gap-2">
                       {getAgentTypeIcon(agent.type)}
-                      <span className="font-semibold">{agent.name || getAgentTypeLabel(agent.type)}</span>
+                      <span className="font-semibold">
+                        {agent.name || getAgentTypeLabel(agent.type)}
+                      </span>
                       {getStatusBadge(agent.status)}
                     </div>
                   </div>
@@ -419,6 +432,14 @@ export function AgentMonitor() {
                       onClick={() => setSelectedAgent(agent.agentId)}
                     >
                       <EyeIcon className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAgentToEdit(agent)}
+                      title="编辑智能体"
+                    >
+                      <Edit className="w-3 h-3" />
                     </Button>
                     <Button
                       size="sm"
@@ -613,6 +634,19 @@ export function AgentMonitor() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={handleAgentCreated}
+        projectId={projectId}
+      />
+
+      {/* Edit Agent Dialog */}
+      <EditAgentDialog
+        open={agentToEdit !== null}
+        onOpenChange={open => {
+          if (!open) {
+            setAgentToEdit(null)
+          }
+        }}
+        agent={agentToEdit}
+        onSuccess={handleAgentEdited}
         projectId={projectId}
       />
     </div>

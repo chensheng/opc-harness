@@ -258,6 +258,7 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
                 stdio_channel_id TEXT,
                 registered_to_daemon INTEGER NOT NULL DEFAULT 0,
                 metadata TEXT,
+                agents_md_content TEXT,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
             )",
             [],
@@ -275,7 +276,7 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
     let expected_columns = vec![
         "session_id", "agent_id", "agent_type", "project_id", "name",
         "status", "phase", "created_at", "updated_at", "stdio_channel_id",
-        "registered_to_daemon", "metadata"
+        "registered_to_daemon", "metadata", "agents_md_content"
     ];
 
     // 检查是否包含所有必需的列
@@ -307,6 +308,7 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
                 stdio_channel_id TEXT,
                 registered_to_daemon INTEGER NOT NULL DEFAULT 0,
                 metadata TEXT,
+                agents_md_content TEXT,
                 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
             )",
             [],
