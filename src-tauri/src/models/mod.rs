@@ -73,6 +73,9 @@ pub struct AgentSession {
     pub agent_type: String,
     /// 项目ID
     pub project_id: String,
+    /// 智能体名称（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// 当前状态
     pub status: String,
     /// 当前阶段
@@ -210,13 +213,14 @@ impl Entity for AgentSession {
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
             project_id: row.get(3)?,
-            status: row.get(4)?,
-            phase: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-            stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, String>(9)? == "1",
-            metadata: row.get(10)?,
+            name: row.get(4)?,
+            status: row.get(5)?,
+            phase: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            stdio_channel_id: row.get(9)?,
+            registered_to_daemon: row.get::<_, String>(10)? == "1",
+            metadata: row.get(11)?,
         })
     }
 }

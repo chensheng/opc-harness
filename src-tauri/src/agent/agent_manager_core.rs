@@ -88,16 +88,17 @@ impl AgentManager {
         session_id: String,
         project_id: String,
         project_path: String,
+        name: Option<String>,
     ) -> Result<String, String> {
-        log::info!("[AgentManager::create_agent] Creating agent: type={:?}, session_id={}, project_id={}, project_path={}", 
-            agent_type, session_id, project_id, project_path);
+        log::info!("[AgentManager::create_agent] Creating agent: type={:?}, session_id={}, project_id={}, project_path={}, name={:?}", 
+            agent_type, session_id, project_id, project_path, name);
         
         // 保存 agent_type 的引用，避免移动
         let agent_type_clone = agent_type.clone();
         
-        // 创建 Agent 句柄（传入 project_id）
-        let mut handle = AgentHandle::new(agent_type, session_id.clone(), project_id.clone());
-
+        // 创建 Agent 句柄（传入 project_id 和 name）
+        let mut handle = AgentHandle::new(agent_type, session_id.clone(), project_id.clone(), name);
+        
         log::info!("[AgentManager::create_agent] Agent handle created: agent_id={}", handle.agent_id);
         
         // 创建 Stdio 通道 - 直接传递 AgentConfig

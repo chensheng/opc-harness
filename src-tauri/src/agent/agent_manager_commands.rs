@@ -33,15 +33,12 @@ use crate::db;
 /// 创建新的 Agent
 #[tauri::command]
 pub async fn create_agent(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     state: State<'_, Arc<RwLock<AgentManager>>>,
     agent_type: String,
     session_id: String,
     project_id: String,
 ) -> Result<String, String> {
-    use chrono::Utc;
-    use crate::models::AgentSession;
-    
     let manager = state.read().await;
     
     let parsed_type = match agent_type.as_str() {
@@ -62,7 +59,7 @@ pub async fn create_agent(
     }
     
     let project_path = project_workspace.to_string_lossy().to_string();
-    let result = manager.create_agent(parsed_type.clone(), session_id.clone(), project_id.clone(), project_path.clone()).await;
+    let result = manager.create_agent(parsed_type.clone(), session_id.clone(), project_id.clone(), project_path.clone(), None).await;
     drop(manager);
     
     // 注意：manager.create_agent 内部已经完成了数据库持久化，无需再次保存
@@ -82,16 +79,15 @@ pub async fn create_agent(
 /// 创建新的 Agent（使用 CLI 类型和 AGENTS.md 内容）
 #[tauri::command]
 pub async fn create_agent_with_cli(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     state: State<'_, Arc<RwLock<AgentManager>>>,
     cli_type: String,
     agents_content: String,
     project_id: String,
+    name: Option<String>,
 ) -> Result<String, String> {
     use std::fs;
     use std::path::PathBuf;
-    use chrono::Utc;
-    use crate::models::AgentSession;
     
     log::info!("[create_agent_with_cli] Starting agent creation");
     log::info!("[create_agent_with_cli] cli_type={}, project_id={}", cli_type, project_id);
@@ -156,7 +152,7 @@ pub async fn create_agent_with_cli(
     // 创建 Agent（同时传入 project_id 和 project_path）
     log::info!("[create_agent_with_cli] Calling manager.create_agent...");
     let manager = state.read().await;
-    let result = manager.create_agent(agent_type.clone(), session_id.clone(), project_id.clone(), project_path.clone()).await;
+    let result = manager.create_agent(agent_type.clone(), session_id.clone(), project_id.clone(), project_path.clone(), name).await;
     drop(manager);
     
     log::info!("[create_agent_with_cli] manager.create_agent result: {:?}", result.is_ok());

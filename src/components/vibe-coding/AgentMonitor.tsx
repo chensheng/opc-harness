@@ -38,6 +38,7 @@ interface AgentSession {
   agentId?: string
   agentType?: string
   projectId?: string
+  name?: string
   createdAt?: string
   updatedAt?: string
   stdioChannelId?: string
@@ -94,6 +95,7 @@ const convertSessionToAgentInfo = (session: AgentSession): AgentInfo => {
   return {
     agentId: session.agentId || session.agent_id || '',
     type: typeMap[session.agentType || session.agent_type] || 'coding',
+    name: session.name,
     status: statusMap[session.status || 'idle'] || 'idle',
     currentTask,
     progress,
@@ -370,7 +372,14 @@ export function AgentMonitor() {
                     <div className={`w-3 h-3 rounded-full ${getStatusColor(agent.status)}`} />
                     <div className="flex items-center gap-2">
                       {getAgentTypeIcon(agent.type)}
-                      <span className="font-semibold">{agent.agentId}</span>
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{agent.name || agent.agentId}</span>
+                        {agent.name && (
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {agent.agentId}
+                          </span>
+                        )}
+                      </div>
                       {getStatusBadge(agent.status)}
                     </div>
                   </div>
@@ -483,7 +492,23 @@ export function AgentMonitor() {
           <Card className="max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold">Agent 详情：{selectedAgent}</h3>
+                <div>
+                  {(() => {
+                    const agent = agents.find(a => a.agentId === selectedAgent)
+                    return (
+                      <>
+                        <h3 className="text-lg font-bold">
+                          Agent 详情：{agent?.name || selectedAgent}
+                        </h3>
+                        {agent?.name && (
+                          <p className="text-xs text-muted-foreground font-mono mt-1">
+                            {selectedAgent}
+                          </p>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => setSelectedAgent(null)}>
                   ✕
                 </Button>
@@ -497,6 +522,12 @@ export function AgentMonitor() {
                     <div>
                       <h4 className="font-semibold mb-2">基本信息</h4>
                       <div className="grid grid-cols-2 gap-2 text-sm">
+                        {agent.name && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">名称：</span>
+                            <span className="font-medium">{agent.name}</span>
+                          </div>
+                        )}
                         <div>
                           <span className="text-muted-foreground">类型：</span>
                           <span>{agent.type}</span>

@@ -32,6 +32,7 @@ mod tests {
             AgentType::Initializer,
             "test-session".to_string(),
             "/tmp/test".to_string(),
+            None,
         );
 
         assert!(!handle.agent_id.is_empty());
@@ -49,6 +50,7 @@ mod tests {
             AgentType::Coding,
             "session-123".to_string(),
             "/tmp/project".to_string(),
+            None,
         );
 
         assert_eq!(handle.status, AgentStatus::Idle);
@@ -66,6 +68,7 @@ mod tests {
             AgentType::MRCreation,
             "session-456".to_string(),
             "/tmp/mr".to_string(),
+            None,
         );
 
         assert!(handle.stdio_channel_id.is_none());
@@ -80,6 +83,7 @@ mod tests {
             AgentType::Initializer,
             "test".to_string(),
             "/tmp".to_string(),
+            None,
         );
 
         assert!(!handle.registered_to_daemon);
@@ -141,6 +145,7 @@ mod tests {
             agent_id: "agent-456".to_string(),
             agent_type: "initializer".to_string(),
             project_id: "project-uuid-789".to_string(),
+            name: None,
             status: "running".to_string(),
             phase: "initializer".to_string(),
             created_at: chrono::Utc::now().to_rfc3339(),

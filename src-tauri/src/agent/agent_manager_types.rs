@@ -18,6 +18,8 @@ pub struct AgentHandle {
     pub session_id: String,
     /// 项目ID
     pub project_id: String,
+    /// 智能体名称（可选）
+    pub name: Option<String>,
     /// 创建时间戳
     pub created_at: i64,
     /// 最后更新时间戳
@@ -38,6 +40,7 @@ impl AgentHandle {
         agent_type: AgentType,
         session_id: String,
         project_id: String,
+        name: Option<String>,
     ) -> Self {
         let now = chrono::Utc::now().timestamp();
         let phase = match &agent_type {
@@ -51,6 +54,7 @@ impl AgentHandle {
             agent_type,
             session_id,
             project_id,
+            name,
             created_at: now,
             updated_at: now,
             status: AgentStatus::Idle,

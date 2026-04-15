@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 
 interface CreateAgentDialogProps {
   open: boolean
@@ -41,6 +42,7 @@ export function CreateAgentDialog({
   onSuccess,
   projectId,
 }: CreateAgentDialogProps) {
+  const [agentName, setAgentName] = useState<string>('')
   const [cliType, setCliType] = useState<string>('codefree')
   const [agentsContent, setAgentsContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
@@ -56,6 +58,7 @@ export function CreateAgentDialog({
     setError(null)
 
     console.log('[CreateAgentDialog] Starting agent creation...')
+    console.log('[CreateAgentDialog] agentName:', agentName)
     console.log('[CreateAgentDialog] cliType:', cliType)
     console.log('[CreateAgentDialog] projectId:', projectId)
     console.log('[CreateAgentDialog] agentsContent length:', agentsContent.length)
@@ -66,6 +69,7 @@ export function CreateAgentDialog({
         cliType,
         agentsContent,
         projectId: projectId || '',
+        name: agentName.trim() || null,
       })
 
       console.log('[CreateAgentDialog] Agent created successfully:', agentId)
@@ -73,6 +77,7 @@ export function CreateAgentDialog({
       onOpenChange(false)
 
       // 重置表单
+      setAgentName('')
       setAgentsContent('')
       setError(null)
     } catch (err) {
@@ -106,6 +111,21 @@ export function CreateAgentDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          {/* Agent Name */}
+          <div className="grid gap-2">
+            <Label htmlFor="agent-name">智能体名称（可选）</Label>
+            <Input
+              id="agent-name"
+              placeholder="例如：代码生成助手、测试智能体等"
+              value={agentName}
+              onChange={e => setAgentName(e.target.value)}
+              disabled={isLoading}
+            />
+            <p className="text-xs text-muted-foreground">
+              为智能体设置一个易于识别的名称，方便后续管理
+            </p>
+          </div>
+
           {/* CLI Type */}
           <div className="grid gap-2">
             <Label htmlFor="cli-type">CLI 类型</Label>

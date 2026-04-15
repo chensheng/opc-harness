@@ -82,6 +82,7 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
             agent_id TEXT PRIMARY KEY,
             agent_type TEXT NOT NULL,
             project_id TEXT NOT NULL,
+            name TEXT,
             status TEXT NOT NULL,
             phase TEXT NOT NULL,
             created_at TEXT NOT NULL,
@@ -301,6 +302,7 @@ fn migrate_agent_sessions_project_path_to_id(conn: &Connection) -> Result<()> {
                 agent_id TEXT PRIMARY KEY,
                 agent_type TEXT NOT NULL,
                 project_id TEXT NOT NULL,
+                name TEXT,
                 status TEXT NOT NULL,
                 phase TEXT NOT NULL,
                 created_at TEXT NOT NULL,
@@ -319,6 +321,7 @@ fn migrate_agent_sessions_project_path_to_id(conn: &Connection) -> Result<()> {
             "INSERT INTO agent_sessions_new 
              SELECT session_id, agent_id, agent_type, 
                     COALESCE((SELECT id FROM projects LIMIT 1), '') as project_id,
+                    NULL as name,
                     status, phase, created_at, updated_at, 
                     stdio_channel_id, registered_to_daemon, metadata
              FROM agent_sessions",

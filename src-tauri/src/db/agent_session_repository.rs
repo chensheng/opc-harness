@@ -7,13 +7,14 @@ pub fn create_agent_session(conn: &Connection, session: &AgentSession) -> Result
     let registered_value: i32 = if session.registered_to_daemon { 1 } else { 0 };
     
     conn.execute(
-        "INSERT INTO agent_sessions (session_id, agent_id, agent_type, project_id, status, phase, created_at, updated_at, stdio_channel_id, registered_to_daemon, metadata)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        "INSERT INTO agent_sessions (session_id, agent_id, agent_type, project_id, name, status, phase, created_at, updated_at, stdio_channel_id, registered_to_daemon, metadata)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         rusqlite::params![
             &session.session_id,
             &session.agent_id,
             &session.agent_type,
             &session.project_id,
+            &session.name,
             &session.status,
             &session.phase,
             &session.created_at,
@@ -35,13 +36,14 @@ pub fn get_sessions_by_project(conn: &Connection, project_id: &str) -> Result<Ve
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
             project_id: row.get(3)?,
-            status: row.get(4)?,
-            phase: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-            stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? != 0,
-            metadata: row.get(10)?,
+            name: row.get(4)?,
+            status: row.get(5)?,
+            phase: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            stdio_channel_id: row.get(9)?,
+            registered_to_daemon: row.get::<_, i32>(10)? != 0,
+            metadata: row.get(11)?,
         })
     })?;
 
@@ -61,13 +63,14 @@ pub fn get_all_agent_sessions(conn: &Connection) -> Result<Vec<AgentSession>> {
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
             project_id: row.get(3)?,
-            status: row.get(4)?,
-            phase: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-            stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? != 0,
-            metadata: row.get(10)?,
+            name: row.get(4)?,
+            status: row.get(5)?,
+            phase: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            stdio_channel_id: row.get(9)?,
+            registered_to_daemon: row.get::<_, i32>(10)? != 0,
+            metadata: row.get(11)?,
         })
     })?;
 
@@ -87,13 +90,14 @@ pub fn get_agent_session_by_id(conn: &Connection, agent_id: &str) -> Result<Opti
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
             project_id: row.get(3)?,
-            status: row.get(4)?,
-            phase: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-            stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? != 0,
-            metadata: row.get(10)?,
+            name: row.get(4)?,
+            status: row.get(5)?,
+            phase: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            stdio_channel_id: row.get(9)?,
+            registered_to_daemon: row.get::<_, i32>(10)? != 0,
+            metadata: row.get(11)?,
         })
     })?;
 
@@ -112,13 +116,14 @@ pub fn get_agent_session_by_session_id(conn: &Connection, session_id: &str) -> R
             agent_id: row.get(1)?,
             agent_type: row.get(2)?,
             project_id: row.get(3)?,
-            status: row.get(4)?,
-            phase: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-            stdio_channel_id: row.get(8)?,
-            registered_to_daemon: row.get::<_, i32>(9)? != 0,
-            metadata: row.get(10)?,
+            name: row.get(4)?,
+            status: row.get(5)?,
+            phase: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            stdio_channel_id: row.get(9)?,
+            registered_to_daemon: row.get::<_, i32>(10)? != 0,
+            metadata: row.get(11)?,
         })
     })?;
 
@@ -147,14 +152,15 @@ pub fn update_agent_session(conn: &Connection, session: &AgentSession) -> Result
     
     conn.execute(
         "UPDATE agent_sessions 
-         SET session_id = ?2, agent_type = ?3, project_id = ?4, status = ?5, phase = ?6, 
-             updated_at = ?7, stdio_channel_id = ?8, registered_to_daemon = ?9, metadata = ?10
+         SET session_id = ?2, agent_type = ?3, project_id = ?4, name = ?5, status = ?6, phase = ?7, 
+             updated_at = ?8, stdio_channel_id = ?9, registered_to_daemon = ?10, metadata = ?11
          WHERE agent_id = ?1",
         rusqlite::params![
             &session.agent_id,
             &session.session_id,
             &session.agent_type,
             &session.project_id,
+            &session.name,
             &session.status,
             &session.phase,
             &updated_at,

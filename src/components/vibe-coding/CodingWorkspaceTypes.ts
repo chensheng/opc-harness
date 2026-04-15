@@ -30,6 +30,7 @@ export interface TaskStats {
 export interface AgentInfo {
   agentId: string
   type: 'initializer' | 'coding' | 'mr_creation'
+  name?: string
   status: 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
   currentTask?: string
   progress: number

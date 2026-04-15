@@ -413,6 +413,7 @@ pub fn create_agent_session(
         agent_id: agent_id.clone(),
         agent_type,
         project_id,
+        name: None,
         status,
         phase,
         created_at: Utc::now().to_rfc3339(),

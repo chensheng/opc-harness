@@ -29,6 +29,7 @@ pub async fn persist_agent(
         agent_id: handle.agent_id.clone(),
         agent_type: handle.agent_type.to_string(),
         project_id: handle.project_id.clone(),
+        name: handle.name.clone(),
         status: handle.status.to_string().to_lowercase(),
         phase: handle.phase.to_string().to_lowercase(),
         created_at: chrono::DateTime::from_timestamp(handle.created_at, 0)
@@ -116,6 +117,8 @@ pub async fn restore_sessions(
                 _ => continue, // 跳过未知类型
             },
             session_id: session.session_id.clone(),
+            project_id: session.project_id.clone(),
+            name: session.name,
             created_at: chrono::DateTime::parse_from_rfc3339(&session.created_at)
                 .map(|dt| dt.timestamp())
                 .unwrap_or_else(|_| chrono::Utc::now().timestamp()),
@@ -134,7 +137,6 @@ pub async fn restore_sessions(
                 "mr_creation" => AgentPhase::MRCreation,
                 _ => AgentPhase::Initializer,
             },
-            project_id: session.project_id.clone(),
             stdio_channel_id: session.stdio_channel_id,
             registered_to_daemon: session.registered_to_daemon,
         };
