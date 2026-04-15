@@ -114,8 +114,7 @@ export function AgentMonitor() {
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null)
 
   // 监听 agentToDelete 状态变化
-  useEffect(() => {
-  }, [agentToDelete])
+  useEffect(() => {}, [agentToDelete])
 
   // 从数据库加载智能体列表
   const loadAgents = async () => {
@@ -125,13 +124,11 @@ export function AgentMonitor() {
       return
     }
 
-
     try {
       setLoading(true)
       const sessions = await invoke<AgentSession[]>('get_sessions_by_project', {
         projectId,
       })
-
 
       const agentInfos = sessions.map(convertSessionToAgentInfo)
 
@@ -466,7 +463,10 @@ export function AgentMonitor() {
                 {/* Recent Logs */}
                 <div className="bg-black/5 dark:bg-white/5 rounded-md p-2 font-mono text-xs max-h-24 overflow-y-auto">
                   {agent.logs.slice(-5).map((log, idx) => (
-                    <div key={`${agent.agentId}-log-${idx}`} className="text-gray-700 dark:text-gray-300 truncate">
+                    <div
+                      key={`${agent.agentId}-log-${idx}`}
+                      className="text-gray-700 dark:text-gray-300 truncate"
+                    >
                       {log}
                     </div>
                   ))}
@@ -520,7 +520,10 @@ export function AgentMonitor() {
                       <h4 className="font-semibold mb-2">完整日志</h4>
                       <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs max-h-48 overflow-y-auto space-y-1">
                         {agent.logs.map((log, idx) => (
-                          <div key={`${agent.agentId}-full-log-${idx}`} className="text-gray-700 dark:text-gray-300">
+                          <div
+                            key={`${agent.agentId}-full-log-${idx}`}
+                            className="text-gray-700 dark:text-gray-300"
+                          >
                             {log}
                           </div>
                         ))}
