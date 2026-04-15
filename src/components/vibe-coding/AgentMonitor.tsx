@@ -105,7 +105,6 @@ export function AgentMonitor() {
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {
-    console.log('[AgentMonitor] agentToDelete state changed:', agentToDelete)
   }, [agentToDelete])
 
   // 从数据库加载智能体列表
@@ -116,7 +115,6 @@ export function AgentMonitor() {
       return
     }
 
-    console.log('[AgentMonitor] Loading agents for project:', projectId)
 
     try {
       setLoading(true)
@@ -124,11 +122,8 @@ export function AgentMonitor() {
         projectId,
       })
 
-      console.log('[AgentMonitor] Received sessions from backend:', sessions.length, 'sessions')
-      console.log('[AgentMonitor] Sessions data:', sessions)
 
       const agentInfos = sessions.map(convertSessionToAgentInfo)
-      console.log('[AgentMonitor] Converted to AgentInfo:', agentInfos.length, 'agents')
 
       setAgents(agentInfos)
     } catch (error) {
