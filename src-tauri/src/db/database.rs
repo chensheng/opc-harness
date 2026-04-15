@@ -76,24 +76,8 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
     )?;
 
     // Create agent_sessions table (VC-005)
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS agent_sessions (
-            session_id TEXT NOT NULL,
-            agent_id TEXT PRIMARY KEY,
-            agent_type TEXT NOT NULL,
-            project_id TEXT NOT NULL,
-            name TEXT,
-            status TEXT NOT NULL,
-            phase TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            stdio_channel_id TEXT,
-            registered_to_daemon INTEGER NOT NULL DEFAULT 0,
-            metadata TEXT,
-            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-        )",
-        [],
-    )?;
+    // 检查表结构版本，如果不匹配则重建
+    check_and_rebuild_agent_sessions_table(&conn)?;
 
     // Create milestones table (DB-002)
     conn.execute(
@@ -244,6 +228,94 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_sprints_start_date ON sprints(start_date)",
         [],
     )?;
+
+    Ok(())
+}
+
+/// 检查并重建 agent_sessions 表（如果结构不匹配）
+fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
+    // 检查表是否存在
+    let table_exists = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_sessions'",
+        [],
+        |row| row.get::<_, i32>(0)
+    ).unwrap_or(0);
+
+    if table_exists == 0 {
+        // 表不存在，创建新表
+        log::info!("Creating agent_sessions table...");
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS agent_sessions (
+                session_id TEXT NOT NULL,
+                agent_id TEXT PRIMARY KEY,
+                agent_type TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                name TEXT,
+                status TEXT NOT NULL,
+                phase TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                stdio_channel_id TEXT,
+                registered_to_daemon INTEGER NOT NULL DEFAULT 0,
+                metadata TEXT,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+        return Ok(());
+    }
+
+    // 表存在，检查列结构
+    let mut stmt = conn.prepare("PRAGMA table_info(agent_sessions)")?;
+    let columns: Vec<String> = stmt.query_map([], |row| {
+        Ok(row.get::<_, String>(1)?) // name column
+    })?.collect::<Result<Vec<_>, _>>()?;
+
+    // 期望的列列表
+    let expected_columns = vec![
+        "session_id", "agent_id", "agent_type", "project_id", "name",
+        "status", "phase", "created_at", "updated_at", "stdio_channel_id",
+        "registered_to_daemon", "metadata"
+    ];
+
+    // 检查是否包含所有必需的列
+    let has_all_columns = expected_columns.iter().all(|col| columns.contains(&col.to_string()));
+    
+    // 检查是否有旧版本的列（project_path）
+    let has_old_column = columns.iter().any(|col| col == "project_path");
+
+    if !has_all_columns || has_old_column {
+        log::warn!("Detected outdated agent_sessions table structure. Rebuilding...");
+        log::info!("Current columns: {:?}", columns);
+        log::info!("Expected columns: {:?}", expected_columns);
+        
+        // 删除旧表
+        conn.execute("DROP TABLE IF EXISTS agent_sessions", [])?;
+        
+        // 创建新表
+        conn.execute(
+            "CREATE TABLE agent_sessions (
+                session_id TEXT NOT NULL,
+                agent_id TEXT PRIMARY KEY,
+                agent_type TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                name TEXT,
+                status TEXT NOT NULL,
+                phase TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                stdio_channel_id TEXT,
+                registered_to_daemon INTEGER NOT NULL DEFAULT 0,
+                metadata TEXT,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+        
+        log::info!("✅ agent_sessions table rebuilt successfully");
+    } else {
+        log::info!("agent_sessions table structure is up to date");
+    }
 
     Ok(())
 }
