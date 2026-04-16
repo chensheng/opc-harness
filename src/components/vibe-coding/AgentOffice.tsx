@@ -7,7 +7,7 @@
  * @module components/vibe-coding/AgentOffice
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ import {
 import type { AgentInfo } from './CodingWorkspaceTypes'
 import { PixelAvatar } from './PixelAvatar'
 import { OfficeBackground } from './OfficeBackground'
+import { applyAppearancesToAgents } from './AgentAppearanceGenerator'
 
 /**
  * AgentOffice 组件 Props
@@ -178,10 +179,15 @@ export function AgentOffice({
     return () => clearInterval(timer)
   }, [])
 
+  // 为所有智能体应用外观配置 (使用 useMemo 缓存,避免重复计算)
+  const agentsWithAppearance = useMemo(() => {
+    return applyAppearancesToAgents(agents)
+  }, [agents])
+
   // 计算每个智能体的位置
-  const agentPositions = agents.map((agent, index) => ({
+  const agentPositions = agentsWithAppearance.map((agent, index) => ({
     ...agent,
-    position: getAgentPosition(agent, index, agents.length),
+    position: getAgentPosition(agent, index, agentsWithAppearance.length),
   }))
 
   // 处理角色点击

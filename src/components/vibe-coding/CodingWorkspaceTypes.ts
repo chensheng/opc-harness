@@ -38,6 +38,23 @@ export interface AgentInfo {
   memoryUsage: number
   logs: string[]
   sessionId: string
+  /**
+   * 智能体外观配置 (随机生成)
+   */
+  appearance?: {
+    /** 主色调 (16进制颜色) */
+    primaryColor: string
+    /** 辅助色 */
+    secondaryColor: string
+    /** 强调色 */
+    accentColor: string
+    /** 配饰类型 */
+    accessory: 'none' | 'glasses' | 'hat' | 'bowtie' | 'headphones' | 'crown'
+    /** 体型变体 */
+    bodyVariant: 'slim' | 'normal' | 'round' | 'tall'
+    /** 表情风格 */
+    expression: 'happy' | 'serious' | 'curious' | 'sleepy'
+  }
 }
 
 /**

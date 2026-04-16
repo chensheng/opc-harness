@@ -22,9 +22,9 @@ export type PixelAvatarState =
   | 'walking' // 行走移动
 
 /**
- * 智能体类型对应的颜色主题
+ * 默认颜色主题 (当智能体没有 appearance 配置时使用)
  */
-const AGENT_TYPE_COLORS = {
+const DEFAULT_TYPE_COLORS = {
   initializer: {
     primary: '#3B82F6', // 蓝色
     secondary: '#1E40AF',
@@ -269,6 +269,25 @@ export function PixelAvatar({
   const [_currentFrame, setCurrentFrame] = useState(0) // eslint-disable-line @typescript-eslint/no-unused-vars
   const animationState = STATE_TO_ANIMATION[agent.status]
 
+  // 获取智能体的颜色配置 (优先使用 appearance,否则使用默认类型颜色)
+  const getColors = () => {
+    if (agent.appearance) {
+      return {
+        P: agent.appearance.primaryColor, // 身体主要颜色
+        S: agent.appearance.secondaryColor, // 身体次要颜色
+        L: agent.appearance.accentColor, // 腿部/强调色
+        ...SPECIAL_COLORS,
+      }
+    }
+    // 后备到默认类型颜色
+    return {
+      P: DEFAULT_TYPE_COLORS[agent.type].primary,
+      S: DEFAULT_TYPE_COLORS[agent.type].secondary,
+      L: DEFAULT_TYPE_COLORS[agent.type].accent,
+      ...SPECIAL_COLORS,
+    }
+  }
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -277,12 +296,7 @@ export function PixelAvatar({
     if (!ctx) return
 
     const drawer = new PixelDrawer(ctx, 16, size / 16)
-    const colors = {
-      P: AGENT_TYPE_COLORS[agent.type].primary,
-      S: AGENT_TYPE_COLORS[agent.type].secondary,
-      L: AGENT_TYPE_COLORS[agent.type].accent,
-      ...SPECIAL_COLORS,
-    }
+    const colors = getColors()
 
     let frameIndex = 0
     const frames = ANIMATION_FRAMES[animationState]
@@ -300,7 +314,16 @@ export function PixelAvatar({
     const interval = setInterval(animate, frameDuration)
 
     return () => clearInterval(interval)
-  }, [agent.type, agent.status, size, animationState])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    agent.type,
+    agent.status,
+    agent.appearance?.primaryColor,
+    agent.appearance?.secondaryColor,
+    agent.appearance?.accentColor,
+    size,
+    animationState,
+  ])
 
   // 生成状态提示文本
   const getStatusText = (): string => {
@@ -320,6 +343,9 @@ export function PixelAvatar({
     }
   }
 
+  // 获取显示颜色 (用于标签和徽章)
+  const displayColor = agent.appearance?.primaryColor || DEFAULT_TYPE_COLORS[agent.type].primary
+
   return (
     <div className={`relative inline-block ${className}`} onClick={onClick}>
       {/* 像素角色 Canvas */}
@@ -336,7 +362,7 @@ export function PixelAvatar({
       <div
         className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 px-2 py-0.5 text-xs font-bold rounded-full whitespace-nowrap`}
         style={{
-          backgroundColor: AGENT_TYPE_COLORS[agent.type].primary,
+          backgroundColor: displayColor,
           color: 'white',
         }}
       >
@@ -353,7 +379,12 @@ export function PixelAvatar({
 
       {/* 进度指示器 */}
       {agent.status === 'running' && agent.progress > 0 && (
-        <div className="absolute -right-2 top-0 w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white shadow-md">
+        <div
+          className="absolute -right-2 top-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-md"
+          style={{
+            background: `linear-gradient(135deg, ${displayColor}, ${agent.appearance?.accentColor || displayColor})`,
+          }}
+        >
           {Math.round(agent.progress)}%
         </div>
       )}
