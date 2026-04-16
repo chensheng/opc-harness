@@ -493,6 +493,21 @@ pub fn update_agent_session(app_handle: tauri::AppHandle, session: AgentSession)
 #[tauri::command]
 pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> Result<(), String> {
     let conn = db::get_connection(&app_handle).map_err(|e| e.to_string())?;
+    
+    // 先获取智能体信息，检查状态
+    let session = db::get_agent_session_by_id(&conn, &agent_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Agent not found: {}", agent_id))?;
+    
+    // 检查智能体是否处于运行状态
+    if session.status == "running" || session.status == "paused" {
+        return Err(format!(
+            "无法删除正在运行的智能体。当前状态: {}。请先停止智能体后再删除。",
+            session.status
+        ));
+    }
+    
+    // 状态允许删除，执行删除操作
     db::delete_agent_session(&conn, &agent_id).map_err(|e| e.to_string())
 }
 

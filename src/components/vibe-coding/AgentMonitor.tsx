@@ -441,16 +441,19 @@ export function AgentMonitor() {
                     >
                       <Edit className="w-3 h-3" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        setAgentToDelete(agent.agentId)
-                      }}
-                      title="删除智能体"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+                    {/* 只有停止状态的智能体才显示删除按钮 */}
+                    {agent.status === 'stopped' && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setAgentToDelete(agent.agentId)
+                        }}
+                        title="删除智能体"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -608,6 +611,21 @@ export function AgentMonitor() {
             <DialogDescription>
               您确定要删除智能体 <strong>{agentToDelete}</strong>{' '}
               吗？此操作不可恢复，智能体的所有数据和日志将被永久删除。
+              {(() => {
+                const agent = agents.find(a => a.agentId === agentToDelete)
+                if (agent && (agent.status === 'running' || agent.status === 'paused')) {
+                  return (
+                    <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        ⚠️ 该智能体当前处于{' '}
+                        <strong>{agent.status === 'running' ? '运行中' : '已暂停'}</strong>{' '}
+                        状态，无法删除。请先停止智能体后再尝试删除。
+                      </p>
+                    </div>
+                  )
+                }
+                return null
+              })()}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -616,6 +634,10 @@ export function AgentMonitor() {
             </Button>
             <Button
               variant="destructive"
+              disabled={(() => {
+                const agent = agents.find(a => a.agentId === agentToDelete)
+                return agent && (agent.status === 'running' || agent.status === 'paused')
+              })()}
               onClick={() => {
                 if (agentToDelete) {
                   handleDeleteAgent(agentToDelete)
