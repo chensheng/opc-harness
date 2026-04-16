@@ -119,25 +119,29 @@ export function AgentMonitor() {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
-  const [isAutoScroll, setIsAutoScroll] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null)
   const [agentToEdit, setAgentToEdit] = useState<AgentInfo | null>(null)
   const [viewMode, setViewMode] = useState<'office' | 'list'>('office') // 视图模式：办公室或列表
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
 
   // 从数据库加载智能体列表
-  const loadAgents = async () => {
+  const loadAgents = async (silent = false) => {
     if (!projectId) {
       console.warn('[AgentMonitor] Project ID is not available')
-      setLoading(false)
+      if (!silent) setLoading(false)
       return
     }
 
     try {
-      setLoading(true)
+      // 只有非静默模式且是首次加载时才显示 loading
+      if (!silent && isInitialLoad) {
+        setLoading(true)
+      }
+
       const sessions = await invoke<AgentSession[]>('get_sessions_by_project', {
         projectId,
       })
@@ -145,25 +149,33 @@ export function AgentMonitor() {
       const agentInfos = sessions.map(convertSessionToAgentInfo)
 
       setAgents(agentInfos)
+      
+      // 首次加载完成后，标记为非首次加载
+      if (isInitialLoad) {
+        setIsInitialLoad(false)
+      }
     } catch (error) {
       console.error('[AgentMonitor] Failed to load agents:', error)
       // 失败时显示空列表，不阻塞用户操作
       setAgents([])
     } finally {
-      setLoading(false)
+      // 只有非静默模式才更新 loading 状态
+      if (!silent || isInitialLoad) {
+        setLoading(false)
+      }
     }
   }
 
-  // 组件挂载时加载数据
+  // 组件挂载时加载数据（首次加载，显示 loading）
   useEffect(() => {
-    loadAgents()
+    loadAgents(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
-  // 定时刷新数据（每5秒）
+  // 定时刷新数据（每5秒，静默刷新）
   useEffect(() => {
     const interval = setInterval(() => {
-      loadAgents()
+      loadAgents(true) // 静默刷新，不显示 loading
     }, 5000)
 
     return () => clearInterval(interval)
@@ -265,18 +277,18 @@ export function AgentMonitor() {
 
   const handleAgentCreated = (agentId: string) => {
     console.log('智能体创建成功:', agentId)
-    // 重新加载智能体列表
-    loadAgents()
+    // 重新加载智能体列表（静默刷新）
+    loadAgents(true)
   }
 
   const handleAgentEdited = () => {
     console.log('智能体编辑成功')
-    // 重新加载智能体列表
-    loadAgents()
+    // 重新加载智能体列表（静默刷新）
+    loadAgents(true)
   }
 
   const handleRefresh = () => {
-    loadAgents()
+    loadAgents(true) // 手动刷新也使用静默模式
   }
 
   const getStatusColor = (status: AgentInfo['status']) => {
@@ -353,10 +365,6 @@ export function AgentMonitor() {
           <p className="text-muted-foreground mt-1">实时监控多个 AI Agent 的运行状态和资源使用</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsAutoScroll(!isAutoScroll)}>
-            <EyeIcon className="w-4 h-4 mr-2" />
-            {isAutoScroll ? '自动滚动：开' : '自动滚动：关'}
-          </Button>
           <Button variant="outline" onClick={handleRefresh} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? '加载中...' : '刷新状态'}
