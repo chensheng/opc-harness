@@ -165,22 +165,75 @@ export function AgentMonitor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
-  const handlePauseAgent = (agentId: string) => {
-    setAgents(prev =>
-      prev.map(a => (a.agentId === agentId ? { ...a, status: 'paused', cpuUsage: 0 } : a))
-    )
+  const handleStartAgent = async (agentId: string) => {
+    try {
+      // 先调用后端 API 更新状态到数据库
+      await invoke('update_agent_session_status', {
+        agentId,
+        status: 'running',
+        phase: 'processing',
+      })
+
+      // 再更新前端状态
+      setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
+    } catch (error) {
+      console.error('Failed to start agent:', error)
+    }
   }
 
-  const handleResumeAgent = (agentId: string) => {
-    setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
-  }
+  const handlePauseAgent = async (agentId: string) => {
+    try {
+      // 先调用后端 API 更新状态到数据库
+      await invoke('update_agent_session_status', {
+        agentId,
+        status: 'paused',
+        phase: 'waiting',
+      })
 
-  const handleStopAgent = (agentId: string) => {
-    setAgents(prev =>
-      prev.map(a =>
-        a.agentId === agentId ? { ...a, status: 'stopped', progress: 0, cpuUsage: 0 } : a
+      // 再更新前端状态
+      setAgents(prev =>
+        prev.map(a => (a.agentId === agentId ? { ...a, status: 'paused', cpuUsage: 0 } : a))
       )
-    )
+    } catch (error) {
+      console.error('Failed to pause agent:', error)
+    }
+  }
+
+  const handleResumeAgent = async (agentId: string) => {
+    try {
+      // 先调用后端 API 更新状态到数据库
+      await invoke('update_agent_session_status', {
+        agentId,
+        status: 'running',
+        phase: 'processing',
+      })
+
+      // 再更新前端状态
+      setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
+    } catch (error) {
+      console.error('Failed to resume agent:', error)
+    }
+  }
+
+  const handleStopAgent = async (agentId: string) => {
+    try {
+      // 先调用后端 API 更新状态到数据库
+      await invoke('update_agent_session_status', {
+        agentId,
+        status: 'stopped',
+        phase: 'idle',
+      })
+
+      // 再更新前端状态
+      setAgents(prev =>
+        prev.map(a =>
+          a.agentId === agentId ? { ...a, status: 'stopped', progress: 0, cpuUsage: 0 } : a
+        )
+      )
+    } catch (error) {
+      console.error('Failed to stop agent:', error)
+      // 可以添加错误提示
+    }
   }
 
   const handleDeleteAgent = async (agentId: string) => {
@@ -401,31 +454,58 @@ export function AgentMonitor() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    {agent.status === 'running' && (
+                    {/* 运行控制按钮组 */}
+                    {agent.status === 'running' ? (
+                      // 运行中：显示暂停和停止按钮
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePauseAgent(agent.agentId)}
+                          title="暂停智能体"
+                        >
+                          <Pause className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleStopAgent(agent.agentId)}
+                          title="停止智能体"
+                        >
+                          <Square className="w-3 h-3" />
+                        </Button>
+                      </>
+                    ) : agent.status === 'paused' ? (
+                      // 已暂停：显示恢复和停止按钮
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResumeAgent(agent.agentId)}
+                          title="恢复智能体"
+                        >
+                          <Play className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleStopAgent(agent.agentId)}
+                          title="停止智能体"
+                        >
+                          <Square className="w-3 h-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      // 已停止/其他状态：显示启动按钮
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => handlePauseAgent(agent.agentId)}
-                      >
-                        <Pause className="w-3 h-3" />
-                      </Button>
-                    )}
-                    {agent.status === 'paused' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleResumeAgent(agent.agentId)}
+                        variant="default"
+                        onClick={() => handleStartAgent(agent.agentId)}
+                        title="启动智能体"
                       >
                         <Play className="w-3 h-3" />
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStopAgent(agent.agentId)}
-                    >
-                      <Square className="w-3 h-3" />
-                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
