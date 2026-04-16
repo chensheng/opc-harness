@@ -17,10 +17,13 @@ import {
   Plus,
   Trash2,
   Edit,
+  LayoutGrid,
+  List,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -32,6 +35,7 @@ import {
 import type { AgentInfo } from './CodingWorkspaceTypes'
 import { CreateAgentDialog } from './CreateAgentDialog'
 import { EditAgentDialog } from './EditAgentDialog'
+import { AgentOffice } from './AgentOffice'
 
 // 后端 AgentSession 类型定义
 interface AgentSession {
@@ -119,6 +123,7 @@ export function AgentMonitor() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null)
   const [agentToEdit, setAgentToEdit] = useState<AgentInfo | null>(null)
+  const [viewMode, setViewMode] = useState<'office' | 'list'>('office') // 视图模式：办公室或列表
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
@@ -363,394 +368,429 @@ export function AgentMonitor() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">总 Agent 数</p>
-              <p className="text-2xl font-bold">{totalAgents}</p>
-            </div>
-            <Activity className="w-8 h-8 text-blue-500" />
-          </div>
-        </Card>
+      {/* View Mode Tabs */}
+      <Tabs
+        value={viewMode}
+        onValueChange={v => setViewMode(v as 'office' | 'list')}
+        className="w-full"
+      >
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="office" className="flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4" />
+            办公室视图
+          </TabsTrigger>
+          <TabsTrigger value="list" className="flex items-center gap-2">
+            <List className="w-4 h-4" />
+            列表视图
+          </TabsTrigger>
+        </TabsList>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">运行中</p>
-              <p className="text-2xl font-bold text-green-600">{runningAgents}</p>
-            </div>
-            <Play className="w-8 h-8 text-green-500" />
-          </div>
-        </Card>
+        {/* Office View */}
+        <TabsContent value="office" className="mt-6">
+          <AgentOffice
+            agents={agents}
+            loading={loading}
+            _onStartAgent={handleStartAgent}
+            onPauseAgent={handlePauseAgent}
+            onResumeAgent={handleResumeAgent}
+            onStopAgent={handleStopAgent}
+            _onRefresh={handleRefresh}
+          />
+        </TabsContent>
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">平均进度</p>
-              <p className="text-2xl font-bold">{Math.round(avgProgress)}%</p>
-            </div>
-            <Loader2 className="w-8 h-8 text-orange-500" />
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">CPU 使用率</p>
-              <p className="text-2xl font-bold">{totalCpuUsage.toFixed(1)}%</p>
-            </div>
-            <Cpu className="w-8 h-8 text-purple-500" />
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            内存：{(totalMemoryUsage / 1024).toFixed(1)} GB
-          </div>
-        </Card>
-      </div>
-
-      {/* Agent List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {loading ? (
-          <div className="col-span-full flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">加载中...</span>
-          </div>
-        ) : agents.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-            <Activity className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">暂无智能体</h3>
-            <p className="text-muted-foreground mb-4">点击"创建 Agent"按钮开始创建新的智能体</p>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              创建 Agent
-            </Button>
-          </div>
-        ) : (
-          agents.map(agent => (
-            <Card
-              key={agent.agentId}
-              className={`border-l-4 ${
-                agent.status === 'running'
-                  ? 'border-l-green-500'
-                  : agent.status === 'paused'
-                    ? 'border-l-yellow-500'
-                    : agent.status === 'completed'
-                      ? 'border-l-blue-500'
-                      : 'border-l-gray-500'
-              }`}
-            >
-              <div className="p-4 space-y-3">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${getStatusColor(agent.status)}`} />
-                    <div className="flex items-center gap-2">
-                      {getAgentTypeIcon(agent.type)}
-                      <span className="font-semibold">
-                        {agent.name || getAgentTypeLabel(agent.type)}
-                      </span>
-                      {getStatusBadge(agent.status)}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {/* 运行控制按钮组 */}
-                    {agent.status === 'running' ? (
-                      // 运行中：显示暂停和停止按钮
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handlePauseAgent(agent.agentId)}
-                          title="暂停智能体"
-                        >
-                          <Pause className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleStopAgent(agent.agentId)}
-                          title="停止智能体"
-                        >
-                          <Square className="w-3 h-3" />
-                        </Button>
-                      </>
-                    ) : agent.status === 'paused' ? (
-                      // 已暂停：显示恢复和停止按钮
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleResumeAgent(agent.agentId)}
-                          title="恢复智能体"
-                        >
-                          <Play className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleStopAgent(agent.agentId)}
-                          title="停止智能体"
-                        >
-                          <Square className="w-3 h-3" />
-                        </Button>
-                      </>
-                    ) : (
-                      // 已停止/其他状态：显示启动按钮
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => handleStartAgent(agent.agentId)}
-                        title="启动智能体"
-                      >
-                        <Play className="w-3 h-3" />
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedAgent(agent.agentId)}
-                    >
-                      <EyeIcon className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAgentToEdit(agent)}
-                      title="编辑智能体"
-                    >
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    {/* 只有停止状态的智能体才显示删除按钮 */}
-                    {agent.status === 'stopped' && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          setAgentToDelete(agent.agentId)
-                        }}
-                        title="删除智能体"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Current Task */}
-                {agent.currentTask && (
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">当前任务：</span>
-                    <span>{agent.currentTask}</span>
-                  </div>
-                )}
-
-                {/* Progress Bar */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-muted-foreground">进度</span>
-                    <span className="text-xs font-medium">{Math.round(agent.progress)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${
-                        agent.progress === 100
-                          ? 'bg-blue-500'
-                          : agent.status === 'failed'
-                            ? 'bg-red-500'
-                            : 'bg-green-500'
-                      }`}
-                      style={{ width: `${agent.progress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Resource Usage */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="w-3 h-3 text-purple-500" />
-                    <span>CPU: {agent.cpuUsage.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="w-3 h-3 text-blue-500" />
-                    <span>内存：{(agent.memoryUsage / 1024).toFixed(1)} MB</span>
-                  </div>
-                </div>
-
-                {/* Recent Logs */}
-                <div className="bg-black/5 dark:bg-white/5 rounded-md p-2 font-mono text-xs max-h-24 overflow-y-auto">
-                  {agent.logs.slice(-5).map((log, idx) => (
-                    <div
-                      key={`${agent.agentId}-log-${idx}`}
-                      className="text-gray-700 dark:text-gray-300 truncate"
-                    >
-                      {log}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          ))
-        )}
-      </div>
-
-      {/* Selected Agent Detail Modal */}
-      {selectedAgent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b">
+        {/* List View */}
+        <TabsContent value="list" className="mt-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  {(() => {
-                    const agent = agents.find(a => a.agentId === selectedAgent)
-                    return (
-                      <>
-                        <h3 className="text-lg font-bold">
-                          Agent 详情：{agent?.name || getAgentTypeLabel(agent?.type || 'coding')}
-                        </h3>
-                        {agent?.name && (
-                          <p className="text-xs text-muted-foreground font-mono mt-1">
-                            {selectedAgent}
-                          </p>
-                        )}
-                      </>
-                    )
-                  })()}
+                  <p className="text-sm text-muted-foreground">总 Agent 数</p>
+                  <p className="text-2xl font-bold">{totalAgents}</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedAgent(null)}>
-                  ✕
+                <Activity className="w-8 h-8 text-blue-500" />
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">运行中</p>
+                  <p className="text-2xl font-bold text-green-600">{runningAgents}</p>
+                </div>
+                <Play className="w-8 h-8 text-green-500" />
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">平均进度</p>
+                  <p className="text-2xl font-bold">{Math.round(avgProgress)}%</p>
+                </div>
+                <Loader2 className="w-8 h-8 text-orange-500" />
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">CPU 使用率</p>
+                  <p className="text-2xl font-bold">{totalCpuUsage.toFixed(1)}%</p>
+                </div>
+                <Cpu className="w-8 h-8 text-purple-500" />
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                内存：{(totalMemoryUsage / 1024).toFixed(1)} GB
+              </div>
+            </Card>
+          </div>
+
+          {/* Agent List */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {loading ? (
+              <div className="col-span-full flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">加载中...</span>
+              </div>
+            ) : agents.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                <Activity className="w-12 h-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">暂无智能体</h3>
+                <p className="text-muted-foreground mb-4">点击"创建 Agent"按钮开始创建新的智能体</p>
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  创建 Agent
                 </Button>
               </div>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-96 space-y-4">
-              {agents
-                .filter(a => a.agentId === selectedAgent)
-                .map(agent => (
-                  <div key={agent.agentId} className="space-y-4">
-                    <div>
-                      <h4 className="font-semibold mb-2">基本信息</h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        {agent.name && (
-                          <div className="col-span-2">
-                            <span className="text-muted-foreground">名称：</span>
-                            <span className="font-medium">{agent.name}</span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="text-muted-foreground">类型：</span>
-                          <span>{agent.type}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">状态：</span>
+            ) : (
+              agents.map(agent => (
+                <Card
+                  key={agent.agentId}
+                  className={`border-l-4 ${
+                    agent.status === 'running'
+                      ? 'border-l-green-500'
+                      : agent.status === 'paused'
+                        ? 'border-l-yellow-500'
+                        : agent.status === 'completed'
+                          ? 'border-l-blue-500'
+                          : 'border-l-gray-500'
+                  }`}
+                >
+                  <div className="p-4 space-y-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${getStatusColor(agent.status)}`} />
+                        <div className="flex items-center gap-2">
+                          {getAgentTypeIcon(agent.type)}
+                          <span className="font-semibold">
+                            {agent.name || getAgentTypeLabel(agent.type)}
+                          </span>
                           {getStatusBadge(agent.status)}
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">进度：</span>
-                          <span>{Math.round(agent.progress)}%</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">会话 ID：</span>
-                          <span className="font-mono text-xs">{agent.sessionId}</span>
-                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {/* 运行控制按钮组 */}
+                        {agent.status === 'running' ? (
+                          // 运行中：显示暂停和停止按钮
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePauseAgent(agent.agentId)}
+                              title="暂停智能体"
+                            >
+                              <Pause className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleStopAgent(agent.agentId)}
+                              title="停止智能体"
+                            >
+                              <Square className="w-3 h-3" />
+                            </Button>
+                          </>
+                        ) : agent.status === 'paused' ? (
+                          // 已暂停：显示恢复和停止按钮
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleResumeAgent(agent.agentId)}
+                              title="恢复智能体"
+                            >
+                              <Play className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleStopAgent(agent.agentId)}
+                              title="停止智能体"
+                            >
+                              <Square className="w-3 h-3" />
+                            </Button>
+                          </>
+                        ) : (
+                          // 已停止/其他状态：显示启动按钮
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleStartAgent(agent.agentId)}
+                            title="启动智能体"
+                          >
+                            <Play className="w-3 h-3" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedAgent(agent.agentId)}
+                        >
+                          <EyeIcon className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAgentToEdit(agent)}
+                          title="编辑智能体"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        {/* 只有停止状态的智能体才显示删除按钮 */}
+                        {agent.status === 'stopped' && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setAgentToDelete(agent.agentId)
+                            }}
+                            title="删除智能体"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="font-semibold mb-2">完整日志</h4>
-                      <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs max-h-48 overflow-y-auto space-y-1">
-                        {agent.logs.map((log, idx) => (
-                          <div
-                            key={`${agent.agentId}-full-log-${idx}`}
-                            className="text-gray-700 dark:text-gray-300"
-                          >
-                            {log}
-                          </div>
-                        ))}
+                    {/* Current Task */}
+                    {agent.currentTask && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">当前任务：</span>
+                        <span>{agent.currentTask}</span>
                       </div>
+                    )}
+
+                    {/* Progress Bar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-muted-foreground">进度</span>
+                        <span className="text-xs font-medium">{Math.round(agent.progress)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            agent.progress === 100
+                              ? 'bg-blue-500'
+                              : agent.status === 'failed'
+                                ? 'bg-red-500'
+                                : 'bg-green-500'
+                          }`}
+                          style={{ width: `${agent.progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Resource Usage */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-3 h-3 text-purple-500" />
+                        <span>CPU: {agent.cpuUsage.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <HardDrive className="w-3 h-3 text-blue-500" />
+                        <span>内存：{(agent.memoryUsage / 1024).toFixed(1)} MB</span>
+                      </div>
+                    </div>
+
+                    {/* Recent Logs */}
+                    <div className="bg-black/5 dark:bg-white/5 rounded-md p-2 font-mono text-xs max-h-24 overflow-y-auto">
+                      {agent.logs.slice(-5).map((log, idx) => (
+                        <div
+                          key={`${agent.agentId}-log-${idx}`}
+                          className="text-gray-700 dark:text-gray-300 truncate"
+                        >
+                          {log}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-            </div>
-          </Card>
-        </div>
-      )}
+                </Card>
+              ))
+            )}
+          </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        key="delete-dialog"
-        open={!!agentToDelete}
-        onOpenChange={open => {
-          if (!open) {
-            setAgentToDelete(null)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>确认删除智能体</DialogTitle>
-            <DialogDescription>
-              您确定要删除智能体 <strong>{agentToDelete}</strong>{' '}
-              吗？此操作不可恢复，智能体的所有数据和日志将被永久删除。
-              {(() => {
-                const agent = agents.find(a => a.agentId === agentToDelete)
-                if (agent && (agent.status === 'running' || agent.status === 'paused')) {
-                  return (
-                    <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                        ⚠️ 该智能体当前处于{' '}
-                        <strong>{agent.status === 'running' ? '运行中' : '已暂停'}</strong>{' '}
-                        状态，无法删除。请先停止智能体后再尝试删除。
-                      </p>
+          {/* Selected Agent Detail Modal */}
+          {selectedAgent && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <Card className="max-w-2xl w-full max-h-[80vh] overflow-hidden">
+                <div className="p-6 border-b">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {(() => {
+                        const agent = agents.find(a => a.agentId === selectedAgent)
+                        return (
+                          <>
+                            <h3 className="text-lg font-bold">
+                              Agent 详情：
+                              {agent?.name || getAgentTypeLabel(agent?.type || 'coding')}
+                            </h3>
+                            {agent?.name && (
+                              <p className="text-xs text-muted-foreground font-mono mt-1">
+                                {selectedAgent}
+                              </p>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
-                  )
-                }
-                return null
-              })()}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAgentToDelete(null)}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={(() => {
-                const agent = agents.find(a => a.agentId === agentToDelete)
-                return agent && (agent.status === 'running' || agent.status === 'paused')
-              })()}
-              onClick={() => {
-                if (agentToDelete) {
-                  handleDeleteAgent(agentToDelete)
-                }
-              }}
-            >
-              删除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedAgent(null)}>
+                      ✕
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-6 overflow-y-auto max-h-96 space-y-4">
+                  {agents
+                    .filter(a => a.agentId === selectedAgent)
+                    .map(agent => (
+                      <div key={agent.agentId} className="space-y-4">
+                        <div>
+                          <h4 className="font-semibold mb-2">基本信息</h4>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            {agent.name && (
+                              <div className="col-span-2">
+                                <span className="text-muted-foreground">名称：</span>
+                                <span className="font-medium">{agent.name}</span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-muted-foreground">类型：</span>
+                              <span>{agent.type}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">状态：</span>
+                              {getStatusBadge(agent.status)}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">进度：</span>
+                              <span>{Math.round(agent.progress)}%</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">会话 ID：</span>
+                              <span className="font-mono text-xs">{agent.sessionId}</span>
+                            </div>
+                          </div>
+                        </div>
 
-      {/* Create Agent Dialog */}
-      <CreateAgentDialog
-        key="create-agent-dialog"
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onSuccess={handleAgentCreated}
-        projectId={projectId}
-      />
+                        <div>
+                          <h4 className="font-semibold mb-2">完整日志</h4>
+                          <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs max-h-48 overflow-y-auto space-y-1">
+                            {agent.logs.map((log, idx) => (
+                              <div
+                                key={`${agent.agentId}-full-log-${idx}`}
+                                className="text-gray-700 dark:text-gray-300"
+                              >
+                                {log}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </Card>
+            </div>
+          )}
 
-      {/* Edit Agent Dialog */}
-      <EditAgentDialog
-        open={agentToEdit !== null}
-        onOpenChange={open => {
-          if (!open) {
-            setAgentToEdit(null)
-          }
-        }}
-        agent={agentToEdit}
-        onSuccess={handleAgentEdited}
-        projectId={projectId}
-      />
+          {/* Delete Confirmation Dialog */}
+          <Dialog
+            key="delete-dialog"
+            open={!!agentToDelete}
+            onOpenChange={open => {
+              if (!open) {
+                setAgentToDelete(null)
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>确认删除智能体</DialogTitle>
+                <DialogDescription>
+                  您确定要删除智能体 <strong>{agentToDelete}</strong>{' '}
+                  吗？此操作不可恢复，智能体的所有数据和日志将被永久删除。
+                  {(() => {
+                    const agent = agents.find(a => a.agentId === agentToDelete)
+                    if (agent && (agent.status === 'running' || agent.status === 'paused')) {
+                      return (
+                        <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            ⚠️ 该智能体当前处于{' '}
+                            <strong>{agent.status === 'running' ? '运行中' : '已暂停'}</strong>{' '}
+                            状态，无法删除。请先停止智能体后再尝试删除。
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAgentToDelete(null)}>
+                  取消
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={(() => {
+                    const agent = agents.find(a => a.agentId === agentToDelete)
+                    return agent && (agent.status === 'running' || agent.status === 'paused')
+                  })()}
+                  onClick={() => {
+                    if (agentToDelete) {
+                      handleDeleteAgent(agentToDelete)
+                    }
+                  }}
+                >
+                  删除
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Create Agent Dialog */}
+          <CreateAgentDialog
+            key="create-agent-dialog"
+            open={showCreateDialog}
+            onOpenChange={setShowCreateDialog}
+            onSuccess={handleAgentCreated}
+            projectId={projectId}
+          />
+
+          {/* Edit Agent Dialog */}
+          <EditAgentDialog
+            open={agentToEdit !== null}
+            onOpenChange={open => {
+              if (!open) {
+                setAgentToEdit(null)
+              }
+            }}
+            agent={agentToEdit}
+            onSuccess={handleAgentEdited}
+            projectId={projectId}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
