@@ -93,8 +93,8 @@ export function EditAgentDialog({
         session: {
           ...session,
           name: agentName.trim() || null,
-          agents_md_content: agentsContent || null,
-          updated_at: new Date().toISOString(),
+          agentsMdContent: agentsContent || null,
+          updatedAt: new Date().toISOString(),
         },
       })
 
