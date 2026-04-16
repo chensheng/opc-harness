@@ -358,15 +358,16 @@ export function PixelAvatar({
         title={`${agent.name || agent.type} - ${agent.status}`}
       />
 
-      {/* 状态标签 */}
+      {/* 状态标签 - 显示智能体名称 */}
       <div
-        className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 px-2 py-0.5 text-xs font-bold rounded-full whitespace-nowrap`}
+        className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 px-2 py-0.5 text-xs font-bold rounded-full whitespace-nowrap max-w-[100px] truncate`}
         style={{
           backgroundColor: displayColor,
           color: 'white',
         }}
+        title={agent.name || agent.type}
       >
-        {agent.type === 'initializer' ? '初始化' : agent.type === 'coding' ? '编码' : 'MR'}
+        {agent.name || (agent.type === 'initializer' ? '初始化' : agent.type === 'coding' ? '编码' : 'MR')}
       </div>
 
       {/* 对话气泡 */}
