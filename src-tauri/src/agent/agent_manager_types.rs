@@ -32,6 +32,8 @@ pub struct AgentHandle {
     pub stdio_channel_id: Option<String>,
     /// 是否已注册到 Daemon
     pub registered_to_daemon: bool,
+    /// AGENTS.md 内容
+    pub agents_md_content: Option<String>,
 }
 
 impl AgentHandle {
@@ -41,6 +43,7 @@ impl AgentHandle {
         session_id: String,
         project_id: String,
         name: Option<String>,
+        agents_md_content: Option<String>,
     ) -> Self {
         let now = chrono::Utc::now().timestamp();
         let phase = match &agent_type {
@@ -61,6 +64,7 @@ impl AgentHandle {
             phase,
             stdio_channel_id: None,
             registered_to_daemon: false,
+            agents_md_content,
         }
     }
 

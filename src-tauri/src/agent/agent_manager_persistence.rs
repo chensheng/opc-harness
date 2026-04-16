@@ -41,7 +41,7 @@ pub async fn persist_agent(
         stdio_channel_id: handle.stdio_channel_id.clone(),
         registered_to_daemon: handle.registered_to_daemon,
         metadata: None,
-        agents_md_content: None,
+        agents_md_content: handle.agents_md_content.clone(),
     };
     
     log::info!("[persist_agent] Session data prepared: agent_type={}, status={}, phase={}", 
@@ -140,6 +140,7 @@ pub async fn restore_sessions(
             },
             stdio_channel_id: session.stdio_channel_id,
             registered_to_daemon: session.registered_to_daemon,
+            agents_md_content: session.agents_md_content,
         };
 
         // 重新创建 Stdio 通道（如果需要）

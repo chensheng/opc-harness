@@ -59,7 +59,14 @@ pub async fn create_agent(
     }
     
     let project_path = project_workspace.to_string_lossy().to_string();
-    let result = manager.create_agent(parsed_type.clone(), session_id.clone(), project_id.clone(), project_path.clone(), None).await;
+    let result = manager.create_agent(
+        parsed_type.clone(), 
+        session_id.clone(), 
+        project_id.clone(), 
+        project_path.clone(), 
+        None,
+        None,  // agents_md_content: not provided in legacy API
+    ).await;
     drop(manager);
     
     // 注意：manager.create_agent 内部已经完成了数据库持久化，无需再次保存
@@ -125,19 +132,7 @@ pub async fn create_agent_with_cli(
     };
     log::info!("[create_agent_with_cli] Agent type: {:?}", agent_type);
     
-    // 写入 AGENTS.md 文件到项目根目录
-    let agents_file_path = PathBuf::from(&project_path).join("AGENTS.md");
-    log::info!("[create_agent_with_cli] Writing AGENTS.md to: {:?}", agents_file_path);
-    
-    fs::write(&agents_file_path, &agents_content)
-        .map_err(|e| {
-            log::error!("[create_agent_with_cli] Failed to write AGENTS.md file: {}", e);
-            format!("Failed to write AGENTS.md file: {}", e)
-        })?;
-    
-    log::info!("[create_agent_with_cli] AGENTS.md written successfully");
-    
-    // 从项目路径中提取 project_id (UUID)
+        // 从项目路径中提取 project_id (UUID)
     let project_id = PathBuf::from(&project_path)
         .file_name()
         .and_then(|name| name.to_str())
@@ -149,10 +144,18 @@ pub async fn create_agent_with_cli(
     
     log::info!("[create_agent_with_cli] Extracted project_id: {}", project_id);
     
-    // 创建 Agent（同时传入 project_id 和 project_path）
+    // 创建 Agent（传入 project_id、project_path、name 和 agents_md_content）
+    // 注意：AGENTS.md 内容仅保存到数据库，不写入文件系统
     log::info!("[create_agent_with_cli] Calling manager.create_agent...");
     let manager = state.read().await;
-    let result = manager.create_agent(agent_type.clone(), session_id.clone(), project_id.clone(), project_path.clone(), name).await;
+    let result = manager.create_agent(
+        agent_type.clone(), 
+        session_id.clone(), 
+        project_id.clone(), 
+        project_path.clone(), 
+        name,
+        Some(agents_content),  // Pass AGENTS.md content to database
+    ).await;
     drop(manager);
     
     log::info!("[create_agent_with_cli] manager.create_agent result: {:?}", result.is_ok());

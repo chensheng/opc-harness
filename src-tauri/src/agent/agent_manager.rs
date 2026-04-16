@@ -33,6 +33,7 @@ mod tests {
             "test-session".to_string(),
             "/tmp/test".to_string(),
             None,
+            None,  // agents_md_content
         );
 
         assert!(!handle.agent_id.is_empty());
@@ -51,6 +52,7 @@ mod tests {
             "session-123".to_string(),
             "/tmp/project".to_string(),
             None,
+            None,  // agents_md_content
         );
 
         assert_eq!(handle.status, AgentStatus::Idle);
@@ -69,6 +71,7 @@ mod tests {
             "session-456".to_string(),
             "/tmp/mr".to_string(),
             None,
+            None,  // agents_md_content
         );
 
         assert!(handle.stdio_channel_id.is_none());
@@ -84,6 +87,7 @@ mod tests {
             "test".to_string(),
             "/tmp".to_string(),
             None,
+            None,  // agents_md_content
         );
 
         assert!(!handle.registered_to_daemon);
