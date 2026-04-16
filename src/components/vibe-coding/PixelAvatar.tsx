@@ -266,7 +266,7 @@ export function PixelAvatar({
   className = '',
 }: PixelAvatarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [_currentFrame, setCurrentFrame] = useState(0) // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [_currentFrame, setCurrentFrame] = useState(0)
   const animationState = STATE_TO_ANIMATION[agent.status]
 
   // 获取智能体的颜色配置 (优先使用 appearance,否则使用默认类型颜色)
@@ -367,7 +367,8 @@ export function PixelAvatar({
         }}
         title={agent.name || agent.type}
       >
-        {agent.name || (agent.type === 'initializer' ? '初始化' : agent.type === 'coding' ? '编码' : 'MR')}
+        {agent.name ||
+          (agent.type === 'initializer' ? '初始化' : agent.type === 'coding' ? '编码' : 'MR')}
       </div>
 
       {/* 对话气泡 */}

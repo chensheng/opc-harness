@@ -44,11 +44,11 @@ import { applyAppearancesToAgents } from './AgentAppearanceGenerator'
 export interface AgentOfficeProps {
   agents: AgentInfo[]
   loading?: boolean
-  _onStartAgent?: (agentId: string) => void // eslint-disable-line @typescript-eslint/no-unused-vars
+  _onStartAgent?: (agentId: string) => void
   onPauseAgent?: (agentId: string) => void
   onResumeAgent?: (agentId: string) => void
   onStopAgent?: (agentId: string) => void
-  _onRefresh?: () => void // eslint-disable-line @typescript-eslint/no-unused-vars
+  _onRefresh?: () => void
 }
 
 /**

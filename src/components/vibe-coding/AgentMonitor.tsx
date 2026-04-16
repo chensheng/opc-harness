@@ -149,7 +149,7 @@ export function AgentMonitor() {
       const agentInfos = sessions.map(convertSessionToAgentInfo)
 
       setAgents(agentInfos)
-      
+
       // 首次加载完成后，标记为非首次加载
       if (isInitialLoad) {
         setIsInitialLoad(false)
