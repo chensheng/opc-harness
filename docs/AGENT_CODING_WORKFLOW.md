@@ -388,6 +388,13 @@ project-root/
 │   ├── agent-003/  (branch: agent-pool/agent-003)
 │   └── agent-004/  (branch: agent-pool/agent-004)
 ├── src/
+├── .git/
+├── worktree/
+│   ├── agent-001/  (branch: agent-pool/agent-001)
+│   ├── agent-002/  (branch: agent-pool/agent-002)
+│   ├── agent-003/  (branch: agent-pool/agent-003)
+│   └── agent-004/  (branch: agent-pool/agent-004)
+├── src/
 ├── package.json
 └── ...
 ```
@@ -396,7 +403,14 @@ project-root/
 
 为每个 Worktree 启动一个 Coding Agent 进程：
 
-```rust
+**初始化流程**:
+1. 遍历并发数，为每个 Agent 生成唯一 ID（如 agent-001, agent-002）
+2. 验证对应的 Worktree 目录存在
+3. 创建 AgentInstance 对象，绑定 worktree 路径和分支名
+4. 注册到 Agent Manager
+5. 设置初始状态为 idle
+
+```
 async fn initialize_agent_pool(concurrency: usize) -> Result<Vec<AgentInstance>, String> {
     let mut agents = Vec::new();
     
@@ -427,17 +441,25 @@ async fn initialize_agent_pool(concurrency: usize) -> Result<Vec<AgentInstance>,
 }
 ```
 
+
 **Agent 初始状态**:
-- `status`: `idle`
-- `currentTask`: `None`
-- `completedTasks`: `[]`
-- `lastHeartbeat`: `now()`
+- `status`: idle
+- `currentTask`: None
+- `completedTasks`: 空列表
+- `lastHeartbeat`: 当前时间
 
 #### 3.2.4 构建任务队列
 
 将加载的故事加入全局队列：
 
-```typescript
+**任务队列构建流程**:
+1. 从数据库查询当前 Sprint 的所有 pending 故事
+2. 提取关键字段：storyId, priority, dependencies
+3. 按优先级降序排序
+4. 初始化 retryCount 为 0
+5. 返回排序后的任务列表
+
+```
 async function buildTaskQueue(stories: UserStory[]): Promise<TaskQueue> {
   const queue = stories.map(story => ({
     storyId: story.id,
@@ -454,13 +476,20 @@ async function buildTaskQueue(stories: UserStory[]): Promise<TaskQueue> {
 }
 ```
 
+
 ### 3.3 阶段 3: 基于数据库乐观锁的任务竞争
 
 #### 3.3.1 数据库驱动的任务选择
 
 每个 Agent 通过**数据库原子操作**直接竞争选择用户故事，无需内存队列：
 
-```rust
+**任务竞争机制**:
+- 使用 `UPDATE ... WHERE` + `FOR UPDATE SKIP LOCKED` 原子操作
+- 只有第一个执行成功的 Agent 能更新成功（影响行数 = 1）
+- 其他 Agent 的 UPDATE 返回 0 行，表示竞争失败
+- 自动跳过已被锁定的任务，无需重试逻辑
+
+```
 async fn claim_next_story(agent_id: &str) -> Result<Option<UserStory>, String> {
     let now = Utc::now();
     let lock_timeout = chrono::Duration::minutes(LOCK_TIMEOUT_MINUTES);
@@ -472,7 +501,7 @@ async fn claim_next_story(agent_id: &str) -> Result<Option<UserStory>, String> {
          SET status = 'in_progress',
              assigned_agent = ?,
              locked_at = ?,
-             updated_at = ?
+             updated_at = ?,
          WHERE id = (
              SELECT id FROM user_stories 
              WHERE sprint_id = (
@@ -491,13 +520,12 @@ async fn claim_next_story(agent_id: &str) -> Result<Option<UserStory>, String> {
              FOR UPDATE SKIP LOCKED
          )
          RETURNING *",
-        &[
-            &agent_id,
-            &now,
-            &now,
-            &now,
-            &now,
-            &(now - lock_timeout),
+        &[&agent_id,
+          &now,
+          &now,
+          &now,
+          &now,
+          &(now - lock_timeout),
         ],
     ).await?;
     
@@ -516,33 +544,30 @@ async fn claim_next_story(agent_id: &str) -> Result<Option<UserStory>, String> {
 }
 ```
 
-**关键机制**:
-- **FOR UPDATE SKIP LOCKED**: PostgreSQL/SQLite 特性，跳过已被其他事务锁定的行
-- **原子更新**: `UPDATE ... WHERE` 确保只有一个 Agent 能成功锁定同一故事
-- **锁超时检测**: 自动 reclaim 超时的任务（`locked_at < 阈值`）
-- **优先级排序**: 高优先级故事优先被选择
+**核心 SQL 逻辑**:
+```
+UPDATE user_stories 
+SET status = 'in_progress',
+    assigned_agent = ?,
+    locked_at = ?,
+    updated_at = ?
+WHERE id = (
+    SELECT id FROM user_stories 
+    WHERE sprint_id = (...)
+      AND status = 'pending'
+      AND (assigned_agent IS NULL OR locked_at < timeout_threshold)
+    ORDER BY priority DESC, story_number ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING *;
+```
 
-#### 3.3.2 Agent 任务拉取循环
-
-每个 Agent 独立运行拉取循环，直接竞争数据库中的任务：
-
-```rust
-async fn agent_task_loop(agent_id: &str) {
-    loop {
-        // 1. 检查 Agent 状态
-        if self.status != AgentStatus::Idle {
-            sleep(Duration::from_millis(100)).await;
-            continue;
-        }
-        
-        // 2. 尝试从数据库竞争下一个可用任务
-        match claim_next_story(agent_id).await {
-            Ok(Some(story)) => {
-                info!("Agent {} claimed story: {}", agent_id, story.story_number);
-                
-                // 3. 执行任务
-                self.execute_story(&story).await;
-                
+**关键特性**:
+- ✅ **原子性**: 数据库事务保证只有一个 Agent 能锁定同一故事
+- ✅ **优先级调度**: ORDER BY priority DESC 确保高优先级任务先执行
+- ✅ **锁超时检测**: locked_at < timeout_threshold 自动回收卡住的任务
+- ✅ **无阻塞**: FOR UPDATE SKIP LOCKED 跳过已锁定行，避免等待
                 // 4. 标记完成（更新数据库状态）
                 mark_story_completed(&story.id, agent_id).await.ok();
             }
@@ -1374,15 +1399,10 @@ async fn adjust_strategy(execution_metrics: &ExecutionMetrics) {
 
 ---
 
-## 4. 技术实现细节
+## 5. 异常处理与容错
 
-### 4.1 数据结构设计
+### 5.1 异常分类与处理策略
 
-#### 4.1.1 Agent 实例
-
-```typescript
-interface AgentInstance {
-  id: string;                    // "agent-001"
   worktreePath: string;          // "/path/to/worktree/agent-001"
   branchName: string;            // "agent-pool/agent-001"
   status: AgentStatus;           // idle | running | paused | failed
