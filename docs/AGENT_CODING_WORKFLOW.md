@@ -917,7 +917,145 @@ tokio::spawn(async {
 
 #### 3.4.7 Merging Phase（合并阶段）⭐ 新增
 
-**目标**: 将当前故事立即合并到 main 分支
+**目标**: 将当前故事立即合并到 main 分支，确保互斥执行
+
+**关键机制**: **分布式合并锁** - 使用数据库原子操作确保同一时间只有一个 Agent 能执行合并
+
+##### 3.4.7.1 获取合并锁
+
+在开始合并前，先竞争获取全局合并锁：
+
+```rust
+async fn acquire_merge_lock(agent_id: &str) -> Result<bool, String> {
+    let now = Utc::now();
+    let lock_timeout = chrono::Duration::minutes(MERGE_LOCK_TIMEOUT_MINUTES);
+    
+    // 尝试获取合并锁（原子操作）
+    let result = db.execute(
+        "INSERT OR REPLACE INTO merge_lock (id, locked_by, locked_at, expires_at)
+         VALUES ('global_merge_lock', ?, ?, ?)
+         WHERE NOT EXISTS (
+             SELECT 1 FROM merge_lock 
+             WHERE id = 'global_merge_lock' 
+             AND expires_at > ?
+         )",
+        &[
+            &agent_id,
+            &now,
+            &(now + lock_timeout),
+            &now,
+        ],
+    ).await?;
+    
+    // 如果影响行数为 1，说明成功获取锁
+    Ok(result.rows_affected() == 1)
+}
+```
+
+**锁表结构**:
+```
+CREATE TABLE merge_lock (
+    id TEXT PRIMARY KEY DEFAULT 'global_merge_lock',
+    locked_by TEXT NOT NULL,           -- 当前持有锁的 Agent ID
+    locked_at TIMESTAMP NOT NULL,      -- 锁定时间
+    expires_at TIMESTAMP NOT NULL,     -- 过期时间（自动释放）
+    UNIQUE(id)
+);
+
+-- 初始化锁记录
+INSERT OR IGNORE INTO merge_lock (id, locked_by, locked_at, expires_at)
+VALUES ('global_merge_lock', NULL, NULL, NULL);
+```
+
+##### 3.4.7.2 带锁的合并流程
+
+完整的合并流程，包含锁的竞争和释放：
+
+```rust
+async fn merge_story_to_main(
+    story_id: &str,
+    agent_id: &str,
+    worktree_path: &str,
+) -> Result<(), String> {
+    // 1. 竞争获取合并锁（最多重试 5 次，每次间隔 2 秒）
+    let mut acquired = false;
+    for attempt in 1..=MAX_MERGE_LOCK_RETRIES {
+        match acquire_merge_lock(agent_id).await {
+            Ok(true) => {
+                acquired = true;
+                info!("Agent {} acquired merge lock (attempt {})", agent_id, attempt);
+                break;
+            }
+            Ok(false) => {
+                warn!("Merge lock held by another agent, retrying... (attempt {}/{})", 
+                      attempt, MAX_MERGE_LOCK_RETRIES);
+                sleep(Duration::from_secs(MERGE_LOCK_RETRY_INTERVAL_SECS)).await;
+            }
+            Err(e) => {
+                error!("Failed to acquire merge lock: {}", e);
+                return Err(e);
+            }
+        }
+    }
+    
+    if !acquired {
+        return Err(format!(
+            "Failed to acquire merge lock after {} attempts",
+            MAX_MERGE_LOCK_RETRIES
+        ));
+    }
+    
+    // 2. 确保在函数退出时释放锁（即使发生错误）
+    let _lock_guard = MergeLockGuard::new(agent_id.to_string());
+    
+    // 3. 执行合并操作
+    execute_merge_operation(story_id, agent_id, worktree_path).await?;
+    
+    // 4. 锁会在 _lock_guard drop 时自动释放
+    info!("Merge completed, lock released by Agent {}", agent_id);
+    
+    Ok(())
+}
+```
+
+**锁守卫（RAII 模式）**:
+```rust
+struct MergeLockGuard {
+    agent_id: String,
+}
+
+impl MergeLockGuard {
+    fn new(agent_id: String) -> Self {
+        Self { agent_id }
+    }
+}
+
+impl Drop for MergeLockGuard {
+    fn drop(&mut self) {
+        // 自动释放锁
+        tokio::spawn(async move {
+            release_merge_lock(&self.agent_id).await.ok();
+        });
+    }
+}
+
+async fn release_merge_lock(agent_id: &str) -> Result<(), String> {
+    db.execute(
+        "UPDATE merge_lock 
+         SET locked_by = NULL, 
+             locked_at = NULL, 
+             expires_at = NULL
+         WHERE locked_by = ?",
+        &[&agent_id],
+    ).await?;
+    
+    Ok(())
+}
+```
+
+##### 3.4.7.3 执行合并操作
+
+获取锁后，执行实际的 Git 合并：
 
 **步骤**:
 1. **切换到 main 分支**
@@ -964,6 +1102,93 @@ tokio::spawn(async {
    self.status = AgentStatus::Idle;
    self.current_task = None;
    ```
+
+##### 3.4.7.4 锁超时与自动释放
+
+防止 Agent 崩溃导致锁永久占用：
+
+```rust
+async fn reclaim_expired_merge_locks() -> Result<usize, String> {
+    let now = Utc::now();
+    
+    // 找回过期的锁并释放
+    let result = db.execute(
+        "UPDATE merge_lock 
+         SET locked_by = NULL,
+             locked_at = NULL,
+             expires_at = NULL
+         WHERE expires_at IS NOT NULL 
+           AND expires_at < ?",
+        &[&now],
+    ).await?;
+    
+    let reclaimed_count = result.rows_affected();
+    
+    if reclaimed_count > 0 {
+        warn!("Reclaimed {} expired merge locks", reclaimed_count);
+    }
+    
+    Ok(reclaimed_count as usize)
+}
+```
+
+**定时清理任务**:
+```
+// 每 2 分钟检查一次过期的合并锁
+tokio::spawn(async {
+    let mut interval = tokio::time::interval(Duration::from_secs(120));
+    loop {
+        interval.tick().await;
+        reclaim_expired_merge_locks().await.ok();
+    }
+});
+```
+
+**配置参数**:
+```yaml
+merge_lock:
+  timeout_minutes: 10          # 锁超时时间（合并操作通常较快）
+  max_retries: 5               # 最大重试次数
+  retry_interval_seconds: 2    # 重试间隔
+  reclaim_interval_seconds: 120 # 每 2 分钟回收过期锁
+```
+
+##### 3.4.7.5 并发控制流程图
+
+```
+Agent-001                    Database                  Agent-002
+    |                           |                          |
+    |-- acquire_merge_lock ---->|                          |
+    |                           |-- INSERT OR REPLACE ---->|
+    |                           |   WHERE NOT EXISTS       |
+    |<-- success (rows=1) ------|                          |
+    |                           |                          |
+    |-- executing merge ------> |                          |
+    |                           |                          |
+    |                           |<--- acquire_merge_lock --|
+    |                           |--- check expires_at ---->|
+    |                           |--- lock exists! -------->|
+    |                           |                          |
+    |                           |<-- failed (rows=0) ------|
+    |                           |                          |
+    |                           |                          |-- wait 2s ---|
+    |                           |                          |              |
+    |-- merge completed ------->|                          |              |
+    |-- release_lock ---------->|                          |              |
+    |                           |-- UPDATE SET NULL ------>|              |
+    |                           |                          |              |
+    |                           |                          |-- retry ---->|
+    |                           |<--- acquire_merge_lock --|              |
+    |                           |--- lock available! ----->|              |
+    |                           |<-- success (rows=1) -----|              |
+    |                           |                          |-- executing merge ->
+```
+
+**关键保证**:
+- ✅ **互斥性**: 同一时间只有一个 Agent 能持有合并锁
+- ✅ **原子性**: 使用 `INSERT OR REPLACE ... WHERE NOT EXISTS` 确保原子操作
+- ✅ **容错性**: 锁超时自动释放，防止死锁
+- ✅ **公平性**: 先请求的 Agent 优先获得锁（基于数据库事务顺序）
 
 ### 3.5 阶段 5: 自主迭代执行
 
@@ -1070,29 +1295,6 @@ async fn adjust_strategy(execution_metrics: &ExecutionMetrics) {
 2. Optimize AI prompts for US-009 type tasks
 3. Increase test coverage requirements for future sprints
 ```
-
-#### 3.6.2 更新 Sprint 状态
-
-```rust
-async fn complete_sprint(sprint_id: &str) -> Result<(), String> {
-    // 1. 更新 Sprint 状态为 completed
-    update_sprint_status(sprint_id, SprintStatus::Completed).await?;
-    
-    // 2. 更新已完成的故事点
-    let completed_points = calculate_completed_story_points(sprint_id).await?;
-    update_sprint_completed_points(sprint_id, completed_points).await?;
-    
-    // 3. 记录完成时间
-    update_sprint_completed_at(sprint_id, Utc::now()).await?;
-    
-    // 4. 保存报告链接
-    let report_url = save_sprint_report(sprint_id).await?;
-    link_report_to_sprint(sprint_id, &report_url).await?;
-    
-    Ok(())
-}
-```
-
 #### 3.6.3 通知用户（可选）
 
 仅在以下情况通知用户：
@@ -1182,99 +1384,35 @@ interface WorktreeInfo {
 
 #### 4.2.1 Git Command Executor
 
-```rust
-pub struct GitExecutor {
-    repo_path: PathBuf,
-}
+-- 用户故事表（增强版）
+CREATE TABLE user_stories (
+    id TEXT PRIMARY KEY,
+    story_number TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    acceptance_criteria TEXT,
+    priority INTEGER NOT NULL DEFAULT 50,
+    story_points INTEGER,
+    sprint_id TEXT REFERENCES sprints(id),
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | in_progress | completed | failed
+    assigned_agent TEXT,                      -- 当前执行的 Agent ID
+    locked_at TIMESTAMP,                      -- 锁定时间戳（用于超时检测）
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    failed_at TIMESTAMP,
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    dependencies TEXT,                        -- JSON 数组: ["US-001", "US-002"]
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-impl GitExecutor {
-    pub fn new(repo_path: &str) -> Self {
-        Self {
-            repo_path: PathBuf::from(repo_path),
-        }
-    }
-    
-    pub async fn execute_command(&self, args: &[&str]) -> Result<String, String> {
-        let output = Command::new("git")
-            .current_dir(&self.repo_path)
-            .args(args)
-            .output()
-            .await
-            .map_err(|e| format!("Failed to execute git command: {}", e))?;
-        
-        if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
-        } else {
-            Err(String::from_utf8_lossy(&output.stderr).to_string())
-        }
-    }
-    
-    pub async fn checkout_branch(&self, branch_name: &str) -> Result<(), String> {
-        self.execute_command(&["checkout", branch_name]).await?;
-        Ok(())
-    }
-    
-    pub async fn commit_changes(&self, message: &str) -> Result<String, String> {
-        self.execute_command(&["add", "."]).await?;
-        self.execute_command(&["commit", "-m", message]).await?;
-        self.get_latest_commit_hash().await
-    }
-    
-    pub async fn merge_branch(&self, branch_name: &str, no_ff: bool) -> Result<(), String> {
-        let args = if no_ff {
-            vec!["merge", "--no-ff", branch_name]
-        } else {
-            vec!["merge", branch_name]
-        };
-        
-        self.execute_command(&args).await?;
-        Ok(())
-    }
-    
-    pub async fn reset_to_remote(&self, branch_name: &str) -> Result<(), String> {
-        self.execute_command(&["reset", "--hard", &format!("origin/{}", branch_name)]).await?;
-        Ok(())
-    }
-}
-```
+-- 索引优化
+CREATE INDEX idx_stories_sprint_status ON user_stories(sprint_id, status);
+CREATE INDEX idx_stories_priority ON user_stories(priority DESC);
+CREATE INDEX idx_stories_agent ON user_stories(assigned_agent);
+CREATE INDEX idx_stories_locked_at ON user_stories(locked_at);
 
-### 4.3 AI Provider 集成
-
-#### 4.3.1 Provider 抽象层
-
-```rust
-pub trait AIProvider: Send + Sync {
-    async fn generate_code(&self, prompt: &str) -> Result<CodeGenerationResult, String>;
-    async fn fix_test_failures(&self, failures: &[TestFailure], code: &str) -> Result<String, String>;
-    async fn resolve_merge_conflict(&self, ours: &str, theirs: &str, context: &str) -> Result<String, String>;
-}
-
-pub struct OpenAIProvider {
-    client: reqwest::Client,
-    api_key: String,
-    model: String,
-}
-
-pub struct ClaudeProvider {
-    client: reqwest::Client,
-    api_key: String,
-    model: String,
-}
-
-// 支持多种 Provider，运行时切换
-pub enum AIProviderType {
-    OpenAI(OpenAIProvider),
-    Claude(ClaudeProvider),
-    Kimi(KimiProvider),
-    // ...
-}
-```
-
-### 4.4 数据库持久化
-
-#### 4.4.1 SQLite Schema
-
-```
 -- Agent 实例表
 CREATE TABLE agent_instances (
     id TEXT PRIMARY KEY,
@@ -1285,20 +1423,18 @@ CREATE TABLE agent_instances (
     last_heartbeat TIMESTAMP
 );
 
--- 任务队列表
-CREATE TABLE task_queue (
-    story_id TEXT PRIMARY KEY,
-    story_number TEXT NOT NULL,
-    priority INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    locked_by TEXT REFERENCES agent_instances(id),
-    locked_at TIMESTAMP,
-    retry_count INTEGER DEFAULT 0,
-    assigned_agent TEXT REFERENCES agent_instances(id),
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    error_message TEXT
+-- 合并锁表（新增）
+CREATE TABLE merge_lock (
+    id TEXT PRIMARY KEY DEFAULT 'global_merge_lock',
+    locked_by TEXT,                    -- 当前持有锁的 Agent ID
+    locked_at TIMESTAMP,               -- 锁定时间
+    expires_at TIMESTAMP,              -- 过期时间（自动释放）
+    UNIQUE(id)
 );
+
+-- 初始化合并锁记录
+INSERT OR IGNORE INTO merge_lock (id, locked_by, locked_at, expires_at)
+VALUES ('global_merge_lock', NULL, NULL, NULL);
 
 -- 提交记录表
 CREATE TABLE commit_records (
@@ -1308,7 +1444,7 @@ CREATE TABLE commit_records (
     commit_hash TEXT NOT NULL,
     commit_message TEXT,
     committed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (story_id) REFERENCES task_queue(story_id),
+    FOREIGN KEY (story_id) REFERENCES user_stories(id),
     FOREIGN KEY (agent_id) REFERENCES agent_instances(id)
 );
 
@@ -1324,12 +1460,6 @@ CREATE TABLE sprint_executions (
     completed_story_points INTEGER,
     report_url TEXT
 );
-```
-
----
-
-## 5. 异常处理与容错
-
 ### 5.1 异常分类与处理策略
 
 | 异常类型 | 检测方式 | 处理策略 | 影响范围 |
@@ -1338,8 +1468,10 @@ CREATE TABLE sprint_executions (
 | **Worktree 损坏** | Git 命令失败 | 1. 删除损坏的 worktree<br>2. 重新创建<br>3. 启动新 Agent 实例<br>4. 任务重回队列 | 单个 Agent |
 | **任务执行失败** | 超过最大重试次数 | 1. 标记故事为 failed<br>2. 记录错误日志<br>3. 任务不再重试<br>4. 加入"需人工审查"列表 | 单个故事 |
 | **AI Provider 故障** | API 调用失败 | 1. 切换到备用 Provider<br>2. 如无备用，重试（指数退避）<br>3. 仍失败则标记任务失败 | 当前任务 |
+| **合并锁竞争失败** | acquire_merge_lock 返回 false | 1. 等待重试间隔（2秒）<br>2. 最多重试 5 次<br>3. 仍失败则标记故事需人工介入 | 单个故事 |
+| **合并锁超时** | expires_at < now() | 1. 定时任务自动回收（每 2 分钟）<br>2. 其他 Agent 可重新竞争 | 全局 |
 | **合并冲突** | Git merge 失败 | 1. AI 辅助解决<br>2. 保留双版本 + TODO<br>3. 继续合并不阻塞 | 单个故事 |
-| **编译失败** | 合并后构建失败 | 1. 自动回滚（git merge --abort）<br>2. 标记故事需人工介入<br>3. 通知用户 | 单个故事 |
+| **编译失败** | 合并后构建失败 | 1. 自动回滚（git merge --abort）<br>2. 释放合并锁<br>3. 标记故事需人工介入<br>4. 通知用户 | 单个故事 |
 | **资源耗尽** | 磁盘/CPU/内存不足 | 1. 降低并发数<br>2. 暂停新任务分配<br>3. 等待资源释放<br>4. 通知用户 | 全局 |
 
 ### 5.2 重试机制
@@ -1949,7 +2081,7 @@ git reset --hard origin/main
 
 #### 9.2.1 Agent Pool 配置
 
-```
+```yaml
 # config/agent-pool.yaml
 agent_pool:
   max_concurrency: 8
@@ -1972,6 +2104,12 @@ agent_pool:
     max_retries: 3
     retry_backoff_base_seconds: 1
     reclaim_interval_seconds: 300  # 每 5 分钟回收超时任务
+  
+  merge_lock:
+    timeout_minutes: 10            # 合并锁超时时间
+    max_retries: 5                 # 最大重试次数
+    retry_interval_seconds: 2      # 重试间隔
+    reclaim_interval_seconds: 120  # 每 2 分钟回收过期锁
   
   merge:
     strategy: "instant"  # 即时合并，每个故事完成后立即合并
@@ -2092,6 +2230,33 @@ WHERE id = (
 - **简化架构**: 移除内存队列的同步和序列化复杂度
 - **审计追溯**: 完整的数据库历史记录，便于问题排查
 
+#### Q10: 如何确保多个 Agent 不会同时合并代码？
+
+**A**:
+- **分布式合并锁**: 使用 `merge_lock` 表和原子 SQL 操作
+- **互斥保证**: `INSERT OR REPLACE ... WHERE NOT EXISTS` 确保只有一个 Agent 能获取锁
+- **自动释放**: 使用 RAII 模式的 `MergeLockGuard`，函数退出时自动释放锁
+- **超时回收**: 每 2 分钟定时任务检查并释放过期的锁
+- **重试机制**: 获取锁失败时等待 2 秒后重试，最多 5 次
+
+**示例流程**:
+```rust
+// 1. 竞争获取锁
+if acquire_merge_lock(agent_id).await? {
+    // 2. 执行合并（持有锁）
+    execute_merge_operation(...).await?;
+    // 3. 自动释放锁（Drop trait）
+}
+```
+
+#### Q11: 如果 Agent 在合并过程中崩溃会怎样？
+
+**A**:
+1. **锁不会永久占用**: `expires_at` 字段设置超时时间（默认 10 分钟）
+2. **自动回收**: 定时任务每 2 分钟检查一次，释放过期的锁
+3. **其他 Agent 可继续**: 锁释放后，其他 Agent 可以重新竞争并执行合并
+4. **数据一致性**: Git 操作的原子性确保不会出现半完成的合并
+
 ### 9.4 参考资料
 
 - [Git Worktree 官方文档](https://git-scm.com/docs/git-worktree)
@@ -2107,6 +2272,7 @@ WHERE id = (
 | v2.0 | 2024-04-17 | 简化版本，移除批次合并，采用即时合并机制 |
 | v3.0 | 2024-04-17 | 极简版本，移除 Sprint Trigger 和 Story Selector，改为基于时间的自动加载 |
 | v3.1 | 2024-04-17 | 引入数据库驱动的乐观锁任务竞争机制，替代内存队列 |
+| v3.2 | 2024-04-17 | 添加分布式合并锁机制，确保同一时间只有一个 Agent 能执行合并 |
 
 ---
 
