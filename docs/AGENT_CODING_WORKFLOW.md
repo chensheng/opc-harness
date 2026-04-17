@@ -862,7 +862,7 @@ tokio::spawn(async {
    save_report(&task.story_id, &report).await?;
    ```
 
-6. **更新进度**: 85% → 95%
+6. **Update progress**: 85% → 95%
 
 #### 3.4.6 Committing Phase（提交阶段）
 
@@ -969,7 +969,7 @@ VALUES ('global_merge_lock', NULL, NULL, NULL);
 
 ##### 3.4.7.2 带锁的合并流程
 
-完整的合并流程，包含锁的竞争和释放：
+完整的合并流程，包含锁的竞争、同步和释放：
 
 ```rust
 async fn merge_story_to_main(
@@ -1008,10 +1008,13 @@ async fn merge_story_to_main(
     // 2. 确保在函数退出时释放锁（即使发生错误）
     let _lock_guard = MergeLockGuard::new(agent_id.to_string());
     
-    // 3. 执行合并操作
+    // 3. 【新增】先同步 main 分支的最新代码到 agent 分支
+    sync_agent_branch_with_main(worktree_path).await?;
+    
+    // 4. 执行实际的合并操作（agent → main）
     execute_merge_operation(story_id, agent_id, worktree_path).await?;
     
-    // 4. 锁会在 _lock_guard drop 时自动释放
+    // 5. 锁会在 _lock_guard drop 时自动释放
     info!("Merge completed, lock released by Agent {}", agent_id);
     
     Ok(())
@@ -1053,9 +1056,68 @@ async fn release_merge_lock(agent_id: &str) -> Result<(), String> {
 }
 ```
 
-##### 3.4.7.3 执行合并操作
+##### 3.4.7.3 同步主分支变更到 Agent 分支 ⭐ 新增
 
-获取锁后，执行实际的 Git 合并：
+**目标**: 在合并前先将 main 分支的最新代码同步到 agent 分支，减少主分支冲突
+
+**步骤**:
+
+1. **切换到 agent 分支**
+   ```bash
+   cd worktree/agent-001
+   git checkout agent-pool/agent-001
+   ```
+
+2. **拉取最新的 main 分支**
+   ```bash
+   git fetch origin main
+   ```
+
+3. **将 main 合并到 agent 分支**
+   ```bash
+   git merge origin/main --no-ff -m "chore: sync main into agent branch"
+   ```
+
+4. **冲突处理（在此阶段解决）**
+   ```rust
+   if has_merge_conflicts().await? {
+       info!("Conflict detected during sync, resolving with AI assistance...");
+       
+       // AI 辅助解决冲突
+       let ours = get_ours_version().await?;
+       let theirs = get_theirs_version().await?;
+       let context = get_merge_context().await?;
+       
+       let resolved = ai_resolve_conflict(&ours, &theirs, &context).await?;
+       apply_resolution(&resolved).await?;
+       
+       git add . && git commit -m "chore: resolve sync conflicts from main";
+   }
+   ```
+
+5. **验证同步结果**
+   ```bash
+   # 确保编译通过
+   npm run build || cargo build
+   
+   # 运行测试
+   npm test || cargo test
+   ```
+
+6. **切换回 main 分支准备最终合并**
+   ```bash
+   git checkout main
+   ```
+
+**关键优势**:
+- ✅ **减少主分支冲突**: 在 agent 分支上先解决与 main 的冲突
+- ✅ **保证线性历史**: main 分支的合并记录更清晰
+- ✅ **降低回滚风险**: 如果同步失败，不影响其他 Agent
+- ✅ **符合 Git Flow**: 标准的特性分支工作流
+
+##### 3.4.7.4 执行合并操作
+
+获取锁并完成同步后，执行实际的 Git 合并（agent → main）：
 
 **步骤**:
 1. **切换到 main 分支**
@@ -1070,13 +1132,14 @@ async fn release_merge_lock(agent_id: &str) -> Result<(), String> {
    git merge agent-pool/agent-001 --no-ff -m "chore: merge US-001 from agent-001"
    ```
 
-3. **冲突处理**
+3. **冲突处理（理论上不应该有冲突，因为已提前同步）**
    ```rust
    if has_merge_conflicts().await? {
+       warn!("Unexpected conflict after sync, resolving...");
        // AI 辅助解决冲突
        let resolved = ai_resolve_conflict(&ours, &theirs, &context).await?;
        apply_resolution(&resolved).await?;
-       git add . && git commit -m "chore: resolve merge conflicts for US-001";
+       git add . && git commit -m "chore: resolve unexpected merge conflicts for US-001";
    }
    ```
 
@@ -1103,7 +1166,7 @@ async fn release_merge_lock(agent_id: &str) -> Result<(), String> {
    self.current_task = None;
    ```
 
-##### 3.4.7.4 锁超时与自动释放
+##### 3.4.7.5 锁超时与自动释放
 
 防止 Agent 崩溃导致锁永久占用：
 
@@ -1133,7 +1196,7 @@ async fn reclaim_expired_merge_locks() -> Result<usize, String> {
 ```
 
 **定时清理任务**:
-```
+```rust
 // 每 2 分钟检查一次过期的合并锁
 tokio::spawn(async {
     let mut interval = tokio::time::interval(Duration::from_secs(120));
@@ -1153,7 +1216,7 @@ merge_lock:
   reclaim_interval_seconds: 120 # 每 2 分钟回收过期锁
 ```
 
-##### 3.4.7.5 并发控制流程图
+##### 3.4.7.6 并发控制流程图
 
 ```
 Agent-001                    Database                  Agent-002
@@ -1163,7 +1226,8 @@ Agent-001                    Database                  Agent-002
     |                           |   WHERE NOT EXISTS       |
     |<-- success (rows=1) ------|                          |
     |                           |                          |
-    |-- executing merge ------> |                          |
+    |-- sync main→agent ------> |                          |
+    |   (resolve conflicts)     |                          |
     |                           |                          |
     |                           |<--- acquire_merge_lock --|
     |                           |--- check expires_at ---->|
@@ -1173,7 +1237,7 @@ Agent-001                    Database                  Agent-002
     |                           |                          |
     |                           |                          |-- wait 2s ---|
     |                           |                          |              |
-    |-- merge completed ------->|                          |              |
+    |-- merge agent→main ------>|                          |              |
     |-- release_lock ---------->|                          |              |
     |                           |-- UPDATE SET NULL ------>|              |
     |                           |                          |              |
@@ -1181,7 +1245,7 @@ Agent-001                    Database                  Agent-002
     |                           |<--- acquire_merge_lock --|              |
     |                           |--- lock available! ----->|              |
     |                           |<-- success (rows=1) -----|              |
-    |                           |                          |-- executing merge ->
+    |                           |                          |-- sync main→agent ->
 ```
 
 **关键保证**:
@@ -1189,6 +1253,7 @@ Agent-001                    Database                  Agent-002
 - ✅ **原子性**: 使用 `INSERT OR REPLACE ... WHERE NOT EXISTS` 确保原子操作
 - ✅ **容错性**: 锁超时自动释放，防止死锁
 - ✅ **公平性**: 先请求的 Agent 优先获得锁（基于数据库事务顺序）
+- ✅ **冲突最小化**: 先在 agent 分支同步 main，再合并到 main
 
 ### 3.5 阶段 5: 自主迭代执行
 
@@ -2243,13 +2308,37 @@ WHERE id = (
 ```rust
 // 1. 竞争获取锁
 if acquire_merge_lock(agent_id).await? {
-    // 2. 执行合并（持有锁）
+    // 2. 同步 main → agent（解决冲突）
+    sync_agent_branch_with_main(...).await?;
+    // 3. 合并 agent → main
     execute_merge_operation(...).await?;
-    // 3. 自动释放锁（Drop trait）
+    // 4. 自动释放锁（Drop trait）
 }
 ```
 
-#### Q11: 如果 Agent 在合并过程中崩溃会怎样？
+#### Q11: 为什么采用"先同步 main→agent，再合并 agent→main"的两步策略？
+
+**A**:
+- **减少主分支冲突**: 在 agent 分支上先解决与 main 的冲突，避免影响其他 Agent
+- **保证线性历史**: main 分支的合并记录更清晰，易于追溯
+- **降低回滚风险**: 如果同步失败，只影响当前 Agent，不阻塞全局
+- **符合 Git Flow**: 标准的特性分支工作流，业界最佳实践
+- **提高成功率**: 提前解决冲突，最终合并到 main 时几乎不会有冲突
+
+**对比单步合并**:
+```
+❌ 单步合并 (agent → main):
+   - 直接在 main 上解决冲突
+   - 可能影响其他正在工作的 Agent
+   - 回滚复杂度高
+
+✅ 两步合并 (main → agent, then agent → main):
+   - 在 agent 分支上隔离解决冲突
+   - 不影响其他 Agent
+   - 最终合并几乎无冲突
+```
+
+#### Q12: 如果 Agent 在合并过程中崩溃会怎样？
 
 **A**:
 1. **锁不会永久占用**: `expires_at` 字段设置超时时间（默认 10 分钟）
@@ -2273,6 +2362,7 @@ if acquire_merge_lock(agent_id).await? {
 | v3.0 | 2024-04-17 | 极简版本，移除 Sprint Trigger 和 Story Selector，改为基于时间的自动加载 |
 | v3.1 | 2024-04-17 | 引入数据库驱动的乐观锁任务竞争机制，替代内存队列 |
 | v3.2 | 2024-04-17 | 添加分布式合并锁机制，确保同一时间只有一个 Agent 能执行合并 |
+| v3.3 | 2024-04-17 | 实现两步合并策略：先同步 main→agent，再合并 agent→main |
 
 ---
 
