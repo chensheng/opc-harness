@@ -48,9 +48,10 @@
 | **Agent** | AI 编码智能体实例，负责执行单个用户故事的完整开发生命周期 |
 | **Worktree** | Git 工作树，为每个 Agent 提供独立的文件系统环境 |
 | **Agent Pool** | 一组持久化的 Agent 实例集合，支持动态任务分配 |
-| **Task Queue** | 全局任务队列，存储待执行的用户故事及其状态 |
+| **Database Task Coordinator** | 数据库任务协调器，通过乐观锁实现分布式任务竞争 |
 | **Instant Merge** | 即时合并，每个故事完成后立即合并到 main 分支 |
 | **Time-based Sprint** | 基于时间周期的 Sprint，智能体自动获取当前周期内的故事 |
+| **Optimistic Locking** | 乐观锁机制，通过 `UPDATE ... WHERE` + `FOR UPDATE SKIP LOCKED` 确保任务唯一性 |
 
 ---
 
@@ -74,28 +75,31 @@
                    │
                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Agent Pool Manager (协调层)                     │
+│         Database Task Coordinator (任务协调层)               │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  SQLite Database (user_stories table)               │   │
+│  │  - status: pending/in_progress/completed/failed     │   │
+│  │  - assigned_agent: Agent ID                         │   │
+│  │  - locked_at: timestamp for timeout detection       │   │
+│  │  Optimistic Locking via UPDATE ... WHERE          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└────────────┬────────────────────────┬──────────────────────┘
+             │                        │
+             ▼                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Agent Pool Manager (执行层)                     │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
 │  │ Agent-01 │  │ Agent-02 │  │ Agent-03 │  ...            │
 │  │Worktree-A│  │Worktree-B│  │Worktree-C│                 │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                 │
-└───────┼──────────────┼──────────────┼──────────────────────┘
-        │              │              │
-        ▼              ▼              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Global Task Queue (任务层)                      │
-│  [US-001] → [US-002] → [US-003] → [US-004] → ...          │
-│  Pull-based 分发机制                                         │
-└─────────────────────────────────────────────────────────────┘
-        │              │              │
-        ▼              ▼              ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Autonomous Execution (执行层)                   │
-│  每个 Agent 在其专属 Worktree 中:                            │
-│  Analyze → Code → Test → Review → Commit → Merge           │
-└──────────────────┬──────────────────────────────────────────┘
-                   │
-                   ▼
+│       │              │              │                       │
+│       └──────────────┼──────────────┘                       │
+│                      │                                      │
+│    Pull-based Claim: UPDATE user_stories SET ...           │
+│    WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED)          │
+└──────────────────────┼──────────────────────────────────────┘
+                       │
+                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Instant Merge to Main (合并层)                  │
 │  - 每个故事完成后立即合并                                    │
@@ -111,6 +115,12 @@
 │  - 通知用户（仅异常时）                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**架构特点**:
+- **数据库驱动**: 所有任务状态存储在 SQLite，支持分布式部署
+- **乐观锁竞争**: Agent 通过原子 SQL 操作竞争任务，无需中央队列
+- **无状态 Agent**: Agent 本身不维护任务列表，从数据库动态拉取
+- **故障自愈**: 锁超时机制自动回收卡住的任务
 
 ### 2.2 核心组件
 
@@ -183,29 +193,42 @@ sprints:
 - **健康检查**: 心跳监控、故障检测、自动重启
 - **负载均衡**: 监控各 Agent 负载，动态调整任务分配
 
-#### 2.2.3 Global Task Queue（全局任务队列）
+#### 2.2.3 Database Task Coordinator（数据库任务协调器）
 
-**职责**: 维护待执行故事的有序队列，支持并发安全的任务分发
+**职责**: 通过数据库原子操作实现分布式任务竞争和状态管理
 
-**数据结构**:
+**核心机制**:
+- **乐观锁竞争**: 使用 `UPDATE ... WHERE` + `FOR UPDATE SKIP LOCKED` 确保只有一个 Agent 能锁定同一故事
+- **无状态设计**: 无需维护内存队列，所有状态持久化在数据库中
+- **自动故障恢复**: 基于时间戳的锁超时检测，自动回收卡住的任务
+- **优先级调度**: 通过 SQL `ORDER BY priority DESC` 实现高优先级优先
+
+**数据结构** (存储在 `user_stories` 表):
 ```typescript
-interface TaskQueueItem {
-  storyId: string;
-  priority: number;
-  dependencies: string[];
-  status: 'pending' | 'locked' | 'completed' | 'failed';
-  lockedBy?: string;      // 锁定该任务的 Agent ID
-  lockedAt?: string;      // 锁定时间戳
-  retryCount: number;     // 重试次数
-  assignedAgent?: string; // 最终执行的 Agent ID
+interface UserStory {
+  id: string;
+  storyNumber: string;           // "US-001"
+  title: string;
+  priority: number;              // 0-100
+  storyPoints: number;
+  sprintId: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  assignedAgent?: string;        // 当前执行的 Agent ID
+  lockedAt?: string;             // 锁定时间戳（用于超时检测）
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  errorMessage?: string;
+  retryCount: number;            // 重试次数
+  dependencies: string[];        // 依赖的故事 ID 列表
 }
 ```
 
-**关键机制**:
-- **Pull-based 分发**: Agent 主动拉取任务，而非被动推送
-- **任务锁定**: 防止多个 Agent 竞争同一故事
-- **锁超时**: 默认 30 分钟，超时自动释放
-- **优先级队列**: 高优先级故事优先出队
+**关键优势**:
+- ✅ **分布式友好**: 支持跨机器部署多个 Agent 实例
+- ✅ **容错性强**: Agent 崩溃不影响其他 Agent，锁超时自动恢复
+- ✅ **简化架构**: 移除中央队列服务，降低系统复杂度
+- ✅ **可追溯**: 所有状态变更都有数据库审计日志
 
 #### 2.2.4 Coding Agent（编码智能体）
 
@@ -431,11 +454,77 @@ async function buildTaskQueue(stories: UserStory[]): Promise<TaskQueue> {
 }
 ```
 
-### 3.3 阶段 3: 动态任务分发
+### 3.3 阶段 3: 基于数据库乐观锁的任务竞争
 
-#### 3.3.1 Pull-based 任务拉取
+#### 3.3.1 数据库驱动的任务选择
 
-每个 Agent 独立运行拉取循环：
+每个 Agent 通过**数据库原子操作**直接竞争选择用户故事，无需内存队列：
+
+```rust
+async fn claim_next_story(agent_id: &str) -> Result<Option<UserStory>, String> {
+    let now = Utc::now();
+    let lock_timeout = chrono::Duration::minutes(LOCK_TIMEOUT_MINUTES);
+    
+    // 使用 UPDATE ... WHERE 原子操作竞争任务
+    // 只有第一个执行成功的 Agent 能更新成功（影响行数 = 1）
+    let result = db.execute(
+        "UPDATE user_stories 
+         SET status = 'in_progress',
+             assigned_agent = ?,
+             locked_at = ?,
+             updated_at = ?
+         WHERE id = (
+             SELECT id FROM user_stories 
+             WHERE sprint_id = (
+                 SELECT id FROM sprints 
+                 WHERE start_date <= ? AND end_date >= ? 
+                 AND status = 'active'
+                 LIMIT 1
+             )
+             AND status = 'pending'
+             AND (
+                 assigned_agent IS NULL 
+                 OR (locked_at IS NOT NULL AND locked_at < ?)
+             )
+             ORDER BY priority DESC, story_number ASC
+             LIMIT 1
+             FOR UPDATE SKIP LOCKED
+         )
+         RETURNING *",
+        &[
+            &agent_id,
+            &now,
+            &now,
+            &now,
+            &now,
+            &(now - lock_timeout),
+        ],
+    ).await?;
+    
+    if result.rows_affected() == 0 {
+        // 没有可用任务
+        return Ok(None);
+    }
+    
+    // 查询刚锁定的故事详情
+    let story = db.query_one(
+        "SELECT * FROM user_stories WHERE assigned_agent = ? AND status = 'in_progress' ORDER BY updated_at DESC LIMIT 1",
+        &[&agent_id],
+    ).await?;
+    
+    Ok(story)
+}
+```
+
+**关键机制**:
+- **FOR UPDATE SKIP LOCKED**: PostgreSQL/SQLite 特性，跳过已被其他事务锁定的行
+- **原子更新**: `UPDATE ... WHERE` 确保只有一个 Agent 能成功锁定同一故事
+- **锁超时检测**: 自动 reclaim 超时的任务（`locked_at < 阈值`）
+- **优先级排序**: 高优先级故事优先被选择
+
+#### 3.3.2 Agent 任务拉取循环
+
+每个 Agent 独立运行拉取循环，直接竞争数据库中的任务：
 
 ```rust
 async fn agent_task_loop(agent_id: &str) {
@@ -446,91 +535,119 @@ async fn agent_task_loop(agent_id: &str) {
             continue;
         }
         
-        // 2. 尝试拉取下一个可用任务
-        match task_queue.pull_next_available_task().await {
-            Some(task) => {
-                // 3. 锁定任务
-                task_queue.lock_task(&task.story_id, agent_id).await;
+        // 2. 尝试从数据库竞争下一个可用任务
+        match claim_next_story(agent_id).await {
+            Ok(Some(story)) => {
+                info!("Agent {} claimed story: {}", agent_id, story.story_number);
                 
-                // 4. 执行任务
-                self.execute_story(&task).await;
+                // 3. 执行任务
+                self.execute_story(&story).await;
                 
-                // 5. 释放锁
-                task_queue.release_lock(&task.story_id).await;
+                // 4. 标记完成（更新数据库状态）
+                mark_story_completed(&story.id, agent_id).await.ok();
             }
-            None => {
-                // 队列为空，短暂休眠
-                sleep(Duration::from_millis(100)).await;
+            Ok(None) => {
+                // 没有可用任务，短暂休眠
+                sleep(Duration::from_millis(500)).await;
+            }
+            Err(e) => {
+                error!("Failed to claim story: {}", e);
+                sleep(Duration::from_secs(5)).await;
             }
         }
     }
 }
 ```
 
-#### 3.3.2 任务可用性检查
+**优势**:
+- ✅ **无单点故障**: 不依赖中央 Task Queue 服务
+- ✅ **天然分布式**: 多个 Agent 实例可跨机器部署
+- ✅ **自动故障恢复**: Agent 崩溃后，锁超时自动释放任务
+- ✅ **简化架构**: 移除内存队列的同步复杂度
 
-在拉取任务时，检查以下条件：
+#### 3.3.3 数据库表结构优化
+
+```
+-- 用户故事表（增强版）
+CREATE TABLE user_stories (
+    id TEXT PRIMARY KEY,
+    story_number TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    acceptance_criteria TEXT,
+    priority INTEGER NOT NULL DEFAULT 50,
+    story_points INTEGER,
+    sprint_id TEXT REFERENCES sprints(id),
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | in_progress | completed | failed
+    assigned_agent TEXT,                      -- 当前执行的 Agent ID
+    locked_at TIMESTAMP,                      -- 锁定时间戳（用于超时检测）
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    failed_at TIMESTAMP,
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    dependencies TEXT,                        -- JSON 数组: ["US-001", "US-002"]
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 索引优化
+CREATE INDEX idx_stories_sprint_status ON user_stories(sprint_id, status);
+CREATE INDEX idx_stories_priority ON user_stories(priority DESC);
+CREATE INDEX idx_stories_agent ON user_stories(assigned_agent);
+CREATE INDEX idx_stories_locked_at ON user_stories(locked_at);
+```
+
+#### 3.3.4 锁超时与任务回收
+
+自动检测并回收超时的任务：
 
 ```rust
-fn is_task_available(task: &TaskQueueItem, completed_stories: &HashSet<String>) -> bool {
-    // 1. 状态必须是 pending
-    if task.status != TaskStatus::Pending {
-        return false;
+async fn reclaim_timed_out_tasks() -> Result<usize, String> {
+    let now = Utc::now();
+    let lock_timeout = chrono::Duration::minutes(LOCK_TIMEOUT_MINUTES);
+    let timeout_threshold = now - lock_timeout;
+    
+    // 找回超时且仍在进行中的任务
+    let result = db.execute(
+        "UPDATE user_stories 
+         SET status = 'pending',
+             assigned_agent = NULL,
+             locked_at = NULL,
+             retry_count = retry_count + 1,
+             updated_at = ?
+         WHERE status = 'in_progress'
+           AND locked_at IS NOT NULL
+           AND locked_at < ?",
+        &[&now, &timeout_threshold],
+    ).await?;
+    
+    let reclaimed_count = result.rows_affected();
+    
+    if reclaimed_count > 0 {
+        warn!("Reclaimed {} timed-out tasks", reclaimed_count);
     }
     
-    // 2. 检查依赖是否已满足
-    let dependencies_met = task.dependencies.iter().all(|dep_id| {
-        completed_stories.contains(dep_id)
-    });
-    
-    if !dependencies_met {
-        return false;
-    }
-    
-    // 3. 检查是否已被其他 Agent 锁定
-    if task.locked_by.is_some() {
-        // 检查锁是否超时
-        if let Some(locked_at) = task.locked_at {
-            let elapsed = Utc::now() - locked_at;
-            if elapsed.num_minutes() < LOCK_TIMEOUT_MINUTES {
-                return false; // 锁未超时，不可用
-            }
-            // 锁已超时，可以抢占
-        } else {
-            return false;
-        }
-    }
-    
-    true
+    Ok(reclaimed_count as usize)
 }
 ```
 
-#### 3.3.3 任务锁定机制
-
-防止多个 Agent 竞争同一任务：
-
-```rust
-async fn lock_task(&self, story_id: &str, agent_id: &str) -> Result<(), String> {
-    let mut queue = self.queue.lock().await;
-    
-    if let Some(task) = queue.iter_mut().find(|t| t.story_id == story_id) {
-        if task.status == TaskStatus::Pending {
-            task.status = TaskStatus::Locked;
-            task.locked_by = Some(agent_id.to_string());
-            task.locked_at = Some(Utc::now());
-            Ok(())
-        } else {
-            Err(format!("Task {} is not available", story_id))
-        }
-    } else {
-        Err(format!("Task {} not found", story_id))
+**定时清理任务**:
+```
+// 每 5 分钟执行一次超时任务回收
+tokio::spawn(async {
+    let mut interval = tokio::time::interval(Duration::from_secs(300));
+    loop {
+        interval.tick().await;
+        reclaim_timed_out_tasks().await.ok();
     }
-}
+});
 ```
 
 **锁超时配置**:
 - 默认超时时间: **30 分钟**
-- 超时后自动释放，任务重回队列
+- 超时后自动将任务状态重置为 `pending`
+- `retry_count` 递增，用于检测频繁失败的任务
 - 防止 Agent 崩溃导致任务永久锁定
 
 ### 3.4 阶段 4: Agent 自主执行
@@ -1602,7 +1719,7 @@ impl AICache {
 
 #### 7.2.2 依赖安装缓存
 
-```bash
+```
 # 共享 node_modules 缓存
 ln -s /shared-cache/node_modules worktree/agent-001/node_modules
 ln -s /shared-cache/node_modules worktree/agent-002/node_modules
@@ -1814,7 +1931,7 @@ AI Agent: agent-001 | Story Points: 5 | Sprint: sprint-2024-Q1-01
 
 #### 9.1.3 合并策略
 
-```bash
+```
 # 每个故事完成后立即合并
 cd project-root
 git checkout main
@@ -1850,10 +1967,11 @@ agent_pool:
     auto_cleanup: true
     retention_days: 7
   
-  task_queue:
+  database_task_coordinator:
     lock_timeout_minutes: 30
     max_retries: 3
     retry_backoff_base_seconds: 1
+    reclaim_interval_seconds: 300  # 每 5 分钟回收超时任务
   
   merge:
     strategy: "instant"  # 即时合并，每个故事完成后立即合并
@@ -1900,7 +2018,30 @@ ai_providers:
 - **减少决策开销**: 避免复杂的评分和依赖分析
 - **更透明**: 用户可以清楚看到哪些故事会被执行
 
-#### Q3: 如何处理 Agent 间的代码冲突？
+#### Q3: 如何保证多个 Agent 不会选择同一个故事？
+
+**A**:
+- **数据库乐观锁**: 使用 `UPDATE ... WHERE` + `FOR UPDATE SKIP LOCKED` 原子操作
+- **唯一性保证**: 只有第一个执行成功的 Agent 能更新成功（影响行数 = 1）
+- **无竞争窗口**: 数据库事务确保不会出现两个 Agent 同时锁定同一故事的情况
+- **分布式友好**: 即使 Agent 部署在不同机器上，也能通过数据库保证一致性
+
+**示例 SQL**:
+```sql
+UPDATE user_stories 
+SET status = 'in_progress',
+    assigned_agent = 'agent-001',
+    locked_at = NOW()
+WHERE id = (
+    SELECT id FROM user_stories 
+    WHERE status = 'pending'
+    ORDER BY priority DESC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+);
+```
+
+#### Q4: 如何处理 Agent 间的代码冲突？
 
 **A**:
 - **预防**: 通过故事的依赖字段，确保有依赖的故事按顺序执行
@@ -1910,16 +2051,15 @@ ai_providers:
   - 复杂冲突：保留双版本 + TODO 标记，不阻塞流程
   - 严重冲突：自动回滚，通知用户人工介入
 
-#### Q4: Agent 崩溃后如何恢复？
+#### Q5: Agent 崩溃后如何恢复？
 
 **A**:
-1. 检测到心跳超时
-2. 保存现场（`git stash`）
-3. 重启 Agent 进程
-4. 恢复现场（`git stash pop`）
-5. 继续执行当前任务或重新拉取
+1. **锁超时检测**: 定时任务检查 `locked_at` 超过阈值的故事
+2. **自动回收**: 将超时任务状态重置为 `pending`，`retry_count` 递增
+3. **重新分配**: 其他 Agent 会自动竞争并领取该任务
+4. **现场恢复**: 如果 Agent 重启，可尝试 `git stash pop` 恢复未提交的变更
 
-#### Q5: 如何保证代码质量？
+#### Q6: 如何保证代码质量？
 
 **A**:
 - **自动化测试**: 每个故事必须通过单元测试
@@ -1928,7 +2068,7 @@ ai_providers:
 - **质量门禁**: 测试覆盖率 ≥80%，无 lint 错误
 - **自动修复**: AI 自动修复常见问题
 
-#### Q6: 是否可以手动干预执行过程？
+#### Q7: 是否可以手动干预执行过程？
 
 **A**:
 - **紧急停止**: 提供"紧急停止"按钮，立即终止所有 Agent
@@ -1936,12 +2076,21 @@ ai_providers:
 - **人工审查**: 失败的故事可查看日志，手动修复后重新入队
 - **配置调整**: 运行时可调整并发数、合并策略等参数
 
-#### Q7: 如果没有活跃的 Sprint 会怎样？
+#### Q8: 如果没有活跃的 Sprint 会怎样？
 
 **A**:
 - 系统会记录警告日志："No active sprint found for current time"
 - Agent Pool 不会启动
 - 用户可以通过管理界面创建新的 Sprint 或调整现有 Sprint 的时间范围
+
+#### Q9: 数据库驱动相比内存队列有什么优势？
+
+**A**:
+- **无单点故障**: 不依赖中央 Task Queue 服务
+- **天然分布式**: 支持跨机器部署多个 Agent 实例
+- **持久化状态**: 所有任务状态存储在数据库，重启不丢失
+- **简化架构**: 移除内存队列的同步和序列化复杂度
+- **审计追溯**: 完整的数据库历史记录，便于问题排查
 
 ### 9.4 参考资料
 
@@ -1957,6 +2106,7 @@ ai_providers:
 | v1.0 | 2024-04-17 | 初始版本，定义完整的智能体并行执行流程 |
 | v2.0 | 2024-04-17 | 简化版本，移除批次合并，采用即时合并机制 |
 | v3.0 | 2024-04-17 | 极简版本，移除 Sprint Trigger 和 Story Selector，改为基于时间的自动加载 |
+| v3.1 | 2024-04-17 | 引入数据库驱动的乐观锁任务竞争机制，替代内存队列 |
 
 ---
 
