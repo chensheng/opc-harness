@@ -1,6 +1,6 @@
 # Vibe Coding 智能体并行执行流程设计文档
 
-> **版本**: v1.0  
+> **版本**: v3.0 (极简版)  
 > **最后更新**: 2024-04-17  
 > **状态**: 设计中  
 > **作者**: OPC-HARNESS Team
@@ -25,20 +25,21 @@
 
 ### 1.1 设计目标
 
-本方案旨在实现**完全自动化的多智能体并行开发流程**，通过 Git Worktree 隔离和 Agent Pool 架构，让多个 AI 智能体能够同时、独立地执行用户故事（User Story），最终自动合并到主分支，实现"一人公司"的愿景。
+本方案旨在实现**完全自动化的多智能体并行开发流程**，通过 Git Worktree 隔离和即时合并机制，让多个 AI 智能体能够同时、独立地执行用户故事（User Story），每个故事完成后立即合并到主分支，实现"一人公司"的愿景。
 
 **核心价值**：
 - ✅ **零人工干预**: 从故事选择到代码合并全流程自动化
 - ✅ **高效并行**: 基于系统负载动态调整并发数，最大化资源利用
-- ✅ **安全可靠**: Worktree 隔离 + 自动测试 + 失败回滚机制
+- ✅ **安全可靠**: Worktree 隔离 + 自动测试 + 即时合并机制
 - ✅ **可追溯**: 完整的审计日志和 Git 历史记录
+- ✅ **极简流程**: 移除批次和选择器，基于时间自动获取当前 Sprint
 
 ### 1.2 适用范围
 
 本文档适用于 OPC-HARNESS 项目的 **Vibe Coding** 模块，具体场景包括：
-- Sprint 级别的批量用户故事执行
+- 基于时间的 Sprint 自动执行
 - 多智能体并行编码任务调度
-- 自动化代码生成、测试、审查和合并
+- 自动化代码生成、测试、审查和即时合并
 
 ### 1.3 关键术语
 
@@ -48,8 +49,8 @@
 | **Worktree** | Git 工作树，为每个 Agent 提供独立的文件系统环境 |
 | **Agent Pool** | 一组持久化的 Agent 实例集合，支持动态任务分配 |
 | **Task Queue** | 全局任务队列，存储待执行的用户故事及其状态 |
-| **Story Selector** | 智能故事选择器，基于优先级、依赖等因素自主选择故事 |
-| **Batch Merge** | 批次合并，将多个 Agent 的变更一次性合并到 main 分支 |
+| **Instant Merge** | 即时合并，每个故事完成后立即合并到 main 分支 |
+| **Time-based Sprint** | 基于时间周期的 Sprint，智能体自动获取当前周期内的故事 |
 
 ---
 
@@ -59,17 +60,16 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Sprint Trigger                            │
-│              (定时/事件/手动触发)                             │
+│              Time-based Sprint Detection                     │
+│         (根据当前时间自动获取活跃 Sprint)                      │
 └──────────────────┬──────────────────────────────────────────┘
                    │
                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 Story Selector (决策层)                      │
-│  - 扫描待执行 Sprint                                         │
-│  - 应用 smart-grouping 策略                                  │
-│  - 计算评分与依赖关系                                        │
-│  - 生成执行批次计划                                          │
+│          Load Current Sprint Stories (数据层)                │
+│  - 查询数据库中当前时间范围内的 Sprint                        │
+│  - 获取该 Sprint 下所有 pending 状态的故事                    │
+│  - 按优先级排序                                              │
 └──────────────────┬──────────────────────────────────────────┘
                    │
                    ▼
@@ -92,15 +92,15 @@
 ┌─────────────────────────────────────────────────────────────┐
 │              Autonomous Execution (执行层)                   │
 │  每个 Agent 在其专属 Worktree 中:                            │
-│  Analyze → Code → Test → Review → Commit                   │
+│  Analyze → Code → Test → Review → Commit → Merge           │
 └──────────────────┬──────────────────────────────────────────┘
                    │
                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Batch Merge & Sync (合并层)                     │
-│  - 定期收集所有 Agent 分支                                   │
+│              Instant Merge to Main (合并层)                  │
+│  - 每个故事完成后立即合并                                    │
 │  - AI 辅助冲突解决                                           │
-│  - 合并到 main 并重置 Agent 分支                             │
+│  - 合并后重置 Agent 分支                                     │
 └──────────────────┬──────────────────────────────────────────┘
                    │
                    ▼
@@ -114,20 +114,61 @@
 
 ### 2.2 核心组件
 
-#### 2.2.1 Story Selector（智能故事选择器）
+#### 2.2.1 Time-based Sprint Loader（基于时间的 Sprint 加载器）
 
-**职责**: 自主分析 Sprint 中的用户故事，生成最优执行计划
+**职责**: 根据当前时间自动获取活跃的 Sprint 及其用户故事
 
-**选择策略**（默认 `smart-grouping`）:
-- **优先级得分** (30%): P0=100, P1=75, P2=50, P3=25
-- **依赖就绪度** (30%): 检查所有依赖是否已完成
-- **复杂度适配** (20%): 平衡高低复杂度任务
-- **技术相关性** (20%): 匹配 Agent 专长领域
+**工作原理**:
+```rust
+async fn load_current_sprint_stories() -> Result<Vec<UserStory>, String> {
+    let now = Utc::now();
+    
+    // 1. 查询当前时间范围内的活跃 Sprint
+    let sprint = db.query(
+        "SELECT * FROM sprints 
+         WHERE start_date <= ? AND end_date >= ? 
+         AND status = 'active'
+         ORDER BY created_at DESC 
+         LIMIT 1",
+        &[&now, &now],
+    ).await?;
+    
+    if sprint.is_none() {
+        return Err("No active sprint found for current time".to_string());
+    }
+    
+    // 2. 获取该 Sprint 下所有 pending 状态的故事
+    let stories = db.query(
+        "SELECT * FROM user_stories 
+         WHERE sprint_id = ? AND status = 'pending'
+         ORDER BY priority DESC, created_at ASC",
+        &[&sprint.unwrap().id],
+    ).await?;
+    
+    Ok(stories)
+}
+```
 
-**输出**: 
-- 排序后的故事列表
-- 执行批次划分（基于依赖拓扑排序）
-- 每个故事的推荐理由
+**Sprint 时间配置示例**:
+```
+sprints:
+  - id: sprint-2024-Q1-01
+    name: "Q1 First Sprint"
+    start_date: "2024-01-01T00:00:00Z"
+    end_date: "2024-01-14T23:59:59Z"
+    status: active
+    
+  - id: sprint-2024-Q1-02
+    name: "Q1 Second Sprint"
+    start_date: "2024-01-15T00:00:00Z"
+    end_date: "2024-01-28T23:59:59Z"
+    status: planned
+```
+
+**特性**:
+- **自动检测**: 无需手动触发，根据系统时间自动识别当前 Sprint
+- **简单直接**: 移除复杂的评分和依赖分析逻辑
+- **时间驱动**: Sprint 的生命周期由起止时间决定
 
 #### 2.2.2 Agent Pool Manager（智能体池管理器）
 
@@ -176,38 +217,73 @@ interface TaskQueueItem {
 3. **Testing**: 运行单元测试，自动修复失败
 4. **Reviewing**: 执行 Lint/TypeScript 检查
 5. **Committing**: 自动生成 Commit Message 并提交
+6. **Merging**: 立即合并到 main 分支并重置
 
 **特性**:
 - **完全自主**: 无需用户确认任何操作
-- **连续执行**: 在同一 Worktree 中处理多个故事
+- **即时合并**: 每个故事完成后立即合并到 main
 - **错误恢复**: 自动重试、降级、隔离
 
 ---
 
 ## 3. 完整执行流程
 
-### 3.1 阶段 1: Sprint 触发与初始化
+### 3.1 阶段 1: 基于时间的 Sprint 自动加载
 
-#### 3.1.1 触发方式
+#### 3.1.1 时间驱动的 Sprint 检测
 
-支持三种触发模式：
+系统根据当前时间自动识别活跃的 Sprint，无需手动触发：
 
-1. **定时触发**
-   - 配置 Cron 表达式（如每天 9:00 AM）
-   - 自动扫描状态为 `planning` 的 Sprint
-   - 按优先级和创建时间排序
+```rust
+async fn detect_active_sprint() -> Result<Option<Sprint>, String> {
+    let now = Utc::now();
+    
+    // 查询当前时间在范围内的活跃 Sprint
+    let sprint = db.query_one(
+        "SELECT * FROM sprints 
+         WHERE start_date <= ? AND end_date >= ? 
+         AND status = 'active'
+         ORDER BY created_at DESC 
+         LIMIT 1",
+        &[&now, &now],
+    ).await?;
+    
+    Ok(sprint)
+}
+```
 
-2. **事件触发**
-   - PRD 审批通过后自动创建 Sprint
-   - 立即启动执行流程
+**Sprint 生命周期**:
+- **Planned**: 已规划但未开始
+- **Active**: 当前时间处于 start_date 和 end_date 之间
+- **Completed**: 已结束
+- **Cancelled**: 已取消
 
-3. **手动触发**
-   - 用户点击"开始 Sprint"按钮
-   - 后续流程完全自动化
+#### 3.1.2 加载用户故事
 
-#### 3.1.2 资源预检
+获取当前 Sprint 下所有待执行的故事：
 
-在执行前进行系统性检查：
+```rust
+async fn load_sprint_stories(sprint_id: &str) -> Result<Vec<UserStory>, String> {
+    let stories = db.query(
+        "SELECT * FROM user_stories 
+         WHERE sprint_id = ? AND status IN ('pending', 'in_progress')
+         ORDER BY priority DESC, story_number ASC",
+        &[&sprint_id],
+    ).await?;
+    
+    info!("Loaded {} stories for Sprint {}", stories.len(), sprint_id);
+    Ok(stories)
+}
+```
+
+**故事状态流转**:
+```
+pending → locked → in_progress → completed/failed
+```
+
+#### 3.1.3 资源预检
+
+在启动 Agent Pool 前进行系统性检查：
 
 ```rust
 async fn preflight_check() -> Result<PreflightReport, String> {
@@ -336,13 +412,13 @@ async fn initialize_agent_pool(concurrency: usize) -> Result<Vec<AgentInstance>,
 
 #### 3.2.4 构建任务队列
 
-从 Story Selector 获取已排序的故事列表，加入全局队列：
+将加载的故事加入全局队列：
 
 ```typescript
 async function buildTaskQueue(stories: UserStory[]): Promise<TaskQueue> {
   const queue = stories.map(story => ({
     storyId: story.id,
-    priority: calculatePriority(story),
+    priority: story.priority || 50,  // 直接使用故事自带的优先级
     dependencies: story.dependencies || [],
     status: 'pending',
     retryCount: 0,
@@ -499,11 +575,17 @@ async fn lock_task(&self, story_id: &str, agent_id: &str) -> Result<(), String> 
 │     - git add .                            │
 │     - git commit -m "..."                  │
 │     ↓                                       │
-│  8. 标记 US-001 完成                       │
+│  8. Merging Phase (100%) ⭐               │
+│     - 合并到 main                          │
+│     - 解决冲突（如有）                     │
+│     - 推送到远程                           │
+│     - 重置 Agent 分支                      │
 │     ↓                                       │
-│  9. 返回 idle，拉取 US-004                 │
+│  9. 标记 US-001 完成                       │
 │     ↓                                       │
-│  10. 重复步骤 3-9...                       │
+│  10. 返回 idle，拉取 US-002                │
+│     ↓                                       │
+│  11. 重复步骤 3-10...                      │
 │                                             │
 └─────────────────────────────────────────────┘
 ```
@@ -665,7 +747,7 @@ async fn lock_task(&self, story_id: &str, agent_id: &str) -> Result<(), String> 
 
 6. **更新进度**: 85% → 95%
 
-#### 3.4.6 Committing Phase（提交阶段） ⭐
+#### 3.4.6 Committing Phase（提交阶段）
 
 **目标**: 自动提交代码变更，无需用户确认
 
@@ -716,125 +798,61 @@ async fn lock_task(&self, story_id: &str, agent_id: &str) -> Result<(), String> 
 
 5. **更新进度**: 95% → 100%
 
+#### 3.4.7 Merging Phase（合并阶段）⭐ 新增
+
+**目标**: 将当前故事立即合并到 main 分支
+
+**步骤**:
+1. **切换到 main 分支**
+   ```bash
+   cd project-root
+   git checkout main
+   git pull origin main  # 确保最新
+   ```
+
+2. **合并 Agent 分支**
+   ```bash
+   git merge agent-pool/agent-001 --no-ff -m "chore: merge US-001 from agent-001"
+   ```
+
+3. **冲突处理**
+   ```rust
+   if has_merge_conflicts().await? {
+       // AI 辅助解决冲突
+       let resolved = ai_resolve_conflict(&ours, &theirs, &context).await?;
+       apply_resolution(&resolved).await?;
+       git add . && git commit -m "chore: resolve merge conflicts for US-001";
+   }
+   ```
+
+4. **推送到远程**
+   ```bash
+   git push origin main
+   ```
+
+5. **重置 Agent 分支**
+   ```bash
+   cd worktree/agent-001
+   git fetch origin
+   git reset --hard origin/main
+   ```
+
 6. **标记任务完成**
    ```rust
    mark_story_as_completed(&task.story_id, agent_id).await?;
    ```
 
-#### 3.4.7 连续执行下一个任务
+7. **回到 idle 状态**
+   ```rust
+   self.status = AgentStatus::Idle;
+   self.current_task = None;
+   ```
 
-完成当前故事后，Agent 立即进入下一轮循环：
+### 3.5 阶段 5: 自主迭代执行
 
-```rust
-// 回到 idle 状态
-self.status = AgentStatus::Idle;
-self.current_task = None;
+#### 3.5.1 循环逻辑
 
-// 循环继续，拉取下一个任务
-// 可能在同一分支上继续开发 US-004, US-007, ...
-```
-
-**Git 历史示例**（Agent-001 分支）:
-```
-commit-004: feat(us-013): add payment gateway
-commit-003: feat(us-010): implement shopping cart
-commit-002: feat(us-007): create product catalog
-commit-001: feat(us-001): implement user login feature
-commit-000: Initial commit from main
-```
-
-### 3.5 阶段 5: 批次同步与主分支合并
-
-#### 3.5.1 合并触发条件
-
-支持两种触发模式：
-
-1. **定时触发**（推荐）
-   - 每隔 N 分钟执行一次（默认 30 分钟）
-   - 或在所有任务完成后立即执行
-
-2. **阈值触发**
-   - 当某个 Agent 分支积累了 M 个故事（默认 5 个）
-   - 或累计故事点达到阈值（默认 20 点）
-
-#### 3.5.2 合并流程
-
-**步骤 1: 收集所有 Agent 分支**
-```bash
-cd project-root
-git fetch origin agent-pool/agent-001 agent-pool/agent-002 agent-pool/agent-003 agent-pool/agent-004
-```
-
-**步骤 2: 冲突检测与预合并**
-```rust
-async fn detect_merge_conflicts(agent_branches: &[String]) -> Result<ConflictReport, String> {
-    let mut conflicts = Vec::new();
-    
-    // 分析各分支的文件变更交集
-    for i in 0..agent_branches.len() {
-        for j in (i+1)..agent_branches.len() {
-            let changed_files_i = get_changed_files(&agent_branches[i]).await?;
-            let changed_files_j = get_changed_files(&agent_branches[j]).await?;
-            
-            let intersection: HashSet<_> = changed_files_i.intersection(&changed_files_j).collect();
-            
-            if !intersection.is_empty() {
-                conflicts.push(ConflictInfo {
-                    branch_a: agent_branches[i].clone(),
-                    branch_b: agent_branches[j].clone(),
-                    conflicting_files: intersection.into_iter().cloned().collect(),
-                });
-            }
-        }
-    }
-    
-    Ok(ConflictReport { conflicts })
-}
-```
-
-**步骤 3: 顺序合并到 main**
-```bash
-git checkout main
-
-# 依次合并每个 Agent 分支
-git merge agent-pool/agent-001 --no-ff -m "chore: merge agent-001 batch (5 stories: US-001, US-004, US-007, US-010, US-013)"
-git merge agent-pool/agent-002 --no-ff -m "chore: merge agent-002 batch (4 stories: US-002, US-005, US-008, US-011)"
-git merge agent-pool/agent-003 --no-ff -m "chore: merge agent-003 batch (6 stories)"
-git merge agent-pool/agent-004 --no-ff -m "chore: merge agent-004 batch (3 stories)"
-```
-
-**步骤 4: 冲突处理策略**
-
-| 冲突类型 | 处理策略 |
-|---------|---------|
-| **无冲突** | 自动完成合并 |
-| **简单冲突**<br>（空格、换行符） | 自动解决，采用最新变更 |
-| **中等冲突**<br>（代码逻辑冲突） | AI 辅助解决：<br>1. 发送冲突片段给 AI<br>2. AI 分析上下文生成合并方案<br>3. 自动应用方案 |
-| **复杂冲突**<br>（架构级冲突） | 保留双版本：<br>```javascript<br>// <<< HEAD (agent-001)<br>const x = 1;<br>// ===<br>const x = 2;<br>// >>> agent-002<br>```<br>生成 TODO 任务，不阻塞流程 |
-| **合并失败**<br>（编译错误） | 自动回滚：<br>`git merge --abort`<br>标记批次需人工介入 |
-
-**步骤 5: 推送并重置 Agent 分支**
-```bash
-# 推送到远程
-git push origin main
-
-# 重置所有 Agent 分支到最新的 main
-git checkout agent-pool/agent-001 && git reset --hard origin/main
-git checkout agent-pool/agent-002 && git reset --hard origin/main
-git checkout agent-pool/agent-003 && git reset --hard origin/main
-git checkout agent-pool/agent-004 && git reset --hard origin/main
-```
-
-**步骤 6: 通知 Agents 继续工作**
-- Agents 检测到分支已重置
-- 继续从任务队列拉取新故事
-- 在新基础上继续开发
-
-### 3.6 阶段 6: 自主迭代执行
-
-#### 3.6.1 循环逻辑
-
-```rust
+``rust
 async fn sprint_execution_loop(sprint_id: &str) {
     loop {
         // 1. 检查是否还有未执行的任务
@@ -857,27 +875,19 @@ async fn sprint_execution_loop(sprint_id: &str) {
         // 3. Agents 会自动拉取任务并执行（见阶段 4）
         // 此处只需监控进度
         
-        // 4. 定期检查是否需要合并
-        if should_trigger_merge().await {
-            execute_batch_merge().await?;
-        }
-        
-        // 5. 动态调整策略
+        // 4. 动态调整策略
         adjust_concurrency_based_on_load().await;
     }
     
-    // 6. Sprint 完成，执行最终合并
-    execute_final_merge().await?;
-    
-    // 7. 生成报告
+    // 5. Sprint 完成，生成报告
     generate_sprint_report(sprint_id).await?;
     
-    // 8. 清理资源
+    // 6. 清理资源
     cleanup_sprint_resources(sprint_id).await?;
 }
 ```
 
-#### 3.6.2 动态策略调整
+#### 3.5.2 动态策略调整
 
 根据执行情况实时优化：
 
@@ -893,19 +903,14 @@ async fn adjust_strategy(execution_metrics: &ExecutionMetrics) {
        system_load.low() {
         increase_concurrency().await;
     }
-    
-    // 如果频繁冲突，调整批次大小
-    if execution_metrics.conflict_rate > 0.2 {
-        reduce_batch_size().await;
-    }
 }
 ```
 
-### 3.7 阶段 7: 完成总结与报告
+### 3.6 阶段 6: 完成总结与报告
 
-#### 3.7.1 生成统计报告
+#### 3.6.1 生成统计报告
 
-```markdown
+```
 # Sprint Summary Report
 
 **Sprint ID**: sprint-2024-Q1-01  
@@ -949,7 +954,7 @@ async fn adjust_strategy(execution_metrics: &ExecutionMetrics) {
 3. Increase test coverage requirements for future sprints
 ```
 
-#### 3.7.2 更新 Sprint 状态
+#### 3.6.2 更新 Sprint 状态
 
 ```rust
 async fn complete_sprint(sprint_id: &str) -> Result<(), String> {
@@ -971,7 +976,7 @@ async fn complete_sprint(sprint_id: &str) -> Result<(), String> {
 }
 ```
 
-#### 3.7.3 通知用户（可选）
+#### 3.6.3 通知用户（可选）
 
 仅在以下情况通知用户：
 - Sprint 完全完成
@@ -1152,7 +1157,7 @@ pub enum AIProviderType {
 
 #### 4.4.1 SQLite Schema
 
-```sql
+```
 -- Agent 实例表
 CREATE TABLE agent_instances (
     id TEXT PRIMARY KEY,
@@ -1216,8 +1221,8 @@ CREATE TABLE sprint_executions (
 | **Worktree 损坏** | Git 命令失败 | 1. 删除损坏的 worktree<br>2. 重新创建<br>3. 启动新 Agent 实例<br>4. 任务重回队列 | 单个 Agent |
 | **任务执行失败** | 超过最大重试次数 | 1. 标记故事为 failed<br>2. 记录错误日志<br>3. 任务不再重试<br>4. 加入"需人工审查"列表 | 单个故事 |
 | **AI Provider 故障** | API 调用失败 | 1. 切换到备用 Provider<br>2. 如无备用，重试（指数退避）<br>3. 仍失败则标记任务失败 | 当前任务 |
-| **合并冲突** | Git merge 失败 | 1. AI 辅助解决<br>2. 保留双版本 + TODO<br>3. 继续合并不阻塞 | 批次合并 |
-| **编译失败** | 合并后构建失败 | 1. 自动回滚（git merge --abort）<br>2. 标记批次需人工介入<br>3. 通知用户 | 整个批次 |
+| **合并冲突** | Git merge 失败 | 1. AI 辅助解决<br>2. 保留双版本 + TODO<br>3. 继续合并不阻塞 | 单个故事 |
+| **编译失败** | 合并后构建失败 | 1. 自动回滚（git merge --abort）<br>2. 标记故事需人工介入<br>3. 通知用户 | 单个故事 |
 | **资源耗尽** | 磁盘/CPU/内存不足 | 1. 降低并发数<br>2. 暂停新任务分配<br>3. 等待资源释放<br>4. 通知用户 | 全局 |
 
 ### 5.2 重试机制
@@ -1416,7 +1421,7 @@ enum LogLevel {
 
 #### 6.2.2 结构化日志
 
-```json
+```
 {
   "timestamp": "2024-04-17T10:30:00Z",
   "level": "INFO",
@@ -1457,7 +1462,7 @@ enum LogLevel {
 | **执行超时** | 单个故事执行 >60min | 桌面通知 | Medium |
 | **资源告警** | 磁盘使用率 >90% | 桌面通知 + 邮件 | High |
 | **队列积压** | 待执行任务 >50 | 桌面通知 | Low |
-| **合并失败** | 批次合并失败 | 桌面通知 + 邮件 | High |
+| **合并失败** | 故事合并失败 | 桌面通知 + 邮件 | High |
 
 #### 6.3.2 告警去重
 
@@ -1774,7 +1779,7 @@ main                          # 主分支
 └─ agent-pool/agent-004       # Agent-004 的持久化分支
 ```
 
-**注意**: 不再为每个故事创建临时分支，所有故事直接在 Agent 分支上提交。
+**注意**: Agent 分支始终保持与 main 同步，每个故事完成后立即合并并重置。
 
 #### 9.1.2 Commit Message 规范
 
@@ -1810,22 +1815,24 @@ AI Agent: agent-001 | Story Points: 5 | Sprint: sprint-2024-Q1-01
 #### 9.1.3 合并策略
 
 ```bash
-# 批次合并到 main
+# 每个故事完成后立即合并
+cd project-root
 git checkout main
-git merge agent-pool/agent-001 --no-ff -m "chore: merge agent-001 batch (5 stories)"
-git merge agent-pool/agent-002 --no-ff -m "chore: merge agent-002 batch (4 stories)"
+git pull origin main
+git merge agent-pool/agent-001 --no-ff -m "chore: merge US-001 from agent-001"
 git push origin main
 
 # 重置 Agent 分支
-git checkout agent-pool/agent-001 && git reset --hard origin/main
-git checkout agent-pool/agent-002 && git reset --hard origin/main
+cd worktree/agent-001
+git fetch origin
+git reset --hard origin/main
 ```
 
 ### 9.2 配置文件示例
 
 #### 9.2.1 Agent Pool 配置
 
-```yaml
+```
 # config/agent-pool.yaml
 agent_pool:
   max_concurrency: 8
@@ -1849,15 +1856,13 @@ agent_pool:
     retry_backoff_base_seconds: 1
   
   merge:
-    strategy: "auto"  # auto | semi-auto | manual
-    trigger_interval_minutes: 30
-    batch_size_threshold: 5
-    story_points_threshold: 20
+    strategy: "instant"  # 即时合并，每个故事完成后立即合并
+    conflict_resolution: "ai-assisted"  # AI 辅助解决冲突
 ```
 
 #### 9.2.2 AI Provider 配置
 
-```yaml
+```
 # config/ai-providers.yaml
 ai_providers:
   primary:
@@ -1879,25 +1884,33 @@ ai_providers:
 
 ### 9.3 常见问题（FAQ）
 
-#### Q1: 为什么选择"一智能体一分支"而非"一故事一支"？
+#### Q1: 为什么采用即时合并而非批次合并？
 
 **A**: 
-- **简化 Git 操作**: 避免频繁的分支创建/删除
-- **清晰的线性历史**: 每个 Agent 的分支形成自然的故事批次
-- **高效的合并**: 减少合并次数，降低冲突概率
-- **易于追溯**: 直接查看 Agent 分支历史即可了解该 Agent 的所有工作
+- **降低复杂度**: 避免批次管理的复杂性
+- **减少冲突**: 逐个故事合并，冲突更易解决
+- **快速反馈**: 每个故事立即可见，便于及时发现问题
+- **简化回滚**: 单个故事回滚比批次回滚更简单
 
-#### Q2: 如何处理 Agent 间的代码冲突？
+#### Q2: 为什么移除 Story Selector？
 
 **A**:
-- **预防**: 通过 Story Selector 的依赖感知，避免分配可能冲突的故事给不同 Agent
-- **检测**: 合并前分析文件变更交集
+- **时间驱动**: Sprint 由起止时间自动定义，无需复杂的选择逻辑
+- **简化流程**: 直接加载当前 Sprint 的所有 pending 故事，按优先级排序
+- **减少决策开销**: 避免复杂的评分和依赖分析
+- **更透明**: 用户可以清楚看到哪些故事会被执行
+
+#### Q3: 如何处理 Agent 间的代码冲突？
+
+**A**:
+- **预防**: 通过故事的依赖字段，确保有依赖的故事按顺序执行
+- **检测**: 合并时自动检测冲突
 - **解决**: 
   - 简单冲突：AI 辅助自动解决
   - 复杂冲突：保留双版本 + TODO 标记，不阻塞流程
   - 严重冲突：自动回滚，通知用户人工介入
 
-#### Q3: Agent 崩溃后如何恢复？
+#### Q4: Agent 崩溃后如何恢复？
 
 **A**:
 1. 检测到心跳超时
@@ -1906,7 +1919,7 @@ ai_providers:
 4. 恢复现场（`git stash pop`）
 5. 继续执行当前任务或重新拉取
 
-#### Q4: 如何保证代码质量？
+#### Q5: 如何保证代码质量？
 
 **A**:
 - **自动化测试**: 每个故事必须通过单元测试
@@ -1915,13 +1928,20 @@ ai_providers:
 - **质量门禁**: 测试覆盖率 ≥80%，无 lint 错误
 - **自动修复**: AI 自动修复常见问题
 
-#### Q5: 是否可以手动干预执行过程？
+#### Q6: 是否可以手动干预执行过程？
 
 **A**:
 - **紧急停止**: 提供"紧急停止"按钮，立即终止所有 Agent
 - **暂停/恢复**: 支持暂停整个 Sprint 执行，稍后恢复
 - **人工审查**: 失败的故事可查看日志，手动修复后重新入队
 - **配置调整**: 运行时可调整并发数、合并策略等参数
+
+#### Q7: 如果没有活跃的 Sprint 会怎样？
+
+**A**:
+- 系统会记录警告日志："No active sprint found for current time"
+- Agent Pool 不会启动
+- 用户可以通过管理界面创建新的 Sprint 或调整现有 Sprint 的时间范围
 
 ### 9.4 参考资料
 
@@ -1935,6 +1955,8 @@ ai_providers:
 | 版本 | 日期 | 变更说明 |
 |------|------|---------|
 | v1.0 | 2024-04-17 | 初始版本，定义完整的智能体并行执行流程 |
+| v2.0 | 2024-04-17 | 简化版本，移除批次合并，采用即时合并机制 |
+| v3.0 | 2024-04-17 | 极简版本，移除 Sprint Trigger 和 Story Selector，改为基于时间的自动加载 |
 
 ---
 
