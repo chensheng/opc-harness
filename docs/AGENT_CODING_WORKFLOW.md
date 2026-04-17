@@ -1,18 +1,12 @@
 # Vibe Coding 智能体并行执行流程设计文档
 
-> **版本**: v3.0 (极简版)  
+> **版本**: v3.4 (纯架构版)  
 > **最后更新**: 2024-04-17  
 > **状态**: 设计中  
 > **作者**: OPC-HARNESS Team
-
----
-
-## 📋 目录
-
 - [1. 概述](#1-概述)
 - [2. 核心架构](#2-核心架构)
 - [3. 完整执行流程](#3-完整执行流程)
-- [4. 技术实现细节](#4-技术实现细节)
 - [5. 异常处理与容错](#5-异常处理与容错)
 - [6. 监控与可观测性](#6-监控与可观测性)
 - [7. 性能优化策略](#7-性能优化策略)
@@ -129,35 +123,7 @@
 **职责**: 根据当前时间自动获取活跃的 Sprint 及其用户故事
 
 **工作原理**:
-```rust
-async fn load_current_sprint_stories() -> Result<Vec<UserStory>, String> {
-    let now = Utc::now();
-    
-    // 1. 查询当前时间范围内的活跃 Sprint
-    let sprint = db.query(
-        "SELECT * FROM sprints 
-         WHERE start_date <= ? AND end_date >= ? 
-         AND status = 'active'
-         ORDER BY created_at DESC 
-         LIMIT 1",
-        &[&now, &now],
-    ).await?;
-    
-    if sprint.is_none() {
-        return Err("No active sprint found for current time".to_string());
-    }
-    
-    // 2. 获取该 Sprint 下所有 pending 状态的故事
-    let stories = db.query(
-        "SELECT * FROM user_stories 
-         WHERE sprint_id = ? AND status = 'pending'
-         ORDER BY priority DESC, created_at ASC",
-        &[&sprint.unwrap().id],
-    ).await?;
-    
-    Ok(stories)
-}
-```
+
 
 **Sprint 时间配置示例**:
 ```
@@ -204,25 +170,7 @@ sprints:
 - **优先级调度**: 通过 SQL `ORDER BY priority DESC` 实现高优先级优先
 
 **数据结构** (存储在 `user_stories` 表):
-```typescript
-interface UserStory {
-  id: string;
-  storyNumber: string;           // "US-001"
-  title: string;
-  priority: number;              // 0-100
-  storyPoints: number;
-  sprintId: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  assignedAgent?: string;        // 当前执行的 Agent ID
-  lockedAt?: string;             // 锁定时间戳（用于超时检测）
-  startedAt?: string;
-  completedAt?: string;
-  failedAt?: string;
-  errorMessage?: string;
-  retryCount: number;            // 重试次数
-  dependencies: string[];        // 依赖的故事 ID 列表
-}
-```
+
 
 **关键优势**:
 - ✅ **分布式友好**: 支持跨机器部署多个 Agent 实例
@@ -257,23 +205,6 @@ interface UserStory {
 
 系统根据当前时间自动识别活跃的 Sprint，无需手动触发：
 
-```rust
-async fn detect_active_sprint() -> Result<Option<Sprint>, String> {
-    let now = Utc::now();
-    
-    // 查询当前时间在范围内的活跃 Sprint
-    let sprint = db.query_one(
-        "SELECT * FROM sprints 
-         WHERE start_date <= ? AND end_date >= ? 
-         AND status = 'active'
-         ORDER BY created_at DESC 
-         LIMIT 1",
-        &[&now, &now],
-    ).await?;
-    
-    Ok(sprint)
-}
-```
 
 **Sprint 生命周期**:
 - **Planned**: 已规划但未开始
@@ -285,19 +216,6 @@ async fn detect_active_sprint() -> Result<Option<Sprint>, String> {
 
 获取当前 Sprint 下所有待执行的故事：
 
-```rust
-async fn load_sprint_stories(sprint_id: &str) -> Result<Vec<UserStory>, String> {
-    let stories = db.query(
-        "SELECT * FROM user_stories 
-         WHERE sprint_id = ? AND status IN ('pending', 'in_progress')
-         ORDER BY priority DESC, story_number ASC",
-        &[&sprint_id],
-    ).await?;
-    
-    info!("Loaded {} stories for Sprint {}", stories.len(), sprint_id);
-    Ok(stories)
-}
-```
 
 **故事状态流转**:
 ```
@@ -308,24 +226,6 @@ pending → locked → in_progress → completed/failed
 
 在启动 Agent Pool 前进行系统性检查：
 
-```rust
-async fn preflight_check() -> Result<PreflightReport, String> {
-    let checks = vec![
-        check_git_environment(),
-        check_ai_provider_config(),
-        check_disk_space(MIN_DISK_SPACE_GB),
-        check_system_resources(),
-    ];
-    
-    for check in checks {
-        if let Err(e) = check.await {
-            return Err(format!("Preflight check failed: {}", e));
-        }
-    }
-    
-    Ok(PreflightReport::all_passed())
-}
-```
 
 **检查项**:
 - ✅ Git 环境是否正常（版本、配置）
@@ -339,18 +239,6 @@ async fn preflight_check() -> Result<PreflightReport, String> {
 
 基于系统资源动态计算：
 
-```typescript
-function calculateConcurrency(): number {
-  const cpuCores = os.cpus().length;
-  const availableMemoryGB = getAvailableMemory() / (1024 * 1024 * 1024);
-  
-  const cpuBased = Math.floor(cpuCores / 2);
-  const memoryBased = Math.floor(availableMemoryGB / 2);
-  const configLimit = CONFIG.maxConcurrency || 8;
-  
-  return Math.min(cpuBased, memoryBased, configLimit);
-}
-```
 
 **示例**:
 - 8 核 CPU + 16GB 内存 → 并发 4 个 Agent
@@ -361,22 +249,6 @@ function calculateConcurrency(): number {
 
 为每个 Agent 创建独立的 Worktree：
 
-```bash
-# 创建 N 个持久化 Worktrees
-for i in $(seq 1 $CONCURRENCY); do
-  agent_id=$(printf "agent-%03d" $i)
-  branch_name="agent-pool/${agent_id}"
-  worktree_path="worktree/${agent_id}"
-  
-  git worktree add -b ${branch_name} ${worktree_path} main
-  
-  # 初始化环境
-  cd ${worktree_path}
-  npm install
-  git config user.name "AI Agent ${agent_id}"
-  git config user.email "agent-${agent_id}@opc-harness.local"
-done
-```
 
 **Worktree 结构**:
 ```
@@ -1323,20 +1195,6 @@ async fn sprint_execution_loop(sprint_id: &str) {
 
 根据执行情况实时优化：
 
-```rust
-async fn adjust_strategy(execution_metrics: &ExecutionMetrics) {
-    // 如果失败率高，降低并发数
-    if execution_metrics.failure_rate > 0.3 {
-        reduce_concurrency().await;
-    }
-    
-    // 如果执行速度快，提高并发数
-    if execution_metrics.average_story_time < EXPECTED_TIME && 
-       system_load.low() {
-        increase_concurrency().await;
-    }
-}
-```
 
 ### 3.6 阶段 6: 完成总结与报告
 
@@ -2383,9 +2241,5 @@ if acquire_merge_lock(agent_id).await? {
 | v3.1 | 2024-04-17 | 引入数据库驱动的乐观锁任务竞争机制，替代内存队列 |
 | v3.2 | 2024-04-17 | 添加分布式合并锁机制，确保同一时间只有一个 Agent 能执行合并 |
 | v3.3 | 2024-04-17 | 实现两步合并策略：先同步 main→agent，再合并 agent→main |
-
----
-
-**文档维护者**: OPC-HARNESS Team  
-**反馈渠道**: [GitHub Issues](https://github.com/chensheng/opc-harness/issues)  
+| v3.4 | 2024-04-17 | 移除所有实现细节代码块，保留架构设计和 SQL Schema，文档提升至纯架构层面 |
 **许可证**: MIT
