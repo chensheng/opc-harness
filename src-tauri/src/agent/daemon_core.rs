@@ -3,6 +3,9 @@
 //! DaemonManager 核心业务逻辑实现
 
 use std::collections::{HashMap, HashSet};
+use std::process::{Command, Stdio};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use super::daemon_types::*;
 use crate::agent::types::AgentStatus;
@@ -21,6 +24,9 @@ pub struct DaemonManager {
     pub(super) max_concurrent: usize,                   // 最大并发数 (从 config 同步)
     pub(super) agent_queue: Vec<String>,                // 等待中的 Agent ID 队列
     running_agents: HashSet<String>,         // 正在运行的 Agent ID 集合
+    // ========== 进程管理 ==========
+    /// 存储活跃的 Child 进程句柄（使用 Arc<Mutex> 以支持异步访问）
+    child_processes: HashMap<String, Arc<Mutex<Option<std::process::Child>>>>,
 }
 
 impl DaemonManager {
@@ -39,6 +45,8 @@ impl DaemonManager {
             max_concurrent: 5, // 默认值，会在 start 时被 config 覆盖
             agent_queue: Vec::new(),
             running_agents: HashSet::new(),
+            // ========== 进程管理初始化 ==========
+            child_processes: HashMap::new(),
         }
     }
 
@@ -54,6 +62,8 @@ impl DaemonManager {
         self.config = Some(config);
         self.status = DaemonStatus::Starting;
         self.start_time = chrono::Utc::now().timestamp();
+        
+        log::info!("Daemon started with max_concurrent_agents: {}", self.max_concurrent);
         
         // TODO: 初始化资源监控、日志系统等
         self.status = DaemonStatus::Running;
@@ -121,26 +131,96 @@ impl DaemonManager {
     }
 
     /// 生成新的 Agent 进程
-    pub fn spawn_agent(&mut self, agent_type: &str) -> Result<String, String> {
+    pub fn spawn_agent(&mut self, agent_type: &str, project_path: &str) -> Result<String, String> {
         if self.status != DaemonStatus::Running {
             return Err("Daemon is not running".to_string());
         }
 
         let agent_id = format!("{}-{}", agent_type, uuid::Uuid::new_v4());
         
-        let agent_info = AgentProcessInfo {
-            agent_id: agent_id.clone(),
-            agent_type: agent_type.to_string(),
-            pid: None, // TODO: 实际启动进程后设置
-            status: AgentStatus::Idle,
-            started_at: chrono::Utc::now().timestamp(),
-            resource_usage: ResourceUsage::default(),
+        // 根据 Agent 类型选择对应的 CLI 工具
+        // 在测试模式下使用简单命令，生产模式使用实际的 AI CLI
+        let cli_command = if std::env::var("HARNESS_TEST_MODE").is_ok() {
+            // 测试模式：使用 echo 或 ping 等系统自带命令
+            if cfg!(windows) {
+                "ping"
+            } else {
+                "echo"
+            }
+        } else {
+            // 生产模式：使用 Kimi CLI（默认）
+            match agent_type {
+                "initializer" | "coding" | "mr_creation" => "kimi",
+                _ => return Err(format!("Unknown agent type: {}", agent_type)),
+            }
         };
 
-        self.agents.insert(agent_id.clone(), agent_info);
-        self.pending_tasks.push(agent_id.clone());
-        
-        Ok(agent_id)
+        log::info!("Spawning {} agent with CLI: {}", agent_type, cli_command);
+
+        // 构建命令参数
+        let child_result = if std::env::var("HARNESS_TEST_MODE").is_ok() {
+            // 测试模式：使用不会立即退出的命令
+            if cfg!(windows) {
+                // Windows: ping localhost 持续运行
+                Command::new(cli_command)
+                    .args(&["-n", "9999", "127.0.0.1"])
+                    .current_dir(project_path)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdin(Stdio::piped())
+                    .spawn()
+            } else {
+                // Unix: sleep 长时间
+                Command::new("sleep")
+                    .arg("999999")
+                    .current_dir(project_path)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdin(Stdio::piped())
+                    .spawn()
+            }
+        } else {
+            // 生产模式：实际调用 AI CLI
+            Command::new(cli_command)
+                .arg("--help")  // 暂时使用 --help 测试，后续替换为实际参数
+                .current_dir(project_path)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()
+        };
+
+        match child_result {
+            Ok(child) => {
+                let pid = child.id();
+                log::info!("Agent {} spawned with PID: {}", agent_id, pid);
+
+                // 存储进程句柄
+                let child_arc = Arc::new(Mutex::new(Some(child)));
+                self.child_processes.insert(agent_id.clone(), child_arc);
+
+                // 创建 Agent 信息
+                let agent_info = AgentProcessInfo {
+                    agent_id: agent_id.clone(),
+                    agent_type: agent_type.to_string(),
+                    pid: Some(pid),
+                    status: AgentStatus::Running,
+                    started_at: chrono::Utc::now().timestamp(),
+                    resource_usage: ResourceUsage::default(),
+                };
+
+                self.agents.insert(agent_id.clone(), agent_info);
+                self.pending_tasks.push(agent_id.clone());
+                
+                Ok(agent_id)
+            }
+            Err(e) => {
+                let error_msg = format!("Failed to spawn {} agent: {}. Please ensure {} is installed and in PATH.", 
+                    agent_type, e, cli_command);
+                log::error!("{}", error_msg);
+                Err(error_msg)
+            }
+        }
     }
 
     /// 终止指定 Agent
@@ -149,7 +229,17 @@ impl DaemonManager {
             return Err(format!("Agent {} not found", agent_id));
         }
 
-        // TODO: 实际终止进程
+        // 终止进程
+        if let Some(child_arc) = self.child_processes.remove(agent_id) {
+            let mut child_guard = futures::executor::block_on(child_arc.lock());
+            if let Some(mut child) = child_guard.take() {
+                match child.kill() {
+                    Ok(_) => log::info!("Agent {} (PID: {:?}) killed successfully", agent_id, child.id()),
+                    Err(e) => log::warn!("Failed to kill agent {}: {}", agent_id, e),
+                }
+            }
+        }
+
         self.agents.remove(agent_id);
         self.pending_tasks.retain(|id| id != agent_id);
         
@@ -210,16 +300,22 @@ impl DaemonManager {
 
     /// 更新资源使用情况
     pub fn update_resource_usage(&mut self) {
-        for agent in self.agents.values_mut() {
-            // TODO: 使用 sysinfo crate 获取真实资源使用情况
-            agent.resource_usage = ResourceUsage {
-                cpu_percent: 0.0,
-                memory_mb: 0,
-                disk_io_read: 0,
-                disk_io_write: 0,
-                network_rx: 0,
-                network_tx: 0,
-            };
+        let sys = sysinfo::System::new_all();
+        
+        for (_agent_id, agent) in self.agents.iter_mut() {
+            if let Some(pid) = agent.pid {
+                // 查找对应的进程
+                if let Some(process) = sys.process(sysinfo::Pid::from_u32(pid)) {
+                    agent.resource_usage = ResourceUsage {
+                        cpu_percent: process.cpu_usage(),
+                        memory_mb: (process.memory() / 1024 / 1024) as usize,
+                        disk_io_read: 0,  // TODO: 需要更精确的磁盘 IO 统计
+                        disk_io_write: 0,
+                        network_rx: 0,    // TODO: 需要网络统计
+                        network_tx: 0,
+                    };
+                }
+            }
         }
     }
 
@@ -247,7 +343,7 @@ impl DaemonManager {
 
     /// 尝试启动 Agent（受并发限制）
     /// 返回 true 表示可以立即启动，false 表示需要排队
-    pub fn try_start_agent(&mut self, agent_id: &str) -> bool {
+    pub fn try_start_agent(&mut self, agent_id: &str, project_path: &str) -> bool {
         // 检查是否已经在运行
         if self.running_agents.contains(agent_id) {
             return true;
@@ -255,15 +351,37 @@ impl DaemonManager {
 
         // 检查是否有可用槽位
         if self.can_spawn_agent() {
-            self.running_agents.insert(agent_id.to_string());
-            self.running_count += 1;
-            
-            // 更新 Agent 状态为 Running
-            if let Some(agent) = self.agents.get_mut(agent_id) {
-                agent.status = AgentStatus::Running;
+            // 从 pending_tasks 中获取 agent_type
+            let agent_type = if let Some(agent) = self.agents.get(agent_id) {
+                agent.agent_type.clone()
+            } else {
+                log::error!("Agent {} not found in agents map", agent_id);
+                return false;
+            };
+
+            // 真正启动进程
+            match self.spawn_agent(&agent_type, project_path) {
+                Ok(_) => {
+                    self.running_agents.insert(agent_id.to_string());
+                    self.running_count += 1;
+                    
+                    // 更新 Agent 状态为 Running
+                    if let Some(agent) = self.agents.get_mut(agent_id) {
+                        agent.status = AgentStatus::Running;
+                    }
+                    
+                    log::info!("Agent {} started successfully", agent_id);
+                    true
+                }
+                Err(e) => {
+                    log::error!("Failed to start agent {}: {}", agent_id, e);
+                    // 更新状态为 Failed
+                    if let Some(agent) = self.agents.get_mut(agent_id) {
+                        agent.status = AgentStatus::Failed(e.clone());
+                    }
+                    false
+                }
             }
-            
-            true
         } else {
             // 加入等待队列
             if !self.agent_queue.contains(&agent_id.to_string()) {
@@ -273,6 +391,8 @@ impl DaemonManager {
                 if let Some(agent) = self.agents.get_mut(agent_id) {
                     agent.status = AgentStatus::Idle;
                 }
+                
+                log::info!("Agent {} queued (no available slots)", agent_id);
             }
             false
         }
@@ -283,6 +403,9 @@ impl DaemonManager {
         if !self.agents.contains_key(agent_id) {
             return Err(format!("Agent {} not found", agent_id));
         }
+
+        // 终止进程
+        self.kill_agent(agent_id)?;
 
         // 从运行集合中移除
         if self.running_agents.remove(agent_id) {
@@ -297,29 +420,58 @@ impl DaemonManager {
         // 从等待队列移除
         self.agent_queue.retain(|id| id != agent_id);
 
+        // 标记任务完成
+        self.mark_task_completed(agent_id);
+
         // ========== VC-013: 调度队列中的下一个 Agent ==========
         self.schedule_next_agent();
 
+        log::info!("Agent {} stopped and slot released", agent_id);
         Ok(())
     }
 
     /// 调度队列中的下一个 Agent
     fn schedule_next_agent(&mut self) {
+        // 注意：这里需要 project_path，从 config 中获取
+        let project_path = if let Some(config) = &self.config {
+            config.project_path.clone()
+        } else {
+            log::error!("Daemon config not set, cannot schedule next agent");
+            return;
+        };
+
         // 检查是否有可用槽位和等待中的 Agent
         while self.can_spawn_agent() && !self.agent_queue.is_empty() {
             if let Some(next_agent_id) = self.agent_queue.first().cloned() {
                 self.agent_queue.remove(0);
                 
                 // 启动该 Agent
-                self.running_agents.insert(next_agent_id.clone());
-                self.running_count += 1;
-                
-                // 更新 Agent 状态
-                if let Some(agent) = self.agents.get_mut(&next_agent_id) {
-                    agent.status = AgentStatus::Running;
+                let agent_type = if let Some(agent) = self.agents.get(&next_agent_id) {
+                    agent.agent_type.clone()
+                } else {
+                    log::error!("Queued agent {} not found", next_agent_id);
+                    continue;
+                };
+
+                match self.spawn_agent(&agent_type, &project_path) {
+                    Ok(_) => {
+                        self.running_agents.insert(next_agent_id.clone());
+                        self.running_count += 1;
+                        
+                        // 更新 Agent 状态
+                        if let Some(agent) = self.agents.get_mut(&next_agent_id) {
+                            agent.status = AgentStatus::Running;
+                        }
+                        
+                        log::info!("Scheduled agent {} started", next_agent_id);
+                    }
+                    Err(e) => {
+                        log::error!("Failed to start scheduled agent {}: {}", next_agent_id, e);
+                        if let Some(agent) = self.agents.get_mut(&next_agent_id) {
+                            agent.status = AgentStatus::Failed(e);
+                        }
+                    }
                 }
-                
-                // TODO: 实际启动 Agent 进程
             } else {
                 break;
             }

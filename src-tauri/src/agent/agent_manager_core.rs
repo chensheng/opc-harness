@@ -58,8 +58,10 @@ impl AgentManager {
         *self.daemon_config.write().await = Some(config.clone());
 
         // 启动 Daemon Manager
-        let mut daemon = self.daemon.write().await;
-        daemon.start(config)?;
+        {
+            let mut daemon = self.daemon.write().await;
+            daemon.start(config)?;
+        }
 
         // 恢复持久化的 Agent Sessions
         if let Err(e) = self.restore_sessions().await {
@@ -199,9 +201,37 @@ impl AgentManager {
 
         // 通知 Daemon 启动 Agent
         {
-            let _daemon = self.daemon.write().await;
-            // TODO: 实际实现中需要调用 daemon.spawn_agent
-            log::info!("Daemon instructed to start Agent {}", agent_id);
+            let mut daemon = self.daemon.write().await;
+            
+            // 获取 project_path（从 agent handle 中）
+            let project_path = {
+                let agents_read = self.agents.read().await;
+                if let Some(handle) = agents_read.get(agent_id) {
+                    handle.project_id.clone()  // 使用 project_id 作为 project_path
+                } else {
+                    return Err(format!("Agent {} not found", agent_id));
+                }
+            };
+            
+            // 尝试启动 Agent（受并发控制）
+            let started = daemon.try_start_agent(agent_id, &project_path);
+            
+            if !started {
+                log::warn!("Agent {} queued due to concurrency limit", agent_id);
+                // 更新状态为 Idle（等待中）
+                self.update_and_persist_agent(agent_id, AgentStatus::Idle).await?;
+                
+                return Err(format!(
+                    "Agent {} is queued. Current running: {}/{}, max concurrent: {}",
+                    agent_id,
+                    daemon.running_count,
+                    daemon.max_concurrent,
+                    daemon.max_concurrent
+                ));
+            }
+            
+            drop(daemon);
+            log::info!("Daemon started Agent {}", agent_id);
         }
 
         // 通过 WebSocket 发送状态更新
@@ -247,9 +277,16 @@ impl AgentManager {
 
         // 通知 Daemon 停止 Agent
         {
-            let _daemon = self.daemon.write().await;
-            // TODO: 实际实现中需要调用 daemon.kill_agent
-            log::info!("Daemon instructed to stop Agent {}", agent_id);
+            let mut daemon = self.daemon.write().await;
+            
+            // 实际调用 daemon.stop_agent 终止进程
+            if let Err(e) = daemon.stop_agent(agent_id) {
+                log::error!("Failed to stop agent {}: {}", agent_id, e);
+                return Err(format!("Failed to stop agent: {}", e));
+            }
+            
+            drop(daemon);
+            log::info!("Daemon stopped Agent {}", agent_id);
         }
 
         // 通过 WebSocket 发送状态更新
@@ -314,7 +351,9 @@ impl AgentManager {
     /// 获取 Daemon 状态
     pub async fn get_daemon_status(&self) -> DaemonStatus {
         let daemon = self.daemon.read().await;
-        daemon.get_status().clone()
+        let status = daemon.get_status().clone();
+        drop(daemon);
+        status
     }
 
     /// 发送日志消息
