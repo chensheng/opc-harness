@@ -1,4 +1,4 @@
-use crate::commands::quality::types::{
+﻿use crate::commands::quality::types::{
     UserStory,
     SaveUserStoriesRequest,
     SaveUserStoriesResponse,
@@ -18,7 +18,7 @@ pub async fn save_user_stories(
     println!("[save_user_stories] Received request for project_id: {}, stories count: {}", 
              request.project_id, request.user_stories.len());
     
-    let conn = db::get_connection(&app_handle).map_err(|e| {
+    let conn = db::get_connection().map_err(|e| {
         eprintln!("[save_user_stories] Failed to get DB connection: {}", e);
         format!("Failed to get DB connection: {}", e)
     })?;
@@ -43,6 +43,13 @@ pub async fn save_user_stories(
             labels: Some(serde_json::to_string(&story.labels).unwrap_or_else(|_| "[]".to_string())),
             dependencies: story.dependencies.as_ref().map(|d| serde_json::to_string(d).unwrap_or_else(|_| "[]".to_string())),
             sprint_id: story.sprint_id.clone(),
+            assigned_agent: None,
+            locked_at: None,
+            started_at: None,
+            completed_at: None,
+            failed_at: None,
+            error_message: None,
+            retry_count: 0,
             created_at: story.created_at.clone(),
             updated_at: now,
         }
@@ -75,7 +82,7 @@ pub async fn get_user_stories(
     app_handle: tauri::AppHandle,
     request: GetUserStoriesRequest,
 ) -> Result<GetUserStoriesResponse, String> {
-    let conn = db::get_connection(&app_handle).map_err(|e| {
+    let conn = db::get_connection().map_err(|e| {
         eprintln!("[get_user_stories] Failed to get DB connection: {}", e);
         format!("Failed to get DB connection: {}", e)
     })?;

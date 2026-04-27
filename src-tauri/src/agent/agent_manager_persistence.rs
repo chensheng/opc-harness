@@ -1,4 +1,4 @@
-//! Agent Manager 持久化逻辑
+﻿//! Agent Manager 持久化逻辑
 //! 
 //! 处理 Agent Session 的数据库持久化和恢复
 
@@ -18,7 +18,7 @@ pub async fn persist_agent(
     log::info!("[persist_agent] Persisting agent to database: agent_id={}, session_id={}, project_id={}", 
         handle.agent_id, handle.session_id, handle.project_id);
     
-    let conn = db::get_connection(app_handle)
+    let conn = db::get_connection()
         .map_err(|e| {
             log::error!("[persist_agent] Failed to get database connection: {}", e);
             format!("Failed to get database connection: {}", e)
@@ -77,7 +77,7 @@ pub async fn update_and_persist_agent(
     }
 
     // 持久化到数据库
-    let conn = db::get_connection(app_handle)
+    let conn = db::get_connection()
         .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let status_str = status.to_string().to_lowercase();
@@ -95,7 +95,7 @@ pub async fn restore_sessions(
     websocket: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
     stats: &Arc<RwLock<AgentManagerStats>>,
 ) -> Result<(), String> {
-    let conn = db::get_connection(app_handle)
+    let conn = db::get_connection()
         .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let sessions = db::get_all_agent_sessions(&conn)

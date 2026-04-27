@@ -1,0 +1,179 @@
+﻿//! Agent Loop - 自动化执行引擎
+//! 
+//! 实现从 Sprint 中自动选择用户故事并分配给 Coding Agent 执行的完整流程
+
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use chrono::Utc;
+use crate::db::{self, database};
+use crate::agent::{DaemonManager, daemon_types::DaemonConfig};
+use log;
+
+/// Agent Loop 管理器
+pub struct AgentLoop {
+    /// Daemon 管理器（用于启动 Agent 进程）
+    daemon_manager: Arc<RwLock<DaemonManager>>,
+    /// 是否正在运行
+    is_running: bool,
+}
+
+impl AgentLoop {
+    /// 创建新的 Agent Loop 实例
+    pub fn new(daemon_manager: Arc<RwLock<DaemonManager>>) -> Self {
+        Self {
+            daemon_manager,
+            is_running: false,
+        }
+    }
+
+    /// 启动 Agent Loop（单次执行）
+    pub async fn execute_once(&mut self, project_id: &str) -> Result<usize, String> {
+        log::info!("[AgentLoop] Starting execution for project: {}", project_id);
+        
+        // 获取数据库连接
+        let conn = database::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+        
+        // Step 1: 获取当前活跃的 Sprint
+        let active_sprint = db::get_active_sprint(&conn)
+            .map_err(|e| format!("Failed to get active sprint: {}", e))?;
+        
+        if active_sprint.is_none() {
+            log::warn!("[AgentLoop] No active sprint found for current time");
+            return Ok(0);
+        }
+        
+        let sprint = active_sprint.unwrap();
+        log::info!("[AgentLoop] Found active sprint: {} ({} stories)", 
+                   sprint.name, sprint.id);
+        
+        // Step 2: 获取该 Sprint 下待执行的用户故事
+        let pending_stories = db::get_pending_stories_by_sprint(&conn, &sprint.id)
+            .map_err(|e| format!("Failed to get pending stories: {}", e))?;
+        
+        if pending_stories.is_empty() {
+            log::info!("[AgentLoop] No pending stories in sprint {}", sprint.id);
+            return Ok(0);
+        }
+        
+        log::info!("[AgentLoop] Found {} pending stories to process", pending_stories.len());
+        
+        // Step 3: 为每个故事尝试锁定并启动 Agent
+        let mut started_count = 0;
+        let agent_id_prefix = format!("coding-{}", Utc::now().timestamp());
+        
+        for (index, story) in pending_stories.iter().enumerate() {
+            // 生成唯一的 Agent ID
+            let agent_id = format!("{}-{}", agent_id_prefix, index);
+            
+            // 尝试锁定故事（乐观锁）
+            let locked = db::lock_user_story(&conn, &story.id, &agent_id)
+                .map_err(|e| format!("Failed to lock story {}: {}", story.id, e))?;
+            
+            if !locked {
+                log::warn!("[AgentLoop] Story {} already locked or in progress, skipping", story.id);
+                continue;
+            }
+            
+            log::info!("[AgentLoop] Locked story {}: {} (Priority: {})", 
+                       story.story_number, story.title, story.priority);
+            
+            // Step 4: 启动 Coding Agent
+            match self.start_coding_agent(&agent_id, &story, project_id).await {
+                Ok(_) => {
+                    started_count += 1;
+                    log::info!("[AgentLoop] ✓ Started coding agent for story {}", story.story_number);
+                }
+                Err(e) => {
+                    log::error!("[AgentLoop] ✗ Failed to start agent for story {}: {}", 
+                               story.story_number, e);
+                    
+                    // 标记故事为失败状态
+                    let _ = db::fail_user_story(&conn, &story.id, &e);
+                }
+            }
+            
+            // 短暂延迟，避免同时启动过多 Agent
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        }
+        
+        log::info!("[AgentLoop] Execution completed. Started {} agents", started_count);
+        Ok(started_count)
+    }
+
+    /// 启动 Coding Agent 进程
+    async fn start_coding_agent(&self, agent_id: &str, story: &crate::models::UserStory, project_id: &str) -> Result<(), String> {
+        log::info!("[AgentLoop] Starting coding agent for story: {}", story.title);
+        
+        // 获取 Daemon Manager 的写锁
+        let mut daemon = self.daemon_manager.write().await;
+        
+        // 构造 Daemon 配置
+        let config = DaemonConfig {
+            session_id: agent_id.to_string(),
+            project_path: format!("./projects/{}", project_id),
+            log_level: "info".to_string(),
+            max_concurrent_agents: 5,
+            workspace_dir: format!("./workspace/{}", agent_id),
+        };
+        
+        // 如果 Daemon 未启动，先启动
+        // TODO: 检查 Daemon 是否已启动
+        
+        // 启动 Coding Agent 进程
+        match daemon.spawn_agent("coding", &config.project_path) {
+            Ok(spawned_agent_id) => {
+                log::info!("[AgentLoop] Successfully spawned coding agent: {}", spawned_agent_id);
+                
+                // TODO: 将 Agent ID 与 Story ID 关联，便于后续追踪
+                
+                Ok(())
+            }
+            Err(e) => {
+                Err(format!("Failed to spawn coding agent: {}", e))
+            }
+        }
+    }
+
+    /// 启动持续运行的 Agent Loop（定时执行）
+    pub async fn start_continuous(&mut self, project_id: &str, interval_secs: u64) {
+        self.is_running = true;
+        log::info!("[AgentLoop] Starting continuous loop with {}s interval", interval_secs);
+        
+        while self.is_running {
+            match self.execute_once(project_id).await {
+                Ok(count) => {
+                    log::info!("[AgentLoop] Cycle completed. Started {} agents", count);
+                }
+                Err(e) => {
+                    log::error!("[AgentLoop] Cycle failed: {}", e);
+                }
+            }
+            
+            // 等待下一个周期
+            tokio::time::sleep(tokio::time::Duration::from_secs(interval_secs)).await;
+        }
+        
+        log::info!("[AgentLoop] Continuous loop stopped");
+    }
+
+    /// 停止 Agent Loop
+    pub fn stop(&mut self) {
+        self.is_running = false;
+        log::info!("[AgentLoop] Stop signal received");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_agent_loop_creation() {
+        let daemon_manager = Arc::new(RwLock::new(DaemonManager::new()));
+        let mut loop_mgr = AgentLoop::new(daemon_manager);
+        
+        // 验证可以创建 Agent Loop 实例
+        assert!(!loop_mgr.is_running);
+    }
+}

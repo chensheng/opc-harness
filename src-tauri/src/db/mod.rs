@@ -13,6 +13,12 @@ mod issue_repository;
 mod user_story_repository;
 mod sprint_repository;
 
+// Re-export Sprint repository functions for Agent Loop
+pub use sprint_repository::{
+    get_active_sprint, get_pending_stories_by_sprint, lock_user_story,
+    update_user_story_status, complete_user_story, fail_user_story,
+};
+
 // Re-export database functions
 pub use database::{get_connection, init_database, ensure_all_project_workspaces};
 

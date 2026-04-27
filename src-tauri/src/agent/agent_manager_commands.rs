@@ -1,4 +1,4 @@
-//! Agent Manager Tauri Commands - Main Entry Point
+﻿//! Agent Manager Tauri Commands - Main Entry Point
 //! 
 //! 所有 Tauri 命令的定义和导出
 //! 
@@ -262,7 +262,7 @@ pub async fn get_all_agent_sessions(
     state: State<'_, Arc<RwLock<AgentManager>>>,
 ) -> Result<Vec<crate::models::AgentSession>, String> {
     let manager = state.read().await;
-    let conn = db::get_connection(&manager.app_handle)
+    let conn = db::get_connection()
         .map_err(|e| format!("Failed to get database connection: {}", e))?;
     drop(manager);
     

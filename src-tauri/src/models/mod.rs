@@ -304,6 +304,27 @@ pub struct UserStory {
     /// 所属 Sprint ID（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sprint_id: Option<String>,
+    /// 分配的 Agent ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assigned_agent: Option<String>,
+    /// 锁定时间戳（用于超时检测）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locked_at: Option<String>,
+    /// 开始时间戳
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
+    /// 完成时间戳
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    /// 失败时间戳
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_at: Option<String>,
+    /// 错误消息
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    /// 重试次数
+    #[serde(default)]
+    pub retry_count: i32,
     /// 创建时间
     pub created_at: String,
     /// 更新时间
@@ -335,6 +356,13 @@ impl Entity for UserStory {
             labels: row.get("labels")?,
             dependencies: row.get("dependencies")?,
             sprint_id: row.get("sprint_id")?,
+            assigned_agent: row.get("assigned_agent").ok(),
+            locked_at: row.get("locked_at").ok(),
+            started_at: row.get("started_at").ok(),
+            completed_at: row.get("completed_at").ok(),
+            failed_at: row.get("failed_at").ok(),
+            error_message: row.get("error_message").ok(),
+            retry_count: row.get("retry_count").unwrap_or(0),
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
         })
