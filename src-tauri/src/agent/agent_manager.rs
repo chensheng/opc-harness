@@ -130,7 +130,6 @@ mod tests {
     fn test_agent_status_display() {
         assert_eq!(format!("{}", AgentStatus::Idle), "idle");
         assert_eq!(format!("{}", AgentStatus::Running), "running");
-        assert_eq!(format!("{}", AgentStatus::Paused), "paused");
         assert_eq!(format!("{}", AgentStatus::Completed), "completed");
         assert_eq!(format!("{}", AgentStatus::Failed("error".to_string())), "failed:error");
     }

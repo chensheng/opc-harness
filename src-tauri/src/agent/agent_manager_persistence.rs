@@ -129,8 +129,7 @@ pub async fn restore_sessions(
             status: match session.status.as_str() {
                 "idle" => AgentStatus::Idle,
                 "running" => AgentStatus::Running,
-                "paused" => AgentStatus::Paused,
-                _ => AgentStatus::Idle, // 默认重置为 Idle
+                _ => AgentStatus::Idle, // 默认重置为 Idle (包括 paused)
             },
             phase: match session.phase.as_str() {
                 "initializer" => AgentPhase::Initializer,
@@ -182,8 +181,7 @@ pub async fn restore_sessions(
             match session.status.as_str() {
                 "idle" => AgentStatus::Idle,
                 "running" => AgentStatus::Running,
-                "paused" => AgentStatus::Paused,
-                _ => AgentStatus::Idle,
+                _ => AgentStatus::Idle, // 包括 paused
             }
         );
     }

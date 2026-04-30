@@ -8,7 +8,7 @@
 export type AgentPhase = 'initializer' | 'coding' | 'mr_creation'
 
 /** Agent 运行状态 */
-export type AgentStatusType = 'idle' | 'running' | 'paused' | 'completed' | 'failed'
+export type AgentStatusType = 'idle' | 'running' | 'completed' | 'failed'
 
 /** Agent 配置信息 */
 export interface AgentConfig {

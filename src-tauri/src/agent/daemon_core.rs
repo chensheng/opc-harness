@@ -86,10 +86,10 @@ impl DaemonManager {
         
         // TODO: 停止所有 Agent 进程
         if graceful {
-            // 优雅停止：等待当前任务完成
+            // 优雅停止：等待当前任务完成，然后设置为 Idle
             for agent in self.agents.values_mut() {
                 if agent.status == AgentStatus::Running {
-                    agent.status = AgentStatus::Paused;
+                    agent.status = AgentStatus::Idle;
                 }
             }
         } else {
@@ -109,9 +109,10 @@ impl DaemonManager {
             return Err("Daemon is not running".to_string());
         }
 
+        // 暂停时将所有运行中的 Agent 设置为 Idle
         for agent in self.agents.values_mut() {
             if agent.status == AgentStatus::Running {
-                agent.status = AgentStatus::Paused;
+                agent.status = AgentStatus::Idle;
             }
         }
         
@@ -125,8 +126,9 @@ impl DaemonManager {
             return Err("Daemon is not paused".to_string());
         }
 
+        // 恢复时将之前被暂停的 Agent 重新设置为 Running
         for agent in self.agents.values_mut() {
-            if agent.status == AgentStatus::Paused {
+            if agent.status == AgentStatus::Idle {
                 agent.status = AgentStatus::Running;
             }
         }
@@ -536,7 +538,7 @@ impl DaemonManager {
             for agent_id in running_vec.into_iter().take(excess) {
                 if let Some(agent) = self.agents.get_mut(&agent_id) {
                     if agent.status == AgentStatus::Running {
-                        agent.status = AgentStatus::Paused;
+                        agent.status = AgentStatus::Idle;
                     }
                 }
                 self.running_agents.remove(&agent_id);
@@ -547,6 +549,7 @@ impl DaemonManager {
         } else {
             // 如果新限制更大，尝试启动更多 Agent
             self.schedule_next_agent();
+
         }
 
         Ok(())

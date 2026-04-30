@@ -32,8 +32,6 @@ pub enum AgentStatus {
     Idle,
     /// 正在执行任务
     Running,
-    /// 已暂停
-    Paused,
     /// 任务完成
     Completed,
     /// 任务失败，包含错误信息
@@ -45,7 +43,6 @@ impl std::fmt::Display for AgentStatus {
         match self {
             AgentStatus::Idle => write!(f, "idle"),
             AgentStatus::Running => write!(f, "running"),
-            AgentStatus::Paused => write!(f, "paused"),
             AgentStatus::Completed => write!(f, "completed"),
             AgentStatus::Failed(msg) => write!(f, "failed:{}", msg),
         }

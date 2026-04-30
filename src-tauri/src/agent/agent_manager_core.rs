@@ -261,9 +261,9 @@ impl AgentManager {
         let handle = agents.get_mut(agent_id)
             .ok_or_else(|| format!("Agent {} not found", agent_id))?;
 
-        if handle.status != AgentStatus::Idle && handle.status != AgentStatus::Paused {
+        if handle.status != AgentStatus::Idle {
             return Err(format!(
-                "Agent {} is not in Idle or Paused state. Current state: {:?}",
+                "Agent {} is not in Idle state. Current state: {:?}",
                 agent_id, handle.status
             ));
         }
@@ -341,7 +341,7 @@ impl AgentManager {
 
         // 更新状态（不立即持久化）
         let new_status = if graceful {
-            AgentStatus::Paused
+            AgentStatus::Idle
         } else {
             AgentStatus::Idle
         };
