@@ -1,4 +1,4 @@
-﻿//! Daemon Manager 实现
+//! Daemon Manager 实现
 //! 
 //! 负责守护进程的启动、停止、Agent 调度和并发控�?
 

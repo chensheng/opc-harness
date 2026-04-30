@@ -1,4 +1,4 @@
-﻿//! Agent Loop - 自动化执行引擎
+//! Agent Loop - 自动化执行引擎
 //! 
 //! 实现从 Sprint 中自动选择用户故事并分配给 Coding Agent 执行的完整流程
 
@@ -6,15 +6,17 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use chrono::Utc;
 use crate::db::{self, database};
-use crate::agent::{DaemonManager, daemon_types::DaemonConfig};
+use crate::agent::{DaemonManager, WorktreeManager};
 use log;
 
 /// Agent Loop 管理器
 pub struct AgentLoop {
     /// Daemon 管理器（用于启动 Agent 进程）
     daemon_manager: Arc<RwLock<DaemonManager>>,
+    /// Worktree 管理器（用于创建独立工作树）
+    pub worktree_manager: Option<Arc<WorktreeManager>>,
     /// 是否正在运行
-    is_running: bool,
+    pub is_running: bool,
 }
 
 impl AgentLoop {
@@ -22,8 +24,15 @@ impl AgentLoop {
     pub fn new(daemon_manager: Arc<RwLock<DaemonManager>>) -> Self {
         Self {
             daemon_manager,
+            worktree_manager: None,
             is_running: false,
         }
+    }
+
+    /// 设置 Worktree 管理器
+    pub fn set_worktree_manager(&mut self, project_path: &str) {
+        self.worktree_manager = Some(Arc::new(WorktreeManager::new(project_path)));
+        log::info!("[AgentLoop] Worktree manager initialized for project: {}", project_path);
     }
 
     /// 启动 Agent Loop（单次执行）
@@ -108,24 +117,44 @@ impl AgentLoop {
         // 获取 Daemon Manager 的写锁
         let mut daemon = self.daemon_manager.write().await;
         
-        // 构造 Daemon 配置
-        let config = DaemonConfig {
-            session_id: agent_id.to_string(),
-            project_path: format!("./projects/{}", project_id),
-            log_level: "info".to_string(),
-            max_concurrent_agents: 5,
-            workspace_dir: format!("./workspace/{}", agent_id),
-        };
+        // 构造项目路径
+        let workspaces_root = crate::utils::paths::get_workspaces_dir();
+        let project_path = workspaces_root.join(project_id);
         
-        // 如果 Daemon 未启动，先启动
-        // TODO: 检查 Daemon 是否已启动
+        if !project_path.exists() {
+            return Err(format!("Project path does not exist: {:?}", project_path));
+        }
         
-        // 启动 Coding Agent 进程
-        match daemon.spawn_agent("coding", &config.project_path) {
+        let project_path_str = project_path.to_string_lossy().to_string();
+        
+        // 如果配置了 Worktree 管理器,先创建 Worktree
+        if let Some(ref wt_manager) = self.worktree_manager {
+            log::info!("[AgentLoop] Creating worktree for agent {} and story {}", agent_id, story.id);
+            
+            // 生成分支名称 (基于 Story ID)
+            let branch_name = format!("story-{}", story.story_number);
+            
+            match wt_manager.create_worktree(agent_id, &story.id, &branch_name).await {
+                Ok(worktree_path) => {
+                    log::info!("[AgentLoop] Worktree created at: {}", worktree_path);
+                    
+                    // TODO: 使用 worktree_path 作为 Agent 的工作目录
+                    // 当前仍然使用项目根路径,后续需要修改 Daemon 以支持自定义工作目录
+                }
+                Err(e) => {
+                    log::error!("[AgentLoop] Failed to create worktree: {}. Falling back to project root.", e);
+                    // 继续执行,不阻断 Agent 启动
+                }
+            }
+        }
+        
+        // 启动 Coding Agent 进程（使用 "coding" 类型）
+        match daemon.spawn_agent("coding", &project_path_str) {
             Ok(spawned_agent_id) => {
                 log::info!("[AgentLoop] Successfully spawned coding agent: {}", spawned_agent_id);
                 
                 // TODO: 将 Agent ID 与 Story ID 关联，便于后续追踪
+                // 可以考虑在数据库中添加 agent_id 字段到 user_stories 表
                 
                 Ok(())
             }

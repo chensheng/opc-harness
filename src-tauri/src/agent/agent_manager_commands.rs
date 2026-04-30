@@ -940,3 +940,278 @@ Fixes #
     
     Ok(templates)
 }
+
+// ============================================================================
+// Agent Loop 控制命令 (P0: 自动触发引擎)
+// ============================================================================
+
+/// 启动 Agent Loop 持续运行（基于时间自动检测 Sprint 并执行故事）
+#[tauri::command]
+pub async fn start_agent_loop(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: String,
+    interval_secs: Option<u64>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    
+    // 检查是否已经在运行
+    if manager.is_agent_loop_running().await {
+        drop(manager);
+        return Err("Agent Loop is already running".to_string());
+    }
+    
+    // 默认间隔 60 秒
+    let interval = interval_secs.unwrap_or(60);
+    
+    let result = manager.start_agent_loop(&project_id, interval).await;
+    drop(manager);
+    
+    if result.is_ok() {
+        log::info!("[start_agent_loop] Agent Loop started for project {} with {}s interval", 
+                   project_id, interval);
+    }
+    
+    result
+}
+
+/// 执行一次 Agent Loop（单次触发，用于测试或手动执行）
+#[tauri::command]
+pub async fn execute_agent_loop_once(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: String,
+) -> Result<usize, String> {
+    let manager = state.read().await;
+    let result = manager.execute_agent_loop_once(&project_id).await;
+    drop(manager);
+    
+    match &result {
+        Ok(count) => {
+            log::info!("[execute_agent_loop_once] Executed once for project {}, started {} agents", 
+                       project_id, count);
+        }
+        Err(e) => {
+            log::error!("[execute_agent_loop_once] Failed for project {}: {}", project_id, e);
+        }
+    }
+    
+    result
+}
+
+/// 停止 Agent Loop
+#[tauri::command]
+pub async fn stop_agent_loop(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let result = manager.stop_agent_loop().await;
+    drop(manager);
+    
+    if result.is_ok() {
+        log::info!("[stop_agent_loop] Agent Loop stopped");
+    }
+    
+    result
+}
+
+/// 检查 Agent Loop 是否正在运行
+#[tauri::command]
+pub async fn is_agent_loop_running(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<bool, String> {
+    let manager = state.read().await;
+    let result = manager.is_agent_loop_running().await;
+    drop(manager);
+    Ok(result)
+}
+
+// ============================================================================
+// Worktree 管理命令 (P0: 隔离环境管理)
+// ============================================================================
+
+/// 创建 Worktree
+#[tauri::command]
+pub async fn create_worktree(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    agent_id: String,
+    story_id: String,
+    branch_name: String,
+) -> Result<String, String> {
+    let manager = state.read().await;
+    
+    // 获取 AgentLoop 实例
+    let agent_loop_guard = manager.agent_loop.read().await;
+    
+    if let Some(loop_instance) = agent_loop_guard.as_ref() {
+        // 从 AgentLoop 中获取 WorktreeManager
+        if let Some(ref wt_manager) = loop_instance.worktree_manager {
+            let result = wt_manager.create_worktree(&agent_id, &story_id, &branch_name).await;
+            drop(agent_loop_guard);
+            drop(manager);
+            
+            match &result {
+                Ok(path) => {
+                    log::info!("[create_worktree] Created worktree for agent {} at {}", agent_id, path);
+                }
+                Err(e) => {
+                    log::error!("[create_worktree] Failed to create worktree: {}", e);
+                }
+            }
+            
+            result
+        } else {
+            drop(agent_loop_guard);
+            drop(manager);
+            Err("Worktree manager not initialized".to_string())
+        }
+    } else {
+        drop(agent_loop_guard);
+        drop(manager);
+        Err("Agent Loop not initialized".to_string())
+    }
+}
+
+/// 删除 Worktree
+#[tauri::command]
+pub async fn remove_worktree(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    agent_id: String,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    
+    let agent_loop_guard = manager.agent_loop.read().await;
+    
+    if let Some(loop_instance) = agent_loop_guard.as_ref() {
+        if let Some(ref wt_manager) = loop_instance.worktree_manager {
+            let result = wt_manager.remove_worktree(&agent_id).await;
+            drop(agent_loop_guard);
+            drop(manager);
+            
+            if result.is_ok() {
+                log::info!("[remove_worktree] Removed worktree for agent {}", agent_id);
+            } else {
+                log::error!("[remove_worktree] Failed to remove worktree: {:?}", result);
+            }
+            
+            result
+        } else {
+            drop(agent_loop_guard);
+            drop(manager);
+            Err("Worktree manager not initialized".to_string())
+        }
+    } else {
+        drop(agent_loop_guard);
+        drop(manager);
+        Err("Agent Loop not initialized".to_string())
+    }
+}
+
+/// 列出所有 Worktrees
+#[tauri::command]
+pub async fn list_worktrees(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<Vec<crate::agent::worktree_manager::WorktreeInfo>, String> {
+    let manager = state.read().await;
+    
+    let agent_loop_guard = manager.agent_loop.read().await;
+    
+    if let Some(loop_instance) = agent_loop_guard.as_ref() {
+        if let Some(ref wt_manager) = loop_instance.worktree_manager {
+            let result = wt_manager.list_worktrees().await;
+            drop(agent_loop_guard);
+            drop(manager);
+            
+            match &result {
+                Ok(worktrees) => {
+                    log::info!("[list_worktrees] Found {} worktrees", worktrees.len());
+                }
+                Err(e) => {
+                    log::error!("[list_worktrees] Failed to list worktrees: {}", e);
+                }
+            }
+            
+            result
+        } else {
+            drop(agent_loop_guard);
+            drop(manager);
+            Err("Worktree manager not initialized".to_string())
+        }
+    } else {
+        drop(agent_loop_guard);
+        drop(manager);
+        Err("Agent Loop not initialized".to_string())
+    }
+}
+
+/// 清理孤立的 Worktrees
+#[tauri::command]
+pub async fn cleanup_orphaned_worktrees(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<usize, String> {
+    let manager = state.read().await;
+    
+    let agent_loop_guard = manager.agent_loop.read().await;
+    
+    if let Some(loop_instance) = agent_loop_guard.as_ref() {
+        if let Some(ref wt_manager) = loop_instance.worktree_manager {
+            let result = wt_manager.cleanup_orphaned_worktrees().await;
+            drop(agent_loop_guard);
+            drop(manager);
+            
+            match &result {
+                Ok(count) => {
+                    log::info!("[cleanup_orphaned_worktrees] Cleaned up {} orphaned worktrees", count);
+                }
+                Err(e) => {
+                    log::error!("[cleanup_orphaned_worktrees] Failed to cleanup: {}", e);
+                }
+            }
+            
+            result
+        } else {
+            drop(agent_loop_guard);
+            drop(manager);
+            Err("Worktree manager not initialized".to_string())
+        }
+    } else {
+        drop(agent_loop_guard);
+        drop(manager);
+        Err("Agent Loop not initialized".to_string())
+    }
+}
+
+/// 获取磁盘使用量
+#[tauri::command]
+pub async fn get_worktree_disk_usage(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<u64, String> {
+    let manager = state.read().await;
+    
+    let agent_loop_guard = manager.agent_loop.read().await;
+    
+    if let Some(loop_instance) = agent_loop_guard.as_ref() {
+        if let Some(ref wt_manager) = loop_instance.worktree_manager {
+            let result = wt_manager.get_disk_usage().await;
+            drop(agent_loop_guard);
+            drop(manager);
+            
+            match &result {
+                Ok(bytes) => {
+                    log::info!("[get_worktree_disk_usage] Current disk usage: {} MB", bytes / 1024 / 1024);
+                }
+                Err(e) => {
+                    log::error!("[get_worktree_disk_usage] Failed to get disk usage: {}", e);
+                }
+            }
+            
+            result
+        } else {
+            drop(agent_loop_guard);
+            drop(manager);
+            Err("Worktree manager not initialized".to_string())
+        }
+    } else {
+        drop(agent_loop_guard);
+        drop(manager);
+        Err("Agent Loop not initialized".to_string())
+    }
+}

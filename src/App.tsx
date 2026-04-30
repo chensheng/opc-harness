@@ -18,14 +18,49 @@ import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy
 import { AIConfig } from './components/common/AIConfig'
 import { Settings } from './components/common/Settings'
 import { useProjectStore } from './stores'
+import { useAgentLoop } from './hooks/useAgentLoop'
 
 function App() {
   const { loadProjectsFromDatabase } = useProjectStore()
+  const { startAgentLoop, checkStatus } = useAgentLoop()
 
   // 应用启动时从数据库加载项目
   useEffect(() => {
     loadProjectsFromDatabase()
   }, [loadProjectsFromDatabase])
+
+  // 应用启动时自动启动 Agent Loop(如果尚未运行)
+  useEffect(() => {
+    const initAgentLoop = async () => {
+      try {
+        // 检查是否已经在运行
+        const running = await checkStatus()
+        
+        if (!running) {
+          // 获取当前选中的项目 ID(如果有)
+          // TODO: 从 projectStore 获取当前项目
+          const currentProjectId = localStorage.getItem('currentProjectId')
+          
+          if (currentProjectId) {
+            console.log('[App] Starting Agent Loop for project:', currentProjectId)
+            await startAgentLoop(currentProjectId, 60) // 每 60 秒检测一次
+          } else {
+            console.log('[App] No project selected, Agent Loop will start when project is loaded')
+          }
+        } else {
+          console.log('[App] Agent Loop already running')
+        }
+      } catch (err) {
+        console.error('[App] Failed to initialize Agent Loop:', err)
+        // 不阻断应用启动,仅记录错误
+      }
+    }
+
+    // 延迟启动,确保数据库和项目已加载
+    const timer = setTimeout(initAgentLoop, 2000)
+    
+    return () => clearTimeout(timer)
+  }, [startAgentLoop, checkStatus])
 
   return (
     <AppLayout>

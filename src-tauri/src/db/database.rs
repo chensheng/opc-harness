@@ -1,4 +1,4 @@
-﻿use rusqlite::{Connection, Result};
+use rusqlite::{Connection, Result};
 use crate::utils::paths;
 
 /// 获取数据库连接

@@ -14,6 +14,7 @@ use crate::agent::types::{AgentType, AgentStatus, AgentConfig};
 use crate::agent::branch_manager::{BranchManager, BranchManagerConfig};
 use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
 use crate::agent::agent_manager_persistence;
+use crate::agent::agent_loop::AgentLoop;
 
 /// Agent Manager
 /// 
@@ -35,6 +36,8 @@ pub struct AgentManager {
     pub daemon_config: Arc<RwLock<Option<DaemonConfig>>>,
     /// 统计信息
     pub stats: Arc<RwLock<AgentManagerStats>>,
+    /// Agent Loop 自动化执行引擎
+    pub agent_loop: Arc<RwLock<Option<AgentLoop>>>,
 }
 
 impl AgentManager {
@@ -49,6 +52,7 @@ impl AgentManager {
             branch_manager: Arc::new(RwLock::new(None)),
             daemon_config: Arc::new(RwLock::new(None)),
             stats: Arc::new(RwLock::new(AgentManagerStats::default())),
+            agent_loop: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -61,6 +65,25 @@ impl AgentManager {
         {
             let mut daemon = self.daemon.write().await;
             daemon.start(config)?;
+        }
+
+        // 初始化 Agent Loop（传入 Daemon Manager 引用）
+        {
+            let daemon_clone = self.daemon.clone();
+            let mut agent_loop_guard = self.agent_loop.write().await;
+            let mut loop_instance = AgentLoop::new(daemon_clone);
+            
+            // 设置 Worktree 管理器 (使用默认项目路径,后续可根据实际项目动态设置)
+            let workspaces_root = crate::utils::paths::get_workspaces_dir();
+            if workspaces_root.exists() {
+                let project_path = workspaces_root.to_string_lossy().to_string();
+                loop_instance.set_worktree_manager(&project_path);
+            } else {
+                log::warn!("[AgentManager] Workspaces directory does not exist, Worktree manager will be initialized later");
+            }
+            
+            *agent_loop_guard = Some(loop_instance);
+            log::info!("Agent Loop initialized with Worktree Manager");
         }
 
         // 恢复持久化的 Agent Sessions
@@ -409,5 +432,69 @@ impl AgentManager {
     /// 获取 BranchManager（只读）
     pub async fn get_branch_manager(&self) -> tokio::sync::RwLockReadGuard<'_, Option<BranchManager>> {
         self.branch_manager.read().await
+    }
+
+    // ========================================================================
+    // Agent Loop 控制方法 (P0: 自动触发引擎)
+    // ========================================================================
+
+    /// 启动 Agent Loop 持续运行
+    pub async fn start_agent_loop(&self, project_id: &str, interval_secs: u64) -> Result<(), String> {
+        let agent_loop_guard = self.agent_loop.read().await;
+        
+        if let Some(_loop_mgr) = agent_loop_guard.as_ref() {
+            // 克隆必要的参数用于异步任务
+            let project_id_clone = project_id.to_string();
+            
+            // 在后台启动持续循环
+            let loop_clone = self.agent_loop.clone();
+            tokio::spawn(async move {
+                if let Some(loop_mgr) = loop_clone.write().await.as_mut() {
+                    loop_mgr.start_continuous(&project_id_clone, interval_secs).await;
+                }
+            });
+            
+            log::info!("Agent Loop started for project {} with {}s interval", project_id, interval_secs);
+            Ok(())
+        } else {
+            Err("Agent Loop not initialized".to_string())
+        }
+    }
+
+    /// 执行一次 Agent Loop（单次触发）
+    pub async fn execute_agent_loop_once(&self, project_id: &str) -> Result<usize, String> {
+        let mut agent_loop_guard = self.agent_loop.write().await;
+        
+        if let Some(loop_mgr) = agent_loop_guard.as_mut() {
+            let count = loop_mgr.execute_once(project_id).await?;
+            log::info!("Agent Loop executed once for project {}, started {} agents", project_id, count);
+            Ok(count)
+        } else {
+            Err("Agent Loop not initialized".to_string())
+        }
+    }
+
+    /// 停止 Agent Loop
+    pub async fn stop_agent_loop(&self) -> Result<(), String> {
+        let mut agent_loop_guard = self.agent_loop.write().await;
+        
+        if let Some(loop_mgr) = agent_loop_guard.as_mut() {
+            loop_mgr.stop();
+            log::info!("Agent Loop stopped");
+            Ok(())
+        } else {
+            Err("Agent Loop not initialized".to_string())
+        }
+    }
+
+    /// 检查 Agent Loop 是否正在运行
+    pub async fn is_agent_loop_running(&self) -> bool {
+        let agent_loop_guard = self.agent_loop.read().await;
+        
+        if let Some(loop_mgr) = agent_loop_guard.as_ref() {
+            loop_mgr.is_running
+        } else {
+            false
+        }
     }
 }

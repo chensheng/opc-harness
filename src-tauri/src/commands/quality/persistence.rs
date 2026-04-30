@@ -1,4 +1,4 @@
-﻿use crate::commands::quality::types::{
+use crate::commands::quality::types::{
     UserStory,
     SaveUserStoriesRequest,
     SaveUserStoriesResponse,

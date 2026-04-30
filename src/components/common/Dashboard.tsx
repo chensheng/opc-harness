@@ -16,6 +16,7 @@ import {
 import { useProjectStore } from '@/stores'
 import { formatDate } from '@/lib/utils'
 import { ProjectListFloatingButton } from '@/components/vibe-design/ProjectListFloatingButton'
+import { AgentLoopControl } from '@/components/vibe-coding/AgentLoopControl'
 
 const statusLabels: Record<string, string> = {
   idea: '构思中',
@@ -116,6 +117,9 @@ export function Dashboard() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Agent Loop Control */}
+      <AgentLoopControl />
 
       {/* Recent Projects */}
       <Card>

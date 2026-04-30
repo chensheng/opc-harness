@@ -8,6 +8,7 @@ pub mod prd_parser;  // VC-006: PRD 解析器
 pub mod initializer_agent;
 pub mod coding_agent;
 pub mod branch_manager;
+pub mod worktree_manager;  // Worktree 管理器
 pub mod mr_creation_agent;  // VC-016: MR Creation Agent
 pub mod mr_description_generator;  // MR Description Generator
 pub mod test_generator_agent;  // VC-021: Test Generator Agent
@@ -61,6 +62,9 @@ pub use coding_agent::{
 pub use branch_manager::{
     BranchManager, BranchManagerConfig, BranchInfo, BranchType,
     BranchOperationResult,
+};
+pub use worktree_manager::{
+    WorktreeManager, WorktreeManagerConfig, WorktreeInfo, WorktreeOperationResult,
 };
 pub use mr_creation_agent::{
     MRCreationAgent, MRCreationConfig, MRCreationStatus,
