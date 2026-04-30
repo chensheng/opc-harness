@@ -151,6 +151,9 @@ impl AgentLoop {
                     // 在后台启动消息处理任务
                     let agent_id_for_log = agent_id_clone.clone();
                     let worktree_path_for_write = worktree_path.clone();
+                    let worktree_path_for_git = worktree_path.clone();
+                    let story_id_for_commit = story_id_clone.clone();
+                    
                     tokio::spawn(async move {
                         while let Some(message) = message_rx.recv().await {
                             match message {
@@ -174,6 +177,27 @@ impl AgentLoop {
                                 }
                                 AICLIMessage::TaskCompleted { success, summary } => {
                                     log::info!("[AgentLoop:{}] Task completed: {} - {}", agent_id_for_log, if success { "SUCCESS" } else { "FAILED" }, summary);
+                                    
+                                    // 如果任务成功,执行 Git commit & push
+                                    if success {
+                                        let worktree_path_for_git_clone = worktree_path_for_git.clone();
+                                        let story_id_for_commit_clone = story_id_for_commit.clone();
+                                        let agent_id_for_git = agent_id_for_log.clone();
+                                        
+                                        tokio::spawn(async move {
+                                            match Self::commit_and_push_changes(&worktree_path_for_git_clone, &story_id_for_commit_clone).await {
+                                                Ok(commit_msg) => {
+                                                    log::info!("[AgentLoop:{}] Successfully committed and pushed changes: {}", 
+                                                        agent_id_for_git, commit_msg);
+                                                }
+                                                Err(e) => {
+                                                    log::error!("[AgentLoop:{}] Failed to commit and push changes: {}", 
+                                                        agent_id_for_git, e);
+                                                }
+                                            }
+                                        });
+                                    }
+                                    
                                     // TODO: 更新 Story 状态
                                 }
                             }
@@ -301,6 +325,113 @@ impl AgentLoop {
         log::debug!("[CodeWriter] Successfully wrote {} bytes to {:?}", content.len(), full_path);
         
         Ok(())
+    }
+
+    /// 执行 Git commit & push 操作
+    async fn commit_and_push_changes(worktree_path: &str, story_id: &str) -> Result<String, String> {
+        use tokio::process::Command as TokioCommand;
+        
+        log::info!("[GitOps] Starting commit and push for worktree: {}", worktree_path);
+        
+        // 1. 检查是否有变更
+        let status_output = TokioCommand::new("git")
+            .args(&["status", "--porcelain"])
+            .current_dir(worktree_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute git status: {}", e))?;
+        
+        let status_stdout = String::from_utf8_lossy(&status_output.stdout);
+        
+        if status_stdout.trim().is_empty() {
+            log::warn!("[GitOps] No changes detected in worktree: {}", worktree_path);
+            return Ok("No changes to commit".to_string());
+        }
+        
+        log::info!("[GitOps] Detected changes:\n{}", status_stdout);
+        
+        // 2. 添加所有变更文件
+        let add_output = TokioCommand::new("git")
+            .args(&["add", "."])
+            .current_dir(worktree_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute git add: {}", e))?;
+        
+        if !add_output.status.success() {
+            let stderr = String::from_utf8_lossy(&add_output.stderr);
+            return Err(format!("git add failed: {}", stderr));
+        }
+        
+        log::info!("[GitOps] Successfully staged all changes");
+        
+        // 3. 生成 commit message (基于 Story ID)
+        let commit_message = format!("Auto-generated code for story {}", story_id);
+        
+        // 4. 提交变更
+        let commit_output = TokioCommand::new("git")
+            .args(&["commit", "-m", &commit_message])
+            .current_dir(worktree_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute git commit: {}", e))?;
+
+        if !commit_output.status.success() {
+            let stderr = String::from_utf8_lossy(&commit_output.stderr);
+            return Err(format!("git commit failed: {}", stderr));
+        }
+        
+        let commit_stdout = String::from_utf8_lossy(&commit_output.stdout);
+        log::info!("[GitOps] Commit successful: {}", commit_stdout);
+        
+        // 5. 推送到远程分支 (story-{story_number})
+        // 注意: 这里假设分支已经存在,如果不存在需要先创建
+        let branch_name = format!("story-{}", story_id);
+        
+        let push_output = TokioCommand::new("git")
+            .args(&["push", "-u", "origin", &branch_name])
+            .current_dir(worktree_path)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute git push: {}", e))?;
+        
+        if !push_output.status.success() {
+            let stderr = String::from_utf8_lossy(&push_output.stderr);
+            // Push 失败可能是分支不存在,尝试先创建分支
+            log::warn!("[GitOps] Push failed (possibly branch doesn't exist): {}", stderr);
+            
+            // 尝试创建并推送分支
+            let create_branch_output = TokioCommand::new("git")
+                .args(&["checkout", "-b", &branch_name])
+                .current_dir(worktree_path)
+                .output()
+                .await
+                .map_err(|e| format!("Failed to create branch: {}", e))?;
+            
+            if !create_branch_output.status.success() {
+                let stderr = String::from_utf8_lossy(&create_branch_output.stderr);
+                log::warn!("[GitOps] Branch creation failed (may already exist): {}", stderr);
+            }
+            
+            // 再次尝试推送
+            let retry_push_output = TokioCommand::new("git")
+                .args(&["push", "-u", "origin", &branch_name])
+                .current_dir(worktree_path)
+                .output()
+                .await
+                .map_err(|e| format!("Failed to execute git push (retry): {}", e))?;
+            
+            if !retry_push_output.status.success() {
+                let stderr = String::from_utf8_lossy(&retry_push_output.stderr);
+                return Err(format!("git push failed after retry: {}", stderr));
+            }
+            
+            log::info!("[GitOps] Successfully created and pushed branch: {}", branch_name);
+        } else {
+            log::info!("[GitOps] Successfully pushed to branch: {}", branch_name);
+        }
+        
+        Ok(commit_message)
     }
 }
 
