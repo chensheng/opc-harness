@@ -23,6 +23,7 @@ pub mod ai_code_generator;  // VC-032: AI Code Generator
 pub mod realtime_code_suggestions;  // VC-033: Real-time Code Suggestions
 pub mod code_change_tracker;  // VC-034: Code Change Tracker
 pub mod agent_loop;  // Agent Loop - 自动化执行引擎
+pub mod ai_cli_interaction;  // AI CLI 交互管理器
 
 // Daemon 模块及其子模块
 mod daemon_types;

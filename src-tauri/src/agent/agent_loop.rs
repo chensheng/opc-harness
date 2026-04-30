@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use chrono::Utc;
 use crate::db::{self, database};
 use crate::agent::{DaemonManager, WorktreeManager};
+use crate::agent::ai_cli_interaction::AICLIMessage;
 use log;
 
 /// Agent Loop 管理器
@@ -134,14 +135,45 @@ impl AgentLoop {
             // 生成分支名称 (基于 Story ID)
             let branch_name = format!("story-{}", story.story_number);
             
+            // 克隆 wt_manager 以便在异步闭包中使用
+            let wt_manager_clone = wt_manager.clone();
+            let agent_id_clone = agent_id.to_string();
+            let story_id_clone = story.id.clone();
+            
             match wt_manager.create_worktree(agent_id, &story.id, &branch_name).await {
                 Ok(worktree_path) => {
                     log::info!("[AgentLoop] Worktree created at: {}", worktree_path);
                     
-                    // 在 Worktree 中启动 Agent (深度集成)
-                    match daemon.spawn_agent_in_worktree("coding", &worktree_path, &story.id) {
+                    // 创建消息通道用于接收 AI CLI 输出
+                    let (message_tx, mut message_rx) = tokio::sync::mpsc::channel::<AICLIMessage>(100);
+                    
+                    // 在后台启动消息处理任务
+                    let agent_id_for_log = agent_id_clone.clone();
+                    tokio::spawn(async move {
+                        while let Some(message) = message_rx.recv().await {
+                            match message {
+                                AICLIMessage::Stdout(line) => {
+                                    log::debug!("[AgentLoop:{}] AI Output: {}", agent_id_for_log, line);
+                                }
+                                AICLIMessage::Stderr(line) => {
+                                    log::warn!("[AgentLoop:{}] AI Error: {}", agent_id_for_log, line);
+                                }
+                                AICLIMessage::GeneratedCode { file_path, content } => {
+                                    log::info!("[AgentLoop:{}] Generated code for file: {}", agent_id_for_log, file_path);
+                                    // TODO: 将生成的代码写入文件
+                                }
+                                AICLIMessage::TaskCompleted { success, summary } => {
+                                    log::info!("[AgentLoop:{}] Task completed: {} - {}", agent_id_for_log, if success { "SUCCESS" } else { "FAILED" }, summary);
+                                    // TODO: 更新 Story 状态
+                                }
+                            }
+                        }
+                    });
+                    
+                    // 在 Worktree 中启动 Agent (带 STDIO 监控)
+                    match daemon.spawn_agent_in_worktree_with_stdio("coding", &worktree_path, &story_id_clone, message_tx) {
                         Ok(spawned_agent_id) => {
-                            log::info!("[AgentLoop] Successfully spawned coding agent in worktree: {}", spawned_agent_id);
+                            log::info!("[AgentLoop] Successfully spawned coding agent in worktree with STDIO monitoring: {}", spawned_agent_id);
                             
                             // TODO: 将 Agent ID 与 Story ID 关联，便于后续追踪
                             // 可以考虑在数据库中添加 agent_id 字段到 user_stories 表
@@ -152,7 +184,7 @@ impl AgentLoop {
                             log::error!("[AgentLoop] Failed to spawn agent in worktree: {}. Cleaning up worktree.", e);
                             
                             // 清理失败的 Worktree
-                            if let Err(cleanup_err) = wt_manager.remove_worktree(agent_id).await {
+                            if let Err(cleanup_err) = wt_manager_clone.remove_worktree(&agent_id_clone).await {
                                 log::warn!("[AgentLoop] Failed to cleanup worktree: {}", cleanup_err);
                             }
                             
