@@ -194,8 +194,13 @@ export function useWorktreeManager() {
       return wtList
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
-      setError(errorMsg)
-      console.error('[useWorktreeManager] Failed to list worktrees:', errorMsg)
+      // Agent Loop 未初始化时不显示错误,这是正常情况
+      if (!errorMsg.includes('Agent Loop not initialized')) {
+        setError(errorMsg)
+        console.error('[useWorktreeManager] Failed to list worktrees:', errorMsg)
+      } else {
+        console.debug('[useWorktreeManager] Agent Loop not initialized, skipping worktree list')
+      }
       throw err
     } finally {
       setIsLoading(false)
@@ -217,8 +222,13 @@ export function useWorktreeManager() {
       return count
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
-      setError(errorMsg)
-      console.error('[useWorktreeManager] Failed to cleanup orphaned worktrees:', errorMsg)
+      // Agent Loop 未初始化时不显示错误
+      if (!errorMsg.includes('Agent Loop not initialized')) {
+        setError(errorMsg)
+        console.error('[useWorktreeManager] Failed to cleanup orphaned worktrees:', errorMsg)
+      } else {
+        console.debug('[useWorktreeManager] Agent Loop not initialized, skipping cleanup')
+      }
       throw err
     } finally {
       setIsLoading(false)
@@ -232,7 +242,13 @@ export function useWorktreeManager() {
       setDiskUsage(bytes)
       return bytes
     } catch (err) {
-      console.error('[useWorktreeManager] Failed to get disk usage:', err)
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      // Agent Loop 未初始化时不显示错误
+      if (!errorMsg.includes('Agent Loop not initialized')) {
+        console.error('[useWorktreeManager] Failed to get disk usage:', errorMsg)
+      } else {
+        console.debug('[useWorktreeManager] Agent Loop not initialized, skipping disk usage check')
+      }
       return 0
     }
   }, [])
