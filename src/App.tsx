@@ -17,6 +17,7 @@ import { CheckpointReview } from './components/vibe-coding/CheckpointReview'
 import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy'
 import { AIConfig } from './components/common/AIConfig'
 import { Settings } from './components/common/Settings'
+import { DecentralizedTestPage } from './pages/DecentralizedTestPage'
 import { useProjectStore } from './stores'
 import { useAgentLoop } from './hooks/useAgentLoop'
 
@@ -82,6 +83,7 @@ function App() {
         <Route path="/marketing/:projectId" element={<MarketingStrategy />} />
         <Route path="/ai-config" element={<AIConfig />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/decentralized-test" element={<DecentralizedTestPage />} />
       </Routes>
     </AppLayout>
   )
