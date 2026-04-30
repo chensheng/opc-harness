@@ -899,11 +899,12 @@ impl DaemonManager {
                 // 创建 AICLIInteraction 并启动 STDIO 监听
                 let interaction = AICLIInteraction::new(child, agent_id.clone(), message_tx);
                 
-                // 在后台启动异步监听任务
+                // 在后台启动异步监听任务 (带 30 分钟超时)
                 let agent_id_for_log = agent_id.clone();
                 let interaction_clone = interaction.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = interaction_clone.start_listening().await {
+                    // 使用 30 分钟超时 (1800 秒)
+                    if let Err(e) = interaction_clone.start_listening_with_timeout(1800).await {
                         log::error!("[Daemon] Failed to start listening for agent {}: {}", agent_id_for_log, e);
                     }
                 });

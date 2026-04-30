@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::process::Child as TokioChild;
+use serde_json;
 
 /// AI CLI 输出的消息类型
 #[derive(Debug, Clone)]
@@ -46,6 +47,36 @@ impl AICLIInteraction {
             child: Arc::new(Mutex::new(Some(child))),
             message_tx,
             agent_id,
+        }
+    }
+
+    /// 启动异步监听任务,实时读取 AI CLI 的输出 (带超时)
+    pub async fn start_listening_with_timeout(&self, timeout_secs: u64) -> Result<(), String> {
+        use tokio::time::{timeout, Duration};
+        
+        let timeout_duration = Duration::from_secs(timeout_secs);
+        
+        log::info!("[AICLIInteraction] Starting to listen for agent {} with {}s timeout", 
+            self.agent_id, timeout_secs);
+        
+        // 使用 timeout 包装监听任务
+        match timeout(timeout_duration, self.start_listening()).await {
+            Ok(result) => result,
+            Err(_) => {
+                log::error!("[AICLI:{}] Agent process timed out after {} seconds", 
+                    self.agent_id, timeout_secs);
+                
+                // 发送超时消息
+                let _ = self.message_tx.send(AICLIMessage::TaskCompleted {
+                    success: false,
+                    summary: format!("Agent process timed out after {} seconds", timeout_secs),
+                }).await;
+                
+                // 尝试终止进程
+                let _ = self.terminate().await;
+                
+                Err(format!("Agent process timed out after {} seconds", timeout_secs))
+            }
         }
     }
 
@@ -166,19 +197,53 @@ impl AICLIInteraction {
 
     /// 解析 AI 输出的代码生成标记
     /// 
-    /// 期望格式: [GENERATED_CODE] file_path:xxx content:xxx
-    /// 或者 AI CLI 自定义的输出格式
+    /// 支持多种格式:
+    /// 1. [GENERATED_CODE] file_path content
+    /// 2. ```file_path\ncontent\n```
+    /// 3. JSON 格式: {"file": "path", "code": "content"}
     fn parse_generated_code(output: &str) -> Option<GeneratedCodeInfo> {
-        // TODO: 根据实际 AI CLI 的输出格式调整解析逻辑
-        // 这里提供一个示例解析器
-        
+        // 格式 1: [GENERATED_CODE] marker
         if output.starts_with("[GENERATED_CODE]") {
-            // 简单解析: [GENERATED_CODE] src/main.rs:fn main() {...}
             let parts: Vec<&str> = output.splitn(3, ' ').collect();
             if parts.len() >= 3 {
                 let file_path = parts[1].to_string();
                 let content = parts[2].to_string();
                 return Some(GeneratedCodeInfo { file_path, content });
+            }
+        }
+        
+        // 格式 2: Markdown code block (常见于 Claude Code)
+        // ```src/main.rs
+        // fn main() {}
+        // ```
+        if output.starts_with("```") && output.contains('\n') {
+            let lines: Vec<&str> = output.lines().collect();
+            if lines.len() >= 2 {
+                // 第一行: ```file_path 或 ```file_path language
+                let first_line = lines[0].trim_start_matches('`').trim();
+                let file_path = first_line.split_whitespace().next()?.to_string();
+                
+                // 最后一行应该是 ```
+                if lines.last()?.trim() == "```" {
+                    // 提取中间的内容
+                    let content_lines = &lines[1..lines.len()-1];
+                    let content = content_lines.join("\n");
+                    return Some(GeneratedCodeInfo { file_path, content });
+                }
+            }
+        }
+        
+        // 格式 3: JSON 格式 (如果 AI 输出结构化数据)
+        if output.starts_with('{') && output.ends_with('}') {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(output) {
+                if let (Some(file), Some(code)) = (json.get("file"), json.get("code")) {
+                    if let (Some(file_path), Some(content)) = (file.as_str(), code.as_str()) {
+                        return Some(GeneratedCodeInfo { 
+                            file_path: file_path.to_string(), 
+                            content: content.to_string() 
+                        });
+                    }
+                }
             }
         }
         
