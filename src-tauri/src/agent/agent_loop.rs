@@ -9,6 +9,7 @@ use crate::db::{self, database};
 use crate::agent::{DaemonManager, WorktreeManager};
 use crate::agent::ai_cli_interaction::AICLIMessage;
 use log;
+use std::path::PathBuf;
 
 /// Agent Loop 管理器
 pub struct AgentLoop {
@@ -149,6 +150,7 @@ impl AgentLoop {
                     
                     // 在后台启动消息处理任务
                     let agent_id_for_log = agent_id_clone.clone();
+                    let worktree_path_for_write = worktree_path.clone();
                     tokio::spawn(async move {
                         while let Some(message) = message_rx.recv().await {
                             match message {
@@ -160,7 +162,15 @@ impl AgentLoop {
                                 }
                                 AICLIMessage::GeneratedCode { file_path, content } => {
                                     log::info!("[AgentLoop:{}] Generated code for file: {}", agent_id_for_log, file_path);
-                                    // TODO: 将生成的代码写入文件
+                                    
+                                    // 将生成的代码写入 Worktree 中的文件
+                                    if let Err(e) = Self::write_generated_code(&worktree_path_for_write, &file_path, &content).await {
+                                        log::error!("[AgentLoop:{}] Failed to write generated code to {}: {}", 
+                                            agent_id_for_log, file_path, e);
+                                    } else {
+                                        log::info!("[AgentLoop:{}] Successfully wrote generated code to: {}", 
+                                            agent_id_for_log, file_path);
+                                    }
                                 }
                                 AICLIMessage::TaskCompleted { success, summary } => {
                                     log::info!("[AgentLoop:{}] Task completed: {} - {}", agent_id_for_log, if success { "SUCCESS" } else { "FAILED" }, summary);
@@ -169,7 +179,7 @@ impl AgentLoop {
                             }
                         }
                     });
-                    
+
                     // 在 Worktree 中启动 Agent (带 STDIO 监控)
                     match daemon.spawn_agent_with_stdio_monitoring("coding", &worktree_path, &story_id_clone, message_tx).await {
                         Ok(spawned_agent_id) => {
@@ -269,6 +279,28 @@ impl AgentLoop {
     pub fn stop(&mut self) {
         self.is_running = false;
         log::info!("[AgentLoop] Stop signal received");
+    }
+
+    /// 将生成的代码写入 Worktree 中的文件
+    async fn write_generated_code(worktree_path: &str, file_path: &str, content: &str) -> Result<(), String> {
+        use tokio::fs;
+        
+        // 构建完整的文件路径
+        let full_path = PathBuf::from(worktree_path).join(file_path);
+        
+        // 确保父目录存在
+        if let Some(parent_dir) = full_path.parent() {
+            fs::create_dir_all(parent_dir).await
+                .map_err(|e| format!("Failed to create directory {:?}: {}", parent_dir, e))?;
+        }
+        
+        // 写入文件内容
+        fs::write(&full_path, content.as_bytes()).await
+            .map_err(|e| format!("Failed to write file {:?}: {}", full_path, e))?;
+        
+        log::debug!("[CodeWriter] Successfully wrote {} bytes to {:?}", content.len(), full_path);
+        
+        Ok(())
     }
 }
 
