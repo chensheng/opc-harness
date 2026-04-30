@@ -91,7 +91,64 @@ impl AgentManager {
             log::warn!("Failed to restore agent sessions: {}", e);
         }
 
+        // 启动后台监控任务 (每 10 秒检查一次)
+        if let Err(e) = self.start_agent_monitoring(10).await {
+            log::error!("[AgentManager] Failed to start agent monitoring: {}", e);
+        } else {
+            log::info!("[AgentManager] Agent monitoring task started");
+        }
+
         log::info!("Agent Manager initialized and Daemon started");
+        Ok(())
+    }
+
+    /// 启动后台监控任务，定期检查 Agent 状态并清理已完成的 Worktree
+    pub async fn start_agent_monitoring(&self, check_interval_secs: u64) -> Result<(), String> {
+        use tokio::time::{sleep, Duration};
+        
+        let daemon_clone = self.daemon.clone();
+        let agent_loop_clone = self.agent_loop.clone();
+        
+        log::info!(
+            "[AgentManager] Starting agent monitoring task with {}s interval",
+            check_interval_secs
+        );
+        
+        // 在后台启动异步任务
+        tokio::spawn(async move {
+            loop {
+                sleep(Duration::from_secs(check_interval_secs)).await;
+                
+                // 检查已完成的 Agent
+                let completed_agents = {
+                    let mut daemon = daemon_clone.write().await;
+                    daemon.check_completed_agents()
+                };
+                
+                if !completed_agents.is_empty() {
+                    log::info!(
+                        "[AgentManager] Found {} completed agents, cleaning up worktrees",
+                        completed_agents.len()
+                    );
+                    
+                    // 清理已完成 Agent 的 Worktree
+                    if let Some(loop_guard) = agent_loop_clone.read().await.as_ref() {
+                        match loop_guard.cleanup_completed_worktrees(&completed_agents).await {
+                            Ok(cleaned_count) => {
+                                log::info!(
+                                    "[AgentManager] Successfully cleaned up {} worktrees",
+                                    cleaned_count
+                                );
+                            }
+                            Err(e) => {
+                                log::error!("[AgentManager] Failed to cleanup worktrees: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
         Ok(())
     }
 

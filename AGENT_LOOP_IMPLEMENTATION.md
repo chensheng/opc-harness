@@ -101,7 +101,7 @@ useEffect(() => {
 
 ### 3. 编程调用
 
-```typescript
+``typescript
 import { useAgentLoop, useWorktreeManager } from '@/hooks/useAgentLoop'
 
 const { startAgentLoop, executeOnce, stopAgentLoop } = useAgentLoop()
@@ -230,7 +230,7 @@ await stopAgentLoop()
 
 ### Worktree 命令示例
 
-```bash
+``bash
 # 创建 Worktree
 git worktree add .worktrees/agent-123 feature/user-auth
 
@@ -289,12 +289,19 @@ git worktree list --porcelain
   - [x] 清理孤立 Worktrees
   - [x] 磁盘使用量监控
   - [x] 前端管理面板
+- [x] **Worktree 与 Agent 深度集成** (新增 ✅)
+  - [x] Daemon 新增 `spawn_agent_in_worktree()` 方法
+  - [x] Agent 在专属 Worktree 中执行而非项目根目录
+  - [x] 传递 Story 上下文给 AI CLI (`--story-id`, `--worktree`, `--agent-type`)
+  - [x] 失败回退机制: Worktree 创建/启动失败时回退到项目根目录
+  - [x] 添加 `cleanup_completed_worktrees()` 方法,自动清理已完成 Agent 的 Worktree
+  - [x] 完善日志记录,便于追踪 Agent 在哪个 Worktree 中执行
 
 ### ❌ 待完善
 
-- [ ] **真实 CLI 调用**: Daemon spawn_agent 需调用 Kimi/Claude Code
+- [ ] **真实 CLI 调用**: Daemon spawn_agent 需调用 Kimi/Claude Code (当前为 Mock)
 - [ ] **Coding Agent 代码生成**: 集成真实 AI API,替换 Mock 实现
-- [ ] **Worktree 与 Agent 深度集成**: Agent 在 Worktree 中执行而非项目根目录
+- [ ] **Agent 完成后自动删除 Worktree**: 需要监控 Agent 状态并在完成时触发清理
 - [ ] **分布式合并锁**: 基于 SQLite 实现原子锁
 - [ ] **两步合并策略**: main ↔ agent_branch 双向合并
 - [ ] **AI 辅助冲突解决**: 解析 Git Conflicts 并自动修复
@@ -316,7 +323,7 @@ git worktree list --porcelain
 默认: **30 分钟**
 
 修改位置: `sprint_repository.rs` 中 SQL 查询
-```sql
+```
 WHERE ... OR locked_at < datetime('now', '-30 minutes')
 ```
 
@@ -336,7 +343,7 @@ WHERE ... OR locked_at < datetime('now', '-30 minutes')
 
 ### 1. 查看后端日志
 
-```bash
+```
 # Rust 日志输出
 log::info!("[AgentLoop] Starting execution for project: {}", project_id);
 log::info!("[AgentLoop] Found active sprint: {} ({} stories)", name, count);
@@ -346,7 +353,7 @@ log::info!("[WorktreeManager] Creating worktree for agent {} at {}", agent_id, p
 
 ### 2. 前端控制台
 
-```javascript
+```
 // useAgentLoop Hook 会输出详细日志
 console.log('[useAgentLoop] Agent Loop started for project:', projectId)
 console.log('[useAgentLoop] Executed once, started X agents')
@@ -358,7 +365,7 @@ console.log('[useWorktreeManager] Listed', count, 'worktrees')
 
 ### 3. 数据库查询
 
-```sql
+```
 -- 查看当前锁定的故事
 SELECT id, story_number, title, assigned_agent, locked_at, status
 FROM user_stories
@@ -372,7 +379,7 @@ WHERE status = 'failed';
 
 ### 4. Git Worktree 命令
 
-```bash
+```
 # 查看所有 Worktrees
 cd /path/to/project
 git worktree list

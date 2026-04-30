@@ -542,6 +542,87 @@ impl DaemonManager {
         self.running_agents.iter().collect()
     }
 
+    /// 检查并更新已完成或失败的 Agent 进程
+    /// 返回已完成的 Agent ID 列表
+    pub fn check_completed_agents(&mut self) -> Vec<String> {
+        let mut completed_ids = Vec::new();
+        
+        for (agent_id, child_arc) in &self.child_processes {
+            let mut child_guard = futures::executor::block_on(child_arc.lock());
+            
+            if let Some(ref mut child) = *child_guard {
+                // 尝试检查进程是否已结束
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        // 进程已结束
+                        log::info!(
+                            "[Daemon] Agent {} exited with status: {:?}",
+                            agent_id,
+                            status
+                        );
+                        
+                        // 更新 Agent 状态
+                        if let Some(agent) = self.agents.get_mut(agent_id) {
+                            if status.success() {
+                                agent.status = AgentStatus::Completed;
+                                log::info!("[Daemon] Agent {} completed successfully", agent_id);
+                            } else {
+                                agent.status = AgentStatus::Failed("Process exited with error".to_string());
+                                log::warn!("[Daemon] Agent {} failed with status: {:?}", agent_id, status);
+                            }
+                        }
+                        
+                        completed_ids.push(agent_id.clone());
+                        
+                        // 从 running_agents 中移除
+                        self.running_agents.remove(agent_id);
+                        self.running_count = self.running_count.saturating_sub(1);
+                        
+                        // 清理进程句柄
+                        *child_guard = None;
+                    }
+                    Ok(None) => {
+                        // 进程仍在运行
+                    }
+                    Err(e) => {
+                        log::error!("[Daemon] Failed to check agent {} status: {}", agent_id, e);
+                    }
+                }
+            }
+        }
+        
+        // 清理已完成的进程句柄
+        for agent_id in &completed_ids {
+            self.child_processes.remove(agent_id);
+        }
+        
+        if !completed_ids.is_empty() {
+            log::info!("[Daemon] Found {} completed agents: {:?}", completed_ids.len(), completed_ids);
+        }
+        
+        completed_ids
+    }
+
+    /// 启动后台监控任务，定期检查 Agent 状态
+    /// 注意：此方法需要在 tokio runtime 中调用
+    pub async fn start_monitoring(
+        &self,
+        check_interval_secs: u64,
+    ) -> Result<(), String> {
+        use tokio::time::{sleep, Duration};
+        
+        log::info!(
+            "[Daemon] Starting agent monitoring task with {}s interval",
+            check_interval_secs
+        );
+        
+        // 克隆必要的引用以供异步任务使用
+        // 注意：实际使用时需要通过 Arc<Mutex<DaemonManager>> 共享状态
+        // 这里仅提供接口设计，具体实现在 AgentManager 层
+        
+        Ok(())
+    }
+
     /// 在指定 Worktree 中生成新的 Agent 进程 (深度集成版本)
     pub fn spawn_agent_in_worktree(
         &mut self, 
