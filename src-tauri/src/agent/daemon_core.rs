@@ -181,8 +181,23 @@ impl DaemonManager {
             }
         } else {
             // 生产模式：实际调用 AI CLI
+            // TODO: 从配置或数据库中获取 Story 上下文
+            let ai_config = AICLIConfig {
+                command: cli_command.to_string(),
+                working_dir: project_path.to_string(),
+                story_id: None, // TODO: 从调用方传入
+                story_title: None,
+                acceptance_criteria: None,
+                agent_type: agent_type.to_string(),
+                extra_args: vec![],
+            };
+            
+            let args = ai_config.build_args();
+            
+            log::info!("[Daemon] Building CLI command: {} {:?}", cli_command, args);
+            
             Command::new(cli_command)
-                .arg("--help")  // 暂时使用 --help 测试，后续替换为实际参数
+                .args(&args)
                 .current_dir(project_path)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -682,14 +697,27 @@ impl DaemonManager {
                     .spawn()
             }
         } else {
-            // 生产模式: 传递 Story 上下文给 AI CLI
-            // TODO: 构建完整的 CLI 参数,包括 Story ID、验收标准等
+            // 生产模式: 使用 AICLIConfig 构建完整的 CLI 参数
+            // TODO: 从数据库中获取 Story 的详细信息 (标题、验收标准等)
+            let ai_config = AICLIConfig {
+                command: cli_command.to_string(),
+                working_dir: worktree_path.to_string(),
+                story_id: Some(story_id.to_string()),
+                story_title: None, // TODO: 从数据库查询
+                acceptance_criteria: None, // TODO: 从数据库查询
+                agent_type: agent_type.to_string(),
+                extra_args: vec![
+                    "--worktree".to_string(),
+                    worktree_path.to_string(),
+                ],
+            };
+            
+            let args = ai_config.build_args();
+            
+            log::info!("[Daemon] Building CLI command for worktree: {} {:?}", cli_command, args);
+            
             Command::new(cli_command)
-                .args(&[
-                    "--story-id", story_id,
-                    "--worktree", worktree_path,
-                    "--agent-type", agent_type,
-                ])
+                .args(&args)
                 .current_dir(worktree_path)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())

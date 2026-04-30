@@ -107,3 +107,82 @@ pub struct ConcurrencyStats {
     pub available_slots: usize,    // 可用槽位数
     pub utilization: f32,          // 并发利用率 (%)
 }
+
+/// AI CLI 工具配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AICLIConfig {
+    /// CLI 命令名称 (kimi, claude, codefree等)
+    pub command: String,
+    /// 工作目录
+    pub working_dir: String,
+    /// Story ID
+    pub story_id: Option<String>,
+    /// Story 标题
+    pub story_title: Option<String>,
+    /// 验收标准
+    pub acceptance_criteria: Option<String>,
+    /// Agent 类型
+    pub agent_type: String,
+    /// 额外参数
+    pub extra_args: Vec<String>,
+}
+
+impl AICLIConfig {
+    /// 构建完整的 CLI 参数列表
+    pub fn build_args(&self) -> Vec<String> {
+        let mut args = Vec::new();
+        
+        // 根据 CLI 工具类型构建不同的参数
+        match self.command.as_str() {
+            "kimi" => {
+                // Kimi CLI 参数格式 (示例)
+                if let Some(ref story_id) = self.story_id {
+                    args.push("--story-id".to_string());
+                    args.push(story_id.clone());
+                }
+                if let Some(ref title) = self.story_title {
+                    args.push("--title".to_string());
+                    args.push(title.clone());
+                }
+                if let Some(ref criteria) = self.acceptance_criteria {
+                    args.push("--acceptance-criteria".to_string());
+                    args.push(criteria.clone());
+                }
+                args.push("--agent-type".to_string());
+                args.push(self.agent_type.clone());
+            }
+            "claude" => {
+                // Claude Code CLI 参数格式 (示例)
+                args.push("code".to_string());
+                if let Some(ref prompt) = self.build_prompt() {
+                    args.push("--prompt".to_string());
+                    args.push(prompt.clone());
+                }
+            }
+            _ => {
+                // 默认参数
+                if let Some(ref story_id) = self.story_id {
+                    args.push("--story-id".to_string());
+                    args.push(story_id.clone());
+                }
+            }
+        }
+        
+        // 添加额外参数
+        args.extend(self.extra_args.clone());
+        
+        args
+    }
+    
+    /// 构建 AI Prompt (用于 Claude 等需要完整上下文的工具)
+    fn build_prompt(&self) -> Option<String> {
+        if let (Some(title), Some(criteria)) = (&self.story_title, &self.acceptance_criteria) {
+            Some(format!(
+                "Implement user story: {}\n\nAcceptance Criteria:\n{}",
+                title, criteria
+            ))
+        } else {
+            None
+        }
+    }
+}

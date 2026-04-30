@@ -296,12 +296,18 @@ git worktree list --porcelain
   - [x] 失败回退机制: Worktree 创建/启动失败时回退到项目根目录
   - [x] 添加 `cleanup_completed_worktrees()` 方法,自动清理已完成 Agent 的 Worktree
   - [x] 完善日志记录,便于追踪 Agent 在哪个 Worktree 中执行
+- [x] **Agent 完成后自动删除 Worktree** (新增 ✅)
+  - [x] Daemon 新增 `check_completed_agents()` 方法,非阻塞检测进程状态
+  - [x] 使用 `child.try_wait()` 检查 Agent 进程是否已结束
+  - [x] 自动更新 Agent 状态为 Completed 或 Failed
+  - [x] AgentManager 新增 `start_agent_monitoring()` 后台监控任务
+  - [x] 每 10 秒自动检查已完成的 Agent 并清理对应 Worktree
+  - [x] 在 `initialize()` 中自动启动监控任务,无需手动干预
 
 ### ❌ 待完善
 
 - [ ] **真实 CLI 调用**: Daemon spawn_agent 需调用 Kimi/Claude Code (当前为 Mock)
 - [ ] **Coding Agent 代码生成**: 集成真实 AI API,替换 Mock 实现
-- [ ] **Agent 完成后自动删除 Worktree**: 需要监控 Agent 状态并在完成时触发清理
 - [ ] **分布式合并锁**: 基于 SQLite 实现原子锁
 - [ ] **两步合并策略**: main ↔ agent_branch 双向合并
 - [ ] **AI 辅助冲突解决**: 解析 Git Conflicts 并自动修复
