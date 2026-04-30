@@ -209,3 +209,19 @@ pub fn fail_user_story(conn: &Connection, story_id: &str, error_message: &str) -
     println!("[DB::fail_user_story] Failed story: {} - {}", story_id, error_message);
     Ok(updated)
 }
+
+/// 根据 ID 查询单个用户故事的详细信息
+pub fn get_user_story_by_id(conn: &Connection, story_id: &str) -> Result<Option<UserStory>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM user_stories WHERE id = ?1"
+    )?;
+    
+    let mut rows = stmt.query([story_id])?;
+    
+    if let Some(row) = rows.next()? {
+        let story = UserStory::from_row(row)?;
+        Ok(Some(story))
+    } else {
+        Ok(None)
+    }
+}

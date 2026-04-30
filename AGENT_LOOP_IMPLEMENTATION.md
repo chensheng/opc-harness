@@ -303,11 +303,20 @@ git worktree list --porcelain
   - [x] AgentManager 新增 `start_agent_monitoring()` 后台监控任务
   - [x] 每 10 秒自动检查已完成的 Agent 并清理对应 Worktree
   - [x] 在 `initialize()` 中自动启动监控任务,无需手动干预
+- [x] **真实 AI CLI 调用配置** (新增 ✅)
+  - [x] 新增 `AICLIConfig` 结构,管理 AI CLI 工具的参数配置
+  - [x] 支持多种 CLI 工具: Kimi, Claude Code, CodeFree 等
+  - [x] 实现 `build_args()` 方法,根据不同 CLI 类型构建参数列表
+  - [x] 支持传递 Story 上下文: story_id, title, acceptance_criteria
+  - [x] 修改 `spawn_agent` 和 `spawn_agent_in_worktree` 使用 AICLIConfig
+  - [x] 为 Kimi CLI 构建参数: `--story-id`, `--title`, `--acceptance-criteria`, `--agent-type`
+  - [x] 为 Claude CLI 构建 prompt 参数
+  - [x] 预留扩展点: 可轻松添加新的 CLI 工具支持
 
 ### ❌ 待完善
 
-- [ ] **真实 CLI 调用**: Daemon spawn_agent 需调用 Kimi/Claude Code (当前为 Mock)
-- [ ] **Coding Agent 代码生成**: 集成真实 AI API,替换 Mock 实现
+- [ ] **从数据库查询 Story 详细信息**: 在启动 Agent 前从数据库获取 title、acceptance_criteria 等字段
+- [ ] **Coding Agent 代码生成**: 集成真实 AI API,替换 Mock 实现 (需要实际调用 Kimi/Claude CLI 并处理 STDIO)
 - [ ] **分布式合并锁**: 基于 SQLite 实现原子锁
 - [ ] **两步合并策略**: main ↔ agent_branch 双向合并
 - [ ] **AI 辅助冲突解决**: 解析 Git Conflicts 并自动修复

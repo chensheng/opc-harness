@@ -127,6 +127,13 @@ pub struct AICLIConfig {
     pub extra_args: Vec<String>,
 }
 
+/// Story 上下文信息 (从数据库查询)
+#[derive(Debug, Clone)]
+pub struct StoryContext {
+    pub title: Option<String>,
+    pub acceptance_criteria: Option<String>,
+}
+
 impl AICLIConfig {
     /// 构建完整的 CLI 参数列表
     pub fn build_args(&self) -> Vec<String> {

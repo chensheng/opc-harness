@@ -697,14 +697,15 @@ impl DaemonManager {
                     .spawn()
             }
         } else {
-            // 生产模式: 使用 AICLIConfig 构建完整的 CLI 参数
-            // TODO: 从数据库中获取 Story 的详细信息 (标题、验收标准等)
+            // 生产模式: 从数据库查询 Story 详细信息并构建 AICLIConfig
+            let story_info = self.get_story_context(story_id)?;
+            
             let ai_config = AICLIConfig {
                 command: cli_command.to_string(),
                 working_dir: worktree_path.to_string(),
                 story_id: Some(story_id.to_string()),
-                story_title: None, // TODO: 从数据库查询
-                acceptance_criteria: None, // TODO: 从数据库查询
+                story_title: story_info.title,
+                acceptance_criteria: story_info.acceptance_criteria,
                 agent_type: agent_type.to_string(),
                 extra_args: vec![
                     "--worktree".to_string(),
@@ -714,7 +715,7 @@ impl DaemonManager {
             
             let args = ai_config.build_args();
             
-            log::info!("[Daemon] Building CLI command for worktree: {} {:?}", cli_command, args);
+            log::info!("[Daemon] Building CLI command for worktree with full context: {} {:?}", cli_command, args);
             
             Command::new(cli_command)
                 .args(&args)
@@ -771,4 +772,43 @@ impl DaemonManager {
             }
         }
     }
+
+    /// 从数据库获取 Story 的上下文信息
+    fn get_story_context(&self, story_id: &str) -> Result<StoryContext, String> {
+        use crate::db;
+        
+        let conn = db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
+        
+        let story = db::get_user_story_by_id(&conn, story_id)
+            .map_err(|e| format!("Failed to query story {}: {}", story_id, e))?;
+        
+        match story {
+            Some(s) => {
+                log::info!(
+                    "[Daemon] Retrieved story context for {}: title='{}', acceptance_criteria_length={}",
+                    story_id,
+                    s.title,
+                    s.acceptance_criteria.len()
+                );
+                
+                Ok(StoryContext {
+                    title: Some(s.title),
+                    // acceptance_criteria 是 String 类型,如果为空字符串则返回 None
+                    acceptance_criteria: if s.acceptance_criteria.is_empty() {
+                        None
+                    } else {
+                        Some(s.acceptance_criteria)
+                    },
+                })
+            }
+            None => {
+                log::warn!("[Daemon] Story {} not found in database, using empty context", story_id);
+                Ok(StoryContext {
+                    title: None,
+                    acceptance_criteria: None,
+                })
+            }
+        }
+    }
+
 }
