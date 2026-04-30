@@ -347,6 +347,17 @@ git worktree list --porcelain
   - [x] 仅在任务成功时执行 commit & push
   - [x] 后台异步执行,不阻塞主流程
   - [x] 无变更检测: git status --porcelain 返回空时跳过提交
+- [x] **Story 状态自动更新** (新增 ✅)
+  - [x] 新增 `update_story_status_to_completed()` 异步方法
+  - [x] 调用 `db::complete_user_story()` 更新状态为 completed
+  - [x] 设置 `completed_at` 时间戳,清除 `assigned_agent` 和 `locked_at`
+  - [x] 新增 `update_story_status_to_failed()` 异步方法
+  - [x] 调用 `db::fail_user_story()` 更新状态为 failed
+  - [x] 设置 `failed_at`、`error_message`,`retry_count` 自增
+  - [x] Git 成功后自动更新 Story 为 completed
+  - [x] Git 失败或 AI 任务失败时更新 Story 为 failed
+  - [x] 后台异步执行,不阻塞主流程
+  - [x] 详细日志记录,便于追踪状态变更
 
 ### ❌ 待完善
 
