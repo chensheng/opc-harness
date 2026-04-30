@@ -148,7 +148,7 @@ fn main() {
             });
 
             // Initialize AgentManager state
-            let agent_manager = Arc::new(RwLock::new(agent::AgentManager::new(app.app_handle().clone())));
+            let agent_manager = Arc::new(RwLock::new(agent::agent_manager::AgentManager::new(app.app_handle().clone())));
             app.manage(agent_manager);
             log::info!("AgentManager state initialized");
 

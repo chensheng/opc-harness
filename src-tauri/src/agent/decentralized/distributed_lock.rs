@@ -82,11 +82,13 @@ impl SharedLockManager {
             
             if lock_guard.node_id == node_id {
                 log::info!("[Lock] Node {} released lock for story {}", node_id, story_id);
+                drop(lock_guard); // 显式释放锁
                 Ok(())
             } else {
                 log::warn!("[Lock] Node {} tried to release lock for story {} but doesn't own it (owned by {})", 
                     node_id, story_id, lock_guard.node_id);
                 
+                drop(lock_guard); // 显式释放锁
                 // 重新插入锁
                 self.locks.insert(lock_key, existing_lock);
                 Err("Lock not owned by this node".to_string())

@@ -1,5 +1,5 @@
 import React from 'react'
-import { useDecentralizedNodes } from '../hooks/useDecentralizedNodes'
+import { useDecentralizedNodes } from '../../hooks/useDecentralizedNodes'
 import { Play, Square, RefreshCw, Server } from 'lucide-react'
 
 /**

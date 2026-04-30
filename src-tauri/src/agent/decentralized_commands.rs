@@ -47,7 +47,7 @@ pub async fn start_decentralized_node(
     };
     
     // 获取 Daemon Manager
-    let daemon_manager = manager.daemon_manager.clone();
+    let daemon_manager = manager.daemon.clone();
     
     // 创建并启动 Node
     let mut node = DecentralizedAgentNode::new(

@@ -1,5 +1,5 @@
 import React from 'react'
-import { DecentralizedNodesPanel } from './vibe-coding/DecentralizedNodesPanel'
+import { DecentralizedNodesPanel } from '../components/vibe-coding/DecentralizedNodesPanel'
 
 /**
  * 去中心化智能体测试页面

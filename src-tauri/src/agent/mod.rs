@@ -7,15 +7,34 @@ pub mod agent_manager;
 pub mod agent_manager_core;
 pub mod agent_manager_commands;
 pub mod agent_manager_persistence;
+pub mod agent_manager_types;
 pub mod types;
 pub mod daemon;
 pub mod daemon_core;
 pub mod daemon_types;
 pub mod worktree_manager;
 pub mod ai_cli_interaction;
-pub mod story_status_updater;
-pub mod git_ops;
-pub mod code_writer;
+pub mod agent_stdio;
+pub mod websocket_manager;
+pub mod branch_manager;
+pub mod initializer_agent;
+pub mod mr_creation_agent;
+pub mod debug_agent;
+pub mod git_commit_assistant;
+pub mod realtime_code_suggestions;
+pub mod mr_description_generator;
+pub mod code_change_tracker;
+pub mod code_diff_visualizer;
+pub mod code_review_agent;
+pub mod realtime_review_manager;
+pub mod test_runner_agent;
+pub mod performance_benchmark_agent;
+pub mod realtime_performance_monitor;
+pub mod ai_code_generator;
+pub mod messages;
+pub mod prd_parser;
+pub mod coding_agent;
+pub mod test_generator_agent;
 
 // 去中心化智能体系统 (Decentralized Agent System)
 pub mod decentralized {
