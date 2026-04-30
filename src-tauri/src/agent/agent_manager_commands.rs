@@ -1061,12 +1061,12 @@ pub async fn create_worktree(
         } else {
             drop(agent_loop_guard);
             drop(manager);
-            Err("Worktree manager not initialized".to_string())
+            Err("Worktree manager not initialized. Please start Agent Loop first.".to_string())
         }
     } else {
         drop(agent_loop_guard);
         drop(manager);
-        Err("Agent Loop not initialized".to_string())
+        Err("Agent Loop not initialized. Please start Agent Loop first.".to_string())
     }
 }
 
@@ -1096,12 +1096,12 @@ pub async fn remove_worktree(
         } else {
             drop(agent_loop_guard);
             drop(manager);
-            Err("Worktree manager not initialized".to_string())
+            Err("Worktree manager not initialized. Please start Agent Loop first.".to_string())
         }
     } else {
         drop(agent_loop_guard);
         drop(manager);
-        Err("Agent Loop not initialized".to_string())
+        Err("Agent Loop not initialized. Please start Agent Loop first.".to_string())
     }
 }
 
@@ -1112,6 +1112,7 @@ pub async fn list_worktrees(
 ) -> Result<Vec<crate::agent::worktree_manager::WorktreeInfo>, String> {
     let manager = state.read().await;
     
+    // 尝试从 Agent Loop 获取 Worktree Manager
     let agent_loop_guard = manager.agent_loop.read().await;
     
     if let Some(loop_instance) = agent_loop_guard.as_ref() {
@@ -1133,12 +1134,16 @@ pub async fn list_worktrees(
         } else {
             drop(agent_loop_guard);
             drop(manager);
-            Err("Worktree manager not initialized".to_string())
+            log::warn!("[list_worktrees] Worktree manager not initialized in Agent Loop");
+            // 返回空列表而不是错误
+            Ok(vec![])
         }
     } else {
         drop(agent_loop_guard);
         drop(manager);
-        Err("Agent Loop not initialized".to_string())
+        log::warn!("[list_worktrees] Agent Loop not initialized, returning empty list");
+        // 返回空列表而不是错误
+        Ok(vec![])
     }
 }
 
@@ -1170,12 +1175,16 @@ pub async fn cleanup_orphaned_worktrees(
         } else {
             drop(agent_loop_guard);
             drop(manager);
-            Err("Worktree manager not initialized".to_string())
+            log::warn!("[cleanup_orphaned_worktrees] Worktree manager not initialized");
+            // 返回 0 而不是错误
+            Ok(0)
         }
     } else {
         drop(agent_loop_guard);
         drop(manager);
-        Err("Agent Loop not initialized".to_string())
+        log::warn!("[cleanup_orphaned_worktrees] Agent Loop not initialized");
+        // 返回 0 而不是错误
+        Ok(0)
     }
 }
 
@@ -1195,8 +1204,8 @@ pub async fn get_worktree_disk_usage(
             drop(manager);
             
             match &result {
-                Ok(bytes) => {
-                    log::info!("[get_worktree_disk_usage] Current disk usage: {} MB", bytes / 1024 / 1024);
+                Ok(usage) => {
+                    log::debug!("[get_worktree_disk_usage] Disk usage: {} bytes", usage);
                 }
                 Err(e) => {
                     log::error!("[get_worktree_disk_usage] Failed to get disk usage: {}", e);
@@ -1207,11 +1216,15 @@ pub async fn get_worktree_disk_usage(
         } else {
             drop(agent_loop_guard);
             drop(manager);
-            Err("Worktree manager not initialized".to_string())
+            log::warn!("[get_worktree_disk_usage] Worktree manager not initialized");
+            // 返回 0 而不是错误
+            Ok(0)
         }
     } else {
         drop(agent_loop_guard);
         drop(manager);
-        Err("Agent Loop not initialized".to_string())
+        log::warn!("[get_worktree_disk_usage] Agent Loop not initialized");
+        // 返回 0 而不是错误
+        Ok(0)
     }
 }
