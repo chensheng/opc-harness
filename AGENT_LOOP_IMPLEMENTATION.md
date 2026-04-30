@@ -320,24 +320,36 @@ git worktree list --porcelain
   - [x] 填充到 AICLIConfig 的 `story_title` 和 `acceptance_criteria` 字段
   - [x] 构建完整的 CLI 参数传递给 AI 工具
   - [x] 容错设计: Story 不存在时使用空上下文,不阻断 Agent 启动
-- [ ] **AI CLI 交互管理器** (进行中 🚧)
-  - [x] 创建 `ai_cli_interaction.rs` 模块框架
+- [x] **AI CLI 交互管理器集成** (新增 ✅)
+  - [x] 创建 `ai_cli_interaction.rs` 模块
   - [x] 定义 `AICLIMessage` 枚举 (Stdout, Stderr, GeneratedCode, TaskCompleted)
-  - [x] 实现 `AICLIInteraction` 结构体
-  - [x] 使用 `tokio::process::Child` 支持异步 IO
-  - [x] 实现 `Clone` trait
-  - [ ] 集成到 Daemon (需要修改 daemon_core.rs 使用 tokio::process::Command)
-  - [ ] 处理消息通道生命周期
-  - [ ] 解析实际 AI CLI 输出格式
+  - [x] 实现 `AICLIInteraction` 结构体 (异步 IO、Clone trait)
+  - [x] 新增 `spawn_agent_with_stdio_monitoring()` 异步方法
+  - [x] 使用 `tokio::process::Command` 启动进程
+  - [x] 创建消息通道 (mpsc::channel) 实现解耦通信
+  - [x] 后台监听任务实时捕获 STDOUT/STDERR 输出
+  - [x] 解析 AI 输出并发送消息到通道
+- [x] **AI 生成代码文件写入逻辑** (新增 ✅)
+  - [x] 新增 `write_generated_code()` 异步方法
+  - [x] 使用 `tokio::fs` 进行异步文件操作
+  - [x] 自动创建父目录结构 (create_dir_all)
+  - [x] 在消息处理任务中集成文件写入逻辑
+  - [x] 接收 `GeneratedCode` 消息时调用写入方法
+  - [x] 记录详细的成功/失败日志 (字节数、文件路径)
+  - [x] 错误不阻断流程,仅记录 error 日志
 
 ### ❌ 待完善
 
-- [ ] **Coding Agent 代码生成**: 完成 AI CLI 交互管理器集成
-  - 修改 daemon_core.rs 使用 tokio::process::Command
-  - 集成 AICLIInteraction 到 spawn_agent 流程
-  - 解析 AI 输出并写入文件
-  - Git commit & push
-  - 更新 Story 状态为 completed
+- [ ] **实际 AI CLI 输出格式解析**: 
+  - 根据 Kimi/Claude Code 的实际输出调整 `parse_generated_code()`
+  - 可能需要支持多种输出格式 (JSON, Markdown, 自定义标记)
+- [ ] **Git commit & push 自动化**: 
+  - 检测文件变更
+  - 自动生成 commit message
+  - 推送到远程分支
+- [ ] **Story 状态更新**: 
+  - 任务完成后更新数据库中的 UserStory 状态
+  - 记录完成时间和结果摘要
 - [ ] **分布式合并锁**: 基于 SQLite 实现原子锁
 - [ ] **两步合并策略**: main ↔ agent_branch 双向合并
 - [ ] **AI 辅助冲突解决**: 解析 Git Conflicts 并自动修复
