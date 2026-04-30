@@ -178,27 +178,63 @@ impl AgentLoop {
                                 AICLIMessage::TaskCompleted { success, summary } => {
                                     log::info!("[AgentLoop:{}] Task completed: {} - {}", agent_id_for_log, if success { "SUCCESS" } else { "FAILED" }, summary);
                                     
-                                    // 如果任务成功,执行 Git commit & push
-                                    if success {
-                                        let worktree_path_for_git_clone = worktree_path_for_git.clone();
-                                        let story_id_for_commit_clone = story_id_for_commit.clone();
-                                        let agent_id_for_git = agent_id_for_log.clone();
-                                        
-                                        tokio::spawn(async move {
-                                            match Self::commit_and_push_changes(&worktree_path_for_git_clone, &story_id_for_commit_clone).await {
+                                    // 克隆必要的值用于后台任务
+                                    let story_id_for_update = story_id_for_commit.clone();
+                                    let agent_id_for_status = agent_id_for_log.clone();
+                                    let worktree_path_for_git_clone = worktree_path_for_git.clone();
+                                    
+                                    // 启动后台任务处理 Git 操作和 Story 状态更新
+                                    tokio::spawn(async move {
+                                        if success {
+                                            // 1. 执行 Git commit & push
+                                            match Self::commit_and_push_changes(&worktree_path_for_git_clone, &story_id_for_update).await {
                                                 Ok(commit_msg) => {
                                                     log::info!("[AgentLoop:{}] Successfully committed and pushed changes: {}", 
-                                                        agent_id_for_git, commit_msg);
+                                                        agent_id_for_status, commit_msg);
+                                                    
+                                                    // 2. Git 成功后更新 Story 状态为 completed
+                                                    match Self::update_story_status_to_completed(&story_id_for_update).await {
+                                                        Ok(_) => {
+                                                            log::info!("[AgentLoop:{}] Successfully updated story status to completed", 
+                                                                agent_id_for_status);
+                                                        }
+                                                        Err(e) => {
+                                                            log::error!("[AgentLoop:{}] Failed to update story status to completed: {}", 
+                                                                agent_id_for_status, e);
+                                                        }
+                                                    }
                                                 }
                                                 Err(e) => {
                                                     log::error!("[AgentLoop:{}] Failed to commit and push changes: {}", 
-                                                        agent_id_for_git, e);
+                                                        agent_id_for_status, e);
+                                                    
+                                                    // Git 失败也标记 Story 为 failed
+                                                    match Self::update_story_status_to_failed(&story_id_for_update, &format!("Git operation failed: {}", e)).await {
+                                                        Ok(_) => {
+                                                            log::info!("[AgentLoop:{}] Updated story status to failed due to Git error", 
+                                                                agent_id_for_status);
+                                                        }
+                                                        Err(e2) => {
+                                                            log::error!("[AgentLoop:{}] Failed to update story status to failed: {}", 
+                                                                agent_id_for_status, e2);
+                                                        }
+                                                    }
                                                 }
                                             }
-                                        });
-                                    }
-                                    
-                                    // TODO: 更新 Story 状态
+                                        } else {
+                                            // 任务失败,更新 Story 状态为 failed
+                                            match Self::update_story_status_to_failed(&story_id_for_update, &summary).await {
+                                                Ok(_) => {
+                                                    log::info!("[AgentLoop:{}] Updated story status to failed", 
+                                                        agent_id_for_status);
+                                                }
+                                                Err(e) => {
+                                                    log::error!("[AgentLoop:{}] Failed to update story status to failed: {}", 
+                                                        agent_id_for_status, e);
+                                                }
+                                            }
+                                        }
+                                    });
                                 }
                             }
                         }
@@ -432,6 +468,62 @@ impl AgentLoop {
         }
         
         Ok(commit_message)
+    }
+
+    /// 更新 Story 状态为 completed
+    async fn update_story_status_to_completed(story_id: &str) -> Result<(), String> {
+        use crate::db;
+        
+        log::info!("[StoryStatus] Updating story {} status to completed", story_id);
+        
+        // 获取数据库连接
+        let conn = db::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+        
+        // 调用 complete_user_story 方法
+        match db::complete_user_story(&conn, story_id) {
+            Ok(updated_count) => {
+                if updated_count > 0 {
+                    log::info!("[StoryStatus] Successfully updated {} story(s) to completed", updated_count);
+                    Ok(())
+                } else {
+                    log::warn!("[StoryStatus] No story found with id: {}", story_id);
+                    Err(format!("Story {} not found", story_id))
+                }
+            }
+            Err(e) => {
+                log::error!("[StoryStatus] Failed to update story status: {}", e);
+                Err(format!("Database error: {}", e))
+            }
+        }
+    }
+
+    /// 更新 Story 状态为 failed
+    async fn update_story_status_to_failed(story_id: &str, reason: &str) -> Result<(), String> {
+        use crate::db;
+        
+        log::info!("[StoryStatus] Updating story {} status to failed: {}", story_id, reason);
+        
+        // 获取数据库连接
+        let conn = db::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+        
+        // 调用 fail_user_story 方法
+        match db::fail_user_story(&conn, story_id, reason) {
+            Ok(updated_count) => {
+                if updated_count > 0 {
+                    log::info!("[StoryStatus] Successfully updated {} story(s) to failed", updated_count);
+                    Ok(())
+                } else {
+                    log::warn!("[StoryStatus] No story found with id: {}", story_id);
+                    Err(format!("Story {} not found", story_id))
+                }
+            }
+            Err(e) => {
+                log::error!("[StoryStatus] Failed to update story status: {}", e);
+                Err(format!("Database error: {}", e))
+            }
+        }
     }
 }
 
