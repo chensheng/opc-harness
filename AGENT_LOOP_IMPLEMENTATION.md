@@ -337,16 +337,22 @@ git worktree list --porcelain
   - [x] 接收 `GeneratedCode` 消息时调用写入方法
   - [x] 记录详细的成功/失败日志 (字节数、文件路径)
   - [x] 错误不阻断流程,仅记录 error 日志
+- [x] **Git commit & push 自动化** (新增 ✅)
+  - [x] 新增 `commit_and_push_changes()` 异步方法
+  - [x] 完整的 Git 工作流程: status → add → commit → push
+  - [x] 自动生成 commit message (基于 Story ID)
+  - [x] 推送到远程分支 story-{story_id}
+  - [x] 容错处理: Push 失败时自动创建分支并重试
+  - [x] 在 TaskCompleted 消息处理中集成 Git 操作
+  - [x] 仅在任务成功时执行 commit & push
+  - [x] 后台异步执行,不阻塞主流程
+  - [x] 无变更检测: git status --porcelain 返回空时跳过提交
 
 ### ❌ 待完善
 
 - [ ] **实际 AI CLI 输出格式解析**: 
   - 根据 Kimi/Claude Code 的实际输出调整 `parse_generated_code()`
   - 可能需要支持多种输出格式 (JSON, Markdown, 自定义标记)
-- [ ] **Git commit & push 自动化**: 
-  - 检测文件变更
-  - 自动生成 commit message
-  - 推送到远程分支
 - [ ] **Story 状态更新**: 
   - 任务完成后更新数据库中的 UserStory 状态
   - 记录完成时间和结果摘要
