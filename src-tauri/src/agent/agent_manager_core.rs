@@ -15,6 +15,9 @@ use crate::agent::branch_manager::{BranchManager, BranchManagerConfig};
 use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
 use crate::agent::agent_manager_persistence;
 use crate::agent::agent_loop::AgentLoop;
+use crate::agent::decentralized::node::DecentralizedAgentNode;
+use crate::agent::decentralized::event_bus::SharedEventBus;
+use crate::agent::decentralized::distributed_lock::SharedLockManager;
 
 /// Agent Manager
 /// 
@@ -38,6 +41,14 @@ pub struct AgentManager {
     pub stats: Arc<RwLock<AgentManagerStats>>,
     /// Agent Loop 自动化执行引擎
     pub agent_loop: Arc<RwLock<Option<AgentLoop>>>,
+    /// 去中心化 Agent Nodes (单机多实例)
+    pub decentralized_nodes: HashMap<String, Arc<RwLock<DecentralizedAgentNode>>>,
+    /// 项目路径 (用于 Worktree Manager)
+    pub project_path: Option<String>,
+    /// 共享事件总线 (所有 Node 实例共享)
+    pub shared_event_bus: Option<Arc<SharedEventBus>>,
+    /// 共享锁管理器 (所有 Node 实例共享)
+    pub shared_lock_manager: Option<Arc<SharedLockManager>>,
 }
 
 impl AgentManager {
@@ -53,6 +64,10 @@ impl AgentManager {
             daemon_config: Arc::new(RwLock::new(None)),
             stats: Arc::new(RwLock::new(AgentManagerStats::default())),
             agent_loop: Arc::new(RwLock::new(None)),
+            decentralized_nodes: HashMap::new(),
+            project_path: None,
+            shared_event_bus: None,
+            shared_lock_manager: None,
         }
     }
 
@@ -554,4 +569,3 @@ impl AgentManager {
             false
         }
     }
-}

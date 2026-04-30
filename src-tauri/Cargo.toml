@@ -5,6 +5,26 @@ description = "AI驱动的一人公司操作系统"
 authors = ["OPC-HARNESS Team"]
 edition = "2021"
 
+# 编译优化配置 (加速开发体验)
+[profile.dev]
+opt-level = 0          # Debug 模式不优化
+debug = true
+split-debuginfo = "unpacked"  # 分离调试信息,加速链接
+incremental = true     # 启用增量编译
+
+[profile.dev.package."*"]
+opt-level = 0          # 依赖也不优化
+
+[profile.release]
+opt-level = 3          # Release 模式最大优化
+lto = "thin"           # 轻量级链接时优化
+codegen-units = 1      # 减少代码生成单元,提升运行时性能
+strip = true           # 移除调试符号,减小体积
+
+# 使用并行编译 (根据 CPU 核心数)
+[build]
+jobs = 8               # 并行任务数 (根据你的 CPU 调整)
+
 [build-dependencies]
 tauri-build = { version = "2.0.0", features = [] }
 
@@ -38,6 +58,12 @@ regex = "1.10"
 notify = "6.1"
 sysinfo = "0.30"
 dirs = "5"  # 用于获取用户home目录
+
+# Concurrent data structures for in-memory lock management
+dashmap = "5.5"
+
+# Random number generation for decentralized decision making
+rand = "0.8"
 
 # Windows registry access for PATH inheritance
 [target.'cfg(windows)'.dependencies]

@@ -293,6 +293,11 @@ fn main() {
             agent::agent_manager::cleanup_orphaned_worktrees,
             agent::agent_manager::get_worktree_disk_usage,
 
+            // 去中心化 Agent Node 命令 (Decentralized Agent System)
+            agent::decentralized_commands::start_decentralized_node,
+            agent::decentralized_commands::stop_decentralized_node,
+            agent::decentralized_commands::list_decentralized_nodes,
+
             // PRD Quality Check commands (US-050)
 
             // PRD Consistency Check commands (US-051)

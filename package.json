@@ -10,6 +10,12 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    
+    // Rust 快速编译命令
+    "rust:check": "powershell -ExecutionPolicy Bypass -File ./scripts/fast-check.ps1",
+    "rust:build": "cd src-tauri && cargo build --lib",
+    "rust:release": "cd src-tauri && cargo build --release",
+    
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
