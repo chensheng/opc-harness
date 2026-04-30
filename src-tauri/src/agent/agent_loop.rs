@@ -110,7 +110,7 @@ impl AgentLoop {
         Ok(started_count)
     }
 
-    /// 启动 Coding Agent 进程
+    /// 启动 Coding Agent 进程 (在 Worktree 中执行)
     async fn start_coding_agent(&self, agent_id: &str, story: &crate::models::UserStory, project_id: &str) -> Result<(), String> {
         log::info!("[AgentLoop] Starting coding agent for story: {}", story.title);
         
@@ -127,7 +127,7 @@ impl AgentLoop {
         
         let project_path_str = project_path.to_string_lossy().to_string();
         
-        // 如果配置了 Worktree 管理器,先创建 Worktree
+        // 如果配置了 Worktree 管理器,先创建 Worktree 并在其中启动 Agent
         if let Some(ref wt_manager) = self.worktree_manager {
             log::info!("[AgentLoop] Creating worktree for agent {} and story {}", agent_id, story.id);
             
@@ -138,29 +138,76 @@ impl AgentLoop {
                 Ok(worktree_path) => {
                     log::info!("[AgentLoop] Worktree created at: {}", worktree_path);
                     
-                    // TODO: 使用 worktree_path 作为 Agent 的工作目录
-                    // 当前仍然使用项目根路径,后续需要修改 Daemon 以支持自定义工作目录
+                    // 在 Worktree 中启动 Agent (深度集成)
+                    match daemon.spawn_agent_in_worktree("coding", &worktree_path, &story.id) {
+                        Ok(spawned_agent_id) => {
+                            log::info!("[AgentLoop] Successfully spawned coding agent in worktree: {}", spawned_agent_id);
+                            
+                            // TODO: 将 Agent ID 与 Story ID 关联，便于后续追踪
+                            // 可以考虑在数据库中添加 agent_id 字段到 user_stories 表
+                            
+                            return Ok(());
+                        }
+                        Err(e) => {
+                            log::error!("[AgentLoop] Failed to spawn agent in worktree: {}. Cleaning up worktree.", e);
+                            
+                            // 清理失败的 Worktree
+                            if let Err(cleanup_err) = wt_manager.remove_worktree(agent_id).await {
+                                log::warn!("[AgentLoop] Failed to cleanup worktree: {}", cleanup_err);
+                            }
+                            
+                            return Err(format!("Failed to spawn agent in worktree: {}", e));
+                        }
+                    }
                 }
                 Err(e) => {
                     log::error!("[AgentLoop] Failed to create worktree: {}. Falling back to project root.", e);
-                    // 继续执行,不阻断 Agent 启动
+                    // 继续执行,使用项目根目录
                 }
             }
         }
         
-        // 启动 Coding Agent 进程（使用 "coding" 类型）
+        // 回退方案: 在项目根目录启动 Agent (原有逻辑)
         match daemon.spawn_agent("coding", &project_path_str) {
             Ok(spawned_agent_id) => {
-                log::info!("[AgentLoop] Successfully spawned coding agent: {}", spawned_agent_id);
+                log::info!("[AgentLoop] Successfully spawned coding agent in project root: {}", spawned_agent_id);
                 
                 // TODO: 将 Agent ID 与 Story ID 关联，便于后续追踪
-                // 可以考虑在数据库中添加 agent_id 字段到 user_stories 表
                 
                 Ok(())
             }
             Err(e) => {
                 Err(format!("Failed to spawn coding agent: {}", e))
             }
+        }
+    }
+
+    /// 清理已完成 Agent 的 Worktree
+    pub async fn cleanup_completed_worktrees(&self, completed_agent_ids: &[String]) -> Result<usize, String> {
+        if let Some(ref wt_manager) = self.worktree_manager {
+            let mut cleaned_count = 0;
+            
+            for agent_id in completed_agent_ids {
+                log::info!("[AgentLoop] Cleaning up worktree for completed agent: {}", agent_id);
+                
+                match wt_manager.remove_worktree(agent_id).await {
+                    Ok(_) => {
+                        cleaned_count += 1;
+                        log::info!("[AgentLoop] Successfully removed worktree for agent {}", agent_id);
+                    }
+                    Err(e) => {
+                        log::warn!("[AgentLoop] Failed to remove worktree for agent {}: {}", agent_id, e);
+                    }
+                }
+            }
+            
+            if cleaned_count > 0 {
+                log::info!("[AgentLoop] Cleaned up {} worktrees for completed agents", cleaned_count);
+            }
+            
+            Ok(cleaned_count)
+        } else {
+            Err("Worktree manager not initialized".to_string())
         }
     }
 

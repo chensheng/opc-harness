@@ -541,4 +541,125 @@ impl DaemonManager {
     pub fn get_running_agents(&self) -> Vec<&String> {
         self.running_agents.iter().collect()
     }
+
+    /// 在指定 Worktree 中生成新的 Agent 进程 (深度集成版本)
+    pub fn spawn_agent_in_worktree(
+        &mut self, 
+        agent_type: &str, 
+        worktree_path: &str,
+        story_id: &str,
+    ) -> Result<String, String> {
+        if self.status != DaemonStatus::Running {
+            return Err("Daemon is not running".to_string());
+        }
+
+        // 验证 Worktree 路径是否存在
+        if !std::path::Path::new(worktree_path).exists() {
+            return Err(format!("Worktree path does not exist: {}", worktree_path));
+        }
+
+        let agent_id = format!("{}-{}", agent_type, uuid::Uuid::new_v4());
+        
+        // 根据 Agent 类型选择对应的 CLI 工具
+        let cli_command = if std::env::var("HARNESS_TEST_MODE").is_ok() {
+            if cfg!(windows) {
+                "ping"
+            } else {
+                "echo"
+            }
+        } else {
+            match agent_type {
+                "initializer" | "coding" | "mr_creation" => "kimi",
+                _ => return Err(format!("Unknown agent type: {}", agent_type)),
+            }
+        };
+
+        log::info!(
+            "[Daemon] Spawning {} agent in worktree {} for story {}",
+            agent_type,
+            worktree_path,
+            story_id
+        );
+
+        // 构建命令参数 - 在 Worktree 中执行
+        let child_result = if std::env::var("HARNESS_TEST_MODE").is_ok() {
+            if cfg!(windows) {
+                Command::new(cli_command)
+                    .args(&["-n", "9999", "127.0.0.1"])
+                    .current_dir(worktree_path)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdin(Stdio::piped())
+                    .spawn()
+            } else {
+                Command::new("sleep")
+                    .arg("999999")
+                    .current_dir(worktree_path)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdin(Stdio::piped())
+                    .spawn()
+            }
+        } else {
+            // 生产模式: 传递 Story 上下文给 AI CLI
+            // TODO: 构建完整的 CLI 参数,包括 Story ID、验收标准等
+            Command::new(cli_command)
+                .args(&[
+                    "--story-id", story_id,
+                    "--worktree", worktree_path,
+                    "--agent-type", agent_type,
+                ])
+                .current_dir(worktree_path)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .stdin(Stdio::piped())
+                .spawn()
+        };
+
+        match child_result {
+            Ok(child) => {
+                let pid = child.id();
+                log::info!(
+                    "[Daemon] Agent {} spawned in worktree {} with PID: {}",
+                    agent_id,
+                    worktree_path,
+                    pid
+                );
+
+                // 存储进程句柄
+                let child_arc = Arc::new(Mutex::new(Some(child)));
+                self.child_processes.insert(agent_id.clone(), child_arc);
+
+                // 创建 Agent 信息
+                let agent_info = AgentProcessInfo {
+                    agent_id: agent_id.clone(),
+                    agent_type: agent_type.to_string(),
+                    pid: Some(pid),
+                    status: AgentStatus::Running,
+                    started_at: chrono::Utc::now().timestamp(),
+                    resource_usage: ResourceUsage::default(),
+                };
+
+                self.agents.insert(agent_id.clone(), agent_info);
+                self.pending_tasks.push(agent_id.clone());
+                
+                log::info!(
+                    "[Daemon] Agent {} info stored with worktree: {}, story: {}",
+                    agent_id,
+                    worktree_path,
+                    story_id
+                );
+                
+                Ok(agent_id)
+            }
+            Err(e) => {
+                let error_msg = format!(
+                    "Failed to spawn {} agent in worktree {}: {}. Please ensure {} is installed.", 
+                    agent_type, worktree_path, e, cli_command
+                );
+                log::error!("{}", error_msg);
+                Err(error_msg)
+            }
+        }
+    }
 }
