@@ -320,10 +320,21 @@ git worktree list --porcelain
   - [x] 填充到 AICLIConfig 的 `story_title` 和 `acceptance_criteria` 字段
   - [x] 构建完整的 CLI 参数传递给 AI 工具
   - [x] 容错设计: Story 不存在时使用空上下文,不阻断 Agent 启动
+- [ ] **AI CLI 交互管理器** (进行中 🚧)
+  - [x] 创建 `ai_cli_interaction.rs` 模块框架
+  - [x] 定义 `AICLIMessage` 枚举 (Stdout, Stderr, GeneratedCode, TaskCompleted)
+  - [x] 实现 `AICLIInteraction` 结构体
+  - [x] 使用 `tokio::process::Child` 支持异步 IO
+  - [x] 实现 `Clone` trait
+  - [ ] 集成到 Daemon (需要修改 daemon_core.rs 使用 tokio::process::Command)
+  - [ ] 处理消息通道生命周期
+  - [ ] 解析实际 AI CLI 输出格式
 
 ### ❌ 待完善
 
-- [ ] **Coding Agent 代码生成**: 实际调用 Kimi/Claude CLI 并处理 STDIO 通信
+- [ ] **Coding Agent 代码生成**: 完成 AI CLI 交互管理器集成
+  - 修改 daemon_core.rs 使用 tokio::process::Command
+  - 集成 AICLIInteraction 到 spawn_agent 流程
   - 解析 AI 输出并写入文件
   - Git commit & push
   - 更新 Story 状态为 completed

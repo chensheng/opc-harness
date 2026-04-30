@@ -3,11 +3,13 @@
 //! DaemonManager 核心业务逻辑实现
 
 use std::collections::{HashMap, HashSet};
-use std::process::{Command, Stdio};
+use std::process::{Command as StdCommand, Stdio};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 
 use super::daemon_types::*;
+use super::ai_cli_interaction::{AICLIInteraction, AICLIMessage};
 use crate::agent::types::AgentStatus;
 
 /// 守护进程管理器
@@ -27,6 +29,8 @@ pub struct DaemonManager {
     // ========== 进程管理 ==========
     /// 存储活跃的 Child 进程句柄（使用 Arc<Mutex> 以支持异步访问）
     child_processes: HashMap<String, Arc<Mutex<Option<std::process::Child>>>>,
+    /// 存储 AI CLI 交互管理器 (用于 STDIO 双向通信)
+    ai_interactions: HashMap<String, Arc<Mutex<Option<AICLIInteraction>>>>,
 }
 
 impl DaemonManager {
@@ -47,6 +51,7 @@ impl DaemonManager {
             running_agents: HashSet::new(),
             // ========== 进程管理初始化 ==========
             child_processes: HashMap::new(),
+            ai_interactions: HashMap::new(),
         }
     }
 
@@ -162,7 +167,7 @@ impl DaemonManager {
             // 测试模式：使用不会立即退出的命令
             if cfg!(windows) {
                 // Windows: ping localhost 持续运行
-                Command::new(cli_command)
+                StdCommand::new(cli_command)
                     .args(&["-n", "9999", "127.0.0.1"])
                     .current_dir(project_path)
                     .stdout(Stdio::piped())
@@ -171,7 +176,7 @@ impl DaemonManager {
                     .spawn()
             } else {
                 // Unix: sleep 长时间
-                Command::new("sleep")
+                StdCommand::new("sleep")
                     .arg("999999")
                     .current_dir(project_path)
                     .stdout(Stdio::piped())
@@ -196,7 +201,7 @@ impl DaemonManager {
             
             log::info!("[Daemon] Building CLI command: {} {:?}", cli_command, args);
             
-            Command::new(cli_command)
+            StdCommand::new(cli_command)
                 .args(&args)
                 .current_dir(project_path)
                 .stdout(Stdio::piped())
@@ -680,7 +685,7 @@ impl DaemonManager {
         // 构建命令参数 - 在 Worktree 中执行
         let child_result = if std::env::var("HARNESS_TEST_MODE").is_ok() {
             if cfg!(windows) {
-                Command::new(cli_command)
+                StdCommand::new(cli_command)
                     .args(&["-n", "9999", "127.0.0.1"])
                     .current_dir(worktree_path)
                     .stdout(Stdio::piped())
@@ -688,7 +693,7 @@ impl DaemonManager {
                     .stdin(Stdio::piped())
                     .spawn()
             } else {
-                Command::new("sleep")
+                StdCommand::new("sleep")
                     .arg("999999")
                     .current_dir(worktree_path)
                     .stdout(Stdio::piped())
@@ -717,7 +722,7 @@ impl DaemonManager {
             
             log::info!("[Daemon] Building CLI command for worktree with full context: {} {:?}", cli_command, args);
             
-            Command::new(cli_command)
+            StdCommand::new(cli_command)
                 .args(&args)
                 .current_dir(worktree_path)
                 .stdout(Stdio::piped())
@@ -811,4 +816,132 @@ impl DaemonManager {
         }
     }
 
+    /// 在 Worktree 中启动 Agent 并启用 STDIO 监控 (新方法,不修改原有逻辑)
+    pub async fn spawn_agent_with_stdio_monitoring(
+        &mut self,
+        agent_type: &str,
+        worktree_path: &str,
+        story_id: &str,
+        message_tx: mpsc::Sender<AICLIMessage>,
+    ) -> Result<String, String> {
+        if self.status != DaemonStatus::Running {
+            return Err("Daemon is not running".to_string());
+        }
+
+        // 验证 Worktree 路径是否存在
+        if !std::path::Path::new(worktree_path).exists() {
+            return Err(format!("Worktree path does not exist: {}", worktree_path));
+        }
+
+        let agent_id = format!("{}-{}", agent_type, uuid::Uuid::new_v4());
+        
+        // 根据 Agent 类型选择对应的 CLI 工具
+        let cli_command = if std::env::var("HARNESS_TEST_MODE").is_ok() {
+            if cfg!(windows) {
+                "ping"
+            } else {
+                "echo"
+            }
+        } else {
+            match agent_type {
+                "initializer" | "coding" | "mr_creation" => "kimi",
+                _ => return Err(format!("Unknown agent type: {}", agent_type)),
+            }
+        };
+
+        log::info!(
+            "[Daemon] Spawning {} agent in worktree {} for story {} with STDIO monitoring",
+            agent_type,
+            worktree_path,
+            story_id
+        );
+
+        // 从数据库查询 Story 详细信息
+        let story_info = self.get_story_context(story_id)?;
+        
+        // 构建 AICLIConfig
+        let ai_config = AICLIConfig {
+            command: cli_command.to_string(),
+            working_dir: worktree_path.to_string(),
+            story_id: Some(story_id.to_string()),
+            story_title: story_info.title,
+            acceptance_criteria: story_info.acceptance_criteria,
+            agent_type: agent_type.to_string(),
+            extra_args: vec![
+                "--worktree".to_string(),
+                worktree_path.to_string(),
+            ],
+        };
+        
+        let args = ai_config.build_args();
+        
+        log::info!("[Daemon] Building CLI command with full context: {} {:?}", cli_command, args);
+        
+        // 使用 tokio::process::Command 启动进程
+        let child_result = tokio::process::Command::new(cli_command)
+            .args(&args)
+            .current_dir(worktree_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::piped())
+            .spawn();
+
+        match child_result {
+            Ok(child) => {
+                let pid = child.id();
+                log::info!(
+                    "[Daemon] Agent {} spawned in worktree {} with PID: {:?}",
+                    agent_id,
+                    worktree_path,
+                    pid
+                );
+
+                // 创建 AICLIInteraction 并启动 STDIO 监听
+                let interaction = AICLIInteraction::new(child, agent_id.clone(), message_tx);
+                
+                // 在后台启动异步监听任务
+                let agent_id_for_log = agent_id.clone();
+                let interaction_clone = interaction.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = interaction_clone.start_listening().await {
+                        log::error!("[Daemon] Failed to start listening for agent {}: {}", agent_id_for_log, e);
+                    }
+                });
+
+                // 存储交互管理器
+                let interaction_arc = Arc::new(Mutex::new(Some(interaction)));
+                self.ai_interactions.insert(agent_id.clone(), interaction_arc);
+
+                // 创建 Agent 信息
+                let agent_info = AgentProcessInfo {
+                    agent_id: agent_id.clone(),
+                    agent_type: agent_type.to_string(),
+                    pid,
+                    status: AgentStatus::Running,
+                    started_at: chrono::Utc::now().timestamp(),
+                    resource_usage: ResourceUsage::default(),
+                };
+
+                self.agents.insert(agent_id.clone(), agent_info);
+                self.pending_tasks.push(agent_id.clone());
+                
+                log::info!(
+                    "[Daemon] Agent {} info stored with worktree: {}, story: {}, STDIO monitoring enabled",
+                    agent_id,
+                    worktree_path,
+                    story_id
+                );
+                
+                Ok(agent_id)
+            }
+            Err(e) => {
+                let error_msg = format!(
+                    "Failed to spawn {} agent in worktree {}: {}. Please ensure {} is installed.", 
+                    agent_type, worktree_path, e, cli_command
+                );
+                log::error!("{}", error_msg);
+                Err(error_msg)
+            }
+        }
+    }
 }

@@ -171,7 +171,7 @@ impl AgentLoop {
                     });
                     
                     // 在 Worktree 中启动 Agent (带 STDIO 监控)
-                    match daemon.spawn_agent_in_worktree_with_stdio("coding", &worktree_path, &story_id_clone, message_tx) {
+                    match daemon.spawn_agent_with_stdio_monitoring("coding", &worktree_path, &story_id_clone, message_tx).await {
                         Ok(spawned_agent_id) => {
                             log::info!("[AgentLoop] Successfully spawned coding agent in worktree with STDIO monitoring: {}", spawned_agent_id);
                             
