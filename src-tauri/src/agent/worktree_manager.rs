@@ -93,6 +93,11 @@ impl WorktreeManager {
         }
     }
 
+    /// 获取当前配置
+    pub fn get_config(&self) -> &WorktreeManagerConfig {
+        &self.config
+    }
+
     /// 初始化 Worktrees 目录
     async fn ensure_worktrees_dir(&self) -> Result<(), String> {
         if !self.worktrees_root.exists() {

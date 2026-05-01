@@ -49,6 +49,29 @@ impl AgentLoop {
         log::info!("[AgentLoop] 🔄 Starting execution cycle for project: {}", project_id);
         log::info!("[AgentLoop] ⏱️  Timestamp: {}", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"));
         
+        // 确保 WorktreeManager 使用正确的项目路径
+        let workspaces_root = crate::utils::paths::get_workspaces_dir();
+        let project_path = workspaces_root.join(project_id);
+        
+        if !project_path.exists() {
+            return Err(format!("Project path does not exist: {:?}", project_path));
+        }
+        
+        // 如果 WorktreeManager 未初始化或项目路径不匹配，重新初始化
+        let should_init_worktree = if let Some(ref wt_manager) = self.worktree_manager {
+            // 检查当前配置的项目路径是否匹配
+            let current_config_path = Path::new(&wt_manager.get_config().project_path);
+            current_config_path != project_path.as_path()
+        } else {
+            true
+        };
+        
+        if should_init_worktree {
+            let project_path_str = project_path.to_string_lossy().to_string();
+            self.set_worktree_manager(&project_path_str);
+            log::info!("[AgentLoop] ✓ Worktree manager configured for project: {}", project_path_str);
+        }
+        
         // 获取数据库连接
         let db_start = std::time::Instant::now();
         let conn = database::get_connection()

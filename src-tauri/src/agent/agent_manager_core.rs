@@ -88,17 +88,11 @@ impl AgentManager {
             let mut agent_loop_guard = self.agent_loop.write().await;
             let mut loop_instance = AgentLoop::new(daemon_clone);
             
-            // 设置 Worktree 管理器 (使用默认项目路径,后续可根据实际项目动态设置)
-            let workspaces_root = crate::utils::paths::get_workspaces_dir();
-            if workspaces_root.exists() {
-                let project_path = workspaces_root.to_string_lossy().to_string();
-                loop_instance.set_worktree_manager(&project_path);
-            } else {
-                log::warn!("[AgentManager] Workspaces directory does not exist, Worktree manager will be initialized later");
-            }
+            // 注意: Worktree 管理器将在每次执行 Agent Loop 时根据具体项目动态设置
+            // 这里不预先初始化,因为不同项目有不同的工作目录
+            log::info!("[AgentManager] Agent Loop initialized (Worktree manager will be set per-project during execution)");
             
             *agent_loop_guard = Some(loop_instance);
-            log::info!("Agent Loop initialized with Worktree Manager");
         }
 
         // 恢复持久化的 Agent Sessions
@@ -568,5 +562,3 @@ impl AgentManager {
         } else {
             false
         }
-    }
-}
