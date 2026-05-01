@@ -250,11 +250,33 @@ export function AgentMonitor() {
         setLoading(true)
       }
 
+      // 1. 从数据库加载智能体会话
       const sessions = await invoke<AgentSession[]>('get_sessions_by_project', {
         projectId,
       })
 
-      const agentInfos = sessions.map(convertSessionToAgentInfo)
+      // 2. 获取正在运行的 Workers 列表
+      let runningWorkers: string[] = []
+      try {
+        const workers = await invoke<any[]>('list_agent_workers')
+        runningWorkers = workers.filter(w => w.is_running).map(w => w.worker_id)
+        console.log('[AgentMonitor] Running workers:', runningWorkers)
+      } catch (error) {
+        console.warn('[AgentMonitor] Failed to get running workers:', error)
+      }
+
+      // 3. 转换会话信息，并根据实际运行状态调整 status
+      const agentInfos = sessions.map(session => {
+        const info = convertSessionToAgentInfo(session)
+        
+        // 如果数据库中状态为 running，但实际没有对应的 Worker，则修正为 stopped
+        if (info.status === 'running' && !runningWorkers.includes(info.agentId)) {
+          console.log(`[AgentMonitor] Agent ${info.agentId} marked as stopped (no worker found)`)
+          info.status = 'stopped'
+        }
+        
+        return info
+      })
 
       setAgents(agentInfos)
 
