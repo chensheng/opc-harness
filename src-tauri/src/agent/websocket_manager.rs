@@ -221,7 +221,7 @@ pub struct WebSocketManager {
 }
 
 /// WebSocket 统计信息
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct WebSocketStats {
     /// 总连接数
     pub total_connections: u32,

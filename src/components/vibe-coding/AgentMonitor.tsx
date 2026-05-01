@@ -38,6 +38,7 @@ import { CreateAgentDialog } from './CreateAgentDialog'
 import { EditAgentDialog } from './EditAgentDialog'
 import { AgentOffice } from './AgentOffice'
 import { useAgentWorkers } from '@/hooks/useAgentWorkers'
+import { useAgent } from '@/hooks/useAgent'
 
 // 后端 AgentSession 类型定义
 interface AgentSession {
@@ -131,12 +132,29 @@ export function AgentMonitor() {
   const { workers, isLoading: workersLoading, error: workersError, startWorker, stopWorker, refreshWorkers, getRunningCount, getBusyCount } =
     useAgentWorkers()
 
+  // 使用 Agent WebSocket Hook（实时通信）
+  const { messages, connectWebSocket, disconnectWebSocket, clearMessages } = useAgent()
+
   // 计算运行中和处理中的 Worker 数量
   const runningCount = getRunningCount()
   const processingCount = getBusyCount()
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
+
+  // 当 projectId 可用时，建立 WebSocket 连接
+  useEffect(() => {
+    if (projectId) {
+      const sessionId = `project-${projectId}`
+      connectWebSocket(sessionId).catch(err => {
+        console.error('[AgentMonitor] Failed to connect WebSocket:', err)
+      })
+    }
+
+    return () => {
+      disconnectWebSocket()
+    }
+  }, [projectId, connectWebSocket, disconnectWebSocket])
 
   // 从数据库加载智能体列表
   const loadAgents = async (silent = false) => {
@@ -571,6 +589,77 @@ export function AgentMonitor() {
               </div>
             </Card>
           )}
+
+          {/* Real-time Logs Panel */}
+          <Card className="mb-6 border-2 border-green-200 dark:border-green-800">
+            <div className="p-4 border-b bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div>
+                    <h3 className="font-semibold">实时日志</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Agent 运行状态实时更新（共 {messages.length} 条）
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={clearMessages}>
+                  清空日志
+                </Button>
+              </div>
+            </div>
+            <div className="p-4 max-h-[400px] overflow-y-auto">
+              {messages.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Activity className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                  <p>暂无日志消息</p>
+                  <p className="text-xs mt-1">Agent 运行时将在此显示实时日志</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {messages.slice(-50).map((message, index) => (
+                    <div
+                      key={message.id || index}
+                      className={`p-3 rounded-lg border text-sm font-mono ${
+                        message.type === 'error'
+                          ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                          : message.type === 'progress'
+                          ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                          : message.type === 'status'
+                          ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800'
+                          : 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Badge
+                          variant="outline"
+                          className="text-xs shrink-0"
+                        >
+                          {message.type.toUpperCase()}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <p className="break-all">{message.content}</p>
+                          {message.metadata && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {JSON.stringify(message.metadata)}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
+                            hour12: false,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
 
           {/* Agents Table */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

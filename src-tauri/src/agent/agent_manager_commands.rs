@@ -1020,3 +1020,253 @@ pub async fn get_worktree_disk_usage(
     // TODO: 实现真正的磁盘使用量计算
     Ok(0)
 }
+
+// ============================================================================
+// WebSocket Real-time Communication Commands (VC-003) - 使用说明
+// ============================================================================
+//
+// **架构说明**:
+// 本系统使用 Tauri Events 替代传统 WebSocket，实现进程内实时通信。
+// 优势：零额外依赖、类型安全、低延迟、Session 隔离。
+//
+// **后端使用示例** (Rust):
+// ```rust
+// // 在 Agent Worker 或 Daemon 中发送日志
+// let manager = state.read().await;
+// let websocket = manager.websocket.read().await;
+//
+// // 发送日志消息
+// websocket.send_log(
+//     &session_id,
+//     "info",
+//     "Agent started successfully",
+//     Some("AgentWorker")
+// ).await?;
+//
+// // 发送进度更新
+// websocket.send_progress(
+//     &session_id,
+//     "coding",
+//     5,
+//     10,
+//     Some("Generating code...")
+// ).await?;
+//
+// // 发送状态更新
+// websocket.send_status(
+//     &session_id,
+//     "running",
+//     Some("Processing task")
+// ).await?;
+// ```
+//
+// **前端使用示例** (TypeScript/React):
+// ```typescript
+// import { useAgent } from '@/hooks/useAgent'
+//
+// function MyComponent() {
+//   const { messages, connectWebSocket, clearMessages } = useAgent()
+//
+//   // 自动连接（在 useEffect 中）
+//   useEffect(() => {
+//     if (projectId) {
+//       connectWebSocket(`project-${projectId}`)
+//     }
+//   }, [projectId])
+//
+//   // 显示实时消息
+//   return (
+//     <div>
+//       {messages.map(msg => (
+//         <div key={msg.id}>
+//           <Badge>{msg.type}</Badge>
+//           <p>{msg.content}</p>
+//           <small>{new Date(msg.timestamp).toLocaleTimeString()}</small>
+//         </div>
+//       ))}
+//       <Button onClick={clearMessages}>清空日志</Button>
+//     </div>
+//   )
+// }
+// ```
+//
+// **消息类型**:
+// - Log: 日志消息（info/warn/error/debug）
+// - Progress: 进度更新（phase, current, total）
+// - Status: 状态更新（status, details）
+// - AgentResponse: Agent 响应（request_id, success, data/error）
+// - Error: 错误消息（code, message, details）
+// - Heartbeat: 心跳消息（timestamp）
+//
+// **Session 隔离**:
+// 每个项目使用独立的 Session ID（格式: `project-{projectId}`），
+// 确保消息不会跨项目混淆。
+//
+// **性能监控**:
+// 调用 `ws_get_stats()` 获取统计信息：
+// - total_connections: 总连接数
+// - active_connections: 当前活跃连接数
+// - total_messages_sent: 总发送消息数
+// - total_errors: 总错误数
+
+/// 注册 WebSocket 连接（基于 Tauri Events）
+#[tauri::command]
+pub async fn ws_register_connection(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<String, String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    log::info!("[WebSocket] Registering connection for session: {}", session_id);
+    
+    let connection_id = websocket.register_connection(session_id.clone()).await;
+    
+    log::info!("[WebSocket] Connection registered: {} for session: {}", connection_id, session_id);
+    
+    Ok(connection_id)
+}
+
+/// 注销 WebSocket 连接
+#[tauri::command]
+pub async fn ws_unregister_connection(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    connection_id: String,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    log::info!("[WebSocket] Unregistering connection: {} for session: {}", connection_id, session_id);
+    
+    websocket.unregister_connection(&session_id, &connection_id).await;
+    
+    log::info!("[WebSocket] Connection unregistered successfully");
+    
+    Ok(())
+}
+
+/// 发送日志消息到指定 Session
+#[tauri::command]
+pub async fn ws_send_log(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    level: String,
+    message: String,
+    source: Option<String>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.send_log(&session_id, &level, &message, source.as_deref()).await
+}
+
+/// 发送进度更新到指定 Session
+#[tauri::command]
+pub async fn ws_send_progress(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    phase: String,
+    current: u32,
+    total: u32,
+    description: Option<String>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.send_progress(&session_id, &phase, current, total, description.as_deref()).await
+}
+
+/// 发送状态更新到指定 Session
+#[tauri::command]
+pub async fn ws_send_status(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    status: String,
+    details: Option<String>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.send_status(&session_id, &status, details.as_deref()).await
+}
+
+/// 发送 Agent 响应到指定 Session
+#[tauri::command]
+pub async fn ws_send_agent_response(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    request_id: String,
+    success: bool,
+    data: Option<serde_json::Value>,
+    error: Option<String>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.send_agent_response(&session_id, request_id, success, data, error).await
+}
+
+/// 发送错误消息到指定 Session
+#[tauri::command]
+pub async fn ws_send_error(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+    code: String,
+    message: String,
+    details: Option<serde_json::Value>,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.send_error(&session_id, &code, &message, details).await
+}
+
+/// 发送心跳到指定 Session
+#[tauri::command]
+pub async fn ws_send_heartbeat(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.send_heartbeat(&session_id).await
+}
+
+/// 获取 WebSocket 统计信息
+#[tauri::command]
+pub async fn ws_get_stats(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+) -> Result<crate::agent::websocket_manager::WebSocketStats, String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    Ok(websocket.get_stats().await)
+}
+
+/// 获取指定 Session 的连接数
+#[tauri::command]
+pub async fn ws_get_connection_count(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    session_id: String,
+) -> Result<usize, String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    Ok(websocket.get_connection_count(&session_id).await)
+}
+
+/// 清理超时的连接
+#[tauri::command]
+pub async fn ws_cleanup_stale_connections(
+    state: State<'_, Arc<RwLock<AgentManager>>>,
+    timeout_ms: u64,
+) -> Result<(), String> {
+    let manager = state.read().await;
+    let websocket = manager.websocket.read().await;
+    
+    websocket.cleanup_stale_connections(timeout_ms).await;
+    
+    Ok(())
+}

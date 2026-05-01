@@ -42,10 +42,12 @@ export type MessageType = 'log' | 'status' | 'progress' | 'error' | 'heartbeat'
 
 /** Agent 消息 (用于实时推送) */
 export interface AgentMessage {
+  id?: string  // 消息唯一标识（来自 WebSocket）
   messageId: string
-  timestamp: number
-  source: 'agent' | 'daemon' | 'frontend'
-  type: MessageType
+  sessionId?: string  // Session ID（来自 WebSocket）
+  timestamp: number | string  // 支持数字时间戳和 ISO 字符串
+  source?: 'agent' | 'daemon' | 'frontend'  // 可选，WebSocket 消息可能没有
+  type: MessageType | 'response' | 'status' | 'progress' | 'log' | 'error'  // 扩展类型以支持 WebSocket
   content: string
   metadata?: Record<string, unknown>
 }
@@ -95,10 +97,11 @@ export interface UseAgentReturn {
   isLoading: boolean
   error: string | null
   connectWebSocket: (sessionId: string) => Promise<void>
-  disconnectWebSocket: () => void
+  disconnectWebSocket: () => void | Promise<void>
   sendAgentRequest: (agentId: string, action: string, payload: unknown) => Promise<AgentResponse>
   subscribeAgent: (agentId: string) => void
   unsubscribeAgent: (agentId: string) => void
+  clearMessages?: () => void  // 新增：清空消息列表
 }
 
 /**

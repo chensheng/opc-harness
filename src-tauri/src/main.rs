@@ -313,6 +313,19 @@ fn main() {
             agent::agent_manager::cleanup_orphaned_worktrees,
             agent::agent_manager::get_worktree_disk_usage,
 
+            // WebSocket Real-time Communication Commands (VC-003)
+            agent::agent_manager_commands::ws_register_connection,
+            agent::agent_manager_commands::ws_unregister_connection,
+            agent::agent_manager_commands::ws_send_log,
+            agent::agent_manager_commands::ws_send_progress,
+            agent::agent_manager_commands::ws_send_status,
+            agent::agent_manager_commands::ws_send_agent_response,
+            agent::agent_manager_commands::ws_send_error,
+            agent::agent_manager_commands::ws_send_heartbeat,
+            agent::agent_manager_commands::ws_get_stats,
+            agent::agent_manager_commands::ws_get_connection_count,
+            agent::agent_manager_commands::ws_cleanup_stale_connections,
+
             // 完全去中心化 Agent Worker 命令 (Fully Decentralized System)
             agent::agent_worker_commands::start_agent_worker,
             agent::agent_worker_commands::stop_agent_worker,
