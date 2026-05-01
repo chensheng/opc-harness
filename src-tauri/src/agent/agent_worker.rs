@@ -971,11 +971,23 @@ impl AgentWorker {
         
         // 2. 如果 WebSocket Manager 可用，则发送到前端
         if let Some(ws_manager) = websocket_manager {
+            log::debug!("[{}] [{}] 📤 尝试通过 WebSocket 发送日志: {}", source_tag, session_id, message);
             if let Ok(manager) = ws_manager.try_read() {
                 // 将 &str 转换为 String 以匹配 SessionId 类型
                 let session_id_string = session_id.to_string();
-                let _ = manager.send_log(&session_id_string, level, message, source).await;
+                match manager.send_log(&session_id_string, level, message, source).await {
+                    Ok(_) => {
+                        log::debug!("[{}] [{}] ✅ WebSocket 日志发送成功", source_tag, session_id);
+                    },
+                    Err(e) => {
+                        log::warn!("[{}] [{}] ❌ WebSocket 日志发送失败: {}", source_tag, session_id, e);
+                    }
+                }
+            } else {
+                log::warn!("[{}] [{}] ⚠️ 无法获取 WebSocket Manager 读锁", source_tag, session_id);
             }
+        } else {
+            log::debug!("[{}] [{}] ℹ️ WebSocket Manager 不可用，仅输出控制台日志", source_tag, session_id);
         }
     }
 }
