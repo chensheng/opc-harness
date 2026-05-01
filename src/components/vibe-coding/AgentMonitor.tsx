@@ -329,35 +329,66 @@ export function AgentMonitor() {
 
   const handlePauseAgent = async (agentId: string) => {
     try {
-      // 先调用后端 API 更新状态到数据库
+      console.log('[AgentMonitor] Pausing agent worker:', agentId)
+      
+      // 调用后端 API 真正停止 Agent Worker
+      await invoke('stop_agent_worker', {
+        workerId: agentId,
+      })
+      
+      console.log('[AgentMonitor] Agent worker stopped:', agentId)
+      
+      // 更新数据库中的状态
       await invoke('update_agent_session_status', {
         agentId,
         status: 'paused',
         phase: 'waiting',
       })
 
-      // 再更新前端状态
+      // 更新前端状态
       setAgents(prev =>
         prev.map(a => (a.agentId === agentId ? { ...a, status: 'paused', cpuUsage: 0 } : a))
       )
+      
+      console.log('[AgentMonitor] ✅ Agent worker paused successfully')
     } catch (error) {
-      console.error('Failed to pause agent:', error)
+      console.error('[AgentMonitor] Failed to pause agent:', error)
+      alert(`暂停智能体失败: ${error}`)
     }
   }
 
   const handleResumeAgent = async (agentId: string) => {
     try {
-      // 先调用后端 API 更新状态到数据库
+      console.log('[AgentMonitor] Resuming agent worker:', agentId)
+      
+      if (!projectId) {
+        console.error('[AgentMonitor] Project ID is not available')
+        return
+      }
+      
+      // 调用后端 API 重新启动 Agent Worker
+      const workerId = await invoke<string>('start_agent_worker', {
+        workerId: agentId,
+        projectId: projectId,
+        checkInterval: 30,
+      })
+      
+      console.log('[AgentMonitor] Agent worker resumed:', workerId)
+      
+      // 更新数据库中的状态
       await invoke('update_agent_session_status', {
         agentId,
         status: 'running',
         phase: 'processing',
       })
 
-      // 再更新前端状态
+      // 更新前端状态
       setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
+      
+      console.log('[AgentMonitor] ✅ Agent worker resumed successfully')
     } catch (error) {
-      console.error('Failed to resume agent:', error)
+      console.error('[AgentMonitor] Failed to resume agent:', error)
+      alert(`恢复智能体失败: ${error}`)
     }
   }
 
