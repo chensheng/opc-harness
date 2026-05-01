@@ -171,11 +171,15 @@ pub async fn create_agent_with_cli(
             max_concurrent: 1,
         };
         
-        // 获取 Daemon Manager
+        // 获取 Daemon Manager 和 WebSocket Manager
         let daemon_manager = manager.daemon.clone();
+        let websocket_manager = manager.websocket.clone();
         
         // 创建并启动 Agent Worker
         let mut worker = crate::agent::agent_worker::AgentWorker::new(config, daemon_manager);
+        
+        // 设置 WebSocket Manager（用于实时日志推送）
+        worker.set_websocket_manager(websocket_manager);
         
         // 设置 Worktree Manager
         let workspaces_root = crate::utils::paths::get_workspaces_dir();

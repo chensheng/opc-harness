@@ -130,6 +130,80 @@ export function AgentMonitor() {
   // 使用 Agent WebSocket Hook（实时通信）
   const { messages, connectWebSocket, disconnectWebSocket, clearMessages } = useAgent()
 
+  // 将 WebSocket 消息分发到对应智能体的日志中
+  useEffect(() => {
+    if (messages.length === 0) return
+
+    // 获取最后一条消息
+    const lastMessage = messages[messages.length - 1]
+    
+    console.log('[AgentMonitor] Processing message:', {
+      type: lastMessage.type,
+      sessionId: lastMessage.sessionId,
+      content: lastMessage.content?.substring(0, 100),
+      metadata: lastMessage.metadata
+    })
+    
+    console.log('[AgentMonitor] Current agents:', agents.map(a => ({
+      agentId: a.agentId,
+      sessionId: a.sessionId,
+      logsCount: a.logs.length
+    })))
+    
+    // 根据 sessionId 找到对应的智能体
+    setAgents(prev => {
+      let updated = false
+      
+      const newAgents = prev.map(agent => {
+        // 匹配 sessionId（可能是 project-{projectId} 或 agent-{agentId}）
+        const isMatch = 
+          lastMessage.sessionId === agent.sessionId ||
+          lastMessage.sessionId === `project-${projectId}` ||
+          lastMessage.content?.includes(agent.agentId)
+        
+        console.log('[AgentMonitor] Checking match for agent:', {
+          agentId: agent.agentId,
+          agentSessionId: agent.sessionId,
+          messageSessionId: lastMessage.sessionId,
+          projectSessionId: `project-${projectId}`,
+          isMatch
+        })
+        
+        // 处理 log、status、progress、error 类型的消息
+        if (isMatch && (lastMessage.type === 'log' || lastMessage.type === 'status' || lastMessage.type === 'progress' || lastMessage.type === 'error')) {
+          // 添加新日志到该智能体
+          const timestamp = new Date(lastMessage.timestamp).toLocaleTimeString('zh-CN', { hour12: false })
+          let logContent = `[${timestamp}] ${lastMessage.content}`
+          
+          // 如果是 status 类型，添加状态前缀
+          if (lastMessage.type === 'status') {
+            logContent = `[${timestamp}] 📊 ${lastMessage.content}`
+          } else if (lastMessage.type === 'progress') {
+            logContent = `[${timestamp}] 📈 ${lastMessage.content}`
+          } else if (lastMessage.type === 'error') {
+            logContent = `[${timestamp}] ❌ ${lastMessage.content}`
+          }
+          
+          console.log('[AgentMonitor] Adding log to agent:', agent.agentId, logContent)
+          updated = true
+          
+          return {
+            ...agent,
+            logs: [...agent.logs, logContent].slice(-50), // 保留最近 50 条
+          }
+        }
+        
+        return agent
+      })
+      
+      if (!updated) {
+        console.warn('[AgentMonitor] No agent matched for message:', lastMessage.sessionId)
+      }
+      
+      return newAgents
+    })
+  }, [messages, projectId, agents])
+
   // 刷新智能体列表（从数据库加载）
   const refreshAgents = useCallback(async () => {
     await loadAgents(true)
@@ -527,77 +601,6 @@ export function AgentMonitor() {
             </Card>
           </div>
 
-          {/* Real-time Logs Panel */}
-          <Card className="mb-6 border-2 border-green-200 dark:border-green-800">
-            <div className="p-4 border-b bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Terminal className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <div>
-                    <h3 className="font-semibold">实时日志</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Agent 运行状态实时更新（共 {messages.length} 条）
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" onClick={clearMessages}>
-                  清空日志
-                </Button>
-              </div>
-            </div>
-            <div className="p-4 max-h-[400px] overflow-y-auto">
-              {messages.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Activity className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                  <p>暂无日志消息</p>
-                  <p className="text-xs mt-1">Agent 运行时将在此显示实时日志</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {messages.slice(-50).map((message, index) => (
-                    <div
-                      key={message.id || index}
-                      className={`p-3 rounded-lg border text-sm font-mono ${
-                        message.type === 'error'
-                          ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
-                          : message.type === 'progress'
-                          ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
-                          : message.type === 'status'
-                          ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800'
-                          : 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <Badge
-                          variant="outline"
-                          className="text-xs shrink-0"
-                        >
-                          {message.type.toUpperCase()}
-                        </Badge>
-                        <div className="flex-1 min-w-0">
-                          <p className="break-all">{message.content}</p>
-                          {message.metadata && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {JSON.stringify(message.metadata)}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
-                            hour12: false,
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
-
           {/* Agents Table */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {loading ? (
@@ -766,16 +769,60 @@ export function AgentMonitor() {
                       </div>
                     </div>
 
-                    {/* Recent Logs */}
-                    <div className="bg-black/5 dark:bg-white/5 rounded-md p-2 font-mono text-xs max-h-24 overflow-y-auto">
-                      {agent.logs.slice(-5).map((log, idx) => (
-                        <div
-                          key={`${agent.agentId}-log-${idx}`}
-                          className="text-gray-700 dark:text-gray-300 truncate"
-                        >
-                          {log}
+                    {/* Agent Logs - Enhanced Display */}
+                    <div className="border rounded-md bg-gray-50 dark:bg-gray-950/30">
+                      <div className="px-3 py-2 border-b bg-gray-100 dark:bg-gray-900/50 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Terminal className="w-3 h-3 text-green-600 dark:text-green-400" />
+                          <span className="text-xs font-semibold">运行日志</span>
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                            {agent.logs.length}
+                          </Badge>
                         </div>
-                      ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-2 text-xs"
+                          onClick={() => setSelectedAgent(agent.agentId)}
+                        >
+                          查看全部
+                        </Button>
+                      </div>
+                      <div className="p-3 max-h-32 overflow-y-auto font-mono text-xs space-y-1">
+                        {agent.logs.length === 0 ? (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <Activity className="w-8 h-8 mx-auto mb-1 opacity-20" />
+                            <p className="text-xs">暂无日志</p>
+                          </div>
+                        ) : (
+                          agent.logs.slice(-10).map((log, idx) => {
+                            // 根据日志内容判断类型并着色
+                            const isError = log.includes('❌') || log.includes('ERROR') || log.includes('error')
+                            const isSuccess = log.includes('✅') || log.includes('SUCCESS') || log.includes('success')
+                            const isWarning = log.includes('⚠️') || log.includes('WARNING') || log.includes('warning')
+                            const isProgress = log.includes('📊') || log.includes('PROGRESS') || log.includes('progress')
+                            
+                            return (
+                              <div
+                                key={`${agent.agentId}-log-${idx}`}
+                                className={`break-all ${
+                                  isError
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : isSuccess
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : isWarning
+                                    ? 'text-yellow-600 dark:text-yellow-400'
+                                    : isProgress
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                {log}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>

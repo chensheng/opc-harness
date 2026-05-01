@@ -34,11 +34,15 @@ pub async fn start_agent_worker(
         max_concurrent: 1,
     };
     
-    // 获取 Daemon Manager
+    // 获取 Daemon Manager 和 WebSocket Manager
     let daemon_manager = manager.daemon.clone();
+    let websocket_manager = manager.websocket.clone();
     
     // 创建 Agent Worker
     let mut worker = AgentWorker::new(config, daemon_manager);
+    
+    // 设置 WebSocket Manager（用于实时日志推送）
+    worker.set_websocket_manager(websocket_manager);
     
     // 设置 Worktree Manager (从项目路径获取)
     if let Some(ref project_path) = manager.project_path {
