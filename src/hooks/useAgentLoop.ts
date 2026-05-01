@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 
 /**
@@ -13,11 +13,25 @@ export function useAgentLoop() {
   const [isRunning, setIsRunning] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [logs, setLogs] = useState<Array<{timestamp: Date, message: string, type: 'info' | 'error' | 'success'}>>([])
+  const logsEndRef = useRef<HTMLDivElement>(null)
+
+  // 自动滚动到最新日志
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [logs])
+
+  /** 添加日志 */
+  const addLog = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info') => {
+    setLogs(prev => [...prev, { timestamp: new Date(), message, type }])
+    console.log(`[AgentLoop ${type.toUpperCase()}] ${message}`)
+  }, [])
 
   /** 启动 Agent Loop 持续运行 */
   const startAgentLoop = useCallback(async (projectId: string, intervalSecs?: number) => {
     setIsLoading(true)
     setError(null)
+    addLog(`正在启动 Agent Loop... (项目: ${projectId}, 间隔: ${intervalSecs || 60}秒)`, 'info')
 
     try {
       await invoke('start_agent_loop', {
@@ -26,79 +40,106 @@ export function useAgentLoop() {
       })
       
       setIsRunning(true)
-      console.log('[useAgentLoop] Agent Loop started for project:', projectId)
+      addLog(`✓ Agent Loop 已成功启动`, 'success')
+      addLog(`📊 系统将每 ${intervalSecs || 60} 秒自动检测活跃的 Sprint 并执行待处理的用户故事`, 'info')
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       setError(errorMsg)
-      console.error('[useAgentLoop] Failed to start Agent Loop:', errorMsg)
+      addLog(`✗ 启动失败: ${errorMsg}`, 'error')
       throw err
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [addLog])
 
   /** 执行一次 Agent Loop(用于测试或手动触发) */
   const executeOnce = useCallback(async (projectId: string) => {
     setIsLoading(true)
     setError(null)
+    addLog(`正在执行单次 Agent Loop... (项目: ${projectId})`, 'info')
 
     try {
       const startedCount = await invoke<number>('execute_agent_loop_once', {
         projectId,
       })
       
-      console.log(`[useAgentLoop] Executed once for project ${projectId}, started ${startedCount} agents`)
+      addLog(`✓ 执行完成! 启动了 ${startedCount} 个 Agent`, 'success')
+      if (startedCount > 0) {
+        addLog(`📝 已为 ${startedCount} 个用户故事创建独立的 Worktree 并启动 Coding Agent`, 'info')
+      } else {
+        addLog(`ℹ️ 当前没有待处理的用户故事或没有活跃的 Sprint`, 'info')
+      }
       return startedCount
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       setError(errorMsg)
-      console.error('[useAgentLoop] Failed to execute Agent Loop:', errorMsg)
+      addLog(`✗ 执行失败: ${errorMsg}`, 'error')
       throw err
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [addLog])
 
   /** 停止 Agent Loop */
   const stopAgentLoop = useCallback(async () => {
     setIsLoading(true)
     setError(null)
+    addLog(`正在停止 Agent Loop...`, 'info')
 
     try {
       await invoke('stop_agent_loop')
       
       setIsRunning(false)
-      console.log('[useAgentLoop] Agent Loop stopped')
+      addLog(`✓ Agent Loop 已停止`, 'success')
+      addLog(`⚠️ 系统将不再自动检测和执行业务故事`, 'info')
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       setError(errorMsg)
-      console.error('[useAgentLoop] Failed to stop Agent Loop:', errorMsg)
+      addLog(`✗ 停止失败: ${errorMsg}`, 'error')
       throw err
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [addLog])
 
   /** 检查 Agent Loop 是否正在运行 */
   const checkStatus = useCallback(async () => {
     try {
       const running = await invoke<boolean>('is_agent_loop_running')
+      const wasRunning = isRunning
       setIsRunning(running)
+      
+      // 状态变化时记录日志
+      if (!wasRunning && running) {
+        addLog('🔄 检测到 Agent Loop 正在运行', 'success')
+      } else if (wasRunning && !running) {
+        addLog('⏸️ 检测到 Agent Loop 已停止', 'info')
+      }
+      
       return running
     } catch (err) {
       console.error('[useAgentLoop] Failed to check Agent Loop status:', err)
       return false
     }
-  }, [])
+  }, [isRunning, addLog])
+
+  /** 清空日志 */
+  const clearLogs = useCallback(() => {
+    setLogs([])
+    addLog('日志已清空', 'info')
+  }, [addLog])
 
   return {
     isRunning,
     isLoading,
     error,
+    logs,
+    logsEndRef,
     startAgentLoop,
     executeOnce,
     stopAgentLoop,
     checkStatus,
+    clearLogs,
   }
 }
 

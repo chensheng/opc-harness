@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Play, Square, RefreshCw, Activity, FolderGit2, Trash2, HardDrive } from 'lucide-react'
+import { Play, Square, RefreshCw, Activity, FolderGit2, Trash2, HardDrive, Terminal, Eraser } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,7 +8,7 @@ import { useWorktreeManager } from '@/hooks/useAgentLoop'
 import { useProjectStore } from '@/stores'
 
 export function AgentLoopControl() {
-  const { isRunning, isLoading, error, startAgentLoop, executeOnce, stopAgentLoop, checkStatus } = useAgentLoop()
+  const { isRunning, isLoading, error, logs, logsEndRef, startAgentLoop, executeOnce, stopAgentLoop, checkStatus, clearLogs } = useAgentLoop()
   const { worktrees, diskUsage, formattedDiskUsage, isLoading: wtLoading, listWorktrees, cleanupOrphaned } = useWorktreeManager()
   const { projects } = useProjectStore()
   const [lastExecutedAt, setLastExecutedAt] = useState<Date | null>(null)
@@ -164,6 +164,49 @@ export function AgentLoopControl() {
           <div className="text-xs text-muted-foreground border-t pt-3">
             <p>Agent Loop 会自动检测活跃的 Sprint 并执行待处理的用户故事。</p>
             <p>默认每 60 秒检测一次,可通过修改代码调整间隔时间。</p>
+          </div>
+
+          {/* 实时日志面板 */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                运行日志
+              </h4>
+              <Button
+                onClick={clearLogs}
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+              >
+                <Eraser className="w-3 h-3 mr-1" />
+                清空
+              </Button>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 max-h-64 overflow-y-auto font-mono text-xs space-y-1">
+              {logs.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  暂无日志，启动 Agent Loop 后将显示详细运行信息
+                </p>
+              ) : (
+                logs.map((log, index) => (
+                  <div
+                    key={index}
+                    className={`flex gap-2 ${
+                      log.type === 'error' ? 'text-red-600 dark:text-red-400' :
+                      log.type === 'success' ? 'text-green-600 dark:text-green-400' :
+                      'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <span className="text-muted-foreground shrink-0">
+                      {log.timestamp.toLocaleTimeString()}
+                    </span>
+                    <span>{log.message}</span>
+                  </div>
+                ))
+              )}
+              <div ref={logsEndRef} />
+            </div>
           </div>
         </CardContent>
       </Card>

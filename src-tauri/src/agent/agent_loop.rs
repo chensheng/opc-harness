@@ -40,7 +40,8 @@ impl AgentLoop {
 
     /// 启动 Agent Loop（单次执行）
     pub async fn execute_once(&mut self, project_id: &str) -> Result<usize, String> {
-        log::info!("[AgentLoop] Starting execution for project: {}", project_id);
+        log::info!("[AgentLoop] 🔄 Starting execution cycle for project: {}", project_id);
+        log::info!("[AgentLoop] 🔍 Step 1: Checking for active Sprint...");
         
         // 获取数据库连接
         let conn = database::get_connection()
@@ -51,26 +52,33 @@ impl AgentLoop {
             .map_err(|e| format!("Failed to get active sprint: {}", e))?;
         
         if active_sprint.is_none() {
-            log::warn!("[AgentLoop] No active sprint found for current time");
+            log::warn!("[AgentLoop] ⚠️ No active Sprint found for current time");
+            log::info!("[AgentLoop] 💡 Hint: Create a Sprint with status='active' and valid date range");
             return Ok(0);
         }
         
         let sprint = active_sprint.unwrap();
-        log::info!("[AgentLoop] Found active sprint: {} ({} stories)", 
-                   sprint.name, sprint.id);
+        log::info!("[AgentLoop] ✓ Found active Sprint: '{}' (ID: {})", sprint.name, sprint.id);
         
         // Step 2: 获取该 Sprint 下待执行的用户故事
+        log::info!("[AgentLoop] 🔍 Step 2: Loading pending user stories from Sprint...");
         let pending_stories = db::get_pending_stories_by_sprint(&conn, &sprint.id)
             .map_err(|e| format!("Failed to get pending stories: {}", e))?;
         
         if pending_stories.is_empty() {
-            log::info!("[AgentLoop] No pending stories in sprint {}", sprint.id);
+            log::info!("[AgentLoop] ℹ️ No pending stories found in Sprint {}", sprint.id);
+            log::info!("[AgentLoop] 💡 Hint: Add user stories with status='draft/refined/approved' to this Sprint");
             return Ok(0);
         }
         
-        log::info!("[AgentLoop] Found {} pending stories to process", pending_stories.len());
+        log::info!("[AgentLoop] ✓ Found {} pending story/ies to process", pending_stories.len());
+        for (i, story) in pending_stories.iter().enumerate() {
+            log::info!("[AgentLoop]   Story #{}: {} - {} (Priority: {}, Status: {})", 
+                       i + 1, story.story_number, story.title, story.priority, story.status);
+        }
         
         // Step 3: 为每个故事尝试锁定并启动 Agent
+        log::info!("[AgentLoop] 🚀 Step 3: Attempting to lock and start Agents for each story...");
         let mut started_count = 0;
         let agent_id_prefix = format!("coding-{}", Utc::now().timestamp());
         
@@ -78,26 +86,31 @@ impl AgentLoop {
             // 生成唯一的 Agent ID
             let agent_id = format!("{}-{}", agent_id_prefix, index);
             
+            log::info!("[AgentLoop]   Processing story {}: {}...", story.story_number, story.title);
+            
             // 尝试锁定故事（乐观锁）
             let locked = db::lock_user_story(&conn, &story.id, &agent_id)
                 .map_err(|e| format!("Failed to lock story {}: {}", story.id, e))?;
             
             if !locked {
-                log::warn!("[AgentLoop] Story {} already locked or in progress, skipping", story.id);
+                log::warn!("[AgentLoop]   ⚠️ Story {} already locked or in progress, skipping", story.story_number);
                 continue;
             }
             
-            log::info!("[AgentLoop] Locked story {}: {} (Priority: {})", 
+            log::info!("[AgentLoop]   🔒 Successfully locked story {}: {} (Priority: {})", 
                        story.story_number, story.title, story.priority);
             
             // Step 4: 启动 Coding Agent
+            log::info!("[AgentLoop]   🚀 Step 4: Starting Coding Agent for story {}...", story.story_number);
             match self.start_coding_agent(&agent_id, &story, project_id).await {
                 Ok(_) => {
                     started_count += 1;
-                    log::info!("[AgentLoop] ✓ Started coding agent for story {}", story.story_number);
+                    log::info!("[AgentLoop]   ✓ Successfully started Coding Agent #{} for story {}", 
+                               started_count, story.story_number);
+                    log::info!("[AgentLoop]   📝 Agent will work in isolated Worktree environment");
                 }
                 Err(e) => {
-                    log::error!("[AgentLoop] ✗ Failed to start agent for story {}: {}", 
+                    log::error!("[AgentLoop]   ✗ Failed to start Agent for story {}: {}", 
                                story.story_number, e);
                     
                     // 标记故事为失败状态
@@ -109,7 +122,9 @@ impl AgentLoop {
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
         
-        log::info!("[AgentLoop] Execution completed. Started {} agents", started_count);
+        log::info!("[AgentLoop] ✅ Execution cycle completed!");
+        log::info!("[AgentLoop] 📊 Summary: Started {} Agent(s), {} pending story/ies remaining", 
+                   started_count, pending_stories.len() - started_count);
         Ok(started_count)
     }
 

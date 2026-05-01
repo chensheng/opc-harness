@@ -952,23 +952,30 @@ pub async fn start_agent_loop(
     project_id: String,
     interval_secs: Option<u64>,
 ) -> Result<(), String> {
+    log::info!("[Command] Received start_agent_loop request for project: {}", project_id);
+    
     let manager = state.read().await;
     
     // 检查是否已经在运行
     if manager.is_agent_loop_running().await {
         drop(manager);
+        log::warn!("[Command] Agent Loop is already running, rejecting duplicate start request");
         return Err("Agent Loop is already running".to_string());
     }
     
     // 默认间隔 60 秒
     let interval = interval_secs.unwrap_or(60);
+    log::info!("[Command] Starting Agent Loop with interval: {} seconds", interval);
     
     let result = manager.start_agent_loop(&project_id, interval).await;
     drop(manager);
     
     if result.is_ok() {
-        log::info!("[start_agent_loop] Agent Loop started for project {} with {}s interval", 
+        log::info!("[Command] ✓ Agent Loop successfully started for project {} (interval: {}s)", 
                    project_id, interval);
+        log::info!("[Command] 📊 System will automatically detect active Sprints every {} seconds", interval);
+    } else {
+        log::error!("[Command] ✗ Failed to start Agent Loop: {:?}", result.as_ref().err());
     }
     
     result
@@ -980,17 +987,24 @@ pub async fn execute_agent_loop_once(
     state: State<'_, Arc<RwLock<AgentManager>>>,
     project_id: String,
 ) -> Result<usize, String> {
+    log::info!("[Command] Received execute_agent_loop_once request for project: {}", project_id);
+    
     let manager = state.read().await;
     let result = manager.execute_agent_loop_once(&project_id).await;
     drop(manager);
     
     match &result {
         Ok(count) => {
-            log::info!("[execute_agent_loop_once] Executed once for project {}, started {} agents", 
-                       project_id, count);
+            log::info!("[Command] ✓ Agent Loop executed successfully for project {}", project_id);
+            if *count > 0 {
+                log::info!("[Command] 🚀 Started {} Coding Agent(s) for pending user stories", count);
+                log::info!("[Command] 📝 Each Agent will work in an isolated Worktree environment");
+            } else {
+                log::info!("[Command] ℹ️ No pending stories found or no active Sprint detected");
+            }
         }
         Err(e) => {
-            log::error!("[execute_agent_loop_once] Failed for project {}: {}", project_id, e);
+            log::error!("[Command] ✗ Agent Loop execution failed for project {}: {}", project_id, e);
         }
     }
     
@@ -1002,12 +1016,17 @@ pub async fn execute_agent_loop_once(
 pub async fn stop_agent_loop(
     state: State<'_, Arc<RwLock<AgentManager>>>,
 ) -> Result<(), String> {
+    log::info!("[Command] Received stop_agent_loop request");
+    
     let manager = state.read().await;
     let result = manager.stop_agent_loop().await;
     drop(manager);
     
     if result.is_ok() {
-        log::info!("[stop_agent_loop] Agent Loop stopped");
+        log::info!("[Command] ✓ Agent Loop successfully stopped");
+        log::info!("[Command] ⚠️ System will no longer automatically detect and execute user stories");
+    } else {
+        log::error!("[Command] ✗ Failed to stop Agent Loop: {:?}", result.as_ref().err());
     }
     
     result
@@ -1021,6 +1040,8 @@ pub async fn is_agent_loop_running(
     let manager = state.read().await;
     let result = manager.is_agent_loop_running().await;
     drop(manager);
+    
+    log::debug!("[Command] Checked Agent Loop status: {}", if result { "running" } else { "stopped" });
     Ok(result)
 }
 
