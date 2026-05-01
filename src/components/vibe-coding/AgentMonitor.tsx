@@ -292,17 +292,38 @@ export function AgentMonitor() {
 
   const handleStartAgent = async (agentId: string) => {
     try {
-      // 先调用后端 API 更新状态到数据库
+      console.log('[AgentMonitor] Starting agent worker:', agentId)
+      
+      // 获取当前项目 ID
+      if (!projectId) {
+        console.error('[AgentMonitor] Project ID is not available')
+        return
+      }
+      
+      // 调用后端 API 真正启动 Agent Worker
+      const workerId = await invoke<string>('start_agent_worker', {
+        workerId: agentId,
+        projectId: projectId,
+        checkInterval: 30, // 每 30 秒检查一次待处理的故事
+      })
+      
+      console.log('[AgentMonitor] Agent worker started:', workerId)
+      
+      // 更新数据库中的状态
       await invoke('update_agent_session_status', {
         agentId,
         status: 'running',
         phase: 'processing',
       })
 
-      // 再更新前端状态
+      // 更新前端状态
       setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
+      
+      // 显示成功提示
+      console.log('[AgentMonitor] ✅ Agent worker started successfully')
     } catch (error) {
-      console.error('Failed to start agent:', error)
+      console.error('[AgentMonitor] Failed to start agent:', error)
+      alert(`启动智能体失败: ${error}`)
     }
   }
 
