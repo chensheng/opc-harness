@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Lightbulb, Code, TrendingUp, Settings, Cpu, FolderOpen, Network } from 'lucide-react'
+import { Home, Lightbulb, Code, TrendingUp, Settings, Cpu, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores'
 
@@ -8,7 +8,6 @@ const navItems = [
   { path: '/idea', icon: Lightbulb, label: 'Vibe Design' },
   { path: '/coding', icon: Code, label: 'Vibe Coding' },
   { path: '/marketing', icon: TrendingUp, label: 'Vibe Marketing' },
-  { path: '/decentralized-test', icon: Network, label: '去中心化智能体' },
   { path: '/ai-config', icon: Cpu, label: 'AI配置' },
   { path: '/settings', icon: Settings, label: '设置' },
 ]
