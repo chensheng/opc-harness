@@ -33,7 +33,6 @@ import { ProgressVisualization } from './ProgressVisualization'
 import { AgentMonitor } from './AgentMonitor'
 import { InitializerWorkflow } from './InitializerWorkflow'
 import { LogTerminal } from './LogTerminal'
-import { AgentLoopControl } from './AgentLoopControl'
 import { mockFileTree, mockCLIOutput, WorkspaceMode } from './CodingWorkspaceTypes'
 import { prdToMarkdown } from './CodingWorkspaceUtils'
 
@@ -387,12 +386,8 @@ export function Component() {
           />
         </div>
       ) : workspaceMode === 'agents' ? (
-        /* Agent Management */
-        <div className="flex-1 overflow-auto space-y-4">
-          {/* Agent Loop Control - 与项目关联的自动化执行引擎 */}
-          {projectId && <AgentLoopControl projectId={projectId} />}
-          
-          {/* Agent Monitor - 实时监控所有运行中的 Agent */}
+        /* Agent Management - 完全去中心化 Worker 监控 */
+        <div className="flex-1 overflow-auto">
           <AgentMonitor />
         </div>
       ) : (

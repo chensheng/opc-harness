@@ -306,11 +306,6 @@ fn main() {
             // Code Diff Visualizer commands
             agent::agent_manager::get_file_diff_visual,
             agent::agent_manager::get_diff_summary,
-            // Agent Loop 控制命令 (P0: 自动触发引擎)
-            agent::agent_manager::start_agent_loop,
-            agent::agent_manager::execute_agent_loop_once,
-            agent::agent_manager::stop_agent_loop,
-            agent::agent_manager::is_agent_loop_running,
             // Worktree 管理命令 (P0: 隔离环境管理)
             agent::agent_manager::create_worktree,
             agent::agent_manager::remove_worktree,
@@ -318,12 +313,7 @@ fn main() {
             agent::agent_manager::cleanup_orphaned_worktrees,
             agent::agent_manager::get_worktree_disk_usage,
 
-            // 去中心化 Agent Node 命令 (Decentralized Agent System - 旧架构)
-            agent::decentralized_commands::start_decentralized_node,
-            agent::decentralized_commands::stop_decentralized_node,
-            agent::decentralized_commands::list_decentralized_nodes,
-
-            // 完全去中心化 Agent Worker 命令 (Fully Decentralized Agent System - 新架构)
+            // 完全去中心化 Agent Worker 命令 (Fully Decentralized System)
             agent::agent_worker_commands::start_agent_worker,
             agent::agent_worker_commands::stop_agent_worker,
             agent::agent_worker_commands::list_agent_workers,
@@ -372,5 +362,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-

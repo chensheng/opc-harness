@@ -18,35 +18,14 @@ import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy
 import { AIConfig } from './components/common/AIConfig'
 import { Settings } from './components/common/Settings'
 import { useProjectStore } from './stores'
-import { useAgentLoop } from './hooks/useAgentLoop'
 
 function App() {
   const { loadProjectsFromDatabase } = useProjectStore()
-  const { startAgentLoop, checkStatus } = useAgentLoop()
 
   // 应用启动时从数据库加载项目
   useEffect(() => {
     loadProjectsFromDatabase()
   }, [loadProjectsFromDatabase])
-
-  // 应用启动后自动启动 Agent Loop（延迟 2 秒确保数据库已加载）
-  useEffect(() => {
-    const initAgentLoop = async () => {
-      try {
-        const projectId = localStorage.getItem('currentProjectId')
-        if (projectId) {
-          await startAgentLoop(projectId)
-          console.log('[App] Agent Loop auto-started for project:', projectId)
-        }
-      } catch (err) {
-        console.error('[App] Failed to auto-start Agent Loop:', err)
-      }
-    }
-    
-    const timer = setTimeout(initAgentLoop, 2000)
-    
-    return () => clearTimeout(timer)
-  }, [startAgentLoop, checkStatus])
 
   return (
     <AppLayout>

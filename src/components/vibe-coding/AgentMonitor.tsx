@@ -19,6 +19,7 @@ import {
   Edit,
   LayoutGrid,
   List,
+  Server,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -36,6 +37,7 @@ import type { AgentInfo } from './CodingWorkspaceTypes'
 import { CreateAgentDialog } from './CreateAgentDialog'
 import { EditAgentDialog } from './EditAgentDialog'
 import { AgentOffice } from './AgentOffice'
+import { useAgentWorkers } from '@/hooks/useAgentWorkers'
 
 // 后端 AgentSession 类型定义
 interface AgentSession {
@@ -124,6 +126,14 @@ export function AgentMonitor() {
   const [agentToEdit, setAgentToEdit] = useState<AgentInfo | null>(null)
   const [viewMode, setViewMode] = useState<'office' | 'list'>('office') // 视图模式：办公室或列表
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
+
+  // 使用去中心化 Worker Hook
+  const { workers, isLoading: workersLoading, error: workersError, startWorker, stopWorker, refreshWorkers, getRunningCount, getBusyCount } =
+    useAgentWorkers()
+
+  // 计算运行中和处理中的 Worker 数量
+  const runningCount = getRunningCount()
+  const processingCount = getBusyCount()
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
@@ -365,6 +375,20 @@ export function AgentMonitor() {
           <p className="text-muted-foreground mt-1">实时监控多个 AI Agent 的运行状态和资源使用</p>
         </div>
         <div className="flex gap-2">
+          {/* 去中心化 Worker 控制 */}
+          <Button
+            variant="outline"
+            onClick={() => startWorker({ project_id: projectId || '' })}
+            disabled={!projectId}
+            size="sm"
+          >
+            <Server className="w-4 h-4 mr-2" />
+            启动 Worker
+          </Button>
+          <Badge variant="secondary" className="px-3 py-1">
+            {runningCount} 运行中 / {workers.length} 总计
+          </Badge>
+
           <Button variant="outline" onClick={handleRefresh} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? '加载中...' : '刷新状态'}
@@ -395,6 +419,36 @@ export function AgentMonitor() {
 
         {/* Office View */}
         <TabsContent value="office" className="mt-6">
+          {/* Worker Status Card */}
+          {workers.length > 0 && (
+            <Card className="p-4 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm">去中心化 Workers</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {runningCount} 个运行中，{processingCount} 个处理任务
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {workers.map(worker => (
+                    <Badge
+                      key={worker.worker_id}
+                      variant={worker.is_running ? 'default' : 'secondary'}
+                      className={worker.is_running ? 'bg-green-500' : ''}
+                    >
+                      {worker.worker_id.split('-')[1] || worker.worker_id}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
           <AgentOffice
             agents={agents}
             loading={loading}
@@ -409,7 +463,7 @@ export function AgentMonitor() {
         {/* List View */}
         <TabsContent value="list" className="mt-6">
           {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -434,9 +488,9 @@ export function AgentMonitor() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">平均进度</p>
-                  <p className="text-2xl font-bold">{Math.round(avgProgress)}%</p>
+                  <p className="text-2xl font-bold">{avgProgress.toFixed(1)}%</p>
                 </div>
-                <Loader2 className="w-8 h-8 text-orange-500" />
+                <FileText className="w-8 h-8 text-purple-500" />
               </div>
             </Card>
 
@@ -446,15 +500,79 @@ export function AgentMonitor() {
                   <p className="text-sm text-muted-foreground">CPU 使用率</p>
                   <p className="text-2xl font-bold">{totalCpuUsage.toFixed(1)}%</p>
                 </div>
-                <Cpu className="w-8 h-8 text-purple-500" />
+                <Cpu className="w-8 h-8 text-orange-500" />
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                内存：{(totalMemoryUsage / 1024).toFixed(1)} GB
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">内存使用</p>
+                  <p className="text-2xl font-bold">{totalMemoryUsage.toFixed(1)}%</p>
+                </div>
+                <HardDrive className="w-8 h-8 text-red-500" />
               </div>
             </Card>
           </div>
 
-          {/* Agent List */}
+          {/* Workers Status Section */}
+          {workers.length > 0 && (
+            <Card className="mb-6 border-2 border-blue-200 dark:border-blue-800">
+              <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <h3 className="font-semibold">去中心化 Workers</h3>
+                      <p className="text-xs text-muted-foreground">
+                        完全独立的智能体，无需中心调度器
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="default" className="bg-green-500">
+                      {runningCount} 运行中
+                    </Badge>
+                    <Badge variant="secondary">{processingCount} 处理中</Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4">
+                <div className="space-y-2">
+                  {workers.map(worker => (
+                    <div
+                      key={worker.worker_id}
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant={worker.is_running ? 'default' : 'secondary'}
+                          className={worker.is_running ? 'bg-green-500' : ''}
+                        >
+                          {worker.is_running ? '●' : '○'} {worker.worker_id}
+                        </Badge>
+                        {worker.current_story_id && (
+                          <span className="text-xs text-muted-foreground">
+                            处理: {worker.current_story_id}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => stopWorker(worker.worker_id)}
+                        disabled={!worker.is_running}
+                      >
+                        <Square className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Agents Table */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {loading ? (
               <div className="col-span-full flex items-center justify-center py-12">
