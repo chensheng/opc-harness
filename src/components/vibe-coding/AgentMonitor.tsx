@@ -137,6 +137,12 @@ export function AgentMonitor() {
     // 获取最后一条消息
     const lastMessage = messages[messages.length - 1]
     
+    // 🚫 过滤掉系统级别的连接状态消息，不显示在智能体日志中
+    if (lastMessage.type === 'status' && lastMessage.content?.includes('Frontend connected')) {
+      console.log('[AgentMonitor] Skipping system connection status message')
+      return
+    }
+    
     console.log('[AgentMonitor] Processing message:', {
       type: lastMessage.type,
       sessionId: lastMessage.sessionId,
