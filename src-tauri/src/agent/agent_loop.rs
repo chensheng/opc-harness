@@ -10,7 +10,7 @@ use crate::agent::daemon::DaemonManager;
 use crate::agent::worktree_manager::WorktreeManager;
 use crate::agent::ai_cli_interaction::AICLIMessage;
 use log;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Agent Loop 管理器
 pub struct AgentLoop {

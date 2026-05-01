@@ -562,3 +562,5 @@ impl AgentManager {
         } else {
             false
         }
+    }
+}
