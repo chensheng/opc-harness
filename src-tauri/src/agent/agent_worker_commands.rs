@@ -10,9 +10,9 @@ use crate::agent::agent_manager::AgentManager;
 #[tauri::command]
 pub async fn start_agent_worker(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    worker_id: Option<String>,
-    project_id: String,
-    check_interval: Option<u64>,
+    #[serde(alias = "workerId")] worker_id: Option<String>,
+    #[serde(alias = "projectId")] project_id: String,
+    #[serde(alias = "checkInterval")] check_interval: Option<u64>,
 ) -> Result<String, String> {
     let mut manager = state.write().await;
     
@@ -68,9 +68,11 @@ pub async fn start_agent_worker(
 #[tauri::command]
 pub async fn stop_agent_worker(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    worker_id: String,
+    #[serde(alias = "workerId")] worker_id: String,
 ) -> Result<(), String> {
     let mut manager = state.write().await;
+    
+    log::info!("[AgentWorkerCommand] Stopping agent worker: {}", worker_id);
     
     if let Some(worker_arc) = manager.agent_workers.remove(&worker_id) {
         let mut worker = worker_arc.write().await;
