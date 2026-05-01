@@ -18,3 +18,59 @@ import { MarketingStrategy } from './components/vibe-marketing/MarketingStrategy
 import { AIConfig } from './components/common/AIConfig'
 import { Settings } from './components/common/Settings'
 import { useProjectStore } from './stores'
+import { useAgentLoop } from './hooks/useAgentLoop'
+
+function App() {
+  const { loadProjectsFromDatabase } = useProjectStore()
+  const { startAgentLoop, checkStatus } = useAgentLoop()
+
+  // 应用启动时从数据库加载项目
+  useEffect(() => {
+    loadProjectsFromDatabase()
+  }, [loadProjectsFromDatabase])
+
+  // 应用启动后自动启动 Agent Loop（延迟 2 秒确保数据库已加载）
+  useEffect(() => {
+    const initAgentLoop = async () => {
+      try {
+        const projectId = localStorage.getItem('currentProjectId')
+        if (projectId) {
+          await startAgentLoop(projectId)
+          console.log('[App] Agent Loop auto-started for project:', projectId)
+        }
+      } catch (err) {
+        console.error('[App] Failed to auto-start Agent Loop:', err)
+      }
+    }
+    
+    const timer = setTimeout(initAgentLoop, 2000)
+    
+    return () => clearTimeout(timer)
+  }, [startAgentLoop, checkStatus])
+
+  return (
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/idea" element={<IdeaInput />} />
+        <Route path="/prd/:projectId" element={<PRDDisplay />} />
+        <Route path="/personas/:projectId" element={<UserPersonas />} />
+        <Route path="/competitors/:projectId" element={<CompetitorAnalysis />} />
+        <Route path="/coding" element={<CodingWorkspace />} />
+        <Route path="/coding/:projectId" element={<CodingWorkspace />} />
+        <Route path="/initializer/:projectId" element={<InitializerWorkflow />} />
+        <Route path="/agent-monitor/:projectId" element={<AgentMonitor />} />
+        <Route path="/progress/:projectId" element={<ProgressVisualization />} />
+        <Route path="/logs/:projectId" element={<LogTerminal />} />
+        {/* FileExplorer 需要在 CodingWorkspace 中使用，不单独作为路由 */}
+        <Route path="/checkpoint/:projectId/:checkpointId" element={<CheckpointReview />} />
+        <Route path="/marketing" element={<MarketingStrategy />} />
+        <Route path="/marketing/:projectId" element={<MarketingStrategy />} />
+        <Route path="/ai-config" element={<AIConfig />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </AppLayout>
+  )
+}
+
+export default App
