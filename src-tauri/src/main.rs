@@ -154,9 +154,12 @@ fn main() {
             {
                 let manager_clone = agent_manager.clone();
                 tauri::async_runtime::block_on(async move {
-                    let default_config = agent::daemon::DaemonConfig {
+                    let default_config = agent::daemon_types::DaemonConfig {
+                        session_id: format!("main-session-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()),
+                        project_path: crate::utils::paths::get_workspaces_dir().to_string_lossy().to_string(),
+                        log_level: "info".to_string(),
                         max_concurrent_agents: 3,
-                        workspaces_root: crate::utils::paths::get_workspaces_dir().to_string_lossy().to_string(),
+                        workspace_dir: crate::utils::paths::get_workspaces_dir().to_string_lossy().to_string(),
                     };
                     
                     match manager_clone.read().await.initialize(default_config).await {

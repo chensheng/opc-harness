@@ -161,7 +161,7 @@ export interface WorktreeInfo {
   is_orphaned: boolean
 }
 
-export function useWorktreeManager() {
+export function useWorktreeManager(projectId?: string) {
   const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([])
   const [diskUsage, setDiskUsage] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -169,11 +169,16 @@ export function useWorktreeManager() {
 
   /** 创建 Worktree */
   const createWorktree = useCallback(async (agentId: string, storyId: string, branchName: string) => {
+    if (!projectId) {
+      throw new Error('Project ID is required for worktree operations')
+    }
+    
     setIsLoading(true)
     setError(null)
 
     try {
       const path = await invoke<string>('create_worktree', {
+        projectId,
         agentId,
         storyId,
         branchName,
@@ -193,15 +198,20 @@ export function useWorktreeManager() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   /** 删除 Worktree */
   const removeWorktree = useCallback(async (agentId: string) => {
+    if (!projectId) {
+      throw new Error('Project ID is required for worktree operations')
+    }
+    
     setIsLoading(true)
     setError(null)
 
     try {
       await invoke('remove_worktree', {
+        projectId,
         agentId,
       })
       
@@ -217,7 +227,7 @@ export function useWorktreeManager() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   /** 列出所有 Worktrees */
   const listWorktrees = useCallback(async () => {
@@ -225,9 +235,11 @@ export function useWorktreeManager() {
     setError(null)
 
     try {
-      const wtList = await invoke<WorktreeInfo[]>('list_worktrees')
+      const wtList = await invoke<WorktreeInfo[]>('list_worktrees', {
+        projectId: projectId || null,  // 传递项目 ID，如果未提供则列出所有
+      })
       setWorktrees(wtList)
-      console.log('[useWorktreeManager] Listed', wtList.length, 'worktrees')
+      console.log('[useWorktreeManager] Listed', wtList.length, 'worktrees for project:', projectId || 'all')
       
       // 同时获取磁盘使用量
       await getDiskUsage()
@@ -246,16 +258,22 @@ export function useWorktreeManager() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   /** 清理孤立的 Worktrees */
   const cleanupOrphaned = useCallback(async () => {
+    if (!projectId) {
+      throw new Error('Project ID is required for worktree cleanup')
+    }
+    
     setIsLoading(true)
     setError(null)
 
     try {
-      const count = await invoke<number>('cleanup_orphaned_worktrees')
-      console.log('[useWorktreeManager] Cleaned up', count, 'orphaned worktrees')
+      const count = await invoke<number>('cleanup_orphaned_worktrees', {
+        projectId,
+      })
+      console.log('[useWorktreeManager] Cleaned up', count, 'orphaned worktrees for project:', projectId)
       
       // 刷新列表
       await listWorktrees()
@@ -274,12 +292,14 @@ export function useWorktreeManager() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [projectId])
 
   /** 获取磁盘使用量 */
   const getDiskUsage = useCallback(async () => {
     try {
-      const bytes = await invoke<number>('get_worktree_disk_usage')
+      const bytes = await invoke<number>('get_worktree_disk_usage', {
+        projectId: projectId || null,
+      })
       setDiskUsage(bytes)
       return bytes
     } catch (err) {
@@ -292,7 +312,7 @@ export function useWorktreeManager() {
       }
       return 0
     }
-  }, [])
+  }, [projectId])
 
   /** 格式化磁盘使用量 */
   const formatDiskUsage = useCallback((bytes: number) => {

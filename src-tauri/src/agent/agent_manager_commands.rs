@@ -1053,11 +1053,15 @@ pub async fn is_agent_loop_running(
 #[tauri::command]
 pub async fn create_worktree(
     state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: String,  // 新增：项目 ID 参数
     agent_id: String,
     story_id: String,
     branch_name: String,
 ) -> Result<String, String> {
     let manager = state.read().await;
+    
+    // 验证项目 ID（可选：检查项目是否存在）
+    log::debug!("[create_worktree] Creating worktree for project: {}, agent: {}", project_id, agent_id);
     
     // 获取 AgentLoop 实例
     let agent_loop_guard = manager.agent_loop.read().await;
@@ -1095,9 +1099,12 @@ pub async fn create_worktree(
 #[tauri::command]
 pub async fn remove_worktree(
     state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: String,  // 新增：项目 ID 参数
     agent_id: String,
 ) -> Result<(), String> {
     let manager = state.read().await;
+    
+    log::debug!("[remove_worktree] Removing worktree for project: {}, agent: {}", project_id, agent_id);
     
     let agent_loop_guard = manager.agent_loop.read().await;
     
@@ -1130,6 +1137,7 @@ pub async fn remove_worktree(
 #[tauri::command]
 pub async fn list_worktrees(
     state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: Option<String>,  // 新增：可选的项目 ID 参数，None 表示列出所有
 ) -> Result<Vec<crate::agent::worktree_manager::WorktreeInfo>, String> {
     let manager = state.read().await;
     
@@ -1144,7 +1152,18 @@ pub async fn list_worktrees(
             
             match &result {
                 Ok(worktrees) => {
-                    log::info!("[list_worktrees] Found {} worktrees", worktrees.len());
+                    // 如果指定了 project_id，过滤结果
+                    let filtered = if let Some(pid) = &project_id {
+                        worktrees.iter()
+                            .filter(|wt| wt.path.contains(pid))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    } else {
+                        worktrees.clone()
+                    };
+                    
+                    log::info!("[list_worktrees] Found {} worktrees (filtered: {})", worktrees.len(), filtered.len());
+                    return Ok(filtered);
                 }
                 Err(e) => {
                     log::error!("[list_worktrees] Failed to list worktrees: {}", e);
@@ -1172,8 +1191,11 @@ pub async fn list_worktrees(
 #[tauri::command]
 pub async fn cleanup_orphaned_worktrees(
     state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: Option<String>,  // 新增：可选的项目 ID 参数
 ) -> Result<usize, String> {
     let manager = state.read().await;
+    
+    log::debug!("[cleanup_orphaned_worktrees] Cleaning up orphaned worktrees for project: {:?}", project_id);
     
     let agent_loop_guard = manager.agent_loop.read().await;
     
@@ -1213,8 +1235,11 @@ pub async fn cleanup_orphaned_worktrees(
 #[tauri::command]
 pub async fn get_worktree_disk_usage(
     state: State<'_, Arc<RwLock<AgentManager>>>,
+    project_id: Option<String>,  // 新增：可选的项目 ID 参数
 ) -> Result<u64, String> {
     let manager = state.read().await;
+    
+    log::debug!("[get_worktree_disk_usage] Getting disk usage for project: {:?}", project_id);
     
     let agent_loop_guard = manager.agent_loop.read().await;
     
