@@ -149,8 +149,30 @@ fn main() {
 
             // Initialize AgentManager state
             let agent_manager = Arc::new(RwLock::new(agent::agent_manager::AgentManager::new(app.app_handle().clone())));
+            
+            // 自动初始化 Agent Manager (启动 Daemon 和 Agent Loop)
+            {
+                let manager_clone = agent_manager.clone();
+                tauri::async_runtime::block_on(async move {
+                    let default_config = agent::daemon::DaemonConfig {
+                        max_concurrent_agents: 3,
+                        workspaces_root: crate::utils::paths::get_workspaces_dir().to_string_lossy().to_string(),
+                    };
+                    
+                    match manager_clone.read().await.initialize(default_config).await {
+                        Ok(_) => {
+                            log::info!("[Main] ✓ Agent Manager automatically initialized with Daemon and Agent Loop");
+                        }
+                        Err(e) => {
+                            log::warn!("[Main] ⚠️ Failed to auto-initialize Agent Manager: {}", e);
+                            log::warn!("[Main] 💡 Agent Loop features will be unavailable until manually initialized");
+                        }
+                    }
+                });
+            }
+            
             app.manage(agent_manager);
-            log::info!("AgentManager state initialized");
+            log::info!("AgentManager state registered");
 
             // Check and create workspace directories for all projects
             if let Err(e) = db::ensure_all_project_workspaces(&app.app_handle()) {
