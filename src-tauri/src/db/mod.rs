@@ -15,7 +15,7 @@ mod sprint_repository;
 
 // Re-export Sprint repository functions for Agent Loop
 pub use sprint_repository::{
-    get_active_sprint, get_pending_stories_by_sprint, lock_user_story,
+    get_active_sprint, get_pending_stories_by_sprint, lock_user_story, unlock_user_story,
     update_user_story_status, complete_user_story, fail_user_story,
     get_user_story_by_id,
 };

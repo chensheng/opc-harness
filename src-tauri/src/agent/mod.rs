@@ -36,7 +36,11 @@ pub mod prd_parser;
 pub mod coding_agent;
 pub mod test_generator_agent;
 
-// 去中心化智能体系统 (Decentralized Agent System)
+// 完全去中心化智能体系统 (Fully Decentralized Agent System)
+pub mod agent_worker;
+pub mod agent_worker_commands;
+
+// 旧的去中心化智能体系统 (保留作为兼容)
 pub mod decentralized {
     pub mod event_bus;
     pub mod distributed_lock;

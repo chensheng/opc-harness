@@ -318,10 +318,15 @@ fn main() {
             agent::agent_manager::cleanup_orphaned_worktrees,
             agent::agent_manager::get_worktree_disk_usage,
 
-            // 去中心化 Agent Node 命令 (Decentralized Agent System)
+            // 去中心化 Agent Node 命令 (Decentralized Agent System - 旧架构)
             agent::decentralized_commands::start_decentralized_node,
             agent::decentralized_commands::stop_decentralized_node,
             agent::decentralized_commands::list_decentralized_nodes,
+
+            // 完全去中心化 Agent Worker 命令 (Fully Decentralized Agent System - 新架构)
+            agent::agent_worker_commands::start_agent_worker,
+            agent::agent_worker_commands::stop_agent_worker,
+            agent::agent_worker_commands::list_agent_workers,
 
             // PRD Quality Check commands (US-050)
 
@@ -367,3 +372,5 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+

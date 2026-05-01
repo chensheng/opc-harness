@@ -159,6 +159,21 @@ pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str) -> Res
     Ok(success)
 }
 
+/// 解锁用户故事（释放锁，允许其他 Agent 重新获取）
+pub fn unlock_user_story(conn: &Connection, story_id: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE user_stories 
+         SET assigned_agent = NULL,
+             locked_at = NULL,
+             updated_at = ?1
+         WHERE id = ?2",
+        rusqlite::params![Utc::now().to_rfc3339(), story_id],
+    )?;
+    
+    println!("[DB::unlock_user_story] Story {} unlocked", story_id);
+    Ok(())
+}
+
 /// 更新用户故事状态
 pub fn update_user_story_status(conn: &Connection, story_id: &str, status: &str) -> Result<usize> {
     let now = Utc::now().to_rfc3339();
