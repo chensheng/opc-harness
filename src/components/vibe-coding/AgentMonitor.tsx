@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import {
@@ -19,7 +19,7 @@ import {
   Edit,
   LayoutGrid,
   List,
-  Server,
+  Bot,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -37,7 +37,6 @@ import type { AgentInfo } from './CodingWorkspaceTypes'
 import { CreateAgentDialog } from './CreateAgentDialog'
 import { EditAgentDialog } from './EditAgentDialog'
 import { AgentOffice } from './AgentOffice'
-import { useAgentWorkers } from '@/hooks/useAgentWorkers'
 import { useAgent } from '@/hooks/useAgent'
 
 // 后端 AgentSession 类型定义
@@ -128,16 +127,17 @@ export function AgentMonitor() {
   const [viewMode, setViewMode] = useState<'office' | 'list'>('office') // 视图模式：办公室或列表
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
 
-  // 使用去中心化 Worker Hook
-  const { workers, isLoading: workersLoading, error: workersError, startWorker, stopWorker, refreshWorkers, getRunningCount, getBusyCount } =
-    useAgentWorkers()
-
   // 使用 Agent WebSocket Hook（实时通信）
   const { messages, connectWebSocket, disconnectWebSocket, clearMessages } = useAgent()
 
-  // 计算运行中和处理中的 Worker 数量
-  const runningCount = getRunningCount()
-  const processingCount = getBusyCount()
+  // 刷新智能体列表（从数据库加载）
+  const refreshAgents = useCallback(async () => {
+    await loadAgents(true)
+  }, [])
+
+  // 计算运行中和处理中的智能体数量
+  const runningCount = agents.filter(a => a.status === 'running').length
+  const processingCount = agents.filter(a => a.currentTask && a.status === 'running').length
 
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
@@ -389,22 +389,13 @@ export function AgentMonitor() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Agent 监控面板</h2>
-          <p className="text-muted-foreground mt-1">实时监控多个 AI Agent 的运行状态和资源使用</p>
+          <h2 className="text-2xl font-bold">智能体监控面板</h2>
+          <p className="text-muted-foreground mt-1">实时监控智能体的运行状态、任务执行和资源使用</p>
         </div>
         <div className="flex gap-2">
-          {/* 去中心化 Worker 控制 */}
-          <Button
-            variant="outline"
-            onClick={() => startWorker({ project_id: projectId || '' })}
-            disabled={!projectId}
-            size="sm"
-          >
-            <Server className="w-4 h-4 mr-2" />
-            启动 Worker
-          </Button>
+          {/* 智能体状态指示器 */}
           <Badge variant="secondary" className="px-3 py-1">
-            {runningCount} 运行中 / {workers.length} 总计
+            {runningCount} 运行中 / {agents.length} 总计
           </Badge>
 
           <Button variant="outline" onClick={handleRefresh} disabled={loading}>
@@ -413,7 +404,7 @@ export function AgentMonitor() {
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            创建 Agent
+            创建智能体
           </Button>
         </div>
       </div>
@@ -437,31 +428,34 @@ export function AgentMonitor() {
 
         {/* Office View */}
         <TabsContent value="office" className="mt-6">
-          {/* Worker Status Card */}
-          {workers.length > 0 && (
+          {/* Agent Status Card */}
+          {agents.length > 0 && (
             <Card className="p-4 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-blue-200 dark:border-blue-800">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <Bot className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-sm">去中心化 Workers</h3>
+                    <h3 className="font-semibold text-sm">智能体运行状态</h3>
                     <p className="text-xs text-muted-foreground">
-                      {runningCount} 个运行中，{processingCount} 个处理任务
+                      {runningCount} 个运行中，{processingCount} 个处理任务 · 每个智能体创建后自动启动并持续监控数据库
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {workers.map(worker => (
+                  {agents.slice(0, 5).map(agent => (
                     <Badge
-                      key={worker.worker_id}
-                      variant={worker.is_running ? 'default' : 'secondary'}
-                      className={worker.is_running ? 'bg-green-500' : ''}
+                      key={agent.agentId}
+                      variant={agent.status === 'running' ? 'default' : 'secondary'}
+                      className={agent.status === 'running' ? 'bg-green-500' : ''}
                     >
-                      {worker.worker_id.split('-')[1] || worker.worker_id}
+                      {agent.name || agent.agentId.substring(0, 8)}
                     </Badge>
                   ))}
+                  {agents.length > 5 && (
+                    <Badge variant="outline">+{agents.length - 5}</Badge>
+                  )}
                 </div>
               </div>
             </Card>
@@ -532,63 +526,6 @@ export function AgentMonitor() {
               </div>
             </Card>
           </div>
-
-          {/* Workers Status Section */}
-          {workers.length > 0 && (
-            <Card className="mb-6 border-2 border-blue-200 dark:border-blue-800">
-              <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <h3 className="font-semibold">去中心化 Workers</h3>
-                      <p className="text-xs text-muted-foreground">
-                        完全独立的智能体，无需中心调度器
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="default" className="bg-green-500">
-                      {runningCount} 运行中
-                    </Badge>
-                    <Badge variant="secondary">{processingCount} 处理中</Badge>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="space-y-2">
-                  {workers.map(worker => (
-                    <div
-                      key={worker.worker_id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          variant={worker.is_running ? 'default' : 'secondary'}
-                          className={worker.is_running ? 'bg-green-500' : ''}
-                        >
-                          {worker.is_running ? '●' : '○'} {worker.worker_id}
-                        </Badge>
-                        {worker.current_story_id && (
-                          <span className="text-xs text-muted-foreground">
-                            处理: {worker.current_story_id}
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => stopWorker(worker.worker_id)}
-                        disabled={!worker.is_running}
-                      >
-                        <Square className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          )}
 
           {/* Real-time Logs Panel */}
           <Card className="mb-6 border-2 border-green-200 dark:border-green-800">
@@ -672,10 +609,10 @@ export function AgentMonitor() {
               <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                 <Activity className="w-12 h-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">暂无智能体</h3>
-                <p className="text-muted-foreground mb-4">点击"创建 Agent"按钮开始创建新的智能体</p>
+                <p className="text-muted-foreground mb-4">点击"创建智能体"按钮开始创建新的智能体</p>
                 <Button onClick={() => setShowCreateDialog(true)}>
                   <Plus className="w-4 h-4 mr-2" />
-                  创建 Agent
+                  创建智能体
                 </Button>
               </div>
             ) : (

@@ -132,8 +132,8 @@ pub async fn create_agent_with_cli(
     };
     log::info!("[create_agent_with_cli] Agent type: {:?}", agent_type);
     
-        // 从项目路径中提取 project_id (UUID)
-    let project_id = PathBuf::from(&project_path)
+    // 从项目路径中提取 project_id (UUID)
+    let extracted_project_id = PathBuf::from(&project_path)
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| {
@@ -142,35 +142,59 @@ pub async fn create_agent_with_cli(
         })?
         .to_string();
     
-    log::info!("[create_agent_with_cli] Extracted project_id: {}", project_id);
+    log::info!("[create_agent_with_cli] Extracted project_id: {}", extracted_project_id);
     
     // 创建 Agent（传入 project_id、project_path、name 和 agents_md_content）
     // 注意：AGENTS.md 内容仅保存到数据库，不写入文件系统
     log::info!("[create_agent_with_cli] Calling manager.create_agent...");
-    let manager = state.read().await;
+    let mut manager = state.write().await;
     let result = manager.create_agent(
         agent_type.clone(), 
         session_id.clone(), 
-        project_id.clone(), 
+        extracted_project_id.clone(), 
         project_path.clone(), 
         name,
         Some(agents_content),  // Pass AGENTS.md content to database
     ).await;
-    drop(manager);
     
     log::info!("[create_agent_with_cli] manager.create_agent result: {:?}", result.is_ok());
     
-    // 注意：manager.create_agent 内部已经完成了数据库持久化，无需再次保存
-    match &result {
-        Ok(agent_id) => {
-            log::info!("[create_agent_with_cli] Agent created successfully: agent_id={}", agent_id);
-            log::info!("[create_agent_with_cli] Agent session already persisted by AgentManager");
-        }
-        Err(e) => {
-            log::warn!("Agent creation failed, skipping database persistence: {}", e);
+    // 如果创建成功，立即启动去中心化 Agent Worker
+    if let Ok(ref agent_id) = result {
+        log::info!("[create_agent_with_cli] ✓ Agent created: {}, now starting decentralized worker...", agent_id);
+        
+        // 创建 Worker 配置（使用 agent_id 作为 worker_id）
+        let config = crate::agent::agent_worker::AgentWorkerConfig {
+            worker_id: agent_id.clone(),  // 使用 agent_id 作为 worker_id，统一概念
+            project_id: extracted_project_id.clone(),
+            check_interval_secs: 30,  // 每 30 秒检查一次数据库
+            max_concurrent: 1,
+        };
+        
+        // 获取 Daemon Manager
+        let daemon_manager = manager.daemon.clone();
+        
+        // 创建并启动 Agent Worker
+        let mut worker = crate::agent::agent_worker::AgentWorker::new(config, daemon_manager);
+        
+        // 设置 Worktree Manager
+        let workspaces_root = crate::utils::paths::get_workspaces_dir();
+        worker.set_worktree_manager(&workspaces_root.to_string_lossy());
+        
+        match worker.start().await {
+            Ok(_) => {
+                log::info!("[create_agent_with_cli] ✓ Decentralized worker started automatically for agent: {}", agent_id);
+                // 保存 Worker 引用到 Manager
+                manager.agent_workers.insert(agent_id.clone(), Arc::new(RwLock::new(worker)));
+            }
+            Err(e) => {
+                log::warn!("[create_agent_with_cli] ⚠️ Failed to auto-start worker for agent {}: {}", agent_id, e);
+                // 不返回错误，因为 Agent Session 已经创建成功，用户可以稍后手动启动
+            }
         }
     }
     
+    drop(manager);
     result
 }
 
