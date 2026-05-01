@@ -301,10 +301,11 @@ export function AgentMonitor() {
       }
       
       // 调用后端 API 真正启动 Agent Worker
+      // 注意：Tauri 命令参数必须使用蛇形命名（snake_case），与 Rust 函数参数一致
       const workerId = await invoke<string>('start_agent_worker', {
-        workerId: agentId,
-        projectId: projectId,
-        checkInterval: 30, // 每 30 秒检查一次待处理的故事
+        worker_id: agentId,
+        project_id: projectId,
+        check_interval: 30, // 每 30 秒检查一次待处理的故事
       })
       
       console.log('[AgentMonitor] Agent worker started:', workerId)
@@ -332,8 +333,9 @@ export function AgentMonitor() {
       console.log('[AgentMonitor] Pausing agent worker:', agentId)
       
       // 调用后端 API 真正停止 Agent Worker
+      // 注意：Tauri 命令参数必须使用蛇形命名（snake_case）
       await invoke('stop_agent_worker', {
-        workerId: agentId,
+        worker_id: agentId,
       })
       
       console.log('[AgentMonitor] Agent worker stopped:', agentId)
@@ -367,10 +369,11 @@ export function AgentMonitor() {
       }
       
       // 调用后端 API 重新启动 Agent Worker
+      // 注意：Tauri 命令参数必须使用蛇形命名（snake_case）
       const workerId = await invoke<string>('start_agent_worker', {
-        workerId: agentId,
-        projectId: projectId,
-        checkInterval: 30,
+        worker_id: agentId,
+        project_id: projectId,
+        check_interval: 30,
       })
       
       console.log('[AgentMonitor] Agent worker resumed:', workerId)
