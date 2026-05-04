@@ -39,6 +39,10 @@ export interface AgentInfo {
   logs: string[]
   sessionId: string
   /**
+   * 所属项目 ID（用于日志路由）
+   */
+  projectId?: string
+  /**
    * 智能体外观配置 (随机生成)
    */
   appearance?: {

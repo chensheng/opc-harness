@@ -113,6 +113,7 @@ const convertSessionToAgentInfo = (session: AgentSession): AgentInfo => {
     memoryUsage: 0, // 需要从实时监控获取
     logs,
     sessionId: session.sessionId || session.session_id || '',
+    projectId: session.projectId || session.project_id, // 保存项目 ID 用于日志路由
   }
 }
 
@@ -147,66 +148,90 @@ export function AgentMonitor() {
       type: lastMessage.type,
       sessionId: lastMessage.sessionId,
       content: lastMessage.content?.substring(0, 100),
-      metadata: lastMessage.metadata
+      metadata: lastMessage.metadata,
+      timestamp: lastMessage.timestamp
     })
     
-    console.log('[AgentMonitor] Current agents:', agents.map(a => ({
+    // 打印所有智能体的 ID 信息，用于调试
+    console.log('[AgentMonitor] Available agents:', agents.map(a => ({
       agentId: a.agentId,
       sessionId: a.sessionId,
-      logsCount: a.logs.length
+      projectId: a.projectId,
+      expectedSessionIds: [
+        `agent-${a.agentId}`,
+        a.sessionId,
+        `project-${a.projectId}`
+      ]
     })))
     
     // 根据 sessionId 找到对应的智能体
     setAgents(prev => {
       let updated = false
       
-      const newAgents = prev.map(agent => {
-        // 匹配 sessionId（可能是 project-{projectId} 或 agent-{agentId}）
-        const isMatch = 
-          lastMessage.sessionId === agent.sessionId ||
-          lastMessage.sessionId === `project-${projectId}` ||
-          lastMessage.content?.includes(agent.agentId)
-        
-        console.log('[AgentMonitor] Checking match for agent:', {
-          agentId: agent.agentId,
-          agentSessionId: agent.sessionId,
-          messageSessionId: lastMessage.sessionId,
-          projectSessionId: `project-${projectId}`,
-          isMatch
-        })
-        
-        // 处理 log、status、progress、error 类型的消息
-        if (isMatch && (lastMessage.type === 'log' || lastMessage.type === 'status' || lastMessage.type === 'progress' || lastMessage.type === 'error')) {
-          // 添加新日志到该智能体
-          const timestamp = new Date(lastMessage.timestamp).toLocaleTimeString('zh-CN', { hour12: false })
-          let logContent = `[${timestamp}] ${lastMessage.content}`
-          
-          // 如果是 status 类型，添加状态前缀
-          if (lastMessage.type === 'status') {
-            logContent = `[${timestamp}] 📊 ${lastMessage.content}`
-          } else if (lastMessage.type === 'progress') {
-            logContent = `[${timestamp}] 📈 ${lastMessage.content}`
-          } else if (lastMessage.type === 'error') {
-            logContent = `[${timestamp}] ❌ ${lastMessage.content}`
-          }
-          
-          console.log('[AgentMonitor] Adding log to agent:', agent.agentId, logContent)
-          updated = true
-          
-          return {
-            ...agent,
-            logs: [...agent.logs, logContent].slice(-50), // 保留最近 50 条
-          }
-        }
-        
-        return agent
+      // 找到第一个匹配的智能体（避免重复添加）
+      const matchedAgentIndex = prev.findIndex(agent => {
+        // 尝试多种 sessionId 格式匹配：
+        // 1. agent-{agentId} - 标准格式
+        // 2. agent-{workerId} - Worker ID 格式
+        // 3. 直接匹配 sessionId - 兼容旧格式
+        return lastMessage.sessionId === `agent-${agent.agentId}` ||
+               lastMessage.sessionId === agent.sessionId ||
+               (agent.sessionId && lastMessage.sessionId && lastMessage.sessionId.includes(agent.sessionId))
       })
       
-      if (!updated) {
-        console.warn('[AgentMonitor] No agent matched for message:', lastMessage.sessionId)
+      if (matchedAgentIndex === -1) {
+        console.warn('[AgentMonitor] No agent matched for message:', {
+          sessionId: lastMessage.sessionId,
+          projectId,
+          agents: prev.map(a => ({
+            agentId: a.agentId,
+            projectId: a.projectId,
+            sessionId: a.sessionId,
+            expectedSessionId: `agent-${a.agentId}`
+          }))
+        })
+        return prev
       }
       
-      return newAgents
+      console.log('[AgentMonitor] Matched agent:', {
+        agentId: prev[matchedAgentIndex].agentId,
+        agentProjectId: prev[matchedAgentIndex].projectId,
+        messageSessionId: lastMessage.sessionId
+      })
+      
+      // 处理 log、status、progress、error 类型的消息
+      if (lastMessage.type === 'log' || lastMessage.type === 'status' || lastMessage.type === 'progress' || lastMessage.type === 'error') {
+        // 添加新日志到该智能体
+        const date = new Date(lastMessage.timestamp)
+        const timeStr = date.toLocaleTimeString('zh-CN', { hour12: false })
+        const milliseconds = String(date.getMilliseconds()).padStart(3, '0')
+        const timestamp = `${timeStr}.${milliseconds}`
+        
+        let logContent = `[${timestamp}] ${lastMessage.content}`
+        
+        // 如果是 status 类型，添加状态前缀
+        if (lastMessage.type === 'status') {
+          logContent = `[${timestamp}] 📊 ${lastMessage.content}`
+        } else if (lastMessage.type === 'progress') {
+          logContent = `[${timestamp}] 📈 ${lastMessage.content}`
+        } else if (lastMessage.type === 'error') {
+          logContent = `[${timestamp}] ❌ ${lastMessage.content}`
+        }
+        
+        console.log('[AgentMonitor] Adding log to agent:', prev[matchedAgentIndex].agentId, logContent)
+        updated = true
+        
+        // 创建新的数组，只更新匹配的智能体
+        const newAgents = [...prev]
+        newAgents[matchedAgentIndex] = {
+          ...newAgents[matchedAgentIndex],
+          logs: [...newAgents[matchedAgentIndex].logs, logContent].slice(-50), // 保留最近 50 条
+        }
+        
+        return newAgents
+      }
+      
+      return prev
     })
   }, [messages, projectId, agents])
 
@@ -235,6 +260,23 @@ export function AgentMonitor() {
       disconnectWebSocket()
     }
   }, [projectId, connectWebSocket, disconnectWebSocket])
+
+  // 当智能体列表加载完成后，为每个运行中的智能体建立 WebSocket 连接
+  useEffect(() => {
+    if (agents.length > 0 && projectId) {
+      // 为每个运行中的智能体建立 WebSocket 连接
+      const runningAgents = agents.filter(a => a.status === 'running')
+      
+      runningAgents.forEach(agent => {
+        const sessionId = `agent-${agent.agentId}`
+        console.log('[AgentMonitor] Establishing WebSocket connection for agent:', agent.agentId, 'sessionId:', sessionId)
+        
+        connectWebSocket(sessionId).catch(err => {
+          console.error(`[AgentMonitor] Failed to connect WebSocket for agent ${agent.agentId}:`, err)
+        })
+      })
+    }
+  }, [agents, projectId, connectWebSocket])
 
   // 从数据库加载智能体列表
   const loadAgents = async (silent = false) => {
@@ -884,7 +926,7 @@ export function AgentMonitor() {
                             <p className="text-xs">暂无日志</p>
                           </div>
                         ) : (
-                          agent.logs.slice(-10).map((log, idx) => {
+                          agent.logs.slice(-10).reverse().map((log, idx) => {
                             // 根据日志内容判断类型并着色
                             const isError = log.includes('❌') || log.includes('ERROR') || log.includes('error')
                             const isSuccess = log.includes('✅') || log.includes('SUCCESS') || log.includes('success')
@@ -984,7 +1026,7 @@ export function AgentMonitor() {
                         <div>
                           <h4 className="font-semibold mb-2">完整日志</h4>
                           <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs max-h-48 overflow-y-auto space-y-1">
-                            {agent.logs.map((log, idx) => (
+                            {agent.logs.slice().reverse().map((log, idx) => (
                               <div
                                 key={`${agent.agentId}-full-log-${idx}`}
                                 className="text-gray-700 dark:text-gray-300"
