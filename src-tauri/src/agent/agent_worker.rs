@@ -345,13 +345,16 @@ impl AgentWorker {
         // Step 3: 尝试锁定第一个可用的 Story（乐观锁）
         let mut started_count = 0;
 
-        for story in pending_stories.iter() {
-            let agent_id = format!(
-                "agent-{}-{}",
-                worker_id,
-                Utc::now().timestamp()
-            );
+        // ✅ 修复：直接使用 worker_id 作为 agent_id（worker_id 就是创建智能体时保存在数据库中的 agent_id）
+        let agent_id = worker_id.to_string();
 
+        log::info!(
+            "[AgentWorker:{}] Using database agent_id for this cycle: {}",
+            worker_id,
+            agent_id
+        );
+
+        for story in pending_stories.iter() {
             // 发送尝试锁定 Story 的日志到前端
             Self::send_ws_log_to_both(
                 websocket_manager,

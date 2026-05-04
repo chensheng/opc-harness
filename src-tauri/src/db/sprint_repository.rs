@@ -208,8 +208,38 @@ pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str, lock_t
     let updated = conn.execute(&query, rusqlite::params![agent_id, now, story_id])?;
     
     let success = updated > 0;
-    println!("[DB::lock_user_story] Story {} lock attempt by agent {} (timeout: {}min): {}", 
-             story_id, agent_id, lock_timeout_minutes, if success { "SUCCESS" } else { "FAILED" });
+    
+    if !success {
+        // 锁定失败时，查询当前锁定的 Agent 信息
+        if let Ok(mut stmt) = conn.prepare(
+            "SELECT assigned_agent, locked_at FROM user_stories WHERE id = ?1"
+        ) {
+            match stmt.query_row([story_id], |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?
+                ))
+            }) {
+                Ok((current_agent, locked_at)) => {
+                    println!(
+                        "[DB::lock_user_story] Story {} lock FAILED - Already locked by agent {:?} at {:?}",
+                        story_id, current_agent, locked_at
+                    );
+                }
+                Err(_) => {
+                    println!(
+                        "[DB::lock_user_story] Story {} lock FAILED - Story not found or in invalid state",
+                        story_id
+                    );
+                }
+            }
+        }
+    } else {
+        println!(
+            "[DB::lock_user_story] Story {} lock SUCCESS by agent {} (timeout: {}min)",
+            story_id, agent_id, lock_timeout_minutes
+        );
+    }
     
     Ok(success)
 }
