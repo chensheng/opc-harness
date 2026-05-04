@@ -322,12 +322,18 @@ export function AgentMonitor() {
         return
       }
       
+      console.log('[AgentMonitor] Calling start_agent_worker with params:', {
+        workerId: agentId,
+        projectId: projectId,
+        checkInterval: 30,
+      })
+      
       // 调用后端 API 真正启动 Agent Worker
-      // 注意：Tauri 命令参数必须使用蛇形命名（snake_case），与 Rust 函数参数一致
+      // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       const workerId = await invoke<string>('start_agent_worker', {
-        worker_id: agentId,
-        project_id: projectId,
-        check_interval: 30, // 每 30 秒检查一次待处理的故事
+        workerId: agentId,
+        projectId: projectId,
+        checkInterval: 30, // 每 30 秒检查一次待处理的故事
       })
       
       console.log('[AgentMonitor] Agent worker started:', workerId)
@@ -355,9 +361,9 @@ export function AgentMonitor() {
       console.log('[AgentMonitor] Pausing agent worker:', agentId)
       
       // 调用后端 API 真正停止 Agent Worker
-      // 注意：Tauri 命令参数必须使用蛇形命名（snake_case）
+      // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       await invoke('stop_agent_worker', {
-        worker_id: agentId,
+        workerId: agentId,
       })
       
       console.log('[AgentMonitor] Agent worker stopped:', agentId)
@@ -391,11 +397,11 @@ export function AgentMonitor() {
       }
       
       // 调用后端 API 重新启动 Agent Worker
-      // 注意：Tauri 命令参数必须使用蛇形命名（snake_case）
+      // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       const workerId = await invoke<string>('start_agent_worker', {
-        worker_id: agentId,
-        project_id: projectId,
-        check_interval: 30,
+        workerId: agentId,
+        projectId: projectId,
+        checkInterval: 30,
       })
       
       console.log('[AgentMonitor] Agent worker resumed:', workerId)
