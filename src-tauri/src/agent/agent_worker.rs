@@ -206,7 +206,7 @@ impl AgentWorker {
             Some("AgentWorker"),
         ).await;
 
-        // Step 1: 查询活跃 Sprint
+        // Step 1: 查询活跃 Sprint（修复：添加项目隔离）
         let conn = db::get_connection()
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -228,7 +228,8 @@ impl AgentWorker {
             Some("AgentWorker"),
         ).await;
 
-        let active_sprint = match db::get_active_sprint(&conn)
+        // ✅ 关键修复：传入 project_id 实现项目隔离
+        let active_sprint = match db::get_active_sprint(&conn, project_id)
             .map_err(|e| format!("Failed to query active sprint: {}", e))? {
             Some(sprint) => sprint,
             None => {

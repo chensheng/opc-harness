@@ -80,17 +80,19 @@ pub fn delete_sprint(conn: &Connection, sprint_id: &str) -> Result<usize> {
     Ok(deleted)
 }
 
-/// 获取当前活跃 Sprint（基于状态）
-pub fn get_active_sprint(conn: &Connection) -> Result<Option<Sprint>> {
+/// 获取指定项目的活跃 Sprint（修复：添加项目隔离）
+pub fn get_active_sprint(conn: &Connection, project_id: &str) -> Result<Option<Sprint>> {
     let now = Utc::now().to_rfc3339();
     
     log::info!("[DB::get_active_sprint] Current time (UTC): {}", now);
-    log::info!("[DB::get_active_sprint] Querying for active sprint with condition: status = 'active'");
+    log::info!("[DB::get_active_sprint] Querying for active sprint in project: {}", project_id);
     
-    // 先查询所有 sprints 以便调试
-    let mut debug_stmt = conn.prepare("SELECT id, name, start_date, end_date, status FROM sprints ORDER BY created_at DESC")?;
-    let mut debug_rows = debug_stmt.query([])?;
-    log::info!("[DB::get_active_sprint] All sprints in database:");
+    // 先查询该项目的所有 sprints 以便调试
+    let mut debug_stmt = conn.prepare(
+        "SELECT id, name, start_date, end_date, status FROM sprints WHERE project_id = ?1 ORDER BY created_at DESC"
+    )?;
+    let mut debug_rows = debug_stmt.query([project_id])?;
+    log::info!("[DB::get_active_sprint] All sprints in project {}:", project_id);
     while let Some(row) = debug_rows.next()? {
         let id: String = row.get(0)?;
         let name: String = row.get(1)?;
@@ -105,22 +107,23 @@ pub fn get_active_sprint(conn: &Connection) -> Result<Option<Sprint>> {
     
     // 简化查询：只检查状态为 'active' 的 Sprint，不检查日期范围
     // 这样可以避免因日期设置错误导致智能体无法工作
+    // ✅ 关键修复：添加 project_id 过滤，实现项目隔离
     let mut stmt = conn.prepare(
         "SELECT * FROM sprints 
-         WHERE status = 'active'
+         WHERE project_id = ?1 AND status = 'active'
          ORDER BY created_at DESC 
          LIMIT 1"
     )?;
     
-    let mut rows = stmt.query([])?;
+    let mut rows = stmt.query([project_id])?;
     
     if let Some(row) = rows.next()? {
         let sprint = Sprint::from_row(row)?;
-        log::info!("[DB::get_active_sprint] Found active sprint: {} (ID: {}, Start: {}, End: {})", 
-                   sprint.name, sprint.id, sprint.start_date, sprint.end_date);
+        log::info!("[DB::get_active_sprint] Found active sprint in project {}: {} (ID: {}, Start: {}, End: {})", 
+                   project_id, sprint.name, sprint.id, sprint.start_date, sprint.end_date);
         Ok(Some(sprint))
     } else {
-        log::warn!("[DB::get_active_sprint] No active sprint found (status != 'active')");
+        log::warn!("[DB::get_active_sprint] No active sprint found in project {} (status != 'active')", project_id);
         Ok(None)
     }
 }
