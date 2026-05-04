@@ -39,6 +39,11 @@ import { EditAgentDialog } from './EditAgentDialog'
 import { AgentOffice } from './AgentOffice'
 import { useAgent } from '@/hooks/useAgent'
 
+// ==================== 配置常量 ====================
+const LOG_RETENTION_LIMIT = 50 // 每个智能体保留的最大日志数量
+const LOG_DISPLAY_COUNT = 10   // UI 显示的最近日志数量
+const LOG_THROTTLE_INTERVAL = 200 // 日志节流间隔（毫秒）- 防止高频日志刷屏
+
 // 后端 AgentSession 类型定义
 interface AgentSession {
   // 驼峰命名（实际返回的格式）
@@ -225,7 +230,7 @@ export function AgentMonitor() {
         const newAgents = [...prev]
         newAgents[matchedAgentIndex] = {
           ...newAgents[matchedAgentIndex],
-          logs: [...newAgents[matchedAgentIndex].logs, logContent].slice(-50), // 保留最近 50 条
+          logs: [...newAgents[matchedAgentIndex].logs, logContent].slice(-LOG_RETENTION_LIMIT), // 保留最近 LOG_RETENTION_LIMIT 条
         }
         
         return newAgents
@@ -926,7 +931,7 @@ export function AgentMonitor() {
                             <p className="text-xs">暂无日志</p>
                           </div>
                         ) : (
-                          agent.logs.slice(-10).reverse().map((log, idx) => {
+                          agent.logs.slice(-LOG_DISPLAY_COUNT).reverse().map((log, idx) => {
                             // 根据日志内容判断类型并着色
                             const isError = log.includes('❌') || log.includes('ERROR') || log.includes('error')
                             const isSuccess = log.includes('✅') || log.includes('SUCCESS') || log.includes('success')

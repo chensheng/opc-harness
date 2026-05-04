@@ -32,6 +32,7 @@ pub async fn start_agent_worker(
         project_id: project_id.clone(),
         check_interval_secs: check_interval,
         max_concurrent: 1,
+        app_handle: Some(manager.app_handle.clone()),
     };
     
     // 获取 Daemon Manager 和 WebSocket Manager

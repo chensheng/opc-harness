@@ -16,8 +16,10 @@ use crate::agent::daemon::DaemonManager;
 use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::worktree_manager::WorktreeManager;
 use crate::agent::ai_cli_interaction::AICLIMessage;
+use crate::agent::daemon_types::StoryContext;
 use log;
 use std::time::Duration;
+use tauri::AppHandle;
 
 /// Agent Worker 配置
 #[derive(Debug, Clone)]
@@ -30,6 +32,8 @@ pub struct AgentWorkerConfig {
     pub check_interval_secs: u64,
     /// 最大并发 Agent 数（预留，当前每个 Worker 只处理一个 Story）
     pub max_concurrent: usize,
+    /// Tauri AppHandle（用于直接发送 WebSocket 事件）
+    pub app_handle: Option<AppHandle>,
 }
 
 impl Default for AgentWorkerConfig {
@@ -39,6 +43,7 @@ impl Default for AgentWorkerConfig {
             project_id: String::new(),
             check_interval_secs: 30, // 每 30 秒检查一次
             max_concurrent: 1,
+            app_handle: None,
         }
     }
 }
@@ -51,6 +56,8 @@ pub struct AgentWorker {
     worktree_manager: Option<Arc<WorktreeManager>>,
     is_running: bool,
     current_story_id: Option<String>,
+    /// 日志节流：记录每个 session 最后发送日志的时间戳（毫秒）
+    last_log_timestamps: Arc<RwLock<std::collections::HashMap<String, u64>>>,
 }
 
 impl AgentWorker {
@@ -72,6 +79,7 @@ impl AgentWorker {
             worktree_manager: None,
             is_running: false,
             current_story_id: None,
+            last_log_timestamps: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
 
@@ -115,6 +123,8 @@ impl AgentWorker {
         let daemon_manager = self.daemon_manager.clone();
         let websocket_manager = self.websocket_manager.clone();
         let worktree_manager = self.worktree_manager.clone();
+        let app_handle = self.config.app_handle.clone();
+        let last_log_timestamps = self.last_log_timestamps.clone();
 
         // 在后台启动独立的 Agent Loop
         tokio::spawn(async move {
@@ -132,6 +142,8 @@ impl AgentWorker {
                     &daemon_manager,
                     &websocket_manager,
                     &worktree_manager,
+                    &app_handle,
+                    &last_log_timestamps,
                 )
                 .await
                 {
@@ -173,6 +185,8 @@ impl AgentWorker {
         daemon_manager: &Arc<RwLock<DaemonManager>>,
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
         worktree_manager: &Option<Arc<WorktreeManager>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
     ) -> Result<usize, String> {
         log::info!(
             "[AgentWorker:{}] 🔄 Starting execution cycle for project: {}",
@@ -183,6 +197,8 @@ impl AgentWorker {
         // 发送开始执行周期的日志到前端
         Self::send_ws_log_to_both(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             &worker_id,
             project_id,
             "info",
@@ -203,6 +219,8 @@ impl AgentWorker {
         // 发送查询 Sprint 的日志到前端
         Self::send_ws_log_to_both(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             &worker_id,
             project_id,
             "info",
@@ -223,6 +241,8 @@ impl AgentWorker {
                 // 发送未找到活跃 Sprint 的警告日志到前端
                 Self::send_ws_log_to_both(
                     websocket_manager,
+                    app_handle,
+                    last_log_timestamps,
                     &worker_id,
                     project_id,
                     "warning",
@@ -244,6 +264,8 @@ impl AgentWorker {
         // 发送找到活跃 Sprint 的日志到前端
         Self::send_ws_log_to_both(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             &worker_id,
             project_id,
             "success",
@@ -261,6 +283,8 @@ impl AgentWorker {
         // 发送查询待处理 Stories 的日志到前端
         Self::send_ws_log_to_both(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             &worker_id,
             project_id,
             "info",
@@ -281,6 +305,8 @@ impl AgentWorker {
             // 发送没有待处理 Stories 的日志到前端
             Self::send_ws_log_to_both(
                 websocket_manager,
+                app_handle,
+                last_log_timestamps,
                 &worker_id,
                 project_id,
                 "info",
@@ -300,6 +326,8 @@ impl AgentWorker {
         // 发送找到待处理 Stories 的日志到前端
         Self::send_ws_log_to_both(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             &worker_id,
             project_id,
             "success",
@@ -320,6 +348,8 @@ impl AgentWorker {
             // 发送尝试锁定 Story 的日志到前端
             Self::send_ws_log_to_both(
                 websocket_manager,
+                app_handle,
+                last_log_timestamps,
                 &worker_id,
                 project_id,
                 "info",
@@ -340,6 +370,8 @@ impl AgentWorker {
                         // 发送 Story 已被锁定的日志到前端
                         Self::send_ws_log_to_both(
                             websocket_manager,
+                            app_handle,
+                            last_log_timestamps,
                             &worker_id,
                             project_id,
                             "warning",
@@ -359,6 +391,8 @@ impl AgentWorker {
                     // 发送成功锁定 Story 的日志到前端
                     Self::send_ws_log_to_both(
                         websocket_manager,
+                        app_handle,
+                        last_log_timestamps,
                         &worker_id,
                         project_id,
                         "success",
@@ -374,6 +408,8 @@ impl AgentWorker {
                         daemon_manager,
                         websocket_manager,
                         worktree_manager,
+                        app_handle,
+                        last_log_timestamps,
                     )
                     .await
                     {
@@ -389,6 +425,8 @@ impl AgentWorker {
                             // 发送 Agent 启动成功的日志到前端
                             Self::send_ws_log_to_both(
                                 websocket_manager,
+                                app_handle,
+                                last_log_timestamps,
                                 &worker_id,
                                 project_id,
                                 "success",
@@ -410,6 +448,8 @@ impl AgentWorker {
                             // 发送 Agent 启动失败的日志到前端
                             Self::send_ws_log_to_both(
                                 websocket_manager,
+                                app_handle,
+                                last_log_timestamps,
                                 &worker_id,
                                 project_id,
                                 "error",
@@ -440,6 +480,8 @@ impl AgentWorker {
                     // 发送锁定失败的日志到前端
                     Self::send_ws_log_to_both(
                         websocket_manager,
+                        app_handle,
+                        last_log_timestamps,
                         &worker_id,
                         project_id,
                         "error",
@@ -461,6 +503,8 @@ impl AgentWorker {
         daemon_manager: &Arc<RwLock<DaemonManager>>,
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
         worktree_manager: &Option<Arc<WorktreeManager>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
     ) -> Result<(), String> {
         use crate::agent::daemon_types::AICLIConfig;
         use std::process::Stdio;
@@ -480,6 +524,8 @@ impl AgentWorker {
         // 📤 发送实时日志：开始启动
         Self::send_ws_log_to_both_for_coding(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             agent_id,
             project_id,
             "info", 
@@ -493,6 +539,8 @@ impl AgentWorker {
         // 📤 发送实时日志：获取 Story 上下文
         Self::send_ws_log_to_both_for_coding(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             agent_id,
             project_id,
             "info", 
@@ -507,6 +555,8 @@ impl AgentWorker {
             // 📤 发送实时日志：创建 Worktree
             Self::send_ws_log_to_both_for_coding(
                 websocket_manager,
+                app_handle,
+                last_log_timestamps,
                 agent_id,
                 project_id,
                 "progress", 
@@ -528,6 +578,8 @@ impl AgentWorker {
                     // 📤 发送实时日志：Worktree 创建成功
                     Self::send_ws_log_to_both_for_coding(
                         websocket_manager,
+                        app_handle,
+                        last_log_timestamps,
                         agent_id,
                         project_id,
                         "success", 
@@ -546,6 +598,8 @@ impl AgentWorker {
                     // 📤 发送实时日志：Worktree 创建失败
                     Self::send_ws_log_to_both_for_coding(
                         websocket_manager,
+                        app_handle,
+                        last_log_timestamps,
                         agent_id,
                         project_id,
                         "error", 
@@ -608,6 +662,8 @@ impl AgentWorker {
         // 📤 发送实时日志：AI CLI 已启动
         Self::send_ws_log_to_both_for_coding(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             agent_id,
             project_id,
             "success", 
@@ -622,6 +678,8 @@ impl AgentWorker {
         // 📤 发送实时日志：开始监听 AI 输出
         Self::send_ws_log_to_both_for_coding(
             websocket_manager,
+            app_handle,
+            last_log_timestamps,
             agent_id,
             project_id,
             "progress", 
@@ -633,6 +691,8 @@ impl AgentWorker {
         let agent_id_for_listener = agent_id.to_string();
         let session_id_for_listener = session_id.clone();
         let ws_manager_for_listener = websocket_manager.clone();
+        let app_handle_for_listener = app_handle.clone();
+        let last_log_timestamps_for_listener = last_log_timestamps.clone();
         let project_id_for_listener = project_id.to_string();
         tokio::spawn(async move {
             if let Err(e) = interaction.start_listening_with_timeout(1800).await {
@@ -645,6 +705,8 @@ impl AgentWorker {
                 // 📤 发送实时日志：监听失败
                 Self::send_ws_log_to_both_for_coding(
                     &ws_manager_for_listener,
+                    &app_handle_for_listener,
+                    &last_log_timestamps_for_listener,
                     &agent_id_for_listener,
                     &project_id_for_listener,
                     "error", 
@@ -655,6 +717,8 @@ impl AgentWorker {
                 // 📤 发送实时日志：监听完成
                 Self::send_ws_log_to_both_for_coding(
                     &ws_manager_for_listener,
+                    &app_handle_for_listener,
+                    &last_log_timestamps_for_listener,
                     &agent_id_for_listener,
                     &project_id_for_listener,
                     "info", 
@@ -670,6 +734,8 @@ impl AgentWorker {
         let agent_id_for_output = agent_id_owned.clone();
         let session_id_for_messages = session_id.clone();
         let ws_manager_for_messages = websocket_manager.clone();
+        let app_handle_for_messages = app_handle.clone();
+        let last_log_timestamps_for_messages = last_log_timestamps.clone();
         let project_id_for_messages = project_id.to_string();
         
         tokio::spawn(async move {
@@ -682,6 +748,8 @@ impl AgentWorker {
                         if line.contains("思考") || line.contains("分析") || line.contains("计划") {
                             Self::send_ws_log_to_both_for_coding(
                                 &ws_manager_for_messages,
+                                &app_handle_for_messages,
+                                &last_log_timestamps_for_messages,
                                 &agent_id_for_output,
                                 &project_id_for_messages,
                                 "log", 
@@ -697,6 +765,8 @@ impl AgentWorker {
                         // 📤 发送实时日志：AI 错误
                         Self::send_ws_log_to_both_for_coding(
                             &ws_manager_for_messages,
+                            &app_handle_for_messages,
+                            &last_log_timestamps_for_messages,
                             &agent_id_for_output,
                             &project_id_for_messages,
                             "error",
@@ -719,6 +789,8 @@ impl AgentWorker {
                             // 📤 发送实时日志：代码写入失败
                             Self::send_ws_log_to_both_for_coding(
                                 &ws_manager_for_messages,
+                                &app_handle_for_messages,
+                                &last_log_timestamps_for_messages,
                                 &agent_id_for_output,
                                 &project_id_for_messages,
                                 "error", 
@@ -735,6 +807,8 @@ impl AgentWorker {
                             // 📤 发送实时日志：代码生成成功
                             Self::send_ws_log_to_both_for_coding(
                                 &ws_manager_for_messages,
+                                &app_handle_for_messages,
+                                &last_log_timestamps_for_messages,
                                 &agent_id_for_output,
                                 &project_id_for_messages,
                                 "success", 
@@ -755,6 +829,8 @@ impl AgentWorker {
                         // 📤 发送实时日志：任务完成状态
                         Self::send_ws_log_to_both_for_coding(
                             &ws_manager_for_messages,
+                            &app_handle_for_messages,
+                            &last_log_timestamps_for_messages,
                             &agent_id_for_output,
                             &project_id_for_messages,
                             if success { "success" } else { "error" },
@@ -767,6 +843,8 @@ impl AgentWorker {
                         let agent_id_for_spawn = agent_id_owned.clone();
                         let session_id_for_git = session_id_for_messages.clone();
                         let ws_manager_for_git = ws_manager_for_messages.clone();
+                        let app_handle_for_git = app_handle_for_messages.clone();
+                        let last_log_timestamps_for_git = last_log_timestamps_for_messages.clone();
                         let project_id_for_git = project_id_for_messages.clone();
 
                         // 在后台处理 Git 操作和状态更新
@@ -775,6 +853,8 @@ impl AgentWorker {
                                 // 📤 发送实时日志：开始 Git 提交
                                 Self::send_ws_log_to_both_for_coding(
                                     &ws_manager_for_git,
+                                    &app_handle_for_git,
+                                    &last_log_timestamps_for_git,
                                     &agent_id_for_spawn,
                                     &project_id_for_git,
                                     "progress", 
@@ -799,6 +879,8 @@ impl AgentWorker {
                                         // 📤 发送实时日志：Git 提交成功
                                         Self::send_ws_log_to_both_for_coding(
                                             &ws_manager_for_git,
+                                            &app_handle_for_git,
+                                            &last_log_timestamps_for_git,
                                             &agent_id_for_spawn,
                                             &project_id_for_git,
                                             "success", 
@@ -822,6 +904,8 @@ impl AgentWorker {
                                             // 📤 发送实时日志：更新故事状态失败
                                             Self::send_ws_log_to_both_for_coding(
                                                 &ws_manager_for_git,
+                                                &app_handle_for_git,
+                                                &last_log_timestamps_for_git,
                                                 &agent_id_for_spawn,
                                                 &project_id_for_git,
                                                 "error", 
@@ -837,6 +921,8 @@ impl AgentWorker {
                                             // 📤 发送实时日志：用户故事已完成
                                             Self::send_ws_log_to_both_for_coding(
                                                 &ws_manager_for_git,
+                                                &app_handle_for_git,
+                                                &last_log_timestamps_for_git,
                                                 &agent_id_for_spawn,
                                                 &project_id_for_git,
                                                 "success", 
@@ -855,6 +941,8 @@ impl AgentWorker {
                                         // 📤 发送实时日志：Git 操作失败
                                         Self::send_ws_log_to_both_for_coding(
                                             &ws_manager_for_git,
+                                            &app_handle_for_git,
+                                            &last_log_timestamps_for_git,
                                             &agent_id_for_spawn,
                                             &project_id_for_git,
                                             "error", 
@@ -1179,9 +1267,11 @@ impl AgentWorker {
         self.current_story_id.as_deref()
     }
 
-    /// 发送日志到 WebSocket
+    /// 发送日志到 WebSocket（带节流机制）
     async fn send_ws_log(
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         session_id: &str,
         level: &str,
         message: &str,
@@ -1189,7 +1279,7 @@ impl AgentWorker {
     ) {
         let source_tag = source.unwrap_or("AgentWorker");
         
-        // 1. 始终输出到控制台日志
+        // 1. 始终输出到控制台日志（符合用户详细日志偏好）
         match level {
             "error" => {
                 log::error!("[{}] [{}] ❌ {}", source_tag, session_id, message);
@@ -1211,11 +1301,55 @@ impl AgentWorker {
             }
         }
         
-        // 2. 如果 WebSocket Manager 可用，则发送到前端
+        // 2. 节流检查：相同 session 的日志最小间隔 200ms（避免刷屏）
+        let now = chrono::Utc::now().timestamp_millis() as u64;
+        let should_throttle = {
+            let mut timestamps = last_log_timestamps.write().await;
+            if let Some(&last_ts) = timestamps.get(session_id) {
+                if now - last_ts < 200 {
+                    true // 需要节流
+                } else {
+                    timestamps.insert(session_id.to_string(), now);
+                    false // 允许发送
+                }
+            } else {
+                timestamps.insert(session_id.to_string(), now);
+                false // 首次发送
+            }
+        };
+        
+        if should_throttle {
+            log::debug!("[{}] [{}] ⏱️ 日志节流：距离上次发送不足 200ms", source_tag, session_id);
+            return;
+        }
+        
+        // 3. 优先使用 AppHandle 直接发送（更高效）
+        if let Some(handle) = app_handle {
+            use tauri::Emitter;
+            let event_name = format!("ws:{}", session_id);
+            let ws_message = crate::agent::websocket_manager::WsMessage::log(
+                session_id.to_string(),
+                level,
+                message,
+                source,
+            );
+            
+            match handle.emit(&event_name, &ws_message) {
+                Ok(_) => {
+                    log::debug!("[{}] [{}] ✅ 通过 AppHandle 发送日志成功", source_tag, session_id);
+                },
+                Err(e) => {
+                    log::warn!("[{}] [{}] ❌ 通过 AppHandle 发送日志失败: {}", source_tag, session_id, e);
+                    // 回退到 WebSocket Manager
+                }
+            }
+            return;
+        }
+        
+        // 4. 回退方案：使用 WebSocket Manager
         if let Some(ws_manager) = websocket_manager {
-            log::debug!("[{}] [{}] 📤 尝试通过 WebSocket 发送日志: {}", source_tag, session_id, message);
+            log::debug!("[{}] [{}] 📤 尝试通过 WebSocket Manager 发送日志", source_tag, session_id);
             if let Ok(manager) = ws_manager.try_read() {
-                // 将 &str 转换为 String 以匹配 SessionId 类型
                 let session_id_string = session_id.to_string();
                 match manager.send_log(&session_id_string, level, message, source).await {
                     Ok(_) => {
@@ -1236,60 +1370,72 @@ impl AgentWorker {
     /// 发送日志到 WebSocket（同时发送到 agent 和 project 两个 sessionId）
     async fn send_ws_log_to_both(
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         worker_id: &str,
         project_id: &str,
         level: &str,
         message: &str,
         source: Option<&str>,
     ) {
-        if let Some(ws_manager) = websocket_manager {
-            // 发送到 agent-{worker_id}
-            let agent_session_id = format!("agent-{}", worker_id);
-            let _ = ws_manager.read().await.send_log(
-                &agent_session_id,
-                level,
-                message,
-                source,
-            ).await;
-            
-            // 同时发送到 project-{project_id}
-            let project_session_id = format!("project-{}", project_id);
-            let _ = ws_manager.read().await.send_log(
-                &project_session_id,
-                level,
-                message,
-                source,
-            ).await;
-        }
+        // 发送到 agent-{worker_id}
+        let agent_session_id = format!("agent-{}", worker_id);
+        Self::send_ws_log(
+            websocket_manager,
+            app_handle,
+            last_log_timestamps,
+            &agent_session_id,
+            level,
+            message,
+            source,
+        ).await;
+        
+        // 同时发送到 project-{project_id}
+        let project_session_id = format!("project-{}", project_id);
+        Self::send_ws_log(
+            websocket_manager,
+            app_handle,
+            last_log_timestamps,
+            &project_session_id,
+            level,
+            message,
+            source,
+        ).await;
     }
 
     /// 发送日志到 WebSocket（用于 start_coding_agent，同时发送到 agent 和 project）
     async fn send_ws_log_to_both_for_coding(
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         agent_id: &str,
         project_id: &str,
         level: &str,
         message: &str,
         source: Option<&str>,
     ) {
-        if let Some(ws_manager) = websocket_manager {
-            // 发送到 agent-{agent_id}
-            let agent_session_id = format!("agent-{}", agent_id);
-            let _ = ws_manager.read().await.send_log(
-                &agent_session_id,
-                level,
-                message,
-                source,
-            ).await;
-            
-            // 同时发送到 project-{project_id}
-            let project_session_id = format!("project-{}", project_id);
-            let _ = ws_manager.read().await.send_log(
-                &project_session_id,
-                level,
-                message,
-                source,
-            ).await;
-        }
+        // 发送到 agent-{agent_id}
+        let agent_session_id = format!("agent-{}", agent_id);
+        Self::send_ws_log(
+            websocket_manager,
+            app_handle,
+            last_log_timestamps,
+            &agent_session_id,
+            level,
+            message,
+            source,
+        ).await;
+        
+        // 同时发送到 project-{project_id}
+        let project_session_id = format!("project-{}", project_id);
+        Self::send_ws_log(
+            websocket_manager,
+            app_handle,
+            last_log_timestamps,
+            &project_session_id,
+            level,
+            message,
+            source,
+        ).await;
     }
 }

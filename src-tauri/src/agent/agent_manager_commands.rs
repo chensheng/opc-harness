@@ -86,7 +86,7 @@ pub async fn create_agent(
 /// 创建新的 Agent（使用 CLI 类型和 AGENTS.md 内容）
 #[tauri::command]
 pub async fn create_agent_with_cli(
-    _app_handle: tauri::AppHandle,
+    app: tauri::AppHandle,
     state: State<'_, Arc<RwLock<AgentManager>>>,
     cli_type: String,
     agents_content: String,
@@ -169,6 +169,7 @@ pub async fn create_agent_with_cli(
             project_id: extracted_project_id.clone(),
             check_interval_secs: 30,  // 每 30 秒检查一次数据库
             max_concurrent: 1,
+            app_handle: Some(manager.app_handle.clone()),
         };
         
         // 获取 Daemon Manager 和 WebSocket Manager
