@@ -3,6 +3,21 @@ use crate::models::{Sprint, UserStory};
 use chrono::Utc;
 use rusqlite::{Connection, Result};
 
+/// UserStory 状态常量定义（统一状态管理）
+mod user_story_status {
+    /// 待处理状态（可被 Agent 选取）
+    pub const PENDING: &[&str] = &["draft", "refined", "approved"];
+    
+    /// 开发中状态
+    pub const IN_DEVELOPMENT: &str = "in_development";
+    
+    /// 完成状态
+    pub const COMPLETED: &str = "completed";
+    
+    /// 失败状态
+    pub const FAILED: &str = "failed";
+}
+
 /// 批量创建或更新Sprint（Upsert）
 pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -> Result<()> {
     println!("[DB::upsert_sprints] Starting upsert for project_id: {}, count: {}", 
@@ -132,9 +147,11 @@ pub fn get_active_sprint(conn: &Connection, project_id: &str) -> Result<Option<S
 pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<Vec<UserStory>> {
     println!("[DB::get_pending_stories_by_sprint] Querying pending stories for sprint_id: {}", sprint_id);
     
-    let mut stmt = conn.prepare(
+    // ✅ 使用统一的状态常量
+    let status_list = user_story_status::PENDING.join("','");
+    let query = format!(
         "SELECT * FROM user_stories 
-         WHERE sprint_id = ?1 AND status IN ('draft', 'refined', 'approved')
+         WHERE sprint_id = ?1 AND status IN ('{}')
          ORDER BY 
             CASE priority 
                 WHEN 'P0' THEN 1 
@@ -143,8 +160,11 @@ pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Resu
                 WHEN 'P3' THEN 4 
                 ELSE 5 
             END ASC,
-            story_number ASC"
-    )?;
+            story_number ASC",
+        status_list
+    );
+    
+    let mut stmt = conn.prepare(&query)?;
     
     let stories = stmt.query_map([sprint_id], |row| {
         UserStory::from_row(row)
@@ -163,21 +183,26 @@ pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Resu
 pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str) -> Result<bool> {
     let now = Utc::now().to_rfc3339();
     
-    // 使用原子 UPDATE 操作，只有当故事处于可执行状态且未被锁定时才能成功
-    // 注意：这里假设如果 locked_at 超过30分钟则视为锁失效，允许重新抢占
-    let updated = conn.execute(
+    // ✅ 使用统一的状态常量
+    let status_list = user_story_status::PENDING.join("','");
+    let query = format!(
         "UPDATE user_stories 
-         SET status = 'in_development',
+         SET status = '{}',
              assigned_agent = ?1,
              locked_at = ?2,
              started_at = ?2,
              updated_at = ?2
          WHERE id = ?3 
-           AND status IN ('draft', 'refined', 'approved')
+           AND status IN ('{}')
            AND (assigned_agent IS NULL OR locked_at IS NULL 
                 OR (locked_at < datetime('now', '-30 minutes')))",
-        rusqlite::params![agent_id, now, story_id],
-    )?;
+        user_story_status::IN_DEVELOPMENT,
+        status_list
+    );
+    
+    // 使用原子 UPDATE 操作，只有当故事处于可执行状态且未被锁定时才能成功
+    // 注意：这里假设如果 locked_at 超过30分钟则视为锁失效，允许重新抢占
+    let updated = conn.execute(&query, rusqlite::params![agent_id, now, story_id])?;
     
     let success = updated > 0;
     println!("[DB::lock_user_story] Story {} lock attempt by agent {}: {}", 
@@ -220,13 +245,14 @@ pub fn update_user_story_status(conn: &Connection, story_id: &str, status: &str)
 pub fn complete_user_story(conn: &Connection, story_id: &str) -> Result<usize> {
     let now = Utc::now().to_rfc3339();
     
+    // ✅ 使用统一的状态常量
     let updated = conn.execute(
         "UPDATE user_stories 
-         SET status = 'completed',
-             completed_at = ?1,
-             updated_at = ?1
-         WHERE id = ?2",
-        rusqlite::params![now, story_id],
+         SET status = ?1,
+             completed_at = ?2,
+             updated_at = ?2
+         WHERE id = ?3",
+        rusqlite::params![user_story_status::COMPLETED, now, story_id],
     )?;
     
     println!("[DB::complete_user_story] Completed story: {}", story_id);
@@ -237,15 +263,16 @@ pub fn complete_user_story(conn: &Connection, story_id: &str) -> Result<usize> {
 pub fn fail_user_story(conn: &Connection, story_id: &str, error_message: &str) -> Result<usize> {
     let now = Utc::now().to_rfc3339();
     
+    // ✅ 使用统一的状态常量
     let updated = conn.execute(
         "UPDATE user_stories 
-         SET status = 'failed',
-             failed_at = ?1,
-             error_message = ?2,
+         SET status = ?1,
+             failed_at = ?2,
+             error_message = ?3,
              retry_count = retry_count + 1,
-             updated_at = ?1
-         WHERE id = ?3",
-        rusqlite::params![now, error_message, story_id],
+             updated_at = ?2
+         WHERE id = ?4",
+        rusqlite::params![user_story_status::FAILED, now, error_message, story_id],
     )?;
     
     println!("[DB::fail_user_story] Failed story: {} - {}", story_id, error_message);
