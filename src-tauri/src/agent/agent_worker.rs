@@ -1301,12 +1301,12 @@ impl AgentWorker {
             }
         }
         
-        // 2. 节流检查：相同 session 的日志最小间隔 50ms（避免刷屏，但不影响关键日志）
-        // 注意：对于 info/success/warning/error 级别的关键日志，降低节流强度以确保用户能看到完整的决策过程
+        // 2. 节流检查：相同 session 的日志最小间隔（避免刷屏）
+        // 注意：对于 info/success/warning/error 级别的关键日志，使用极低的节流阈值以确保用户能看到完整的决策过程
         let throttle_interval = match level {
-            "debug" => 200,     // debug 日志严格节流
-            "info" | "success" | "warning" | "error" => 50,  // 关键日志轻度节流
-            _ => 100,           // 其他类型中等节流
+            "debug" => 200,     // debug 日志严格节流（避免刷屏）
+            "info" | "success" | "warning" | "error" => 10,  // 关键日志几乎不节流（10ms 足够防止极端情况）
+            _ => 50,            // 其他类型中等节流
         };
         
         let now = chrono::Utc::now().timestamp_millis() as u64;
@@ -1326,9 +1326,14 @@ impl AgentWorker {
         };
         
         if should_throttle {
-            log::debug!("[{}] [{}] ⏱️ 日志节流：距离上次发送不足 200ms", source_tag, session_id);
+            log::debug!("[{}] [{}] ⏱️ 日志节流：距离上次发送不足 {}ms (级别: {}, 消息: {})", 
+                source_tag, session_id, throttle_interval, level, message);
             return;
         }
+        
+        // 记录即将发送的日志（用于调试）
+        log::debug!("[{}] [{}] 📤 准备发送日志 - 级别: {}, 消息: {}", 
+            source_tag, session_id, level, message);
         
         // 3. 优先使用 AppHandle 直接发送（更高效）
         if let Some(handle) = app_handle {
