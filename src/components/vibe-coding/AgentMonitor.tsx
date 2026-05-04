@@ -171,17 +171,13 @@ export function AgentMonitor() {
     
     // 根据 sessionId 找到对应的智能体
     setAgents(prev => {
-      let updated = false
-      
       // 找到第一个匹配的智能体（避免重复添加）
       const matchedAgentIndex = prev.findIndex(agent => {
-        // 尝试多种 sessionId 格式匹配：
+        // 精确匹配，避免模糊匹配导致的跨智能体污染
         // 1. agent-{agentId} - 标准格式
-        // 2. agent-{workerId} - Worker ID 格式
-        // 3. 直接匹配 sessionId - 兼容旧格式
+        // 2. 直接匹配 sessionId - 兼容旧格式
         return lastMessage.sessionId === `agent-${agent.agentId}` ||
-               lastMessage.sessionId === agent.sessionId ||
-               (agent.sessionId && lastMessage.sessionId && lastMessage.sessionId.includes(agent.sessionId))
+               lastMessage.sessionId === agent.sessionId
       })
       
       if (matchedAgentIndex === -1) {
@@ -224,13 +220,14 @@ export function AgentMonitor() {
         }
         
         console.log('[AgentMonitor] Adding log to agent:', prev[matchedAgentIndex].agentId, logContent)
-        updated = true
         
         // 创建新的数组，只更新匹配的智能体
         const newAgents = [...prev]
+        const currentAgent = newAgents[matchedAgentIndex]
+        
         newAgents[matchedAgentIndex] = {
-          ...newAgents[matchedAgentIndex],
-          logs: [...newAgents[matchedAgentIndex].logs, logContent].slice(-LOG_RETENTION_LIMIT), // 保留最近 LOG_RETENTION_LIMIT 条
+          ...currentAgent,
+          logs: [...currentAgent.logs, logContent].slice(-LOG_RETENTION_LIMIT), // 保留最近 LOG_RETENTION_LIMIT 条
         }
         
         return newAgents

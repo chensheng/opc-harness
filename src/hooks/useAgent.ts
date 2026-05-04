@@ -37,6 +37,9 @@ interface WsStatusPayload {
   details?: string
 }
 
+// ==================== 配置常量 ====================
+const MAX_MESSAGES = 100 // 消息列表最大长度，防止内存泄漏
+
 /**
  * Agent 通信和管理 Hook
  *
@@ -69,6 +72,7 @@ export function useAgent(): UseAgentReturn {
         const logPayload = wsMessage.payload as WsLogPayload
         agentMessage = {
           id: wsMessage.id,
+          messageId: wsMessage.id, // 使用 WebSocket 消息 ID
           sessionId: wsMessage.session_id,
           type: 'log',
           content: logPayload.message,
@@ -86,6 +90,7 @@ export function useAgent(): UseAgentReturn {
         const progressPayload = wsMessage.payload as WsProgressPayload
         agentMessage = {
           id: wsMessage.id,
+          messageId: wsMessage.id, // 使用 WebSocket 消息 ID
           sessionId: wsMessage.session_id,
           type: 'progress',
           content: progressPayload.description || `${progressPayload.phase}: ${progressPayload.current}/${progressPayload.total}`,
@@ -104,6 +109,7 @@ export function useAgent(): UseAgentReturn {
         const statusPayload = wsMessage.payload as WsStatusPayload
         agentMessage = {
           id: wsMessage.id,
+          messageId: wsMessage.id, // 使用 WebSocket 消息 ID
           sessionId: wsMessage.session_id,
           type: 'status',
           content: statusPayload.details || statusPayload.status,
@@ -119,6 +125,7 @@ export function useAgent(): UseAgentReturn {
       case 'AgentResponse': {
         agentMessage = {
           id: wsMessage.id,
+          messageId: wsMessage.id, // 使用 WebSocket 消息 ID
           sessionId: wsMessage.session_id,
           type: 'response',
           content: JSON.stringify(wsMessage.payload.data || wsMessage.payload.error),
@@ -135,6 +142,7 @@ export function useAgent(): UseAgentReturn {
       case 'Error': {
         agentMessage = {
           id: wsMessage.id,
+          messageId: wsMessage.id, // 使用 WebSocket 消息 ID
           sessionId: wsMessage.session_id,
           type: 'error',
           content: wsMessage.payload.message,
@@ -160,7 +168,14 @@ export function useAgent(): UseAgentReturn {
     }
 
     if (agentMessage) {
-      setMessages((prev) => [...prev, agentMessage])
+      setMessages((prev) => {
+        const newMessages = [...prev, agentMessage]
+        // 限制消息数量，防止内存泄漏
+        if (newMessages.length > MAX_MESSAGES) {
+          return newMessages.slice(newMessages.length - MAX_MESSAGES)
+        }
+        return newMessages
+      })
     }
   }, [])
 
