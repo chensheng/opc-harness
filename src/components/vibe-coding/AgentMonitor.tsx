@@ -235,7 +235,8 @@ export function AgentMonitor() {
       
       return prev
     })
-  }, [messages, projectId, agents])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, projectId]) // 移除 agents 依赖，避免循环触发
 
   // 刷新智能体列表（从数据库加载）
   const refreshAgents = useCallback(async () => {
@@ -322,7 +323,30 @@ export function AgentMonitor() {
         return info
       })
 
-      setAgents(agentInfos)
+      // 静默刷新时，保留现有的日志数据（避免清空 WebSocket 推送的日志）
+      if (silent) {
+        setAgents(prev => {
+          // 创建现有智能体的日志映射
+          const logsMap = new Map<string, string[]>()
+          prev.forEach(agent => {
+            if (agent.logs && agent.logs.length > 0) {
+              logsMap.set(agent.agentId, agent.logs)
+            }
+          })
+          
+          // 将保留的日志合并到新的智能体列表中
+          return agentInfos.map(info => {
+            const existingLogs = logsMap.get(info.agentId)
+            if (existingLogs) {
+              return { ...info, logs: existingLogs }
+            }
+            return info
+          })
+        })
+      } else {
+        // 首次加载时，直接使用新数据（无历史日志）
+        setAgents(agentInfos)
+      }
 
       // 首次加载完成后，标记为非首次加载
       if (isInitialLoad) {
