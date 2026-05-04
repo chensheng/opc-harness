@@ -293,7 +293,7 @@ impl AgentWorker {
             Some("AgentWorker"),
         ).await;
 
-        let pending_stories = db::get_pending_stories_by_sprint(&conn, &active_sprint.id)
+        let pending_stories = db::get_pending_stories_by_sprint(&conn, &active_sprint.id, project_id)
             .map_err(|e| format!("Failed to query pending stories: {}", e))?;
 
         if pending_stories.is_empty() {

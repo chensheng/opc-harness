@@ -144,14 +144,16 @@ pub fn get_active_sprint(conn: &Connection, project_id: &str) -> Result<Option<S
 }
 
 /// 获取指定 Sprint 下待执行的用户故事（按优先级排序）
-pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<Vec<UserStory>> {
-    println!("[DB::get_pending_stories_by_sprint] Querying pending stories for sprint_id: {}", sprint_id);
+pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str, project_id: &str) -> Result<Vec<UserStory>> {
+    println!("[DB::get_pending_stories_by_sprint] Querying pending stories for sprint_id: {}, project_id: {}", sprint_id, project_id);
     
-    // ✅ 使用统一的状态常量
+    // ✅ 使用统一的状态常量，并添加项目隔离验证
     let status_list = user_story_status::PENDING.join("','");
     let query = format!(
         "SELECT * FROM user_stories 
-         WHERE sprint_id = ?1 AND status IN ('{}')
+         WHERE sprint_id = ?1 
+           AND project_id = ?2
+           AND status IN ('{}')
          ORDER BY 
             CASE priority 
                 WHEN 'P0' THEN 1 
@@ -166,7 +168,7 @@ pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Resu
     
     let mut stmt = conn.prepare(&query)?;
     
-    let stories = stmt.query_map([sprint_id], |row| {
+    let stories = stmt.query_map(rusqlite::params![sprint_id, project_id], |row| {
         UserStory::from_row(row)
     })?;
 
