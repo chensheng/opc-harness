@@ -1,4 +1,4 @@
-﻿//! Agent Manager Tauri Commands - Main Entry Point
+//! Agent Manager Tauri Commands - Main Entry Point
 //! 
 //! 所有 Tauri 命令的定义和导出
 //! 
