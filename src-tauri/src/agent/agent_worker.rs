@@ -1301,12 +1301,19 @@ impl AgentWorker {
             }
         }
         
-        // 2. 节流检查：相同 session 的日志最小间隔 200ms（避免刷屏）
+        // 2. 节流检查：相同 session 的日志最小间隔 50ms（避免刷屏，但不影响关键日志）
+        // 注意：对于 info/success/warning/error 级别的关键日志，降低节流强度以确保用户能看到完整的决策过程
+        let throttle_interval = match level {
+            "debug" => 200,     // debug 日志严格节流
+            "info" | "success" | "warning" | "error" => 50,  // 关键日志轻度节流
+            _ => 100,           // 其他类型中等节流
+        };
+        
         let now = chrono::Utc::now().timestamp_millis() as u64;
         let should_throttle = {
             let mut timestamps = last_log_timestamps.write().await;
             if let Some(&last_ts) = timestamps.get(session_id) {
-                if now - last_ts < 200 {
+                if now - last_ts < throttle_interval {
                     true // 需要节流
                 } else {
                     timestamps.insert(session_id.to_string(), now);
