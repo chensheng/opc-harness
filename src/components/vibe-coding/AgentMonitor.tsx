@@ -252,19 +252,14 @@ export function AgentMonitor() {
   // 监听 agentToDelete 状态变化
   useEffect(() => {}, [agentToDelete])
 
-  // 当 projectId 可用时，建立 WebSocket 连接
+  // 当 projectId 可用时，不需要建立项目级别的 WebSocket 连接
+  // 日志只发送到智能体粒度（agent-{agentId}），在项目级别建立连接已无意义
   useEffect(() => {
-    if (projectId) {
-      const sessionId = `project-${projectId}`
-      connectWebSocket(sessionId).catch(err => {
-        console.error('[AgentMonitor] Failed to connect WebSocket:', err)
-      })
-    }
-
+    // 移除了 project-{projectId} 的连接逻辑
     return () => {
-      disconnectWebSocket()
+      // 清理函数保留，但不再执行任何操作
     }
-  }, [projectId, connectWebSocket, disconnectWebSocket])
+  }, [projectId])
 
   // 当智能体列表加载完成后，为每个运行中的智能体建立 WebSocket 连接
   useEffect(() => {

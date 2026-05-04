@@ -1128,8 +1128,8 @@ pub async fn get_worktree_disk_usage(
 // - Heartbeat: 心跳消息（timestamp）
 //
 // **Session 隔离**:
-// 每个项目使用独立的 Session ID（格式: `project-{projectId}`），
-// 确保消息不会跨项目混淆。
+// 每个智能体使用独立的 Session ID（格式: `agent-{agentId}`），
+// 确保消息不会跨智能体混淆。
 //
 // **性能监控**:
 // 调用 `ws_get_stats()` 获取统计信息：
