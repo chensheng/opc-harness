@@ -163,9 +163,8 @@ export function AgentMonitor() {
       sessionId: a.sessionId,
       projectId: a.projectId,
       expectedSessionIds: [
-        `agent-${a.agentId}`,
-        a.sessionId,
-        `project-${a.projectId}`
+        `agent-${a.agentId}`,  // WebSocket 日志使用的格式
+        a.sessionId             // 数据库中的 session_id（兼容旧格式）
       ]
     })))
     
@@ -178,10 +177,9 @@ export function AgentMonitor() {
         // 精确匹配，避免模糊匹配导致的跨智能体污染
         // 1. agent-{agentId} - WebSocket 日志使用的格式（worker_id = agent_id）
         // 2. 直接匹配 sessionId - 兼容数据库中的 session_id（如 session-xxx）
-        // 3. project-{projectId} - 项目级日志
+        // 注意：不再支持 project-{projectId} 格式，日志仅发送到智能体粒度
         return lastMessage.sessionId === `agent-${agent.agentId}` ||
-               lastMessage.sessionId === agent.sessionId ||
-               lastMessage.sessionId === `project-${agent.projectId}`
+               lastMessage.sessionId === agent.sessionId
       })
       
       if (matchedAgentIndex === -1) {

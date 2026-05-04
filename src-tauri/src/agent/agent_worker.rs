@@ -1374,18 +1374,18 @@ impl AgentWorker {
         }
     }
 
-    /// 发送日志到 WebSocket（同时发送到 agent 和 project 两个 sessionId）
+    /// 发送日志到 WebSocket（仅发送到智能体粒度）
     async fn send_ws_log_to_both(
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         worker_id: &str,
-        project_id: &str,
+        _project_id: &str,  // 保留参数以保持接口兼容，但不再使用
         level: &str,
         message: &str,
         source: Option<&str>,
     ) {
-        // 发送到 agent-{worker_id}
+        // 仅发送到 agent-{worker_id}，不再发送到 project-{project_id}
         let agent_session_id = format!("agent-{}", worker_id);
         Self::send_ws_log(
             websocket_manager,
@@ -1396,50 +1396,26 @@ impl AgentWorker {
             message,
             source,
         ).await;
-        
-        // 同时发送到 project-{project_id}
-        let project_session_id = format!("project-{}", project_id);
-        Self::send_ws_log(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &project_session_id,
-            level,
-            message,
-            source,
-        ).await;
     }
 
-    /// 发送日志到 WebSocket（用于 start_coding_agent，同时发送到 agent 和 project）
+    /// 发送日志到 WebSocket（用于 start_coding_agent，仅发送到智能体粒度）
     async fn send_ws_log_to_both_for_coding(
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         agent_id: &str,
-        project_id: &str,
+        _project_id: &str,  // 保留参数以保持接口兼容，但不再使用
         level: &str,
         message: &str,
         source: Option<&str>,
     ) {
-        // 发送到 agent-{agent_id}
+        // 仅发送到 agent-{agent_id}，不再发送到 project-{project_id}
         let agent_session_id = format!("agent-{}", agent_id);
         Self::send_ws_log(
             websocket_manager,
             app_handle,
             last_log_timestamps,
             &agent_session_id,
-            level,
-            message,
-            source,
-        ).await;
-        
-        // 同时发送到 project-{project_id}
-        let project_session_id = format!("project-{}", project_id);
-        Self::send_ws_log(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &project_session_id,
             level,
             message,
             source,
