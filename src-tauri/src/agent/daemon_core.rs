@@ -286,6 +286,7 @@ impl DaemonManager {
                 log_level: "info".to_string(),
                 max_concurrent_agents: 5,
                 workspace_dir: String::new(),
+                lock_timeout_minutes: 30, // 默认 30 分钟超时
             }),
             active_agents: self.agents.values().cloned().collect(),
             completed_tasks: self.completed_tasks.clone(),

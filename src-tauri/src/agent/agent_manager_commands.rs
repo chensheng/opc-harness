@@ -170,6 +170,7 @@ pub async fn create_agent_with_cli(
             check_interval_secs: 30,  // 每 30 秒检查一次数据库
             max_concurrent: 1,
             app_handle: Some(manager.app_handle.clone()),
+            lock_timeout_minutes: 30,  // 默认 30 分钟超时
         };
         
         // 获取 Daemon Manager 和 WebSocket Manager
@@ -315,6 +316,7 @@ pub async fn initialize_agent_manager(
         log_level: "info".to_string(),
         max_concurrent_agents,
         workspace_dir: ".".to_string(),
+        lock_timeout_minutes: 30, // 默认 30 分钟超时
     };
 
     let result = manager.initialize(config).await;

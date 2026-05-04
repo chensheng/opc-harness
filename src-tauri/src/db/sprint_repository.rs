@@ -182,7 +182,7 @@ pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str, project
 }
 
 /// 锁定用户故事（乐观锁，用于 Agent 竞争）
-pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str) -> Result<bool> {
+pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str, lock_timeout_minutes: u64) -> Result<bool> {
     let now = Utc::now().to_rfc3339();
     
     // ✅ 使用统一的状态常量
@@ -197,18 +197,19 @@ pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str) -> Res
          WHERE id = ?3 
            AND status IN ('{}')
            AND (assigned_agent IS NULL OR locked_at IS NULL 
-                OR (locked_at < datetime('now', '-30 minutes')))",
+                OR (locked_at < datetime('now', '-{} minutes')))",
         user_story_status::IN_DEVELOPMENT,
-        status_list
+        status_list,
+        lock_timeout_minutes
     );
     
     // 使用原子 UPDATE 操作，只有当故事处于可执行状态且未被锁定时才能成功
-    // 注意：这里假设如果 locked_at 超过30分钟则视为锁失效，允许重新抢占
+    // 注意：这里假设如果 locked_at 超过配置的时间则视为锁失效，允许重新抢占
     let updated = conn.execute(&query, rusqlite::params![agent_id, now, story_id])?;
     
     let success = updated > 0;
-    println!("[DB::lock_user_story] Story {} lock attempt by agent {}: {}", 
-             story_id, agent_id, if success { "SUCCESS" } else { "FAILED" });
+    println!("[DB::lock_user_story] Story {} lock attempt by agent {} (timeout: {}min): {}", 
+             story_id, agent_id, lock_timeout_minutes, if success { "SUCCESS" } else { "FAILED" });
     
     Ok(success)
 }

@@ -24,6 +24,7 @@ pub struct DaemonConfig {
     pub log_level: String,            // 日志级别：debug/info/warn/error
     pub max_concurrent_agents: usize, // 最大并发 Agent 数
     pub workspace_dir: String,        // 工作目录
+    pub lock_timeout_minutes: u64,    // Story 锁定超时时间（分钟），默认 30
 }
 
 /// Agent 进程信息

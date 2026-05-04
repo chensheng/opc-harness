@@ -34,6 +34,8 @@ pub struct AgentWorkerConfig {
     pub max_concurrent: usize,
     /// Tauri AppHandle（用于直接发送 WebSocket 事件）
     pub app_handle: Option<AppHandle>,
+    /// Story 锁定超时时间（分钟），默认 30
+    pub lock_timeout_minutes: u64,
 }
 
 impl Default for AgentWorkerConfig {
@@ -44,6 +46,7 @@ impl Default for AgentWorkerConfig {
             check_interval_secs: 30, // 每 30 秒检查一次
             max_concurrent: 1,
             app_handle: None,
+            lock_timeout_minutes: 30, // 默认 30 分钟超时
         }
     }
 }
@@ -120,6 +123,7 @@ impl AgentWorker {
         let worker_id = self.config.worker_id.clone();
         let project_id = self.config.project_id.clone();
         let check_interval = self.config.check_interval_secs;
+        let lock_timeout_minutes = self.config.lock_timeout_minutes;
         let daemon_manager = self.daemon_manager.clone();
         let websocket_manager = self.websocket_manager.clone();
         let worktree_manager = self.worktree_manager.clone();
@@ -144,6 +148,7 @@ impl AgentWorker {
                     &worktree_manager,
                     &app_handle,
                     &last_log_timestamps,
+                    lock_timeout_minutes,
                 )
                 .await
                 {
@@ -187,6 +192,7 @@ impl AgentWorker {
         worktree_manager: &Option<Arc<WorktreeManager>>,
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
+        lock_timeout_minutes: u64,
     ) -> Result<usize, String> {
         log::info!(
             "[AgentWorker:{}] 🔄 Starting execution cycle for project: {}",
@@ -359,7 +365,7 @@ impl AgentWorker {
             ).await;
 
             // 乐观锁：将 locked_by 字段设置为 agent_id
-            match db::lock_user_story(&conn, &story.id, &agent_id) {
+            match db::lock_user_story(&conn, &story.id, &agent_id, lock_timeout_minutes) {
                 Ok(locked) => {
                     if !locked {
                         log::info!(

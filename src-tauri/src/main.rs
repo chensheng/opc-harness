@@ -160,6 +160,7 @@ fn main() {
                         log_level: "info".to_string(),
                         max_concurrent_agents: 3,
                         workspace_dir: crate::utils::paths::get_workspaces_dir().to_string_lossy().to_string(),
+                        lock_timeout_minutes: 30, // 默认 30 分钟超时
                     };
                     
                     match manager_clone.read().await.initialize(default_config).await {
