@@ -169,15 +169,19 @@ export function AgentMonitor() {
       ]
     })))
     
+    console.log('[AgentMonitor] Trying to match message sessionId:', lastMessage.sessionId)
+    
     // 根据 sessionId 找到对应的智能体
     setAgents(prev => {
       // 找到第一个匹配的智能体（避免重复添加）
       const matchedAgentIndex = prev.findIndex(agent => {
         // 精确匹配，避免模糊匹配导致的跨智能体污染
-        // 1. agent-{agentId} - 标准格式
-        // 2. 直接匹配 sessionId - 兼容旧格式
+        // 1. agent-{agentId} - WebSocket 日志使用的格式（worker_id = agent_id）
+        // 2. 直接匹配 sessionId - 兼容数据库中的 session_id（如 session-xxx）
+        // 3. project-{projectId} - 项目级日志
         return lastMessage.sessionId === `agent-${agent.agentId}` ||
-               lastMessage.sessionId === agent.sessionId
+               lastMessage.sessionId === agent.sessionId ||
+               lastMessage.sessionId === `project-${agent.projectId}`
       })
       
       if (matchedAgentIndex === -1) {
