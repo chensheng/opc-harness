@@ -1301,19 +1301,19 @@ impl AgentWorker {
             }
         }
         
-        // 2. 节流检查：相同 session 的日志最小间隔（避免刷屏）
-        // 注意：对于 info/success/warning/error 级别的关键日志，使用极低的节流阈值以确保用户能看到完整的决策过程
-        let throttle_interval = match level {
-            "debug" => 200,     // debug 日志严格节流（避免刷屏）
-            "info" | "success" | "warning" | "error" => 10,  // 关键日志几乎不节流（10ms 足够防止极端情况）
-            _ => 50,            // 其他类型中等节流
-        };
-        
-        let now = chrono::Utc::now().timestamp_millis() as u64;
-        let should_throttle = {
+        // 2. 节流检查：仅对 debug 级别日志进行节流，关键业务日志不节流
+        // 策略：
+        // - debug: 严格节流（200ms），防止高频调试信息刷屏
+        // - info/success/warning/error: 不节流，确保所有关键决策日志100%显示
+        let should_throttle = if level == "debug" {
+            let throttle_interval = 200; // debug 日志节流间隔
+            let now = chrono::Utc::now().timestamp_millis() as u64;
             let mut timestamps = last_log_timestamps.write().await;
+            
             if let Some(&last_ts) = timestamps.get(session_id) {
                 if now - last_ts < throttle_interval {
+                    log::debug!("[{}] [{}] ⏱️ Debug日志节流：距离上次发送不足 {}ms", 
+                        source_tag, session_id, throttle_interval);
                     true // 需要节流
                 } else {
                     timestamps.insert(session_id.to_string(), now);
@@ -1323,11 +1323,12 @@ impl AgentWorker {
                 timestamps.insert(session_id.to_string(), now);
                 false // 首次发送
             }
+        } else {
+            // 关键业务日志不节流，直接允许发送
+            false
         };
         
         if should_throttle {
-            log::debug!("[{}] [{}] ⏱️ 日志节流：距离上次发送不足 {}ms (级别: {}, 消息: {})", 
-                source_tag, session_id, throttle_interval, level, message);
             return;
         }
         
