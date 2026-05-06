@@ -15,6 +15,7 @@ interface WsMessage {
   id: string
   session_id: string
   type: 'Log' | 'Progress' | 'Status' | 'AgentResponse' | 'Error' | 'Heartbeat'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any
   timestamp: number
 }
@@ -93,7 +94,9 @@ export function useAgent(): UseAgentReturn {
           messageId: wsMessage.id, // 使用 WebSocket 消息 ID
           sessionId: wsMessage.session_id,
           type: 'progress',
-          content: progressPayload.description || `${progressPayload.phase}: ${progressPayload.current}/${progressPayload.total}`,
+          content:
+            progressPayload.description ||
+            `${progressPayload.phase}: ${progressPayload.current}/${progressPayload.total}`,
           metadata: {
             phase: progressPayload.phase,
             current: progressPayload.current,
@@ -168,7 +171,7 @@ export function useAgent(): UseAgentReturn {
     }
 
     if (agentMessage) {
-      setMessages((prev) => {
+      setMessages(prev => {
         const newMessages = [...prev, agentMessage]
         // 限制消息数量，防止内存泄漏
         if (newMessages.length > MAX_MESSAGES) {
@@ -180,46 +183,49 @@ export function useAgent(): UseAgentReturn {
   }, [])
 
   /** 连接 Tauri Events（替代 WebSocket） */
-  const connectWebSocket = useCallback(async (sessionId: string) => {
-    setIsLoading(true)
-    setError(null)
+  const connectWebSocket = useCallback(
+    async (sessionId: string) => {
+      setIsLoading(true)
+      setError(null)
 
-    try {
-      sessionIdRef.current = sessionId
+      try {
+        sessionIdRef.current = sessionId
 
-      // Step 1: 注册连接
-      console.log('[useAgent] Registering WebSocket connection for session:', sessionId)
-      const connectionId = await invoke<string>('ws_register_connection', { sessionId })
-      connectionIdRef.current = connectionId
-      console.log('[useAgent] Connection registered:', connectionId)
+        // Step 1: 注册连接
+        console.log('[useAgent] Registering WebSocket connection for session:', sessionId)
+        const connectionId = await invoke<string>('ws_register_connection', { sessionId })
+        connectionIdRef.current = connectionId
+        console.log('[useAgent] Connection registered:', connectionId)
 
-      // Step 2: 建立事件监听器
-      const eventName = `ws:${sessionId}`
-      console.log('[useAgent] Listening to event:', eventName)
+        // Step 2: 建立事件监听器
+        const eventName = `ws:${sessionId}`
+        console.log('[useAgent] Listening to event:', eventName)
 
-      const unlisten = await listen(eventName, (event) => {
-        const wsMessage = event.payload as WsMessage
-        handleWsMessage(wsMessage)
-      })
+        const unlisten = await listen(eventName, event => {
+          const wsMessage = event.payload as WsMessage
+          handleWsMessage(wsMessage)
+        })
 
-      unlistenRef.current = unlisten
-      console.log('[useAgent] ✓ Event listener established')
+        unlistenRef.current = unlisten
+        console.log('[useAgent] ✓ Event listener established')
 
-      // Step 3: 发送初始状态消息
-      await invoke('ws_send_status', {
-        sessionId,
-        status: 'connected',
-        details: 'Frontend connected to Agent system',
-      })
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to connect to Agent system'
-      setError(errorMsg)
-      console.error('[useAgent] Connection failed:', err)
-      throw new Error(errorMsg)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [handleWsMessage])
+        // Step 3: 发送初始状态消息
+        await invoke('ws_send_status', {
+          sessionId,
+          status: 'connected',
+          details: 'Frontend connected to Agent system',
+        })
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to connect to Agent system'
+        setError(errorMsg)
+        console.error('[useAgent] Connection failed:', err)
+        throw new Error(errorMsg)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [handleWsMessage]
+  )
 
   /** 断开 Tauri Events 连接 */
   const disconnectWebSocket = useCallback(async () => {

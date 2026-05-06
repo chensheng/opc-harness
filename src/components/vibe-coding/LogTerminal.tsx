@@ -15,84 +15,19 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import type { LogEntry, LogStats } from './CodingWorkspaceTypes'
+import { useObservabilityStore } from '@/stores/observabilityStore'
+import type { LogEntry, LogStats } from '@/types/agentObservability'
 
 export function LogTerminal() {
   const { projectId } = useParams<{ projectId: string }>()
 
-  // Mock data - will be replaced with real data from Backend
-  const [logs, setLogs] = useState<LogEntry[]>([
-    {
-      id: '1',
-      timestamp: new Date('2026-03-25T10:00:00'),
-      level: 'info',
-      source: 'initializer',
-      message: '正在读取 PRD 文档...',
-    },
-    {
-      id: '2',
-      timestamp: new Date('2026-03-25T10:00:01'),
-      level: 'success',
-      source: 'initializer',
-      message: '✓ PRD 解析完成，共识别出 3 个里程碑和 28 个任务',
-    },
-    {
-      id: '3',
-      timestamp: new Date('2026-03-25T10:00:02'),
-      level: 'info',
-      source: 'git',
-      message: '正在初始化 Git 仓库...',
-    },
-    {
-      id: '4',
-      timestamp: new Date('2026-03-25T10:00:03'),
-      level: 'success',
-      source: 'git',
-      message: '✓ Git 仓库初始化成功',
-    },
-    {
-      id: '5',
-      timestamp: new Date('2026-03-25T10:00:04'),
-      level: 'info',
-      source: 'coding-agent-1',
-      message: 'Issue #1: 用户认证系统 - 开始实现',
-    },
-    {
-      id: '6',
-      timestamp: new Date('2026-03-25T10:00:05'),
-      level: 'debug',
-      source: 'coding-agent-1',
-      message: '创建目录结构：src/auth/, src/components/, src/hooks/',
-    },
-    {
-      id: '7',
-      timestamp: new Date('2026-03-25T10:00:06'),
-      level: 'info',
-      source: 'quality-gate',
-      message: '运行代码检查 (ESLint)...',
-    },
-    {
-      id: '8',
-      timestamp: new Date('2026-03-25T10:00:07'),
-      level: 'success',
-      source: 'quality-gate',
-      message: '✓ ESLint 检查通过 (0 errors, 0 warnings)',
-    },
-    {
-      id: '9',
-      timestamp: new Date('2026-03-25T10:00:08'),
-      level: 'warn',
-      source: 'coding-agent-2',
-      message: '⚠️ 检测到潜在的循环依赖，建议重构',
-    },
-    {
-      id: '10',
-      timestamp: new Date('2026-03-25T10:00:09'),
-      level: 'error',
-      source: 'test-runner',
-      message: '❌ 单元测试失败：Auth.test.tsx - expect(received).toBe(expected)',
-    },
-  ])
+  // 使用 observability store 获取真实数据
+  const getLogs = useObservabilityStore(state => state.getLogs)
+  const getLogStats = useObservabilityStore(state => state.getLogStats)
+  const clearLogsAction = useObservabilityStore(state => state.clearLogs)
+
+  // 假设当前查看的是某个智能体的日志（实际应用中可能需要从上下文获取 agentId）
+  const [currentAgentId] = useState<string>('default-agent')
 
   const [filter, setFilter] = useState<'all' | 'info' | 'warn' | 'error' | 'debug' | 'success'>(
     'all'
@@ -101,32 +36,20 @@ export function LogTerminal() {
   const [isAutoScroll, setIsAutoScroll] = useState(true)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
-  // Calculate stats
-  const stats: LogStats = {
-    total: logs.length,
-    info: logs.filter(l => l.level === 'info').length,
-    warn: logs.filter(l => l.level === 'warn').length,
-    error: logs.filter(l => l.level === 'error').length,
-    debug: logs.filter(l => l.level === 'debug').length,
-    success: logs.filter(l => l.level === 'success').length,
-  }
+  // 从 store 获取日志和统计
+  const logs = getLogs(currentAgentId, {
+    level: filter === 'all' ? undefined : filter,
+    keyword: searchText || undefined,
+  })
+
+  const stats: LogStats = getLogStats(currentAgentId)
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
     if (isAutoScroll && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [logs, isAutoScroll])
-
-  // Filter logs
-  const filteredLogs = logs.filter(log => {
-    const matchesFilter = filter === 'all' || log.level === filter
-    const matchesSearch =
-      !searchText ||
-      log.message.toLowerCase().includes(searchText.toLowerCase()) ||
-      log.source.toLowerCase().includes(searchText.toLowerCase())
-    return matchesFilter && matchesSearch
-  })
+  }, [logs.length, isAutoScroll])
 
   const getLevelColor = (level: LogEntry['level']) => {
     switch (level) {
@@ -158,12 +81,12 @@ export function LogTerminal() {
     }
   }
 
-  const clearLogs = () => {
-    setLogs([])
+  const handleClearLogs = () => {
+    clearLogsAction(currentAgentId)
   }
 
   const exportLogs = () => {
-    const logContent = filteredLogs
+    const logContent = logs
       .map(
         log =>
           `[${log.timestamp.toISOString()}] [${log.level.toUpperCase()}] [${log.source}] ${log.message}`
@@ -190,7 +113,7 @@ export function LogTerminal() {
           <p className="text-muted-foreground mt-1">监控 AI Agent 执行过程和 CLI 工具输出</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={clearLogs}>
+          <Button variant="outline" size="sm" onClick={handleClearLogs}>
             <Trash2 className="w-4 h-4 mr-2" />
             清空
           </Button>
@@ -323,7 +246,7 @@ export function LogTerminal() {
             <Terminal className="w-4 h-4 text-green-500" />
             <span className="font-semibold">Console Output</span>
             <Badge variant="secondary" className="text-xs">
-              {filteredLogs.length} / {stats.total} 条日志
+              {logs.length} / {stats.total} 条日志
             </Badge>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -335,7 +258,7 @@ export function LogTerminal() {
 
         {/* Log Content */}
         <div className="flex-1 overflow-auto p-4 space-y-1">
-          {filteredLogs.length === 0 ? (
+          {logs.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <div className="text-center">
                 <Terminal className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -344,7 +267,7 @@ export function LogTerminal() {
               </div>
             </div>
           ) : (
-            filteredLogs.map(log => (
+            logs.map((log: LogEntry) => (
               <div
                 key={log.id}
                 className="flex items-start gap-3 hover:bg-slate-900/50 px-2 py-1 rounded transition-colors"
@@ -378,8 +301,8 @@ export function LogTerminal() {
         <div className="flex items-center justify-between p-3 border-t border-slate-800 bg-slate-900 text-xs text-slate-400">
           <div className="flex items-center gap-4">
             <span>UTF-8</span>
-            <span>Lines: {filteredLogs.length}</span>
-            <span>Size: ~{Math.round(filteredLogs.length * 0.1)}KB</span>
+            <span>Lines: {logs.length}</span>
+            <span>Size: ~{Math.round(logs.length * 0.1)}KB</span>
           </div>
           <div className="flex items-center gap-2">
             <span className={isAutoScroll ? 'text-green-500' : 'text-slate-500'}>

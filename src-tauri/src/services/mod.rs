@@ -3,6 +3,10 @@
 use crate::ai::{AIProvider, AIProviderType};
 use std::collections::HashMap;
 
+pub mod observability_service;
+
+pub use observability_service::ObservabilityService;
+
 pub struct AIService {
     providers: HashMap<String, AIProvider>,
 }

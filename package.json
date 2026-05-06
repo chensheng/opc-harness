@@ -13,7 +13,6 @@
     "rust:check": "powershell -ExecutionPolicy Bypass -File ./scripts/fast-check.ps1",
     "rust:build": "cd src-tauri && cargo build --lib",
     "rust:release": "cd src-tauri && cargo build --release",
-    
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
@@ -54,6 +53,7 @@
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.22.0",
+    "react-window": "^2.2.7",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.2.0",

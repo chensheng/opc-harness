@@ -458,9 +458,13 @@ mod tests {
         let manager = WorktreeManager::new("/tmp/test-project");
         
         let path = manager.generate_worktree_path("agent-123");
-        assert_eq!(path, PathBuf::from("/tmp/test-project/.worktrees/agent-agent-123"));
+        // Use contains to handle platform-specific path separators
+        assert!(path.to_string_lossy().contains(".worktrees"));
+        assert!(path.to_string_lossy().contains("agent-agent-123"));
         
         let path = manager.generate_worktree_path("agent@#$%");
-        assert_eq!(path, PathBuf::from("/tmp/test-project/.worktrees/agent-agent_____"));
+        assert!(path.to_string_lossy().contains(".worktrees"));
+        // agent@#$% -> agent____ (4 special chars replaced with _)
+        assert!(path.to_string_lossy().contains("agent-agent____"));
     }
 }

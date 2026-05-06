@@ -36,6 +36,7 @@ mod tests {
             log_level: "debug".to_string(),
             max_concurrent_agents: 3,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         let result = manager.start(config);
@@ -52,6 +53,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 5,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -77,6 +79,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 5,
             workspace_dir: test_path.clone(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -104,6 +107,7 @@ mod tests {
             log_level: "debug".to_string(),
             max_concurrent_agents: 3,
             workspace_dir: test_path.clone(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -135,6 +139,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 5,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -165,6 +170,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 4,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -182,6 +188,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -199,6 +206,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -222,6 +230,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -247,6 +256,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -277,6 +287,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 4,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -302,6 +313,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -330,6 +342,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 4,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -357,6 +370,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();
@@ -385,6 +399,7 @@ mod tests {
             log_level: "info".to_string(),
             max_concurrent_agents: 2,
             workspace_dir: get_test_path(),
+            lock_timeout_minutes: 30,
         };
         
         manager.start(config).unwrap();

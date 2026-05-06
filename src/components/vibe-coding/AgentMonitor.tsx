@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import {
@@ -20,6 +20,7 @@ import {
   LayoutGrid,
   List,
   Bot,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -38,11 +39,12 @@ import { CreateAgentDialog } from './CreateAgentDialog'
 import { EditAgentDialog } from './EditAgentDialog'
 import { AgentOffice } from './AgentOffice'
 import { useAgent } from '@/hooks/useAgent'
+import { useObservabilityStore } from '@/stores/observabilityStore'
 
 // ==================== 配置常量 ====================
 const LOG_RETENTION_LIMIT = 50 // 每个智能体保留的最大日志数量
-const LOG_DISPLAY_COUNT = 10   // UI 显示的最近日志数量
-const LOG_THROTTLE_INTERVAL = 200 // 日志节流间隔（毫秒）- 防止高频日志刷屏
+const LOG_DISPLAY_COUNT = 10 // UI 显示的最近日志数量
+// const LOG_THROTTLE_INTERVAL = 200 // 日志节流间隔（毫秒）- 防止高频日志刷屏
 
 // 后端 AgentSession 类型定义
 interface AgentSession {
@@ -134,7 +136,11 @@ export function AgentMonitor() {
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
 
   // 使用 Agent WebSocket Hook（实时通信）
-  const { messages, connectWebSocket, disconnectWebSocket, clearMessages } = useAgent()
+  const { messages, connectWebSocket } = useAgent()
+
+  // 使用 observability store 获取性能指标和告警
+  // const getMetrics = useObservabilityStore(state => state.getMetrics)
+  const getActiveAlerts = useObservabilityStore(state => state.getActiveAlerts)
 
   // 将 WebSocket 消息分发到对应智能体的日志中
   useEffect(() => {
@@ -142,34 +148,37 @@ export function AgentMonitor() {
 
     // 获取最后一条消息
     const lastMessage = messages[messages.length - 1]
-    
+
     // 🚫 过滤掉系统级别的连接状态消息，不显示在智能体日志中
     if (lastMessage.type === 'status' && lastMessage.content?.includes('Frontend connected')) {
       console.log('[AgentMonitor] Skipping system connection status message')
       return
     }
-    
+
     console.log('[AgentMonitor] Processing message:', {
       type: lastMessage.type,
       sessionId: lastMessage.sessionId,
       content: lastMessage.content?.substring(0, 100),
       metadata: lastMessage.metadata,
-      timestamp: lastMessage.timestamp
+      timestamp: lastMessage.timestamp,
     })
-    
+
     // 打印所有智能体的 ID 信息，用于调试
-    console.log('[AgentMonitor] Available agents:', agents.map(a => ({
-      agentId: a.agentId,
-      sessionId: a.sessionId,
-      projectId: a.projectId,
-      expectedSessionIds: [
-        `agent-${a.agentId}`,  // WebSocket 日志使用的格式
-        a.sessionId             // 数据库中的 session_id（兼容旧格式）
-      ]
-    })))
-    
+    console.log(
+      '[AgentMonitor] Available agents:',
+      agents.map(a => ({
+        agentId: a.agentId,
+        sessionId: a.sessionId,
+        projectId: a.projectId,
+        expectedSessionIds: [
+          `agent-${a.agentId}`, // WebSocket 日志使用的格式
+          a.sessionId, // 数据库中的 session_id（兼容旧格式）
+        ],
+      }))
+    )
+
     console.log('[AgentMonitor] Trying to match message sessionId:', lastMessage.sessionId)
-    
+
     // 根据 sessionId 找到对应的智能体
     setAgents(prev => {
       // 找到第一个匹配的智能体（避免重复添加）
@@ -178,10 +187,12 @@ export function AgentMonitor() {
         // 1. agent-{agentId} - WebSocket 日志使用的格式（worker_id = agent_id）
         // 2. 直接匹配 sessionId - 兼容数据库中的 session_id（如 session-xxx）
         // 注意：不再支持 project-{projectId} 格式，日志仅发送到智能体粒度
-        return lastMessage.sessionId === `agent-${agent.agentId}` ||
-               lastMessage.sessionId === agent.sessionId
+        return (
+          lastMessage.sessionId === `agent-${agent.agentId}` ||
+          lastMessage.sessionId === agent.sessionId
+        )
       })
-      
+
       if (matchedAgentIndex === -1) {
         console.warn('[AgentMonitor] No agent matched for message:', {
           sessionId: lastMessage.sessionId,
@@ -190,28 +201,33 @@ export function AgentMonitor() {
             agentId: a.agentId,
             projectId: a.projectId,
             sessionId: a.sessionId,
-            expectedSessionId: `agent-${a.agentId}`
-          }))
+            expectedSessionId: `agent-${a.agentId}`,
+          })),
         })
         return prev
       }
-      
+
       console.log('[AgentMonitor] Matched agent:', {
         agentId: prev[matchedAgentIndex].agentId,
         agentProjectId: prev[matchedAgentIndex].projectId,
-        messageSessionId: lastMessage.sessionId
+        messageSessionId: lastMessage.sessionId,
       })
-      
+
       // 处理 log、status、progress、error 类型的消息
-      if (lastMessage.type === 'log' || lastMessage.type === 'status' || lastMessage.type === 'progress' || lastMessage.type === 'error') {
+      if (
+        lastMessage.type === 'log' ||
+        lastMessage.type === 'status' ||
+        lastMessage.type === 'progress' ||
+        lastMessage.type === 'error'
+      ) {
         // 添加新日志到该智能体
         const date = new Date(lastMessage.timestamp)
         const timeStr = date.toLocaleTimeString('zh-CN', { hour12: false })
         const milliseconds = String(date.getMilliseconds()).padStart(3, '0')
         const timestamp = `${timeStr}.${milliseconds}`
-        
+
         let logContent = `[${timestamp}] ${lastMessage.content}`
-        
+
         // 如果是 status 类型，添加状态前缀
         if (lastMessage.type === 'status') {
           logContent = `[${timestamp}] 📊 ${lastMessage.content}`
@@ -220,30 +236,34 @@ export function AgentMonitor() {
         } else if (lastMessage.type === 'error') {
           logContent = `[${timestamp}] ❌ ${lastMessage.content}`
         }
-        
-        console.log('[AgentMonitor] Adding log to agent:', prev[matchedAgentIndex].agentId, logContent)
-        
+
+        console.log(
+          '[AgentMonitor] Adding log to agent:',
+          prev[matchedAgentIndex].agentId,
+          logContent
+        )
+
         // 创建新的数组，只更新匹配的智能体
         const newAgents = [...prev]
         const currentAgent = newAgents[matchedAgentIndex]
-        
+
         newAgents[matchedAgentIndex] = {
           ...currentAgent,
           logs: [...currentAgent.logs, logContent].slice(-LOG_RETENTION_LIMIT), // 保留最近 LOG_RETENTION_LIMIT 条
         }
-        
+
         return newAgents
       }
-      
+
       return prev
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, projectId]) // 移除 agents 依赖，避免循环触发
 
   // 刷新智能体列表（从数据库加载）
-  const refreshAgents = useCallback(async () => {
-    await loadAgents(true)
-  }, [])
+  // const refreshAgents = useCallback(async () => {
+  //   await loadAgents(true)
+  // }, [])
 
   // 计算运行中和处理中的智能体数量
   const runningCount = agents.filter(a => a.status === 'running').length
@@ -266,13 +286,21 @@ export function AgentMonitor() {
     if (agents.length > 0 && projectId) {
       // 为每个运行中的智能体建立 WebSocket 连接
       const runningAgents = agents.filter(a => a.status === 'running')
-      
+
       runningAgents.forEach(agent => {
         const sessionId = `agent-${agent.agentId}`
-        console.log('[AgentMonitor] Establishing WebSocket connection for agent:', agent.agentId, 'sessionId:', sessionId)
-        
+        console.log(
+          '[AgentMonitor] Establishing WebSocket connection for agent:',
+          agent.agentId,
+          'sessionId:',
+          sessionId
+        )
+
         connectWebSocket(sessionId).catch(err => {
-          console.error(`[AgentMonitor] Failed to connect WebSocket for agent ${agent.agentId}:`, err)
+          console.error(
+            `[AgentMonitor] Failed to connect WebSocket for agent ${agent.agentId}:`,
+            err
+          )
         })
       })
     }
@@ -300,7 +328,8 @@ export function AgentMonitor() {
       // 2. 获取正在运行的 Workers 列表
       let runningWorkers: string[] = []
       try {
-        const workers = await invoke<any[]>('list_agent_workers')
+        const workers =
+          await invoke<Array<{ is_running: boolean; worker_id: string }>>('list_agent_workers')
         runningWorkers = workers.filter(w => w.is_running).map(w => w.worker_id)
         console.log('[AgentMonitor] Running workers:', runningWorkers)
       } catch (error) {
@@ -310,13 +339,13 @@ export function AgentMonitor() {
       // 3. 转换会话信息，并根据实际运行状态调整 status
       const agentInfos = sessions.map(session => {
         const info = convertSessionToAgentInfo(session)
-        
+
         // 如果数据库中状态为 running，但实际没有对应的 Worker，则修正为 stopped
         if (info.status === 'running' && !runningWorkers.includes(info.agentId)) {
           console.log(`[AgentMonitor] Agent ${info.agentId} marked as stopped (no worker found)`)
           info.status = 'stopped'
         }
-        
+
         return info
       })
 
@@ -330,7 +359,7 @@ export function AgentMonitor() {
               logsMap.set(agent.agentId, agent.logs)
             }
           })
-          
+
           // 将保留的日志合并到新的智能体列表中
           return agentInfos.map(info => {
             const existingLogs = logsMap.get(info.agentId)
@@ -380,19 +409,19 @@ export function AgentMonitor() {
   const handleStartAgent = async (agentId: string) => {
     try {
       console.log('[AgentMonitor] Starting agent worker:', agentId)
-      
+
       // 获取当前项目 ID
       if (!projectId) {
         console.error('[AgentMonitor] Project ID is not available')
         return
       }
-      
+
       console.log('[AgentMonitor] Calling start_agent_worker with params:', {
         workerId: agentId,
         projectId: projectId,
         checkInterval: 30,
       })
-      
+
       // 调用后端 API 真正启动 Agent Worker
       // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       const workerId = await invoke<string>('start_agent_worker', {
@@ -400,9 +429,9 @@ export function AgentMonitor() {
         projectId: projectId,
         checkInterval: 30, // 每 30 秒检查一次待处理的故事
       })
-      
+
       console.log('[AgentMonitor] Agent worker started:', workerId)
-      
+
       // 更新数据库中的状态
       await invoke('update_agent_session_status', {
         agentId,
@@ -412,7 +441,7 @@ export function AgentMonitor() {
 
       // 更新前端状态
       setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
-      
+
       // 显示成功提示
       console.log('[AgentMonitor] ✅ Agent worker started successfully')
     } catch (error) {
@@ -424,15 +453,15 @@ export function AgentMonitor() {
   const handlePauseAgent = async (agentId: string) => {
     try {
       console.log('[AgentMonitor] Pausing agent worker:', agentId)
-      
+
       // 调用后端 API 真正停止 Agent Worker
       // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       await invoke('stop_agent_worker', {
         workerId: agentId,
       })
-      
+
       console.log('[AgentMonitor] Agent worker stopped:', agentId)
-      
+
       // 更新数据库中的状态
       await invoke('update_agent_session_status', {
         agentId,
@@ -444,7 +473,7 @@ export function AgentMonitor() {
       setAgents(prev =>
         prev.map(a => (a.agentId === agentId ? { ...a, status: 'paused', cpuUsage: 0 } : a))
       )
-      
+
       console.log('[AgentMonitor] ✅ Agent worker paused successfully')
     } catch (error) {
       console.error('[AgentMonitor] Failed to pause agent:', error)
@@ -455,12 +484,12 @@ export function AgentMonitor() {
   const handleResumeAgent = async (agentId: string) => {
     try {
       console.log('[AgentMonitor] Resuming agent worker:', agentId)
-      
+
       if (!projectId) {
         console.error('[AgentMonitor] Project ID is not available')
         return
       }
-      
+
       // 调用后端 API 重新启动 Agent Worker
       // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       const workerId = await invoke<string>('start_agent_worker', {
@@ -468,9 +497,9 @@ export function AgentMonitor() {
         projectId: projectId,
         checkInterval: 30,
       })
-      
+
       console.log('[AgentMonitor] Agent worker resumed:', workerId)
-      
+
       // 更新数据库中的状态
       await invoke('update_agent_session_status', {
         agentId,
@@ -480,7 +509,7 @@ export function AgentMonitor() {
 
       // 更新前端状态
       setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
-      
+
       console.log('[AgentMonitor] ✅ Agent worker resumed successfully')
     } catch (error) {
       console.error('[AgentMonitor] Failed to resume agent:', error)
@@ -667,7 +696,8 @@ export function AgentMonitor() {
                   <div>
                     <h3 className="font-semibold text-sm">智能体运行状态</h3>
                     <p className="text-xs text-muted-foreground">
-                      {runningCount} 个运行中，{processingCount} 个处理任务 · 每个智能体创建后自动启动并持续监控数据库
+                      {runningCount} 个运行中，{processingCount} 个处理任务 ·
+                      每个智能体创建后自动启动并持续监控数据库
                     </p>
                   </div>
                 </div>
@@ -681,9 +711,7 @@ export function AgentMonitor() {
                       {agent.name || agent.agentId.substring(0, 8)}
                     </Badge>
                   ))}
-                  {agents.length > 5 && (
-                    <Badge variant="outline">+{agents.length - 5}</Badge>
-                  )}
+                  {agents.length > 5 && <Badge variant="outline">+{agents.length - 5}</Badge>}
                 </div>
               </div>
             </Card>
@@ -911,7 +939,7 @@ export function AgentMonitor() {
                       </div>
                     </div>
 
-                    {/* Resource Usage */}
+                    {/* Resource Usage - Enhanced with Observability */}
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <Cpu className="w-3 h-3 text-purple-500" />
@@ -922,6 +950,30 @@ export function AgentMonitor() {
                         <span>内存：{(agent.memoryUsage / 1024).toFixed(1)} MB</span>
                       </div>
                     </div>
+
+                    {/* Alert Indicators */}
+                    {(() => {
+                      const alerts = getActiveAlerts().filter(a => a.agentId === agent.agentId)
+                      if (alerts.length === 0) return null
+
+                      return (
+                        <div className="mt-2 space-y-1">
+                          {alerts.map(alert => (
+                            <div
+                              key={alert.id}
+                              className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${
+                                alert.level === 'critical'
+                                  ? 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+                                  : 'bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400'
+                              }`}
+                            >
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>{alert.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
 
                     {/* Agent Logs - Enhanced Display */}
                     <div className="border rounded-md bg-gray-50 dark:bg-gray-950/30">
@@ -949,32 +1001,45 @@ export function AgentMonitor() {
                             <p className="text-xs">暂无日志</p>
                           </div>
                         ) : (
-                          agent.logs.slice(-LOG_DISPLAY_COUNT).reverse().map((log, idx) => {
-                            // 根据日志内容判断类型并着色
-                            const isError = log.includes('❌') || log.includes('ERROR') || log.includes('error')
-                            const isSuccess = log.includes('✅') || log.includes('SUCCESS') || log.includes('success')
-                            const isWarning = log.includes('⚠️') || log.includes('WARNING') || log.includes('warning')
-                            const isProgress = log.includes('📊') || log.includes('PROGRESS') || log.includes('progress')
-                            
-                            return (
-                              <div
-                                key={`${agent.agentId}-log-${idx}`}
-                                className={`break-all ${
-                                  isError
-                                    ? 'text-red-600 dark:text-red-400'
-                                    : isSuccess
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : isWarning
-                                    ? 'text-yellow-600 dark:text-yellow-400'
-                                    : isProgress
-                                    ? 'text-blue-600 dark:text-blue-400'
-                                    : 'text-gray-700 dark:text-gray-300'
-                                }`}
-                              >
-                                {log}
-                              </div>
-                            )
-                          })
+                          agent.logs
+                            .slice(-LOG_DISPLAY_COUNT)
+                            .reverse()
+                            .map((log, idx) => {
+                              // 根据日志内容判断类型并着色
+                              const isError =
+                                log.includes('❌') || log.includes('ERROR') || log.includes('error')
+                              const isSuccess =
+                                log.includes('✅') ||
+                                log.includes('SUCCESS') ||
+                                log.includes('success')
+                              const isWarning =
+                                log.includes('⚠️') ||
+                                log.includes('WARNING') ||
+                                log.includes('warning')
+                              const isProgress =
+                                log.includes('📊') ||
+                                log.includes('PROGRESS') ||
+                                log.includes('progress')
+
+                              return (
+                                <div
+                                  key={`${agent.agentId}-log-${idx}`}
+                                  className={`break-all ${
+                                    isError
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : isSuccess
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : isWarning
+                                          ? 'text-yellow-600 dark:text-yellow-400'
+                                          : isProgress
+                                            ? 'text-blue-600 dark:text-blue-400'
+                                            : 'text-gray-700 dark:text-gray-300'
+                                  }`}
+                                >
+                                  {log}
+                                </div>
+                              )
+                            })
                         )}
                       </div>
                     </div>
@@ -1049,14 +1114,17 @@ export function AgentMonitor() {
                         <div>
                           <h4 className="font-semibold mb-2">完整日志</h4>
                           <div className="bg-black/5 dark:bg-white/5 rounded-md p-3 font-mono text-xs max-h-48 overflow-y-auto space-y-1">
-                            {agent.logs.slice().reverse().map((log, idx) => (
-                              <div
-                                key={`${agent.agentId}-full-log-${idx}`}
-                                className="text-gray-700 dark:text-gray-300"
-                              >
-                                {log}
-                              </div>
-                            ))}
+                            {agent.logs
+                              .slice()
+                              .reverse()
+                              .map((log, idx) => (
+                                <div
+                                  key={`${agent.agentId}-full-log-${idx}`}
+                                  className="text-gray-700 dark:text-gray-300"
+                                >
+                                  {log}
+                                </div>
+                              ))}
                           </div>
                         </div>
                       </div>

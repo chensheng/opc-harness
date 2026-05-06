@@ -178,6 +178,11 @@ fn main() {
             app.manage(agent_manager);
             log::info!("AgentManager state registered");
 
+            // Initialize ObservabilityService
+            let obs_service = Arc::new(services::ObservabilityService::new());
+            app.manage(obs_service);
+            log::info!("ObservabilityService registered");
+
             // Check and create workspace directories for all projects
             if let Err(e) = db::ensure_all_project_workspaces(&app.app_handle()) {
                 log::warn!("Failed to ensure project workspaces: {}", e);
@@ -372,6 +377,25 @@ fn main() {
             commands::system::get_project_workspace_path,
             commands::system::write_file_to_project,
             commands::system::read_file_from_project,
+
+            // Observability commands
+            commands::observability::get_agent_logs,
+            commands::observability::get_agent_log_stats,
+            commands::observability::get_agent_traces,
+            commands::observability::get_agent_alerts,
+            commands::observability::clear_agent_logs,
+            commands::observability::export_agent_logs,
+            commands::observability::log_agent_message,
+            commands::observability::record_agent_thought,
+            commands::observability::record_agent_tool_call,
+            commands::observability::record_agent_tool_result,
+            commands::observability::record_agent_decision,
+            commands::observability::record_api_call,
+            commands::observability::update_performance_metrics,
+            commands::observability::get_performance_metrics,
+            commands::observability::resolve_agent_alert,
+            commands::observability::get_alert_config,
+            commands::observability::update_alert_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -6,15 +6,8 @@ import { Play, Square, RefreshCw, Server } from 'lucide-react'
  * 去中心化 Agent Nodes 控制面板
  */
 export function DecentralizedNodesPanel() {
-  const {
-    nodes,
-    isLoading,
-    error,
-    startNode,
-    stopNode,
-    refreshNodes,
-    getRunningCount,
-  } = useDecentralizedNodes()
+  const { nodes, isLoading, error, startNode, stopNode, refreshNodes, getRunningCount } =
+    useDecentralizedNodes()
 
   const handleStartNode = async () => {
     try {
@@ -45,7 +38,7 @@ export function DecentralizedNodesPanel() {
             去中心化 Agent Nodes
           </h3>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">
             运行中: {getRunningCount()} / {nodes.length}
@@ -86,7 +79,7 @@ export function DecentralizedNodesPanel() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {nodes.map((node) => (
+            {nodes.map(node => (
               <div
                 key={node.node_id}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"

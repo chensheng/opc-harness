@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+// 可观测性相关模型
+pub mod agent_log;
+pub mod agent_trace;
+pub mod agent_alert;
+
+pub use agent_log::AgentLog;
+pub use agent_trace::AgentTrace;
+pub use agent_alert::{AgentAlert, alert_level, alert_type};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Project {

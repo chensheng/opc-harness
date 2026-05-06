@@ -323,6 +323,9 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
     // 检查是否有旧版本的列（project_path）
     let has_old_column = columns.iter().any(|col| col == "project_path");
 
+    // 初始化可观测性相关表
+    init_observability_tables(&conn)?;
+
     if !has_all_columns || has_old_column {
         // 表结构不匹配，删除并重建
         log::warn!("agent_sessions table structure mismatch, rebuilding...");
@@ -465,5 +468,101 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
     }
     
     log::info!("Agent Loop fields migration completed");
+    Ok(())
+}
+
+/// 初始化可观测性相关表（日志、追踪、告警）
+fn init_observability_tables(conn: &Connection) -> Result<()> {
+    // 创建 agent_logs 表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_logs (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            level TEXT NOT NULL,
+            source TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (agent_id) REFERENCES agent_sessions(agent_id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 创建 agent_logs 索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_logs_agent_id ON agent_logs(agent_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_logs_timestamp ON agent_logs(timestamp)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_logs_level ON agent_logs(level)",
+        [],
+    )?;
+
+    // 创建 agent_traces 表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_traces (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            data TEXT NOT NULL,
+            parent_id TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (agent_id) REFERENCES agent_sessions(agent_id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 创建 agent_traces 索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_traces_agent_id ON agent_traces(agent_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_traces_event_type ON agent_traces(event_type)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_traces_timestamp ON agent_traces(timestamp)",
+        [],
+    )?;
+
+    // 创建 agent_alerts 表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_alerts (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            level TEXT NOT NULL,
+            alert_type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT,
+            FOREIGN KEY (agent_id) REFERENCES agent_sessions(agent_id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 创建 agent_alerts 索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_alerts_agent_id ON agent_alerts(agent_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_alerts_status ON agent_alerts(status)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_alerts_created_at ON agent_alerts(created_at)",
+        [],
+    )?;
+
+    log::info!("Observability tables initialized successfully");
     Ok(())
 }

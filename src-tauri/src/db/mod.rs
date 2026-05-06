@@ -13,6 +13,11 @@ mod issue_repository;
 mod user_story_repository;
 mod sprint_repository;
 
+// Observability repositories
+pub mod agent_logs;
+pub mod agent_traces;
+pub mod agent_alerts;
+
 // Re-export Sprint repository functions for Agent Loop
 pub use sprint_repository::{
     get_active_sprint, get_pending_stories_by_sprint, lock_user_story, unlock_user_story,
