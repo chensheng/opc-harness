@@ -496,6 +496,43 @@ Level 2: openspec/              ← OpenSpec 工作流
 
 ---
 
+## 🔍 前端 Console Bridge
+
+**功能**: 在开发模式下,前端 console 日志自动转发到后端 Rust 日志系统
+
+**启用方式**:
+- **开发模式**: 自动启用 (`npm run tauri:dev`)
+- **生产模式**: 默认禁用,可通过环境变量 `VITE_ENABLE_CONSOLE_BRIDGE=true` 启用
+
+**使用示例**:
+```typescript
+// 前端代码 - 所有 console 调用自动转发到后端
+console.log("User logged in", { userId: 123 });
+console.error("Failed to fetch data", error);
+console.warn("Deprecated API usage");
+```
+
+**后端日志输出**:
+```
+[Frontend] User logged in {"userId":123}
+[Frontend] Failed to fetch data Error: ...
+[Frontend] Deprecated API usage
+```
+
+**特性**:
+- ✅ 保留浏览器 DevTools Console 功能
+- ✅ 支持所有 console 方法(log/info/warn/error/debug)
+- ✅ 安全序列化对象(处理循环引用)
+- ✅ 异步发送,不阻塞 UI
+- ✅ 仅开发模式启用,无性能影响
+
+**注意事项**:
+- ⚠️ 避免在循环中频繁输出大量日志(可能增加 IPC 开销)
+- ⚠️ 大对象会被序列化,可能导致日志冗长
+- ⚠️ 生产环境建议禁用(默认已禁用)
+
+---
+
 ## 🔧 命令速查
 
 ### 日常开发

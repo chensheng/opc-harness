@@ -377,6 +377,8 @@ fn main() {
             commands::system::get_project_workspace_path,
             commands::system::write_file_to_project,
             commands::system::read_file_from_project,
+            // Frontend Console Bridge command
+            commands::console_log::console_log,
             // Git management commands
             commands::system::check_git_status,
             commands::system::init_git_repo,

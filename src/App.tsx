@@ -25,6 +25,18 @@ function App() {
   // 应用启动时从数据库加载项目
   useEffect(() => {
     loadProjectsFromDatabase()
+    
+    // Test Console Bridge functionality
+    console.log('[Test] App initialized - Console Bridge test');
+    console.info('[Test] This is an info message', { timestamp: new Date().toISOString() });
+    console.warn('[Test] This is a warning message');
+    console.error('[Test] This is an error message', new Error('Test error'));
+    console.debug('[Test] Debug message with object', { user: 'test', id: 123 });
+    
+    // Test circular reference handling
+    const circularObj: any = { name: 'circular' };
+    circularObj.self = circularObj; // Create circular reference
+    console.log('[Test] Circular reference test', circularObj);
   }, [loadProjectsFromDatabase])
 
   return (
