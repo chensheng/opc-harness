@@ -572,10 +572,9 @@ impl InitializerAgent {
 
     /// 初始化 Git 仓库
     /// 
-    /// VC-008: 实现 Git 仓库初始化
+    /// VC-008: 验证 Git 仓库已初始化（项目创建/打开时已自动初始化）
     pub async fn initialize_git(&self) -> Result<bool, String> {
         use std::path::Path;
-        use tokio::process::Command;
 
         let project_path = &self.config.project_path;
 
@@ -584,55 +583,27 @@ impl InitializerAgent {
             return Err(format!("项目目录不存在：{}", project_path));
         }
 
-        // 2. 检查是否已经初始化过 Git 仓库
+        // 2. 检查 Git 仓库是否已初始化（应该已由项目创建/打开流程处理）
         let git_dir = Path::new(project_path).join(".git");
         if git_dir.exists() {
-            // Git 仓库已存在，跳过初始化
-            log::info!("Git 仓库已存在：{}", project_path);
+            log::info!("✅ Git 仓库已初始化：{}", project_path);
             return Ok(true);
         }
 
-        // 3. 检查 Git 是否已安装
-        let git_check = Command::new("git")
-            .arg("--version")
-            .output()
-            .await;
-
-        if git_check.is_err() {
-            return Err(
-                "Git 未安装。请先安装 Git:\n".to_string()
-                + "- Windows: https://git-scm.com/download/win\n"
-                + "- macOS: brew install git\n"
-                + "- Linux: sudo apt-get install git (Ubuntu/Debian) 或 sudo yum install git (CentOS/RHEL)"
-            );
-        }
-
-        // 4. 初始化 Git 仓库
-        log::info!("正在初始化 Git 仓库：{}", project_path);
-        let init_result = Command::new("git")
-            .current_dir(project_path)
-            .arg("init")
-            .output()
-            .await
-            .map_err(|e| format!("Git 初始化失败：{}", e))?;
-
-        if !init_result.status.success() {
-            let stderr = String::from_utf8_lossy(&init_result.stderr);
-            return Err(format!("Git 初始化失败：{}", stderr));
-        }
-
-        log::info!("Git 仓库初始化成功：{}", project_path);
-
-        // 5. 配置 Git 用户信息（如果全局配置未设置）
-        self.configure_git_user(project_path).await?;
-
-        // 6. 创建初始 .gitignore 文件
-        self.create_gitignore(project_path)?;
-
-        Ok(true)
+        // 3. 如果 Git 未初始化，记录警告但继续执行
+        // 注意：正常情况下不应该到达这里，因为项目创建/打开时已初始化
+        log::warn!("⚠️  Git 仓库未初始化：{}", project_path);
+        log::warn!("   这可能是因为项目是在 Git 自动初始化功能添加之前创建的");
+        log::warn!("   建议通过 GitDetector 组件手动初始化 Git");
+        
+        // 返回 false 表示 Git 未初始化，但不阻止后续流程
+        Ok(false)
     }
 
     /// 配置 Git 用户信息
+    /// 
+    /// @deprecated 此函数已不再使用，Git 用户配置现在在项目创建/打开时由 database.rs 处理
+    #[allow(dead_code)]
     async fn configure_git_user(&self, project_path: &str) -> Result<(), String> {
         use tokio::process::Command;
 
@@ -677,6 +648,9 @@ impl InitializerAgent {
     }
 
     /// 创建 .gitignore 文件
+    /// 
+    /// @deprecated 此函数已不再使用，.gitignore 现在在项目创建/打开时由 database.rs 处理
+    #[allow(dead_code)]
     fn create_gitignore(&self, project_path: &str) -> Result<(), String> {
         use std::fs::File;
         use std::io::Write;

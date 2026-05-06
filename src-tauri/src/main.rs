@@ -377,6 +377,12 @@ fn main() {
             commands::system::get_project_workspace_path,
             commands::system::write_file_to_project,
             commands::system::read_file_from_project,
+            // Git management commands
+            commands::system::check_git_status,
+            commands::system::init_git_repo,
+            commands::system::set_git_config,
+            commands::system::get_git_config,
+            commands::system::get_all_git_config,
 
             // Observability commands
             commands::observability::get_agent_logs,

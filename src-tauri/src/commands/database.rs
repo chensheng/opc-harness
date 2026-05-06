@@ -15,6 +15,14 @@ pub fn create_project(
     
     // 使用项目ID创建工作区目录
     let workspace_path = create_workspace_directory(&project_id)?;
+    
+    // ✨ 新增：初始化 Git 仓库
+    if let Err(e) = initialize_git_repository(&workspace_path.to_string_lossy()) {
+        log::warn!("Git initialization failed (non-critical): {}", e);
+        log::warn!("User can initialize Git manually later via GitDetector");
+    } else {
+        log::info!("Project workspace created with Git initialized at: {:?} (ID: {})", workspace_path, project_id);
+    }
 
     let conn = db::get_connection().map_err(|e| e.to_string())?;
 
@@ -35,7 +43,7 @@ pub fn create_project(
     db::create_project(&conn, &project).map_err(|e| e.to_string())?;
     
     // 记录工作区路径（可以在后续版本中将此路径保存到数据库）
-    log::info!("Project workspace created at: {:?} (ID: {})", workspace_path, project_id);
+    log::info!("Project saved to database (ID: {})", project_id);
     
     Ok(project.id)
 }
@@ -80,6 +88,172 @@ fn create_workspace_directory(project_id: &str) -> Result<std::path::PathBuf, St
     Ok(final_path)
 }
 
+/// 初始化 Git 仓库
+/// 
+/// 在项目工作区目录中执行 git init，创建 .gitignore 文件，并设置默认用户配置
+/// 
+/// # 参数
+/// * `project_path` - 项目工作区路径
+/// 
+/// # 返回
+/// * `Ok(())` - 成功
+/// * `Err(String)` - 错误信息
+fn initialize_git_repository(project_path: &str) -> Result<(), String> {
+    use std::process::Command;
+    use std::path::Path;
+    
+    log::info!("[initialize_git_repository] Initializing Git at: {}", project_path);
+    
+    let path = Path::new(project_path);
+    
+    // 检查目录是否存在
+    if !path.exists() {
+        return Err(format!("Directory does not exist: {}", project_path));
+    }
+    
+    // 检查是否已经是 Git 仓库
+    if path.join(".git").exists() {
+        log::info!("[initialize_git_repository] Git already initialized, skipping");
+        return Ok(());
+    }
+    
+    // 执行 git init
+    let output = Command::new("git")
+        .current_dir(path)
+        .args(&["init", "-b", "main"])
+        .output()
+        .map_err(|e| format!("Failed to execute git init: {}", e))?;
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Git init failed: {}", stderr));
+    }
+    
+    log::info!("[initialize_git_repository] Git initialized with branch: main");
+    
+    // 创建 .gitignore 文件
+    create_gitignore_file(project_path)?;
+    
+    // 配置用户信息（如果全局未配置）
+    ensure_git_user_config(project_path)?;
+    
+    // 创建初始空 commit
+    let commit_output = Command::new("git")
+        .current_dir(path)
+        .args(&["commit", "--allow-empty", "-m", "Initial commit"])
+        .output()
+        .map_err(|e| format!("Failed to create initial commit: {}", e))?;
+    
+    if !commit_output.status.success() {
+        let stderr = String::from_utf8_lossy(&commit_output.stderr);
+        log::warn!("[initialize_git_repository] Initial commit warning: {}", stderr);
+    } else {
+        log::info!("[initialize_git_repository] Initial commit created");
+    }
+    
+    Ok(())
+}
+
+/// 创建 .gitignore 文件
+fn create_gitignore_file(project_path: &str) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+    
+    let gitignore_path = Path::new(project_path).join(".gitignore");
+    
+    // 如果 .gitignore 已存在，跳过创建
+    if gitignore_path.exists() {
+        log::info!("[create_gitignore_file] .gitignore already exists, skipping");
+        return Ok(());
+    }
+    
+    // OPC-HARNESS 项目的标准 .gitignore 内容
+    let content = "# OPC-HARNESS context files\n.opc-harness/\n";
+    
+    fs::write(&gitignore_path, content)
+        .map_err(|e| format!("Failed to create .gitignore: {}", e))?;
+    
+    log::info!("[create_gitignore_file] Created .gitignore at {:?}", gitignore_path);
+    Ok(())
+}
+
+/// 确保 Git 用户配置存在
+fn ensure_git_user_config(project_path: &str) -> Result<(), String> {
+    use std::process::Command;
+    
+    // 检查全局配置
+    let user_name_check = Command::new("git")
+        .args(&["config", "--global", "user.name"])
+        .output();
+    
+    let needs_config = match user_name_check {
+        Ok(output) => output.stdout.is_empty(),
+        Err(_) => true,
+    };
+    
+    if needs_config {
+        log::info!("[ensure_git_user_config] Setting default Git user config");
+        
+        // 设置默认用户名
+        Command::new("git")
+            .current_dir(project_path)
+            .args(&["config", "user.name", "OPC-HARNESS User"])
+            .output()
+            .map_err(|e| format!("Failed to set user.name: {}", e))?;
+        
+        // 设置默认邮箱
+        Command::new("git")
+            .current_dir(project_path)
+            .args(&["config", "user.email", "harness@opc.local"])
+            .output()
+            .map_err(|e| format!("Failed to set user.email: {}", e))?;
+        
+        log::info!("[ensure_git_user_config] Default Git user config set");
+    } else {
+        log::info!("[ensure_git_user_config] Global Git config exists, using it");
+    }
+    
+    Ok(())
+}
+
+/// 确保工作区目录和 Git 仓库存在
+/// 
+/// 在打开项目时调用，检查工作区目录是否存在，如果不存在则创建；
+/// 检查 Git 是否已初始化，如果未初始化则执行初始化。
+/// 
+/// # 参数
+/// * `project_id` - 项目 ID
+/// * `app_handle` - Tauri 应用句柄
+/// 
+/// # 返回
+/// * `Ok(())` - 成功
+/// * `Err(String)` - 错误信息
+fn ensure_workspace_and_git(project_id: &str, _app_handle: &tauri::AppHandle) -> Result<(), String> {
+    use crate::utils::paths::get_workspaces_dir;
+    
+    let workspaces_root = get_workspaces_dir();
+    let workspace_path = workspaces_root.join(project_id);
+    
+    // 如果工作区目录不存在，创建它
+    if !workspace_path.exists() {
+        log::info!("[ensure_workspace_and_git] Workspace directory missing, recreating: {:?}", workspace_path);
+        std::fs::create_dir_all(&workspace_path)
+            .map_err(|e| format!("Failed to create workspace directory: {}", e))?;
+    }
+    
+    // 检查 Git 是否已初始化
+    let git_dir = workspace_path.join(".git");
+    if !git_dir.exists() {
+        log::info!("[ensure_workspace_and_git] Git not initialized, initializing now...");
+        // 调用 Git 初始化逻辑（复用 create_project 中的函数）
+        initialize_git_repository(&workspace_path.to_string_lossy())?;
+    } else {
+        log::debug!("[ensure_workspace_and_git] Git already initialized");
+    }
+    
+    Ok(())
+}
+
 /// 获取所有项目
 #[tauri::command]
 pub fn get_all_projects(app_handle: tauri::AppHandle) -> Result<Vec<Project>, String> {
@@ -94,7 +268,18 @@ pub fn get_project_by_id(
     id: String,
 ) -> Result<Option<Project>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
-    db::get_project_by_id(&conn, &id).map_err(|e| e.to_string())
+    
+    match db::get_project_by_id(&conn, &id).map_err(|e| e.to_string())? {
+        Some(project) => {
+            // ✨ 新增：检查工作区目录并初始化 Git（如果需要）
+            if let Err(e) = ensure_workspace_and_git(&id, &app_handle) {
+                log::warn!("[get_project_by_id] Git initialization warning: {}", e);
+            }
+            
+            Ok(Some(project))
+        }
+        None => Ok(None),
+    }
 }
 
 /// 更新项目

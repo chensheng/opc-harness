@@ -207,8 +207,8 @@ impl WorktreeManager {
         // 2. 检查磁盘空间
         self.check_disk_space(500 * 1024 * 1024).await?; // 预估需要 500MB
         
-        // 3. 检查并初始化 Git 仓库（如果尚未初始化）
-        self.ensure_git_initialized().await?;
+        // 3. 验证 Git 仓库已初始化（应该已由项目创建/打开流程处理）
+        self.validate_git_repository().await?;
         
         // 4. 生成 Worktree 路径
         let worktree_path = self.generate_worktree_path(agent_id);
@@ -254,44 +254,29 @@ impl WorktreeManager {
         Ok(worktree_path_str)
     }
 
-    /// 确保 Git 仓库已初始化
+    /// 验证 Git 仓库已初始化
     /// 
-    /// 如果项目目录尚未初始化为 Git 仓库，则自动执行 git init
-    async fn ensure_git_initialized(&self) -> Result<(), String> {
+    /// 注意：Git 应该在项目创建/打开时已初始化，这里只做验证
+    async fn validate_git_repository(&self) -> Result<(), String> {
         let project_path = &self.config.project_path;
         let git_dir = Path::new(project_path).join(".git");
         
         // 检查 .git 目录是否存在
         if git_dir.exists() {
-            log::debug!("[WorktreeManager] Git repository already initialized at {}", project_path);
+            log::debug!("[WorktreeManager] ✓ Git repository verified at {}", project_path);
             return Ok(());
         }
         
-        log::info!("[WorktreeManager] Git repository not found, initializing...");
+        // Git 未初始化，返回错误（正常情况下不应该到达这里）
+        log::error!("[WorktreeManager] ✗ Git repository not found at {}", project_path);
+        log::error!("[WorktreeManager]   Git should have been initialized during project creation/opening");
+        log::error!("[WorktreeManager]   Please initialize Git manually or recreate the project");
         
-        // 执行 git init
-        let output = tokio::process::Command::new("git")
-            .current_dir(project_path)
-            .args(&["init"])
-            .output()
-            .await
-            .map_err(|e| format!("Failed to execute git init: {}", e))?;
-        
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Git init failed: {}", stderr));
-        }
-        
-        log::info!("[WorktreeManager] ✓ Git repository initialized at {}", project_path);
-        
-        // 创建初始 commit（可选，避免后续操作警告）
-        let _ = tokio::process::Command::new("git")
-            .current_dir(project_path)
-            .args(&["commit", "--allow-empty", "-m", "Initial commit"])
-            .output()
-            .await;
-        
-        Ok(())
+        Err(format!(
+            "Git repository not initialized at {}. \
+             Git should be initialized automatically when creating or opening a project.",
+            project_path
+        ))
     }
 
     /// 删除 Worktree
