@@ -404,6 +404,12 @@ fn main() {
             commands::observability::resolve_agent_alert,
             commands::observability::get_alert_config,
             commands::observability::update_alert_config,
+
+            // Retry engine commands
+            commands::retry::get_user_story_retry_history,
+            commands::retry::update_user_story_retry_config,
+            commands::retry::get_project_retry_statistics,
+            commands::retry::trigger_manual_retry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -50,6 +50,8 @@ pub async fn save_user_stories(
             failed_at: None,
             error_message: None,
             retry_count: 0,
+            max_retries: 3, // 默认值
+            next_retry_at: None,
             created_at: story.created_at.clone(),
             updated_at: now,
         }

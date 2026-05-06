@@ -11,12 +11,13 @@ use std::path::Path;
 use tokio::sync::RwLock;
 use chrono::Utc;
 use crate::db;
-use crate::models::UserStory;
+use crate::models::{UserStory, UserStoryRetryHistory};
 use crate::agent::daemon::DaemonManager;
 use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::worktree_manager::WorktreeManager;
 use crate::agent::ai_cli_interaction::AICLIMessage;
 use crate::agent::daemon_types::StoryContext;
+use crate::agent::retry_engine::{RetryEngine, BackoffConfig, RetryDecision};
 use log;
 use std::time::Duration;
 use tauri::AppHandle;
@@ -1213,7 +1214,7 @@ impl AgentWorker {
         }
     }
 
-    /// 更新 Story 状态为 failed
+    /// 更新 Story 状态为 failed（集成重试引擎）
     async fn update_story_status_to_failed(
         story_id: &str,
         reason: &str,
@@ -1227,22 +1228,124 @@ impl AgentWorker {
         let conn = db::get_connection()
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
-        match db::fail_user_story(&conn, story_id, reason) {
-            Ok(updated_count) => {
-                if updated_count > 0 {
-                    log::info!(
-                        "[StoryStatus] Successfully updated {} story(s) to failed",
-                        updated_count
-                    );
-                    Ok(())
-                } else {
-                    log::warn!("[StoryStatus] No story found with id: {}", story_id);
-                    Err(format!("Story {} not found", story_id))
-                }
+        // 1. 获取当前 Story 信息
+        let story = match db::get_user_story_by_id(&conn, story_id) {
+            Ok(Some(s)) => s,
+            Ok(None) => {
+                log::warn!("[StoryStatus] No story found with id: {}", story_id);
+                return Err(format!("Story {} not found", story_id));
             }
             Err(e) => {
-                log::error!("[StoryStatus] Failed to update story status: {}", e);
-                Err(format!("Database error: {}", e))
+                log::error!("[StoryStatus] Failed to query story: {}", e);
+                return Err(format!("Database error: {}", e));
+            }
+        };
+
+        // 2. 创建重试引擎实例
+        let backoff_config = BackoffConfig::default();
+        let max_retries = story.max_retries as u32;
+        let retry_engine = RetryEngine::new(max_retries, backoff_config);
+
+        // 3. 使用重试引擎做决策
+        let current_retry_count = story.retry_count as u32;
+        let decision = retry_engine.should_retry(current_retry_count, reason);
+
+        match decision {
+            RetryDecision::Retry { next_retry_at } => {
+                log::info!(
+                    "[StoryStatus] Decision: RETRY story {}. Next retry at: {}",
+                    story_id,
+                    next_retry_at
+                );
+
+                // 3.1 创建重试历史记录
+                let now = Utc::now().to_rfc3339();
+                let retry_history = UserStoryRetryHistory {
+                    id: format!("retry_{}_{}", story_id, now.replace(':', "-")),
+                    user_story_id: story_id.to_string(),
+                    retry_number: (current_retry_count + 1) as i32,
+                    triggered_at: now.clone(),
+                    error_message: Some(reason.to_string()),
+                    error_type: Some("temporary".to_string()), // 简化：临时错误才重试
+                    decision: "retry".to_string(),
+                    next_retry_at: Some(next_retry_at.clone()),
+                    completed_at: None,
+                    result: Some("pending".to_string()),
+                    created_at: now.clone(),
+                };
+
+                if let Err(e) = db::create_retry_history_record(&conn, &retry_history) {
+                    log::error!("[StoryStatus] Failed to create retry history: {}", e);
+                }
+
+                // 3.2 更新 Story 状态为 scheduled_retry
+                let updated = conn.execute(
+                    "UPDATE user_stories 
+                     SET status = 'scheduled_retry',
+                         next_retry_at = ?1,
+                         retry_count = retry_count + 1,
+                         updated_at = ?2
+                     WHERE id = ?3",
+                    rusqlite::params![next_retry_at, now, story_id],
+                ).map_err(|e| format!("Database error: {}", e))?;
+
+                if updated > 0 {
+                    log::info!(
+                        "[StoryStatus] Story {} scheduled for retry #{} at {}",
+                        story_id,
+                        current_retry_count + 1,
+                        next_retry_at
+                    );
+                }
+
+                Ok(())
+            }
+            RetryDecision::Abort { reason: abort_reason } => {
+                log::info!(
+                    "[StoryStatus] Decision: ABORT retry for story {}: {}",
+                    story_id,
+                    abort_reason
+                );
+
+                // 4.1 创建重试历史记录（标记为终止）
+                let now = Utc::now().to_rfc3339();
+                let retry_history = UserStoryRetryHistory {
+                    id: format!("retry_{}_{}", story_id, now.replace(':', "-")),
+                    user_story_id: story_id.to_string(),
+                    retry_number: (current_retry_count + 1) as i32,
+                    triggered_at: now.clone(),
+                    error_message: Some(reason.to_string()),
+                    error_type: Some("permanent".to_string()),
+                    decision: "abort".to_string(),
+                    next_retry_at: None,
+                    completed_at: Some(now.clone()),
+                    result: Some("failed".to_string()),
+                    created_at: now.clone(),
+                };
+
+                if let Err(e) = db::create_retry_history_record(&conn, &retry_history) {
+                    log::error!("[StoryStatus] Failed to create retry history: {}", e);
+                }
+
+                // 4.2 更新 Story 状态为 permanently_failed
+                match db::fail_user_story(&conn, story_id, &abort_reason) {
+                    Ok(updated_count) => {
+                        if updated_count > 0 {
+                            log::info!(
+                                "[StoryStatus] Story {} marked as permanently failed",
+                                story_id
+                            );
+                            Ok(())
+                        } else {
+                            log::warn!("[StoryStatus] No story found with id: {}", story_id);
+                            Err(format!("Story {} not found", story_id))
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("[StoryStatus] Failed to update story status: {}", e);
+                        Err(format!("Database error: {}", e))
+                    }
+                }
             }
         }
     }

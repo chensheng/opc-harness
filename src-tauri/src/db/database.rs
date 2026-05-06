@@ -326,6 +326,9 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
     // 初始化可观测性相关表
     init_observability_tables(&conn)?;
 
+    // 初始化重试引擎相关表
+    init_retry_engine_tables(&conn)?;
+
     if !has_all_columns || has_old_column {
         // 表结构不匹配，删除并重建
         log::warn!("agent_sessions table structure mismatch, rebuilding...");
@@ -467,6 +470,36 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
         )?;
     }
     
+    // 检查 next_retry_at 字段（重试引擎新增）
+    let has_next_retry_at: Option<String> = conn.query_row(
+        "SELECT name FROM pragma_table_info('user_stories') WHERE name='next_retry_at'",
+        [],
+        |row| row.get(0)
+    ).optional()?;
+    
+    if has_next_retry_at.is_none() {
+        log::info!("Adding next_retry_at column to user_stories table");
+        conn.execute(
+            "ALTER TABLE user_stories ADD COLUMN next_retry_at TEXT",
+            [],
+        )?;
+    }
+    
+    // 检查 max_retries 字段（重试引擎新增）
+    let has_max_retries: Option<String> = conn.query_row(
+        "SELECT name FROM pragma_table_info('user_stories') WHERE name='max_retries'",
+        [],
+        |row| row.get(0)
+    ).optional()?;
+    
+    if has_max_retries.is_none() {
+        log::info!("Adding max_retries column to user_stories table");
+        conn.execute(
+            "ALTER TABLE user_stories ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 3",
+            [],
+        )?;
+    }
+    
     log::info!("Agent Loop fields migration completed");
     Ok(())
 }
@@ -564,5 +597,44 @@ fn init_observability_tables(conn: &Connection) -> Result<()> {
     )?;
 
     log::info!("Observability tables initialized successfully");
+    Ok(())
+}
+
+/// 初始化重试引擎相关表
+fn init_retry_engine_tables(conn: &Connection) -> Result<()> {
+    // 创建 user_story_retry_history 表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_story_retry_history (
+            id TEXT PRIMARY KEY,
+            user_story_id TEXT NOT NULL,
+            retry_number INTEGER NOT NULL,
+            triggered_at TEXT NOT NULL,
+            error_message TEXT,
+            error_type TEXT,
+            decision TEXT NOT NULL,
+            next_retry_at TEXT,
+            completed_at TEXT,
+            result TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_story_id) REFERENCES user_stories(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 创建 user_story_retry_history 索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_retry_history_user_story_id ON user_story_retry_history(user_story_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_retry_history_triggered_at ON user_story_retry_history(triggered_at)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_retry_history_result ON user_story_retry_history(result)",
+        [],
+    )?;
+
+    log::info!("Retry engine tables initialized successfully");
     Ok(())
 }

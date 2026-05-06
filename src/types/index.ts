@@ -306,6 +306,38 @@ export interface UserStory {
   errorMessage?: string
   /** 重试次数 */
   retryCount?: number
+  /** 下次重试时间戳（重试引擎新增） */
+  nextRetryAt?: string
+  /** 最大重试次数配置（重试引擎新增） */
+  maxRetries?: number
+}
+
+/**
+ * 用户故事重试历史记录类型（重试引擎新增）
+ */
+export interface UserStoryRetryHistory {
+  /** 记录 ID */
+  id: string
+  /** 用户故事 ID */
+  userStoryId: string
+  /** 重试次数（第几次重试） */
+  retryNumber: number
+  /** 触发时间 */
+  triggeredAt: string
+  /** 错误消息 */
+  errorMessage?: string
+  /** 错误类型（temporary/permanent） */
+  errorType?: 'temporary' | 'permanent'
+  /** 决策结果（retry/abort） */
+  decision: 'retry' | 'abort'
+  /** 下次重试时间 */
+  nextRetryAt?: string
+  /** 完成时间 */
+  completedAt?: string
+  /** 重试结果（success/failed/pending） */
+  result?: 'success' | 'failed' | 'pending'
+  /** 创建时间 */
+  createdAt: string
 }
 
 /**

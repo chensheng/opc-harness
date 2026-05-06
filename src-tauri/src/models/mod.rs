@@ -334,10 +334,20 @@ pub struct UserStory {
     /// 重试次数
     #[serde(default)]
     pub retry_count: i32,
+    /// 下次重试时间戳（重试引擎新增）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_retry_at: Option<String>,
+    /// 最大重试次数配置（重试引擎新增）
+    #[serde(default = "default_max_retries")]
+    pub max_retries: i32,
     /// 创建时间
     pub created_at: String,
     /// 更新时间
     pub updated_at: String,
+}
+
+fn default_max_retries() -> i32 {
+    3
 }
 
 impl Entity for UserStory {
@@ -372,8 +382,67 @@ impl Entity for UserStory {
             failed_at: row.get("failed_at").ok(),
             error_message: row.get("error_message").ok(),
             retry_count: row.get("retry_count").unwrap_or(0),
+            next_retry_at: row.get("next_retry_at").ok(),
+            max_retries: row.get("max_retries").unwrap_or(3),
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
+        })
+    }
+}
+
+/// 用户故事重试历史记录
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserStoryRetryHistory {
+    /// 记录 ID
+    pub id: String,
+    /// 用户故事 ID
+    pub user_story_id: String,
+    /// 重试次数（第几次重试）
+    pub retry_number: i32,
+    /// 触发时间
+    pub triggered_at: String,
+    /// 错误消息
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    /// 错误类型（temporary/permanent）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_type: Option<String>,
+    /// 决策结果（retry/abort）
+    pub decision: String,
+    /// 下次重试时间
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_retry_at: Option<String>,
+    /// 完成时间
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    /// 重试结果（success/failed/pending）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+    /// 创建时间
+    pub created_at: String,
+}
+
+impl Entity for UserStoryRetryHistory {
+    fn table_name() -> &'static str { "user_story_retry_history" }
+    
+    fn primary_key() -> &'static str { "id" }
+    
+    fn get_primary_key(&self) -> &str { &self.id }
+    
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(UserStoryRetryHistory {
+            id: row.get("id")?,
+            user_story_id: row.get("user_story_id")?,
+            retry_number: row.get("retry_number")?,
+            triggered_at: row.get("triggered_at")?,
+            error_message: row.get("error_message").ok(),
+            error_type: row.get("error_type").ok(),
+            decision: row.get("decision")?,
+            next_retry_at: row.get("next_retry_at").ok(),
+            completed_at: row.get("completed_at").ok(),
+            result: row.get("result").ok(),
+            created_at: row.get("created_at")?,
         })
     }
 }

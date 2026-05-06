@@ -1,5 +1,5 @@
 use crate::db::Entity;
-use crate::models::{Sprint, UserStory};
+use crate::models::{Sprint, UserStory, UserStoryRetryHistory};
 use chrono::Utc;
 use rusqlite::{Connection, Result};
 
@@ -326,4 +326,200 @@ pub fn get_user_story_by_id(conn: &Connection, story_id: &str) -> Result<Option<
     } else {
         Ok(None)
     }
+}
+
+// ==================== 重试引擎相关函数 ====================
+
+/// 创建重试历史记录
+pub fn create_retry_history_record(
+    conn: &Connection,
+    history: &UserStoryRetryHistory,
+) -> Result<usize> {
+    let updated = conn.execute(
+        "INSERT INTO user_story_retry_history (
+            id, user_story_id, retry_number, triggered_at, error_message,
+            error_type, decision, next_retry_at, completed_at, result, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        rusqlite::params![
+            history.id,
+            history.user_story_id,
+            history.retry_number,
+            history.triggered_at,
+            history.error_message,
+            history.error_type,
+            history.decision,
+            history.next_retry_at,
+            history.completed_at,
+            history.result,
+            history.created_at,
+        ],
+    )?;
+    
+    println!("[DB::create_retry_history_record] Created retry history for story: {}", history.user_story_id);
+    Ok(updated)
+}
+
+/// 更新重试历史结果
+pub fn update_retry_history_result(
+    conn: &Connection,
+    history_id: &str,
+    result: &str,
+    completed_at: &str,
+) -> Result<usize> {
+    let updated = conn.execute(
+        "UPDATE user_story_retry_history 
+         SET result = ?1,
+             completed_at = ?2
+         WHERE id = ?3",
+        rusqlite::params![result, completed_at, history_id],
+    )?;
+    
+    println!("[DB::update_retry_history_result] Updated retry history: {} with result: {}", history_id, result);
+    Ok(updated)
+}
+
+/// 获取用户故事的重试历史
+pub fn get_user_story_retry_history(
+    conn: &Connection,
+    story_id: &str,
+) -> Result<Vec<UserStoryRetryHistory>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM user_story_retry_history 
+         WHERE user_story_id = ?1 
+         ORDER BY triggered_at DESC"
+    )?;
+    
+    let rows = stmt.query_map([story_id], |row| {
+        UserStoryRetryHistory::from_row(row)
+    })?;
+    
+    let mut histories = Vec::new();
+    for row in rows {
+        histories.push(row?);
+    }
+    
+    println!("[DB::get_user_story_retry_history] Found {} retry records for story: {}", histories.len(), story_id);
+    Ok(histories)
+}
+
+/// 获取项目的重试统计数据
+pub fn get_project_retry_statistics(
+    conn: &Connection,
+    project_id: &str,
+) -> Result<ProjectRetryStats> {
+    // 总重试次数
+    let total_retries: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM user_story_retry_history usrh
+         INNER JOIN user_stories us ON usrh.user_story_id = us.id
+         WHERE us.project_id = ?1",
+        [project_id],
+        |row| row.get(0),
+    )?;
+    
+    // 成功重试次数
+    let successful_retries: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM user_story_retry_history usrh
+         INNER JOIN user_stories us ON usrh.user_story_id = us.id
+         WHERE us.project_id = ?1 AND usrh.result = 'success'",
+        [project_id],
+        |row| row.get(0),
+    )?;
+    
+    // 失败重试次数
+    let failed_retries: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM user_story_retry_history usrh
+         INNER JOIN user_stories us ON usrh.user_story_id = us.id
+         WHERE us.project_id = ?1 AND usrh.result = 'failed'",
+        [project_id],
+        |row| row.get(0),
+    )?;
+    
+    // 待处理重试次数
+    let pending_retries: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM user_story_retry_history usrh
+         INNER JOIN user_stories us ON usrh.user_story_id = us.id
+         WHERE us.project_id = ?1 AND (usrh.result IS NULL OR usrh.result = 'pending')",
+        [project_id],
+        |row| row.get(0),
+    )?;
+    
+    // 平均重试次数（每个 Story）
+    let avg_retries: f64 = conn.query_row(
+        "SELECT AVG(retry_count) FROM user_stories WHERE project_id = ?1",
+        [project_id],
+        |row| row.get(0),
+    ).unwrap_or(0.0);
+    
+    let success_rate = if total_retries > 0 {
+        (successful_retries as f64 / total_retries as f64) * 100.0
+    } else {
+        0.0
+    };
+    
+    Ok(ProjectRetryStats {
+        total_retries: total_retries as i32,
+        successful_retries: successful_retries as i32,
+        failed_retries: failed_retries as i32,
+        pending_retries: pending_retries as i32,
+        success_rate,
+        avg_retries,
+    })
+}
+
+/// 项目重试统计数据
+#[derive(Debug, Clone)]
+pub struct ProjectRetryStats {
+    pub total_retries: i32,
+    pub successful_retries: i32,
+    pub failed_retries: i32,
+    pub pending_retries: i32,
+    pub success_rate: f64,
+    pub avg_retries: f64,
+}
+
+/// 更新用户故事的下次重试时间
+pub fn update_user_story_next_retry_at(
+    conn: &Connection,
+    story_id: &str,
+    next_retry_at: Option<&str>,
+) -> Result<usize> {
+    let updated = conn.execute(
+        "UPDATE user_stories 
+         SET next_retry_at = ?1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?2",
+        rusqlite::params![next_retry_at, story_id],
+    )?;
+    
+    println!("[DB::update_user_story_next_retry_at] Updated next_retry_at for story: {}", story_id);
+    Ok(updated)
+}
+
+/// 获取待重试的用户故事列表
+pub fn get_scheduled_retry_stories(
+    conn: &Connection,
+    limit: usize,
+) -> Result<Vec<UserStory>> {
+    let now = Utc::now().to_rfc3339();
+    
+    let mut stmt = conn.prepare(
+        "SELECT * FROM user_stories 
+         WHERE status = 'scheduled_retry'
+           AND next_retry_at IS NOT NULL
+           AND next_retry_at <= ?1
+         ORDER BY next_retry_at ASC
+         LIMIT ?2"
+    )?;
+    
+    let rows = stmt.query_map(rusqlite::params![now, limit], |row| {
+        UserStory::from_row(row)
+    })?;
+    
+    let mut stories = Vec::new();
+    for row in rows {
+        stories.push(row?);
+    }
+    
+    println!("[DB::get_scheduled_retry_stories] Found {} stories ready for retry", stories.len());
+    Ok(stories)
 }

@@ -17,6 +17,9 @@ pub mod agent_manager_types;
 pub mod types;
 pub mod messages;
 
+// 重试引擎（新增）
+pub mod retry_engine;
+
 // Daemon 进程管理
 pub mod daemon;
 pub mod daemon_core;

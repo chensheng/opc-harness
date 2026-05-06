@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
+import { Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, History } from 'lucide-react'
 import type { UserStory } from '@/types'
 
 interface UserStoryTableProps {
@@ -29,6 +29,7 @@ interface UserStoryTableProps {
   onEditStory: (story: UserStory) => void
   onDeleteStory: (story: UserStory) => void
   onRetryStory?: (story: UserStory) => void // 可选的重试处理函数
+  onViewRetryHistory?: (storyId: string) => void // 查看重试历史
 }
 
 const priorityColors: Record<string, string> = {
@@ -45,6 +46,7 @@ const statusColors: Record<string, string> = {
   in_development: 'bg-purple-50 text-purple-700 border border-purple-200',
   completed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   failed: 'bg-red-50 text-red-700 border border-red-200',
+  scheduled_retry: 'bg-orange-50 text-orange-700 border border-orange-200',
 }
 
 const statusLabels: Record<string, string> = {
@@ -54,6 +56,7 @@ const statusLabels: Record<string, string> = {
   in_development: '开发中',
   completed: '已完成',
   failed: '失败',
+  scheduled_retry: '等待重试',
 }
 
 export function UserStoryTable({
@@ -70,6 +73,7 @@ export function UserStoryTable({
   onEditStory,
   onDeleteStory,
   onRetryStory,
+  onViewRetryHistory,
 }: UserStoryTableProps) {
   return (
     <Card>
@@ -184,6 +188,15 @@ export function UserStoryTable({
                     >
                       {statusLabels[story.status] || story.status}
                     </Badge>
+                    {/* 重试次数徽章 */}
+                    {story.retryCount && story.retryCount > 0 && (
+                      <Badge
+                        variant="outline"
+                        className="ml-1 text-[8px] px-1 py-0 h-3 bg-orange-50 text-orange-600 border-orange-200"
+                      >
+                        {story.retryCount}次重试
+                      </Badge>
+                    )}
                   </td>
                   <td className="py-1.5 px-2 align-middle">
                     {editingSprintStoryId === story.id ? (
@@ -231,6 +244,7 @@ export function UserStoryTable({
                   </td>
                   <td className="py-1.5 px-2 align-middle">
                     <div className="flex gap-0.5">
+                      {/* 编辑按钮 */}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -240,6 +254,19 @@ export function UserStoryTable({
                       >
                         <Edit2 className="w-2.5 h-2.5" />
                       </Button>
+                      {/* 查看重试历史按钮（仅在有重试记录时显示） */}
+                      {story.retryCount && story.retryCount > 0 && onViewRetryHistory && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 hover:bg-blue-100 hover:text-blue-600"
+                          onClick={() => onViewRetryHistory(story.id)}
+                          title="查看重试历史"
+                        >
+                          <History className="w-2.5 h-2.5" />
+                        </Button>
+                      )}
+                      {/* 重试按钮（仅失败状态显示） */}
                       {story.status === 'failed' && onRetryStory && (
                         <Button
                           variant="ghost"
@@ -251,6 +278,7 @@ export function UserStoryTable({
                           <RefreshCw className="w-2.5 h-2.5" />
                         </Button>
                       )}
+                      {/* 删除按钮 */}
                       <Button
                         variant="ghost"
                         size="sm"

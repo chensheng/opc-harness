@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { invoke } from '@tauri-apps/api/core'
-import type { UserStory } from '@/types'
+import type { UserStory, UserStoryRetryHistory } from '@/types'
 
 // 后端返回的 snake_case 格式的用户故事类型
 interface BackendUserStory {
@@ -14,7 +14,14 @@ interface BackendUserStory {
   description: string
   acceptance_criteria: string[]
   priority: 'P0' | 'P1' | 'P2' | 'P3'
-  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed' | 'failed'
+  status:
+    | 'draft'
+    | 'refined'
+    | 'approved'
+    | 'in_development'
+    | 'completed'
+    | 'failed'
+    | 'scheduled_retry'
   story_points?: number
   dependencies: string[]
   feature_module?: string
@@ -22,12 +29,20 @@ interface BackendUserStory {
   labels: string[]
   created_at: string
   updated_at: string
+  // 重试引擎新增字段
+  next_retry_at?: string
+  max_retries?: number
+  retry_count?: number
+  failed_at?: string
+  error_message?: string
 }
 
 interface UserStoryState {
   // 按项目ID存储用户故事
   storiesByProject: Record<string, UserStory[]>
   isLoading: boolean
+  // 重试历史记录（按 Story ID 存储）
+  retryHistoryByStory: Record<string, UserStoryRetryHistory[]>
 }
 
 interface UserStoryActions {
@@ -54,12 +69,22 @@ interface UserStoryActions {
 
   // 清空项目的用户故事
   clearProjectStories: (projectId: string) => void
+
+  // 加载用户故事的重试历史
+  loadRetryHistory: (storyId: string) => Promise<void>
+
+  // 获取用户故事的重试历史
+  getRetryHistory: (storyId: string) => UserStoryRetryHistory[]
+
+  // 清除重试历史
+  clearRetryHistory: (storyId: string) => void
 }
 
 export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
   immer((set, get) => ({
     storiesByProject: {},
     isLoading: false,
+    retryHistoryByStory: {},
 
     loadProjectStories: async projectId => {
       try {
@@ -92,6 +117,12 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
             labels: story.labels,
             createdAt: story.created_at,
             updatedAt: story.updated_at,
+            // 重试引擎新增字段
+            nextRetryAt: story.next_retry_at,
+            maxRetries: story.max_retries,
+            retryCount: story.retry_count,
+            failedAt: story.failed_at,
+            errorMessage: story.error_message,
           })) as UserStory[]
 
           set(state => {
@@ -182,6 +213,35 @@ export const useUserStoryStore = create<UserStoryState & UserStoryActions>()(
     clearProjectStories: projectId => {
       set(state => {
         delete state.storiesByProject[projectId]
+      })
+    },
+
+    // 加载用户故事的重试历史
+    loadRetryHistory: async storyId => {
+      try {
+        const response = await invoke<UserStoryRetryHistory[]>('get_user_story_retry_history', {
+          storyId,
+        })
+
+        set(state => {
+          state.retryHistoryByStory[storyId] = response
+        })
+
+        console.log(`[UserStoryStore] Loaded ${response.length} retry records for story ${storyId}`)
+      } catch (error) {
+        console.error('[UserStoryStore] Failed to load retry history:', error)
+      }
+    },
+
+    // 获取用户故事的重试历史
+    getRetryHistory: storyId => {
+      return get().retryHistoryByStory[storyId] || []
+    },
+
+    // 清除重试历史
+    clearRetryHistory: storyId => {
+      set(state => {
+        delete state.retryHistoryByStory[storyId]
       })
     },
   }))

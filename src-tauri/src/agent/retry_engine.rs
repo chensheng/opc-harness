@@ -1,0 +1,552 @@
+use chrono::{Duration, Utc};
+use rand::Rng;
+use regex::Regex;
+use std::collections::HashMap;
+
+/// 错误类型分类
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorType {
+    /// 临时错误（可重试）
+    Temporary,
+    /// 永久错误（不可重试）
+    Permanent,
+}
+
+/// 重试决策结果
+#[derive(Debug, Clone, PartialEq)]
+pub enum RetryDecision {
+    /// 允许重试，附带下次重试时间
+    Retry { next_retry_at: String },
+    /// 终止重试
+    Abort { reason: String },
+}
+
+/// 指数退避策略配置
+#[derive(Debug, Clone)]
+pub struct BackoffConfig {
+    /// 基础延迟时间（秒）
+    pub base_delay_seconds: u64,
+    /// 最大延迟时间（秒）
+    pub max_delay_seconds: u64,
+    /// 随机抖动范围（百分比，0.1 = 10%）
+    pub jitter_ratio: f64,
+}
+
+impl Default for BackoffConfig {
+    fn default() -> Self {
+        Self {
+            base_delay_seconds: 60,   // 1 分钟
+            max_delay_seconds: 3600,  // 1 小时
+            jitter_ratio: 0.1,        // ±10%
+        }
+    }
+}
+
+/// 错误分类器
+pub struct ErrorClassifier {
+    /// 临时错误模式（正则表达式）
+    temporary_patterns: Vec<Regex>,
+    /// 永久错误模式（正则表达式）
+    permanent_patterns: Vec<Regex>,
+}
+
+impl ErrorClassifier {
+    pub fn new() -> Self {
+        // 临时错误模式
+        let temporary_patterns = vec![
+            Regex::new(r"(?i)timeout").unwrap(),
+            Regex::new(r"(?i)connection refused").unwrap(),
+            Regex::new(r"(?i)network error").unwrap(),
+            Regex::new(r"(?i)rate limit").unwrap(),
+            Regex::new(r"(?i)429 Too Many Requests").unwrap(),
+            Regex::new(r"(?i)503 Service Unavailable").unwrap(),
+            Regex::new(r"(?i)temporary failure").unwrap(),
+        ];
+
+        // 永久错误模式
+        let permanent_patterns = vec![
+            Regex::new(r"(?i)syntax error").unwrap(),
+            Regex::new(r"(?i)compilation failed").unwrap(),
+            Regex::new(r"(?i)type error").unwrap(),
+            Regex::new(r"(?i)module not found").unwrap(),
+            Regex::new(r"(?i)dependency resolution failed").unwrap(),
+            Regex::new(r"(?i)permission denied").unwrap(),
+            Regex::new(r"(?i)unauthorized").unwrap(),
+            Regex::new(r"(?i)forbidden").unwrap(),
+            Regex::new(r"(?i)invalid input").unwrap(),
+            Regex::new(r"(?i)data validation failed").unwrap(),
+        ];
+
+        Self {
+            temporary_patterns,
+            permanent_patterns,
+        }
+    }
+
+    /// 分类错误类型
+    pub fn classify_error(&self, error_message: &str) -> ErrorType {
+        // 先检查是否为临时错误
+        for pattern in &self.temporary_patterns {
+            if pattern.is_match(error_message) {
+                log::info!(
+                    "[ErrorClassifier] Classified as TEMPORARY: {}",
+                    error_message
+                );
+                return ErrorType::Temporary;
+            }
+        }
+
+        // 再检查是否为永久错误
+        for pattern in &self.permanent_patterns {
+            if pattern.is_match(error_message) {
+                log::info!(
+                    "[ErrorClassifier] Classified as PERMANENT: {}",
+                    error_message
+                );
+                return ErrorType::Permanent;
+            }
+        }
+
+        // 未知错误默认为永久错误（安全策略）
+        log::warn!(
+            "[ErrorClassifier] Unknown error type, defaulting to PERMANENT: {}",
+            error_message
+        );
+        ErrorType::Permanent
+    }
+}
+
+/// 指数退避计算器
+pub struct BackoffCalculator {
+    config: BackoffConfig,
+}
+
+impl BackoffCalculator {
+    pub fn new(config: BackoffConfig) -> Self {
+        Self { config }
+    }
+
+    /// 计算下次重试的延迟时间（秒）
+    pub fn calculate_delay(&self, retry_count: u32) -> u64 {
+        // 指数退避公式：base_delay * 2^retry_count
+        let exponential_delay = self.config.base_delay_seconds * (2_u64.pow(retry_count));
+
+        // 限制在最大值以内
+        let capped_delay = exponential_delay.min(self.config.max_delay_seconds);
+
+        // 添加随机抖动
+        let jitter = self.calculate_jitter(capped_delay);
+
+        capped_delay + jitter
+    }
+
+    /// 计算随机抖动
+    fn calculate_jitter(&self, delay: u64) -> u64 {
+        let mut rng = rand::thread_rng();
+        let jitter_range = (delay as f64 * self.config.jitter_ratio) as u64;
+        
+        if jitter_range == 0 {
+            return 0;
+        }
+
+        // 生成 -jitter_range 到 +jitter_range 之间的随机值
+        let jitter = rng.gen_range(0..jitter_range * 2) as i64 - jitter_range as i64;
+        
+        // 确保不为负数
+        jitter.max(0) as u64
+    }
+
+    /// 计算下次重试的时间戳（RFC3339 格式）
+    pub fn calculate_next_retry_at(&self, retry_count: u32) -> String {
+        let delay_seconds = self.calculate_delay(retry_count);
+        let now = Utc::now();
+        let next_retry = now + Duration::seconds(delay_seconds as i64);
+        next_retry.to_rfc3339()
+    }
+}
+
+/// 重试引擎
+pub struct RetryEngine {
+    classifier: ErrorClassifier,
+    backoff_calculator: BackoffCalculator,
+    max_retries: u32,
+}
+
+impl RetryEngine {
+    pub fn new(max_retries: u32, backoff_config: BackoffConfig) -> Self {
+        Self {
+            classifier: ErrorClassifier::new(),
+            backoff_calculator: BackoffCalculator::new(backoff_config),
+            max_retries,
+        }
+    }
+
+    /// 决定是否应该重试
+    pub fn should_retry(
+        &self,
+        current_retry_count: u32,
+        error_message: &str,
+    ) -> RetryDecision {
+        // 1. 检查是否超过最大重试次数
+        if current_retry_count >= self.max_retries {
+            log::warn!(
+                "[RetryEngine] Max retries ({}) exceeded for error: {}",
+                self.max_retries,
+                error_message
+            );
+            return RetryDecision::Abort {
+                reason: format!("Exceeded maximum retry count ({})", self.max_retries),
+            };
+        }
+
+        // 2. 分类错误类型
+        let error_type = self.classifier.classify_error(error_message);
+
+        // 3. 根据错误类型决定
+        match error_type {
+            ErrorType::Temporary => {
+                // 临时错误：计算下次重试时间
+                let next_retry_at = self.backoff_calculator.calculate_next_retry_at(current_retry_count);
+                log::info!(
+                    "[RetryEngine] Decided to RETRY (temporary error). Next retry at: {}",
+                    next_retry_at
+                );
+                RetryDecision::Retry { next_retry_at }
+            }
+            ErrorType::Permanent => {
+                // 永久错误：直接终止
+                log::info!(
+                    "[RetryEngine] Decided to ABORT (permanent error): {}",
+                    error_message
+                );
+                RetryDecision::Abort {
+                    reason: format!("Permanent error: {}", error_message),
+                }
+            }
+        }
+    }
+
+    /// 获取最大重试次数
+    pub fn get_max_retries(&self) -> u32 {
+        self.max_retries
+    }
+}
+
+/// 重试调度器配置
+#[derive(Debug, Clone)]
+pub struct SchedulerConfig {
+    /// 检查间隔（秒）
+    pub check_interval_seconds: u64,
+    /// 最大并发重试数量
+    pub max_concurrent_retries: usize,
+}
+
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        Self {
+            check_interval_seconds: 30,  // 每 30 秒检查一次
+            max_concurrent_retries: 3,   // 最多同时重试 3 个
+        }
+    }
+}
+
+/// 重试调度器
+pub struct RetryScheduler {
+    config: SchedulerConfig,
+    active_retries: HashMap<String, String>, // story_id -> agent_id
+}
+
+impl RetryScheduler {
+    pub fn new(config: SchedulerConfig) -> Self {
+        Self {
+            config,
+            active_retries: HashMap::new(),
+        }
+    }
+
+    /// 检查是否有待重试的故事
+    pub fn has_pending_retries(&self) -> bool {
+        !self.active_retries.is_empty()
+    }
+
+    /// 获取当前活跃的重试数量
+    pub fn get_active_retry_count(&self) -> usize {
+        self.active_retries.len()
+    }
+
+    /// 检查是否可以启动新的重试
+    pub fn can_start_new_retry(&self) -> bool {
+        self.active_retries.len() < self.config.max_concurrent_retries
+    }
+
+    /// 注册一个重试任务
+    pub fn register_retry(&mut self, story_id: String, agent_id: String) -> bool {
+        if !self.can_start_new_retry() {
+            log::warn!(
+                "[RetryScheduler] Cannot register retry for {}: max concurrent retries reached",
+                story_id
+            );
+            return false;
+        }
+
+        let story_id_clone = story_id.clone();
+        let agent_id_clone = agent_id.clone();
+        self.active_retries.insert(story_id, agent_id);
+        log::info!(
+            "[RetryScheduler] Registered retry for story {} with agent {}",
+            story_id_clone,
+            agent_id_clone
+        );
+        true
+    }
+
+    /// 完成一个重试任务
+    pub fn complete_retry(&mut self, story_id: &str) {
+        if let Some(agent_id) = self.active_retries.remove(story_id) {
+            log::info!(
+                "[RetryScheduler] Completed retry for story {} (agent {})",
+                story_id,
+                agent_id
+            );
+        }
+    }
+
+    /// 获取检查间隔（秒）
+    pub fn get_check_interval(&self) -> u64 {
+        self.config.check_interval_seconds
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_classifier_temporary() {
+        let classifier = ErrorClassifier::new();
+        
+        assert_eq!(
+            classifier.classify_error("Connection timeout occurred"),
+            ErrorType::Temporary
+        );
+        assert_eq!(
+            classifier.classify_error("Rate limit exceeded: 429 Too Many Requests"),
+            ErrorType::Temporary
+        );
+        assert_eq!(
+            classifier.classify_error("503 Service Unavailable"),
+            ErrorType::Temporary
+        );
+    }
+
+    #[test]
+    fn test_error_classifier_permanent() {
+        let classifier = ErrorClassifier::new();
+        
+        assert_eq!(
+            classifier.classify_error("Syntax error in line 42"),
+            ErrorType::Permanent
+        );
+        assert_eq!(
+            classifier.classify_error("Module not found: ./utils"),
+            ErrorType::Permanent
+        );
+        assert_eq!(
+            classifier.classify_error("Permission denied: /etc/config"),
+            ErrorType::Permanent
+        );
+    }
+
+    #[test]
+    fn test_backoff_calculator() {
+        let config = BackoffConfig {
+            base_delay_seconds: 60,
+            max_delay_seconds: 3600,
+            jitter_ratio: 0.0, // 禁用抖动以便测试
+        };
+        let calculator = BackoffCalculator::new(config);
+
+        // 第 0 次重试（首次）：60 秒
+        assert_eq!(calculator.calculate_delay(0), 60);
+
+        // 第 1 次重试：120 秒
+        assert_eq!(calculator.calculate_delay(1), 120);
+
+        // 第 2 次重试：240 秒
+        assert_eq!(calculator.calculate_delay(2), 240);
+
+        // 第 10 次重试：应该被限制在 3600 秒
+        assert_eq!(calculator.calculate_delay(10), 3600);
+    }
+
+    #[test]
+    fn test_retry_engine_max_retries_exceeded() {
+        let engine = RetryEngine::new(3, BackoffConfig::default());
+
+        // 超过最大重试次数
+        let decision = engine.should_retry(3, "Some error");
+        
+        match decision {
+            RetryDecision::Abort { reason } => {
+                assert!(reason.contains("Exceeded maximum retry count"));
+            }
+            _ => panic!("Expected Abort decision"),
+        }
+    }
+
+    #[test]
+    fn test_retry_engine_temporary_error() {
+        let engine = RetryEngine::new(3, BackoffConfig::default());
+
+        // 临时错误应该重试
+        let decision = engine.should_retry(0, "Connection timeout");
+        
+        match decision {
+            RetryDecision::Retry { next_retry_at } => {
+                assert!(!next_retry_at.is_empty());
+            }
+            _ => panic!("Expected Retry decision"),
+        }
+    }
+
+    #[test]
+    fn test_retry_engine_permanent_error() {
+        let engine = RetryEngine::new(3, BackoffConfig::default());
+
+        // 永久错误应该终止
+        let decision = engine.should_retry(0, "Syntax error in code");
+        
+        match decision {
+            RetryDecision::Abort { reason } => {
+                assert!(reason.contains("Permanent error"));
+            }
+            _ => panic!("Expected Abort decision"),
+        }
+    }
+
+    #[test]
+    fn test_scheduler_concurrency_limit() {
+        let config = SchedulerConfig {
+            check_interval_seconds: 30,
+            max_concurrent_retries: 2,
+        };
+        let mut scheduler = RetryScheduler::new(config);
+
+        // 可以注册前两个
+        assert!(scheduler.register_retry("story1".to_string(), "agent1".to_string()));
+        assert!(scheduler.register_retry("story2".to_string(), "agent2".to_string()));
+
+        // 第三个应该失败
+        assert!(!scheduler.register_retry("story3".to_string(), "agent3".to_string()));
+
+        // 完成一个后可以注册第三个
+        scheduler.complete_retry("story1");
+        assert!(scheduler.register_retry("story3".to_string(), "agent3".to_string()));
+    }
+
+    #[test]
+    fn test_error_classifier_network_timeout() {
+        let classifier = ErrorClassifier::new();
+
+        // 测试网络超时错误
+        let error_msg = "Network timeout after 30000ms";
+        let error_type = classifier.classify_error(error_msg);
+        assert_eq!(error_type, ErrorType::Temporary);
+
+        // 测试连接超时(使用正确的关键词)
+        let error_msg2 = "Connection timeout";
+        let error_type2 = classifier.classify_error(error_msg2);
+        assert_eq!(error_type2, ErrorType::Temporary);
+    }
+
+    #[test]
+    fn test_error_classifier_compilation_error() {
+        let classifier = ErrorClassifier::new();
+
+        // 测试编译错误(应该是永久错误)
+        let error_msg = "error[E0308]: mismatched types";
+        let error_type = classifier.classify_error(error_msg);
+        assert_eq!(error_type, ErrorType::Permanent);
+
+        // 测试语法错误
+        let error_msg2 = "syntax error: unexpected token";
+        let error_type2 = classifier.classify_error(error_msg2);
+        assert_eq!(error_type2, ErrorType::Permanent);
+    }
+
+    #[test]
+    fn test_error_classifier_rate_limit() {
+        let classifier = ErrorClassifier::new();
+
+        // 测试速率限制(应该是临时错误)
+        let error_msg = "Rate limit exceeded: 429 Too Many Requests";
+        let error_type = classifier.classify_error(error_msg);
+        assert_eq!(error_type, ErrorType::Temporary);
+
+        // 测试 API 限流
+        let error_msg2 = "API rate limit reached, please retry after 60 seconds";
+        let error_type2 = classifier.classify_error(error_msg2);
+        assert_eq!(error_type2, ErrorType::Temporary);
+    }
+
+    #[test]
+    fn test_backoff_calculator_exponential_growth() {
+        let config = BackoffConfig {
+            base_delay_seconds: 60,
+            max_delay_seconds: 3600,
+            jitter_ratio: 0.0, // 禁用随机性以便测试
+        };
+        let calculator = BackoffCalculator::new(config);
+
+        // 第1次重试: 60 * 2^1 = 120秒
+        let delay1 = calculator.calculate_delay(1);
+        assert_eq!(delay1, 120);
+
+        // 第2次重试: 60 * 2^2 = 240秒
+        let delay2 = calculator.calculate_delay(2);
+        assert_eq!(delay2, 240);
+
+        // 第3次重试: 60 * 2^3 = 480秒
+        let delay3 = calculator.calculate_delay(3);
+        assert_eq!(delay3, 480);
+
+        // 第4次重试: 60 * 2^4 = 960秒
+        let delay4 = calculator.calculate_delay(4);
+        assert_eq!(delay4, 960);
+    }
+
+    #[test]
+    fn test_backoff_calculator_max_delay_cap() {
+        let config = BackoffConfig {
+            base_delay_seconds: 60,
+            max_delay_seconds: 300,
+            jitter_ratio: 0.0,
+        };
+        let calculator = BackoffCalculator::new(config);
+
+        // 即使指数增长超过最大值,也应该被限制在 max_delay
+        let delay = calculator.calculate_delay(10);
+        assert!(delay <= 300);
+        assert_eq!(delay, 300); // 应该正好是最大值
+    }
+
+    #[test]
+    fn test_retry_scheduler_can_start_new_retry() {
+        let config = SchedulerConfig {
+            check_interval_seconds: 30,
+            max_concurrent_retries: 1,
+        };
+        let mut scheduler = RetryScheduler::new(config);
+
+        // 初始状态可以开始
+        assert!(scheduler.can_start_new_retry());
+
+        // 注册一个后不能再开始
+        scheduler.register_retry("story1".to_string(), "agent1".to_string());
+        assert!(!scheduler.can_start_new_retry());
+
+        // 完成后又可以开始
+        scheduler.complete_retry("story1");
+        assert!(scheduler.can_start_new_retry());
+    }
+}
