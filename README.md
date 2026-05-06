@@ -69,10 +69,12 @@ npm run tauri:build
 
 ### 安装 OpenSpec
 
-OpenSpec 是 Lingma AI 助手的一部分,无需单独安装。确保你已安装:
+OpenSpec 是一个独立的命令行工具,需要单独安装:
 
-1. **Lingma AI 助手** - VS Code / JetBrains IDE 插件
-2. **项目已初始化 OpenSpec** - 本项目已配置 `openspec/` 目录和 schema
+```bash
+# 全局安装 OpenSpec CLI
+npm install -g @fission-ai/openspec
+```
 
 验证安装:
 
@@ -83,6 +85,8 @@ openspec --version
 # 查看当前项目的 OpenSpec 状态
 openspec status
 ```
+
+**注意**: 本项目已初始化 OpenSpec,包含 `openspec/` 目录和 `harness-quality` schema 配置。
 
 ### OpenSpec 核心命令
 
