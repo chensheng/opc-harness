@@ -298,11 +298,14 @@ openspec schema fork harness-quality harness-strict
 
 ## 📚 相关文档
 
-- [Harness Quality Schema README](./openspec/schemas/harness-quality/README.md)
-- [Schema 定义](./openspec/schemas/harness-quality/schema.yaml)
-- [Quality Check 模板](./openspec/schemas/harness-quality/templates/quality-check.md)
-- [项目配置](./openspec/config.yaml)
-- [质量检查脚本](./scripts/harness-check.ps1)
+- [Schema 完整文档](./openspec-harness-quality-schema.md)
+- [快速参考指南](./openspec-harness-quality-quickstart.md)
+- [版本更新日志](./openspec-harness-quality-changelog.md)
+- [Schema 定义](../openspec/schemas/harness-quality/schema.yaml)
+- [Quality Check 模板](../openspec/schemas/harness-quality/templates/quality-check.md)
+- [Runtime Check 模板](../openspec/schemas/harness-quality/templates/runtime-check.md)
+- [项目配置](../openspec/config.yaml)
+- [质量检查脚本](../scripts/harness-check.ps1)
 
 ## 🎓 学习要点
 
@@ -325,5 +328,5 @@ openspec schema fork harness-quality harness-strict
 ---
 
 **创建日期**: 2026-05-06  
-**Schema 版本**: 1  
+**Schema 版本**: 2.0 (包含 runtime-check)  
 **基于**: spec-driven schema from OpenSpec package
