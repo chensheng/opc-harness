@@ -519,13 +519,3 @@ npm run test:e2e               # E2E 测试
 # 完整验证（默认，包含文档和死代码检测）
 npm run harness:check
 ```
-
----
-
-## 📝 迁移说明
-
-> **重要**: 本文档于 2026-05-06 完成从 `docs/` 到 OpenSpec 的迁移。
->
-> **历史文档**: 所有旧的 `docs/` 目录内容已归档到 `openspec/changes/archive/`。
->
-> **过渡期**: 如发现任何断裂的链接或缺失的文档,请报告并创建新的 OpenSpec change 进行修复。
