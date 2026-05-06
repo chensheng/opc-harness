@@ -1,0 +1,86 @@
+# Quality Check Report
+
+## Harness Engineering Health Score
+
+**Target**: ≥ 80 / 100  
+**Status**: <!-- PASS or FAIL -->  
+**Score**: <!-- Actual score from harness:check --> / 100
+
+## Check Results
+
+<!-- Run `npm run harness:check` and paste the summary here -->
+
+### TypeScript Type Checking
+- Status: <!-- PASS/FAIL/WARN -->
+- Details: <!-- Any type errors -->
+
+### ESLint Code Quality
+- Status: <!-- PASS/FAIL/WARN -->
+- Details: <!-- Any linting issues -->
+
+### Prettier Formatting
+- Status: <!-- PASS/FAIL/WARN -->
+- Details: <!-- Any formatting issues -->
+
+### Rust Compilation
+- Status: <!-- PASS/FAIL/WARN/SKIP -->
+- Details: <!-- Any compilation errors -->
+
+### Rust Unit Tests
+- Status: <!-- PASS/FAIL/WARN/SKIP -->
+- Details: <!-- Test results -->
+
+### TypeScript Unit Tests
+- Status: <!-- PASS/FAIL/WARN/SKIP -->
+- Details: <!-- Test results -->
+
+### Dependency Integrity
+- Status: <!-- PASS/FAIL/WARN -->
+- Details: <!-- Missing files or packages -->
+
+### Directory Structure
+- Status: <!-- PASS/FAIL/WARN -->
+- Details: <!-- Missing directories -->
+
+### Documentation
+- Status: <!-- PASS/FAIL/WARN -->
+- Details: <!-- Missing docs or broken links -->
+
+## Issues Found
+
+<!-- List any errors or warnings that need attention -->
+
+### Errors
+- <!-- Critical issues that must be fixed -->
+
+### Warnings
+- <!-- Non-critical issues to consider -->
+
+## Actions Taken
+
+<!-- Document what was done to fix issues -->
+
+- [ ] <!-- Action item 1 -->
+- [ ] <!-- Action item 2 -->
+- [ ] <!-- Action item 3 -->
+
+## Final Assessment
+
+<!-- 
+If Health Score ≥ 80:
+"This change meets quality standards. Ready for archive."
+
+If Health Score < 80:
+"Quality gate failed. Issues preventing passing score:
+- Issue 1
+- Issue 2
+
+These issues are [acceptable/not acceptable] because: [reason]
+
+Recommendation: [fix before archive / proceed with caution / block archive]"
+-->
+
+---
+
+**Checked at**: <!-- Date and time -->  
+**Checked by**: <!-- Who ran the check -->
