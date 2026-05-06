@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Harness Engineering 开发流程
 系统 SHALL 强制执行标准化的开发工作流程,包括任务选择、执行计划创建、架构学习、测试设计、开发实施、质量验证等阶段,并明确与 SDD 实践的集成点。

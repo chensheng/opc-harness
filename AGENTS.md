@@ -346,165 +346,40 @@ npm run harness:check
 # 输出中包含 Overall Score
 ```
 
+### Q: Harness 与 SDD 如何协同?
+
+**A**: Harness Engineering 工作流与 SDD (Software Design Document) 实践互补:
+
+- **Harness 工作流**: 关注开发执行和质量验证 (propose → design → apply → archive)
+- **SDD 文档**: 记录长期稳定的系统架构和决策 (架构规则、ADR)
+- **整合方式**:
+  - 在 propose 阶段评估是否需要更新 SDD 或创建 ADR
+  - 在 design 阶段参考 SDD 定义的架构规则
+  - 重大架构变更时同步更新 SDD 和 OpenSpec specs
+  - ADR 与 OpenSpec changes 双向引用,保持追溯性
+
+**决策矩阵**:
+
+| 变更类型 | SDD 更新 | ADR 创建 | Specs 更新 |
+|---------|---------|---------|------------|
+| 重大架构变更 | ✅ 必须 | ✅ 必须 | ✅ 必须 |
+| 模块级调整 | ⚠️ 可选 | ✅ 建议 | ✅ 必须 |
+| 功能实现 | ❌ 不需要 | ❌ 不需要 | ✅ 必须 |
+
+详见 [`harness-sdd-integration spec`](./openspec/specs/harness-sdd-integration/spec.md)
+
 ---
 
 ## 📐 SDD 软件设计文档
 
-SDD (Software Design Document) 是软件工程的标准实践,用于记录系统的整体架构和设计决策。
+SDD (Software Design Document) 记录系统的整体架构和设计决策,与 OpenSpec 工作流协同使用。
 
-### SDD 标准结构
+**核心要点**:
+- **SDD vs OpenSpec design**: SDD 定义长期稳定的架构规则,OpenSpec design.md 描述具体变更的实现方案
+- **ADR**: 重大架构决策必须创建 ADR (Architecture Decision Record),并在 "Related Changes" 中引用相关的 OpenSpec change
+- **更新时机**: 重大架构变更时必须更新 SDD,功能实现时无需更新
 
-完整的 SDD 应包含以下章节:
-
-#### 1. 系统概述 (System Overview)
-
-- **高层架构图**: 展示核心组件和交互
-- **系统目标**: 解决什么问题,提供什么价值
-- **关键特性**: 主要功能列表
-- **技术栈**: 使用的框架、库、工具链
-
-#### 2. 分层架构 (Layered Architecture)
-
-- **FE (Frontend)**: React + TypeScript + Tauri
-- **BE (Backend)**: Rust + Tauri Commands
-- **TEST**: Vitest + Playwright
-- **各层职责**: 清晰定义每层的边界和责任
-
-#### 3. 数据流规则 (Data Flow Rules)
-
-```typescript
-// ✅ 允许的依赖方向
-Component → Hook → Store → Commands → Services → DB
-
-// ❌ 禁止的依赖方向
-Store → Component    // 状态层不可依赖 UI 层
-Services → Commands  // 服务层不可依赖命令层
-DB → Services        // 数据库层不可依赖数据层
-```
-
-#### 4. 组件交互图 (Component Interaction)
-
-- **核心模块**: Vibe Coding, Vibe Design, Agent System
-- **通信机制**: Hooks, Stores, Commands
-- **数据流向**: 单向数据流,从底层到上层
-
-#### 5. 代码规模约束
-
-- **单文件限制**: ≤500 行
-- **模块化要求**: 超过限制必须拆分
-- **测试覆盖率**: ≥70%
-
-### ADR (架构决策记录) 编写指南
-
-ADR (Architecture Decision Record) 记录重要的架构决策及其 rationale。
-
-#### ADR 模板
-
-```markdown
-# ADR-XXX: [决策标题]
-
-## Status
-
-Proposed | Accepted | Deprecated
-
-## Context
-
-为什么需要这个决策?背景是什么?
-
-## Decision
-
-我们选择了什么方案?具体如何实现?
-
-## Consequences
-
-- **正面影响**: 带来的好处
-- **负面影响**: 权衡和代价
-- **未来影响**: 对后续开发的影响
-```
-
-#### 何时创建 ADR
-
-**需要 ADR 的场景**:
-
-- ✅ 重大技术选型 (如选择 OpenSpec 工作流)
-- ✅ 架构变更 (如引入新的分层)
-- ✅ 关键设计决策 (如数据流规则)
-- ✅ 技术债务处理策略
-
-**不需要 ADR 的场景**:
-
-- ❌ 小功能实现
-- ❌ Bug 修复
-- ❌ 代码重构 (不改变架构)
-
-#### ADR 生命周期管理
-
-```
-Proposed → Review → Accepted → Implemented → (Deprecated)
-```
-
-1. **Proposed**: 初始提案,待审查
-2. **Review**: 团队讨论和反馈
-3. **Accepted**: 被接受,开始实施
-4. **Implemented**: 已实施并归档
-5. **Deprecated**: 被新决策替代 (可选)
-
-**存储位置**: `openspec/specs/design-documentation/spec.md` 或独立的 ADR 文件
-
-### SDD 与 OpenSpec 的关系
-
-理解 SDD 和 OpenSpec design artifacts 的分工很重要:
-
-| 维度         | SDD                    | OpenSpec design.md     |
-| ------------ | ---------------------- | ---------------------- |
-| **范围**     | 整个系统的架构         | 特定变更的设计         |
-| **稳定性**   | 长期稳定,少变化        | 临时性,随变更归档      |
-| **更新频率** | 低频 (重大变更时)      | 高频 (每次变更)        |
-| **受众**     | 所有开发者,架构师      | 实施该变更的开发者     |
-| **内容**     | 整体架构、分层、数据流 | 具体实现方案、技术细节 |
-
-**互补关系**:
-
-- **SDD** 定义整体架构规则和约束
-- **OpenSpec design.md** 描述如何在这些规则下实现具体功能
-- 两者保持一致: OpenSpec design 应符合 SDD 定义的架构
-
-**示例**:
-
-```markdown
-# SDD (design-documentation spec)
-
-"系统 SHALL 采用分层架构,禁止跨层依赖"
-
-# OpenSpec design.md (add-user-auth change)
-
-"为实现用户认证,我们在 BE 层添加 AuthService,
-FE 层添加 useAuth hook,遵循分层架构规则"
-```
-
-### SDD 示例和引用
-
-**当前项目的 SDD**:
-
-- [`design-documentation spec`](./openspec/specs/design-documentation/spec.md) - 架构文档规范
-- [`system-architecture`](./openspec/specs/design-documentation/spec.md) - 系统架构设计
-
-**已归档的架构变更**:
-
-```bash
-# 查看历史架构决策
-ls openspec/changes/archive/ | grep -E "architecture|design|migrate"
-
-# 示例:
-# archive/2026-05-06-remove-docs-migrate-to-openspec/
-#   - 记录了从 docs/ 迁移到 OpenSpec 的架构决策
-#   - 包含 proposal.md, design.md, specs/
-```
-
-**参考资源**:
-
-- [OpenSpec Schema](./openspec/schemas/harness-quality/schema.yaml)
-- [Harness Engineering 开发流程](./openspec/specs/development-workflow/spec.md)
+**详细规范**: 参见 [`design-documentation spec`](./openspec/specs/design-documentation/spec.md) 和 [`harness-sdd-integration spec`](./openspec/specs/harness-sdd-integration/spec.md)
 
 ---
 
@@ -533,6 +408,7 @@ ls openspec/changes/archive/ | grep -E "architecture|design|migrate"
 |                | execution-tracking        | 执行计划与技术债务追踪              |
 |                | sprint-planning           | Sprint 计划与归档机制               |
 | **架构与设计** | design-documentation      | 架构文档、ADR、设计决策             |
+|                | harness-sdd-integration   | Harness 工作流与 SDD 实践整合规范   |
 |                | product-specification     | 产品规格层级体系                    |
 |                | data-storage              | SQLite 数据库集成与 Repository 模式 |
 | **编码规范**   | coding-harness            | 自主编码 Harness 规范               |
@@ -545,6 +421,8 @@ ls openspec/changes/archive/ | grep -E "architecture|design|migrate"
 |                | project-creation          | 项目创建与初始化                    |
 
 ### 2. 架构约束
+
+**SDD 软件设计文档**: 系统架构、分层设计、数据流规则、ADR 等长期稳定的架构文档,详见 [`design-documentation spec`](./openspec/specs/design-documentation/spec.md)
 
 **数据流规则**:
 
