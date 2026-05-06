@@ -12,18 +12,18 @@
 
 ## 3. Git Commit
 
-- [ ] 3.1 Stage deleted files: `git rm -r .codefree-cli/`
-- [ ] 3.2 Create commit with descriptive message referencing this change
-- [ ] 3.3 Verify commit includes only intended deletions
+- [x] 3.1 Stage deleted files: `git rm -r .codefree-cli/`
+- [x] 3.2 Create commit with descriptive message referencing this change
+- [x] 3.3 Verify commit includes only intended deletions
 
 ## 4. Post-Removal Validation
 
-- [ ] 4.1 Run `openspec list` to confirm workflow still functional
-- [ ] 4.2 Test one OpenSpec command (e.g., `openspec --help`)
-- [ ] 4.3 Verify no broken references in documentation
+- [x] 4.1 Run `openspec list` to confirm workflow still functional
+- [x] 4.2 Test one OpenSpec command (e.g., `openspec --help`)
+- [x] 4.3 Verify no broken references in documentation
 
 ## 5. Documentation Update
 
-- [ ] 5.1 Update this tasks.md to mark all completed tasks
-- [ ] 5.2 Prepare quality-check.md assessment
-- [ ] 5.3 Prepare runtime-check.md validation
+- [x] 5.1 Update this tasks.md to mark all completed tasks
+- [x] 5.2 Prepare quality-check.md assessment
+- [x] 5.3 Prepare runtime-check.md validation
