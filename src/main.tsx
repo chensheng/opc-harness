@@ -7,7 +7,7 @@ import { initializeConsoleBridge } from './hooks/useConsoleBridge'
 
 // Initialize Console Bridge in development mode
 // This forwards frontend console logs to the Rust backend
-initializeConsoleBridge();
+initializeConsoleBridge()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
