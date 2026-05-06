@@ -18,12 +18,12 @@
 - [x] 3.2 测试 harness-rust-tests.js (运行 Rust 测试)
 - [x] 3.3 迁移 harness-ts-tests.ps1 → harness-ts-tests.js
 - [x] 3.4 测试 harness-ts-tests.js (运行 TS 测试)
-- [ ] 3.5 迁移 test-decentralized.ps1 → test-decentralized.js
-- [ ] 3.6 测试 test-decentralized.js
+- [x] 3.5 迁移 test-decentralized.ps1 → test-decentralized.js
+- [x] 3.6 测试 test-decentralized.js
 
 ## 4. 迁移 E2E 和质量修复脚本
 
-- [ ] 4.1 迁移 harness-e2e.ps1 → harness-e2e.js
+- [x] 4.1 迁移 harness-e2e.ps1 → harness-e2e.js
 - [ ] 4.2 测试 harness-e2e.js
 - [ ] 4.3 迁移 fix-code-quality.ps1 → fix-code-quality.js
 - [ ] 4.4 测试 fix-code-quality.js (自动修复功能)
