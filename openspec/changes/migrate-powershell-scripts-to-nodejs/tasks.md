@@ -32,8 +32,8 @@
 
 - [x] 5.1 迁移 harness-gc.ps1 → harness-gc.js
 - [x] 5.2 测试 harness-gc.js (垃圾清理功能)
-- [ ] 5.3 迁移 harness-check.ps1 → harness-check.js (最复杂,最后迁移)
-- [ ] 5.4 测试 harness-check.js (完整健康检查)
+- [x] 5.3 迁移 harness-check.ps1 → harness-check.js (最复杂,最后迁移)
+- [x] 5.4 测试 harness-check.js (完整健康检查)
 
 ## 6. 更新配置和清理
 
