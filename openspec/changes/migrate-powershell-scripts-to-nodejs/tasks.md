@@ -37,8 +37,8 @@
 
 ## 6. 更新配置和清理
 
-- [ ] 6.1 更新 package.json 中的 npm scripts 配置
-- [ ] 6.2 删除所有 .ps1 文件
+- [x] 6.1 更新 package.json 中的 npm scripts 配置
+- [x] 6.2 删除所有 .ps1 文件
 - [ ] 6.3 运行 `npm run harness:check` 验证完整流程
 - [ ] 6.4 运行 `npm run harness:fix` 验证修复功能
 - [ ] 6.5 运行 `npm run harness:gc` 验证清理功能

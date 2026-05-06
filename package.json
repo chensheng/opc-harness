@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "rust:check": "powershell -ExecutionPolicy Bypass -File ./scripts/fast-check.ps1",
+    "rust:check": "node ./scripts/fast-check.js",
     "rust:build": "cd src-tauri && cargo build --lib",
     "rust:release": "cd src-tauri && cargo build --release",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
@@ -18,10 +18,10 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "test:unit": "vitest run",
-    "test:e2e": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-e2e.ps1",
-    "harness:check": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-check.ps1",
-    "harness:fix": "powershell -ExecutionPolicy Bypass -File ./scripts/fix-code-quality.ps1",
-    "harness:gc": "powershell -ExecutionPolicy Bypass -File ./scripts/harness-gc.ps1"
+    "test:e2e": "node ./scripts/harness-e2e.js",
+    "harness:check": "node ./scripts/harness-check.js",
+    "harness:fix": "node ./scripts/fix-code-quality.js",
+    "harness:gc": "node ./scripts/harness-gc.js"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
