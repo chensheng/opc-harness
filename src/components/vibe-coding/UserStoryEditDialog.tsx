@@ -337,6 +337,7 @@ export function UserStoryEditDialog({
                     <SelectItem value="approved">已批准</SelectItem>
                     <SelectItem value="in_development">开发中</SelectItem>
                     <SelectItem value="completed">已完成</SelectItem>
+                    <SelectItem value="failed">失败</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -398,6 +399,39 @@ export function UserStoryEditDialog({
               </div>
             </div>
           </div>
+
+          {/* 失败信息展示区域（仅在状态为 failed 时显示） */}
+          {story.status === 'failed' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-muted-foreground">失败信息</h3>
+              <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md space-y-3">
+                {story.errorMessage && (
+                  <div>
+                    <Label className="text-xs text-red-700 dark:text-red-400">失败原因</Label>
+                    <p className="text-sm text-red-800 dark:text-red-300 mt-1">
+                      {story.errorMessage}
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-red-700 dark:text-red-400">重试次数</Label>
+                    <p className="text-sm text-red-800 dark:text-red-300 mt-1">
+                      {story.retryCount || 0}
+                    </p>
+                  </div>
+                  {story.failedAt && (
+                    <div>
+                      <Label className="text-xs text-red-700 dark:text-red-400">失败时间</Label>
+                      <p className="text-sm text-red-800 dark:text-red-300 mt-1">
+                        {new Date(story.failedAt).toLocaleString('zh-CN')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 提交错误提示 */}
           {errors.submit && (

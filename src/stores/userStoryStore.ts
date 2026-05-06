@@ -14,7 +14,7 @@ interface BackendUserStory {
   description: string
   acceptance_criteria: string[]
   priority: 'P0' | 'P1' | 'P2' | 'P3'
-  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed'
+  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed' | 'failed'
   story_points?: number
   dependencies: string[]
   feature_module?: string

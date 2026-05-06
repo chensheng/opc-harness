@@ -15,6 +15,14 @@ import { UserStoryFilterBar } from './UserStoryFilterBar'
 import { UserStoryTable } from './UserStoryTable'
 import { UserStoryPagination } from './UserStoryPagination'
 import { UserStoryDeleteDialog } from './UserStoryDeleteDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 interface UserStoryManagerProps {
   /** 项目 PRD 内容（必需） */
@@ -62,6 +70,11 @@ export function UserStoryManager({
   const [deletingStory, setDeletingStory] = useState<UserStory | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // 重试确认对话框状态
+  const [retryingStory, setRetryingStory] = useState<UserStory | null>(null)
+  const [showRetryConfirm, setShowRetryConfirm] = useState(false)
+  const [isRetrying, setIsRetrying] = useState(false)
 
   // 快速编辑 Sprint 的状态
   const [editingSprintStoryId, setEditingSprintStoryId] = useState<string | null>(null)
@@ -190,6 +203,36 @@ export function UserStoryManager({
   const cancelDelete = () => {
     setShowDeleteConfirm(false)
     setDeletingStory(null)
+  }
+
+  // 重试失败的用户故事
+  const handleRetryStory = (story: UserStory) => {
+    setRetryingStory(story)
+    setShowRetryConfirm(true)
+  }
+
+  const confirmRetry = async () => {
+    if (!retryingStory || !currentProjectId) return
+
+    setIsRetrying(true)
+    try {
+      await updateStory(currentProjectId, retryingStory.id, {
+        status: 'draft',
+        updatedAt: new Date().toISOString(),
+      })
+      setShowRetryConfirm(false)
+      setRetryingStory(null)
+    } catch (error) {
+      console.error('重试用户故事失败:', error)
+      alert('重试失败，请重试')
+    } finally {
+      setIsRetrying(false)
+    }
+  }
+
+  const cancelRetry = () => {
+    setShowRetryConfirm(false)
+    setRetryingStory(null)
   }
 
   const handleQuickUpdateSprint = async (storyId: string, sprintId: string | undefined) => {
@@ -415,6 +458,7 @@ export function UserStoryManager({
             sprints={sprints}
             onEditStory={handleEditStory}
             onDeleteStory={handleDeleteStory}
+            onRetryStory={handleRetryStory}
           />
 
           {/* Pagination */}
@@ -460,6 +504,30 @@ export function UserStoryManager({
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
       />
+
+      {/* Retry Confirmation Dialog */}
+      <Dialog open={showRetryConfirm} onOpenChange={setShowRetryConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重试用户故事</DialogTitle>
+            <DialogDescription>
+              确定要重试 "{retryingStory?.title}" 吗？
+              <br />
+              <span className="text-orange-600">
+                该操作会将状态重置为"草稿"，Agent Worker 将重新处理此故事。
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelRetry} disabled={isRetrying}>
+              取消
+            </Button>
+            <Button onClick={confirmRetry} disabled={isRetrying}>
+              {isRetrying ? '重试中...' : '确认重试'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

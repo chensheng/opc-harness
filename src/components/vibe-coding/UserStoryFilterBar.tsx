@@ -25,6 +25,7 @@ const statusLabels: Record<string, string> = {
   approved: '已批准',
   in_development: '开发中',
   completed: '已完成',
+  failed: '失败',
 }
 
 export function UserStoryFilterBar({

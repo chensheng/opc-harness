@@ -277,7 +277,7 @@ export interface UserStory {
   /** 优先级 */
   priority: 'P0' | 'P1' | 'P2' | 'P3'
   /** 状态 */
-  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed'
+  status: 'draft' | 'refined' | 'approved' | 'in_development' | 'completed' | 'failed'
   /** 估算的故事点 */
   storyPoints?: number
   /** 依赖的故事 ID */
@@ -292,6 +292,20 @@ export interface UserStory {
   createdAt: string
   /** 更新时间 */
   updatedAt: string
+  /** 分配的 Agent ID */
+  assignedAgent?: string
+  /** 锁定时间戳 */
+  lockedAt?: string
+  /** 开始时间戳 */
+  startedAt?: string
+  /** 完成时间戳 */
+  completedAt?: string
+  /** 失败时间戳 */
+  failedAt?: string
+  /** 错误消息 */
+  errorMessage?: string
+  /** 重试次数 */
+  retryCount?: number
 }
 
 /**

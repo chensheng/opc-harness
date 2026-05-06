@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
 import type { UserStory } from '@/types'
 
 interface UserStoryTableProps {
@@ -28,6 +28,7 @@ interface UserStoryTableProps {
   sprints: Array<{ id: string; name: string }>
   onEditStory: (story: UserStory) => void
   onDeleteStory: (story: UserStory) => void
+  onRetryStory?: (story: UserStory) => void // 可选的重试处理函数
 }
 
 const priorityColors: Record<string, string> = {
@@ -43,6 +44,7 @@ const statusColors: Record<string, string> = {
   approved: 'bg-green-50 text-green-700 border border-green-200',
   in_development: 'bg-purple-50 text-purple-700 border border-purple-200',
   completed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  failed: 'bg-red-50 text-red-700 border border-red-200',
 }
 
 const statusLabels: Record<string, string> = {
@@ -51,6 +53,7 @@ const statusLabels: Record<string, string> = {
   approved: '已批准',
   in_development: '开发中',
   completed: '已完成',
+  failed: '失败',
 }
 
 export function UserStoryTable({
@@ -66,6 +69,7 @@ export function UserStoryTable({
   sprints,
   onEditStory,
   onDeleteStory,
+  onRetryStory,
 }: UserStoryTableProps) {
   return (
     <Card>
@@ -236,6 +240,17 @@ export function UserStoryTable({
                       >
                         <Edit2 className="w-2.5 h-2.5" />
                       </Button>
+                      {story.status === 'failed' && onRetryStory && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 hover:bg-orange-100 hover:text-orange-600"
+                          onClick={() => onRetryStory(story)}
+                          title="重试用户故事"
+                        >
+                          <RefreshCw className="w-2.5 h-2.5" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
