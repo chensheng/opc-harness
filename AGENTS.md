@@ -2,7 +2,7 @@
 
 > **Harness Engineering**: "人类掌舵，Agent 执行"  
 > **适用范围**: OPC-HARNESS 项目所有 AI Agent 和开发者  
-> **最后更新**: 2026-03-29
+> **最后更新**: 2026-05-06
 
 ---
 
@@ -39,10 +39,12 @@ npm run harness:check      # 架构健康检查（目标 100/100）
 
 **关键文档**:
 
-- `docs/design-docs/` - 技术决策记录
-- `docs/product-specs/` - 产品规格
-- `docs/exec-plans/` - 执行计划
+- `docs/design-docs/` - 技术决策记录 ([迁移指南](./docs/MIGRATION_GUIDE.md))
+- `docs/product-specs/` - 产品规格 (参见 OpenSpec capabilities)
+- `docs/exec-plans/` - 执行计划 (历史计划已归档到 OpenSpec)
 - `docs/sprint-plans/` - Sprint计划
+- `openspec/specs/` - OpenSpec Capabilities (新增能力规范)
+- `openspec/changes/archive/` - 已归档的历史变更
 
 ### 2. 架构约束
 

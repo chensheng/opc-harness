@@ -1,8 +1,9 @@
 # 产品规范索引
 
 > 本目录包含所有产品需求文档和功能规格说明  
-> **最后更新**: 2026-03-24  
+> **最后更新**: 2026-05-06  
 > **文档状态**: 🔄 持续更新中
+> **OpenSpec 集成**: 参见 [Capabilities 体系](../../openspec/changes/migrate-docs-to-openspec/specs/)
 
 ## 📋 核心产品文档
 
@@ -20,6 +21,35 @@
 | **Vibe Design**    | Phase 2   | ✅ 已完成 | 100%   | 产品团队 |
 | **Vibe Coding**    | Phase 3-6 | 🔄 开发中 | 28%    | 技术团队 |
 | **Vibe Marketing** | Phase 7   | ✅ 已完成 | 100%   | 产品团队 |
+
+## 🔗 OpenSpec Capabilities 体系
+
+本项目采用双层规格体系:
+
+### 产品级规格 (本文档)
+全局产品定义,跨变更共享:
+- [产品设计文档](./product-design.md) - 整体产品架构
+- [Vibe Coding 规格](./vibe-coding-spec.md) - 自主编码模块
+- [Vibe Design 规格](./vibe-design-spec.md) - 产品设计模块
+- [Vibe Marketing 规格](./vibe-marketing-spec.md) - 营销分析模块
+
+### Capability 级规格 (OpenSpec)
+特定功能的能力定义,位于 `openspec/specs/<capability>/`:
+- [agent-initialization](../../openspec/specs/agent-initialization/) - Agent 初始化
+- [agent-observability](../../openspec/specs/agent-observability/) - Agent 可观测性
+- [agent-tracing](../../openspec/specs/agent-tracing/) - Agent 追踪
+- [git-repository-management](../../openspec/specs/git-repository-management/) - Git 仓库管理
+- [project-creation](../../openspec/specs/project-creation/) - 项目创建
+
+### Change 级规格
+变更引入的新需求,位于 `openspec/changes/<name>/specs/`:
+- [document-management](../../openspec/changes/migrate-docs-to-openspec/specs/document-management/) - 文档管理
+- [design-documentation](../../openspec/changes/migrate-docs-to-openspec/specs/design-documentation/) - 设计文档
+- [product-specification](../../openspec/changes/migrate-docs-to-openspec/specs/product-specification/) - 产品规格
+- [execution-tracking](../../openspec/changes/migrate-docs-to-openspec/specs/execution-tracking/) - 执行跟踪
+- [sprint-planning](../../openspec/changes/migrate-docs-to-openspec/specs/sprint-planning/) - Sprint 规划
+
+详见: [迁移指南](../MIGRATION_GUIDE.md)
 
 ## 🎯 功能规格说明
 
