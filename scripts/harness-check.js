@@ -390,7 +390,7 @@ function showSummary() {
   console.log('');
   
   const finalScore = Math.max(0, state.score);
-  const scoreColor = finalScore >= 80 ? 'green' : finalScore >= 60 ? 'yellow' : 'red';
+  const scoreColor = finalScore === 100 ? 'green' : finalScore >= 80 ? 'yellow' : 'red';
   
   console.log(chalk[scoreColor](`  Overall Score: ${finalScore} / 100`));
   console.log(chalk[state.issues.length > 0 ? 'yellow' : 'green'](`  Total Issues: ${state.issues.length}`));
@@ -438,7 +438,7 @@ async function main() {
   
   // Exit with appropriate code
   const finalScore = Math.max(0, state.score);
-  process.exit(finalScore >= 80 ? 0 : 1);
+  process.exit(finalScore === 100 ? 0 : 1);
 }
 
 main().catch(error => {

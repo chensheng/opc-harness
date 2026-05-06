@@ -2,7 +2,7 @@
 
 ## Harness Engineering Health Score
 
-**Target**: ≥ 80 / 100  
+**Target**: = 100 / 100  
 **Status**: <!-- PASS or FAIL -->  
 **Score**: <!-- Actual score from harness:check --> / 100
 
@@ -67,11 +67,11 @@
 ## Final Assessment
 
 <!-- 
-If Health Score ≥ 80:
+If Health Score = 100:
 "This change meets quality standards. Ready for archive."
 
-If Health Score < 80:
-"Quality gate failed. Issues preventing passing score:
+If Health Score < 100:
+"Quality gate failed. Issues preventing perfect score:
 - Issue 1
 - Issue 2
 

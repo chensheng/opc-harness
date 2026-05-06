@@ -239,7 +239,7 @@ artifacts:
       - design
   - id: quality-check
     generates: quality-check.md
-    description: Harness Engineering quality gate validation (Health Score ≥ 80 required)
+    description: Harness Engineering quality gate validation (Health Score = 100 required)
     template: quality-check.md
     instruction: >
       Run `npm run harness:check` and document the results.
@@ -250,7 +250,7 @@ artifacts:
 
       Sections:
 
-      - **Health Score**: Overall score out of 100 (target: ≥ 80)
+      - **Health Score**: Overall score out of 100 (target: = 100)
 
       - **Check Results**: Summary of each check (TypeScript, ESLint, Prettier, Rust, Tests)
 
@@ -258,12 +258,12 @@ artifacts:
 
       - **Actions Taken**: What was done to fix issues (if any)
 
-      - **Final Status**: PASS (≥80) or FAIL (<80)
+      - **Final Status**: PASS (=100) or FAIL (<100)
 
 
-      If Health Score < 80:
+      If Health Score < 100:
 
-      - Document the issues preventing passing score
+      - Document the issues preventing perfect score
 
       - Suggest fixes or indicate if issues are acceptable for this change
 
@@ -272,7 +272,7 @@ artifacts:
 
       This quality gate prevents technical debt accumulation and ensures
 
-      all changes meet project standards.
+      all changes meet project standards with zero tolerance for issues.
     requires:
       - tasks
   - id: runtime-check
@@ -351,5 +351,5 @@ apply:
   tracks: tasks.md
   instruction: |
     Read context files including quality-check.md and runtime-check.md, work through pending tasks, mark complete as you go.
-    Ensure Health Score ≥ 80 and application runs cleanly before considering implementation complete.
+    Ensure Health Score = 100 and application runs cleanly before considering implementation complete.
     Pause if you hit blockers or need clarification.
