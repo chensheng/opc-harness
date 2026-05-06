@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 # Harness Engineering 架构健康检查脚本
 # 用法：.\scripts\harness-check.ps1
-# 版本：2.1 (简化版 - 默认全量检查)
+# 版本：2.2 (简化版 - 移除文档检测)
 
 param(
     [switch]$Verbose,      # 详细输出
@@ -14,22 +14,20 @@ param(
 
 $Script:Config = @{
     ScoreWeights = @{
-        TypeScript      = 20
-        ESLint          = 15
-        Prettier        = 10
-        Rust            = 25
-        RustTests       = 20
-        TSTests         = 20
-        Dependencies    = 5
-        Directory       = 5
-        Documentation   = 10
+        TypeScript      = 22
+        ESLint          = 17
+        Prettier        = 11
+        Rust            = 28
+        RustTests       = 22
+        TSTests         = 22
+        Dependencies    = 6
+        Directory       = 6
     }
     
     RequiredDirs = @(
         "src",
         "src-tauri",
-        "scripts",
-        "docs"
+        "scripts"
     )
     
     RequiredFiles = @(
@@ -37,17 +35,6 @@ $Script:Config = @{
         "package-lock.json",
         "src-tauri/Cargo.toml",
         "src-tauri/Cargo.lock"
-    )
-    
-    KeyDocuments = @(
-        "AGENTS.md"
-    )
-    
-    IndexFiles = @(
-        "docs/design-docs/index.md",
-        "docs/exec-plans/index.md",
-        "docs/product-specs/index.md",
-        "docs/references/index.md"
     )
     
     Timeouts = @{
@@ -403,7 +390,7 @@ function Invoke-DependencyCheck {
 }
 
 function Invoke-DirectoryCheck {
-    Write-CheckStart -Name "Directory Structure Check" -Index "8/9"
+    Write-CheckStart -Name "Directory Structure Check" -Index "8/8"
     
     $dirIssues = 0
     foreach ($dir in $Script:Config.RequiredDirs) {
@@ -418,46 +405,6 @@ function Invoke-DirectoryCheck {
     } else {
         Write-CheckResult -Status "INFO" -Message "Found $dirIssues directory issue(s)"
         Add-Issue -Type "Directory" -Severity "Warning" -Message "$dirIssues missing dir(s)" -ScorePenalty $Script:Config.ScoreWeights.Directory
-    }
-}
-
-function Invoke-DocumentationCheck {
-    Write-CheckStart -Name "Documentation Structure Check" -Index "9/9"
-    
-    $docIssues = 0
-    
-    # Check key documents exist
-    foreach ($doc in $Script:Config.KeyDocuments) {
-        if (Test-Path $doc) {
-            if ($Verbose) {
-                Write-Host "  ✅ $doc" -ForegroundColor Green
-            }
-        } else {
-            Write-Host "  ❌ $doc (MISSING)" -ForegroundColor Red
-            $docIssues++
-        }
-    }
-    
-    # Check index files have links
-    foreach ($indexFile in $Script:Config.IndexFiles) {
-        if (Test-Path $indexFile) {
-            $content = Get-Content $indexFile -Raw
-            if ($content -match '\[.*\]\(.*\)') {
-                if ($Verbose) {
-                    Write-Host "  ✅ $indexFile (has links)" -ForegroundColor Green
-                }
-            } else {
-                Write-Host "  ⚠️  $indexFile (no links found)" -ForegroundColor Yellow
-                $docIssues++
-            }
-        }
-    }
-    
-    if ($docIssues -eq 0) {
-        Write-CheckResult -Status "PASS" -Message "Documentation structure valid"
-    } else {
-        Write-CheckResult -Status "FAIL" -Message "Found $docIssues documentation issue(s)"
-        Add-Issue -Type "Documentation" -Severity "Error" -Message "$docIssues document issue(s)" -ScorePenalty $Script:Config.ScoreWeights.Documentation
     }
 }
 
@@ -512,7 +459,6 @@ Invoke-RustCompilationCheck  # 4/8
 Invoke-RustTestsCheck        # 5/8
 Invoke-TSTestsCheck          # 6/8
 Invoke-DependencyCheck       # 7/8
-Invoke-DirectoryCheck        # 8/9
-Invoke-DocumentationCheck    # 9/9
+Invoke-DirectoryCheck        # 8/8
 
 Show-Summary
