@@ -25,8 +25,8 @@
 
 - [x] 4.1 迁移 harness-e2e.ps1 → harness-e2e.js
 - [ ] 4.2 测试 harness-e2e.js
-- [ ] 4.3 迁移 fix-code-quality.ps1 → fix-code-quality.js
-- [ ] 4.4 测试 fix-code-quality.js (自动修复功能)
+- [x] 4.3 迁移 fix-code-quality.ps1 → fix-code-quality.js
+- [x] 4.4 测试 fix-code-quality.js (自动修复功能)
 
 ## 5. 迁移复杂脚本
 
