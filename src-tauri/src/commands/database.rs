@@ -272,7 +272,7 @@ pub fn get_project_by_id(
     match db::get_project_by_id(&conn, &id).map_err(|e| e.to_string())? {
         Some(project) => {
             // ✨ 新增：检查工作区目录并初始化 Git（如果需要）
-            if let Err(e) = ensure_workspace_and_git(&id, &app_handle) {
+            if let Err(e) = ensure_workspace_and_git(&id, &_app_handle) {
                 log::warn!("[get_project_by_id] Git initialization warning: {}", e);
             }
             

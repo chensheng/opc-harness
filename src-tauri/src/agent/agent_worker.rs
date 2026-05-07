@@ -377,7 +377,7 @@ impl AgentWorker {
         agent_id: &str,
         story: &UserStory,
         project_id: &str,
-        daemon_manager: &Arc<RwLock<DaemonManager>>,
+        _daemon_manager: &Arc<RwLock<DaemonManager>>,
         websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
         worktree_manager: &Option<Arc<WorktreeManager>>,
         app_handle: &Option<AppHandle>,
@@ -390,7 +390,7 @@ impl AgentWorker {
 
         // Clone agent_id to String for use in spawned tasks
         let agent_id_owned = agent_id.to_string();
-        let session_id = format!("agent-{}", agent_id);
+        // let session_id = format!("agent-{}", agent_id); // 未使用
 
         log::info!(
             "[AgentWorker:{}] Starting coding agent for story {}",
@@ -542,7 +542,7 @@ impl AgentWorker {
 
         // 启动监听任务（带超时）
         let agent_id_for_listener = agent_id.to_string();
-        let session_id_for_listener = session_id.clone();
+        // let session_id_for_listener = session_id.clone(); // 未使用
         let ws_manager_for_listener = websocket_manager.clone();
         let app_handle_for_listener = app_handle.clone();
         let last_log_timestamps_for_listener = last_log_timestamps.clone();
@@ -585,7 +585,7 @@ impl AgentWorker {
         let story_id_for_commit = story.id.clone();
         let worktree_path_for_git = worktree_path.clone();
         let agent_id_for_output = agent_id_owned.clone();
-        let session_id_for_messages = session_id.clone();
+        // let session_id_for_messages = session_id.clone(); // 未使用
         let ws_manager_for_messages = websocket_manager.clone();
         let app_handle_for_messages = app_handle.clone();
         let last_log_timestamps_for_messages = last_log_timestamps.clone();
@@ -694,7 +694,7 @@ impl AgentWorker {
                         let story_id_for_update = story_id_for_commit.clone();
                         let worktree_path_for_git_clone = worktree_path_for_git.clone();
                         let agent_id_for_spawn = agent_id_owned.clone();
-                        let session_id_for_git = session_id_for_messages.clone();
+                        // let session_id_for_git = session_id_for_messages.clone(); // 未使用
                         let ws_manager_for_git = ws_manager_for_messages.clone();
                         let app_handle_for_git = app_handle_for_messages.clone();
                         let last_log_timestamps_for_git = last_log_timestamps_for_messages.clone();

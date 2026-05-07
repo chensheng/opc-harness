@@ -198,7 +198,7 @@ impl WorktreeManager {
     pub async fn create_worktree(
         &self,
         agent_id: &str,
-        story_id: &str,
+        _story_id: &str,
         branch_name: &str,
     ) -> Result<String, String> {
         // 1. 确保 worktrees 目录存在

@@ -150,7 +150,7 @@ impl From<ApiCallStats> for ApiCallStatsResponse {
 /// 获取智能体日志
 #[tauri::command]
 pub async fn get_agent_logs(
-    obs_state: State<'_, ObservabilityState>,
+    _obs_state: State<'_, ObservabilityState>,
     params: GetLogsParams,
 ) -> Result<Vec<AgentLog>, String> {
     let conn = get_connection().map_err(|e| e.to_string())?;
@@ -175,7 +175,7 @@ pub async fn get_agent_logs(
 /// 获取日志统计
 #[tauri::command]
 pub async fn get_agent_log_stats(
-    obs_state: State<'_, ObservabilityState>,
+    _obs_state: State<'_, ObservabilityState>,
     agent_id: String,
 ) -> Result<LogStatsResponse, String> {
     let conn = get_connection().map_err(|e| e.to_string())?;
@@ -188,7 +188,7 @@ pub async fn get_agent_log_stats(
 /// 获取智能体追踪记录
 #[tauri::command]
 pub async fn get_agent_traces(
-    obs_state: State<'_, ObservabilityState>,
+    _obs_state: State<'_, ObservabilityState>,
     agent_id: String,
     event_type: Option<String>,
     limit: Option<i64>,
@@ -210,7 +210,7 @@ pub async fn get_agent_traces(
 /// 获取告警列表
 #[tauri::command]
 pub async fn get_agent_alerts(
-    obs_state: State<'_, ObservabilityState>,
+    _obs_state: State<'_, ObservabilityState>,
     agent_id: String,
     status: Option<String>,
     limit: Option<i64>,
@@ -399,7 +399,7 @@ pub async fn get_performance_metrics(
 /// 解决告警
 #[tauri::command]
 pub async fn resolve_agent_alert(
-    obs_state: State<'_, ObservabilityService>,
+    _obs_state: State<'_, ObservabilityService>,
     alert_id: String,
 ) -> Result<(), String> {
     let conn = get_connection().map_err(|e| e.to_string())?;

@@ -464,7 +464,7 @@ impl RetryScheduler {
     /// 执行单次扫描并触发待重试任务
     async fn scan_and_trigger(
         &mut self,
-        project_id: &str,
+        _project_id: &str,
         websocket_manager: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
     ) -> Result<(), String> {
         let scan_start = std::time::Instant::now();
