@@ -390,6 +390,8 @@ impl Entity for UserStory {
             retry_count: row.get("retry_count").unwrap_or(0),
             next_retry_at: row.get("next_retry_at").ok(),
             max_retries: row.get("max_retries").unwrap_or(3),
+            failure_reason: row.get("failure_reason").ok(),
+            last_error_timestamp: row.get("last_error_timestamp").ok(),
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
         })
