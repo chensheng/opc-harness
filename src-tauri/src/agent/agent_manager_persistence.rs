@@ -12,7 +12,7 @@ use crate::db;
 
 /// 持久化 Agent 到数据库 (VC-005)
 pub async fn persist_agent(
-    app_handle: &AppHandle,
+    _app_handle: &AppHandle,
     handle: &AgentHandle,
 ) -> Result<(), String> {
     log::info!("[persist_agent] Persisting agent to database: agent_id={}, session_id={}, project_id={}", 
@@ -61,7 +61,7 @@ pub async fn persist_agent(
 
 /// 更新 Agent 状态并持久化 (VC-005)
 pub async fn update_and_persist_agent(
-    app_handle: &AppHandle,
+    _app_handle: &AppHandle,
     agents: &Arc<RwLock<std::collections::HashMap<String, AgentHandle>>>,
     agent_id: &str,
     status: AgentStatus,
@@ -89,7 +89,7 @@ pub async fn update_and_persist_agent(
 
 /// 恢复持久化的 Sessions (VC-005)
 pub async fn restore_sessions(
-    app_handle: &AppHandle,
+    _app_handle: &AppHandle,
     agents: &Arc<RwLock<std::collections::HashMap<String, AgentHandle>>>,
     stdio: &Arc<RwLock<crate::agent::agent_stdio::StdioChannelManager>>,
     websocket: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,

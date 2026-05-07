@@ -2,8 +2,7 @@
 //! 
 //! 负责与 Kimi/Claude Code 等 AI CLI 工具进行 STDIO 双向通信
 
-use std::process::{Child, Stdio};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::Mutex;

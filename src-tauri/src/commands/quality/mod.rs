@@ -24,7 +24,6 @@ pub mod sprint_assignment_streaming;
 // 重新导出所有公共 API，保持向后兼容
 pub use consistency::*;
 pub use feasibility::*;
-pub use quality_check::*;
 pub use iteration::*;
 #[allow(unused_imports)]
 pub use feedback::*;

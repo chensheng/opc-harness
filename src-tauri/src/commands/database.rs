@@ -6,7 +6,7 @@ use uuid::Uuid;
 /// 创建新项目
 #[tauri::command]
 pub fn create_project(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     name: String,
     description: String,
 ) -> Result<String, String> {
@@ -256,7 +256,7 @@ fn ensure_workspace_and_git(project_id: &str, _app_handle: &tauri::AppHandle) ->
 
 /// 获取所有项目
 #[tauri::command]
-pub fn get_all_projects(app_handle: tauri::AppHandle) -> Result<Vec<Project>, String> {
+pub fn get_all_projects(_app_handle: tauri::AppHandle) -> Result<Vec<Project>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::get_all_projects(&conn).map_err(|e| e.to_string())
 }
@@ -264,7 +264,7 @@ pub fn get_all_projects(app_handle: tauri::AppHandle) -> Result<Vec<Project>, St
 /// 获取单个项目
 #[tauri::command]
 pub fn get_project_by_id(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     id: String,
 ) -> Result<Option<Project>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -284,21 +284,21 @@ pub fn get_project_by_id(
 
 /// 更新项目
 #[tauri::command]
-pub fn update_project(app_handle: tauri::AppHandle, project: Project) -> Result<(), String> {
+pub fn update_project(_app_handle: tauri::AppHandle, project: Project) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::update_project(&conn, &project).map_err(|e| e.to_string())
 }
 
 /// 删除项目
 #[tauri::command]
-pub fn delete_project(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
+pub fn delete_project(_app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::delete_project(&conn, &id).map_err(|e| e.to_string())
 }
 
 /// 保存 AI 配置 (同时保存到数据库和 OS keychain)
 #[tauri::command]
-pub fn save_ai_config(app_handle: tauri::AppHandle, config: AIConfig) -> Result<(), String> {
+pub fn save_ai_config(_app_handle: tauri::AppHandle, config: AIConfig) -> Result<(), String> {
     // Validate inputs
     if config.provider.is_empty() {
         return Err("Provider name cannot be empty".to_string());
@@ -326,7 +326,7 @@ pub fn save_ai_config(app_handle: tauri::AppHandle, config: AIConfig) -> Result<
 
 /// 获取所有 AI 配置 (从数据库获取 provider 和 model，尝试从 keychain 获取 api_key)
 #[tauri::command]
-pub fn get_all_ai_configs(app_handle: tauri::AppHandle) -> Result<Vec<AIConfig>, String> {
+pub fn get_all_ai_configs(_app_handle: tauri::AppHandle) -> Result<Vec<AIConfig>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
 
     // Get all configs from database
@@ -347,7 +347,7 @@ pub fn get_all_ai_configs(app_handle: tauri::AppHandle) -> Result<Vec<AIConfig>,
 /// 获取单个 AI 配置 (从数据库获取 provider 和 model，从 keychain 获取 api_key)
 #[tauri::command]
 pub fn get_ai_config(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     provider: String,
 ) -> Result<Option<AIConfig>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -374,7 +374,7 @@ pub fn get_ai_config(
 
 /// 删除 AI 配置 (同时删除数据库记录和 OS keychain 中的密钥)
 #[tauri::command]
-pub fn delete_ai_config(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
+pub fn delete_ai_config(_app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
     // Delete from database
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::delete_ai_config(&conn, &provider).map_err(|e| e.to_string())?;
@@ -389,7 +389,7 @@ pub fn delete_ai_config(app_handle: tauri::AppHandle, provider: String) -> Resul
 /// 创建 CLI 会话
 #[tauri::command]
 pub fn create_cli_session_db(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     tool_type: String,
     project_path: String,
 ) -> Result<String, String> {
@@ -408,7 +408,7 @@ pub fn create_cli_session_db(
 
 /// 获取所有 CLI 会话
 #[tauri::command]
-pub fn get_all_cli_sessions(app_handle: tauri::AppHandle) -> Result<Vec<CLISession>, String> {
+pub fn get_all_cli_sessions(_app_handle: tauri::AppHandle) -> Result<Vec<CLISession>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::get_all_cli_sessions(&conn).map_err(|e| e.to_string())
 }
@@ -416,7 +416,7 @@ pub fn get_all_cli_sessions(app_handle: tauri::AppHandle) -> Result<Vec<CLISessi
 /// 获取单个 CLI 会话
 #[tauri::command]
 pub fn get_cli_session_by_id(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     id: String,
 ) -> Result<Option<CLISession>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -425,7 +425,7 @@ pub fn get_cli_session_by_id(
 
 /// 删除 CLI 会话
 #[tauri::command]
-pub fn delete_cli_session(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
+pub fn delete_cli_session(_app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::delete_cli_session(&conn, &id).map_err(|e| e.to_string())
 }
@@ -435,7 +435,7 @@ pub fn delete_cli_session(app_handle: tauri::AppHandle, id: String) -> Result<()
 /// 创建里程碑
 #[tauri::command]
 pub fn create_milestone(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     project_id: String,
     title: String,
     description: String,
@@ -464,7 +464,7 @@ pub fn create_milestone(
 /// 获取项目的所有里程碑
 #[tauri::command]
 pub fn get_milestones_by_project(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     project_id: String,
 ) -> Result<Vec<Milestone>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -474,7 +474,7 @@ pub fn get_milestones_by_project(
 /// 获取单个里程碑
 #[tauri::command]
 pub fn get_milestone_by_id(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     id: String,
 ) -> Result<Option<Milestone>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -483,14 +483,14 @@ pub fn get_milestone_by_id(
 
 /// 更新里程碑
 #[tauri::command]
-pub fn update_milestone(app_handle: tauri::AppHandle, milestone: Milestone) -> Result<(), String> {
+pub fn update_milestone(_app_handle: tauri::AppHandle, milestone: Milestone) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::update_milestone(&conn, &milestone).map_err(|e| e.to_string())
 }
 
 /// 删除里程碑
 #[tauri::command]
-pub fn delete_milestone(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
+pub fn delete_milestone(_app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::delete_milestone(&conn, &id).map_err(|e| e.to_string())
 }
@@ -500,7 +500,7 @@ pub fn delete_milestone(app_handle: tauri::AppHandle, id: String) -> Result<(), 
 /// 创建 Issue
 #[tauri::command]
 pub fn create_issue(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     project_id: String,
     title: String,
     description: String,
@@ -535,7 +535,7 @@ pub fn create_issue(
 /// 获取项目的所有 Issues
 #[tauri::command]
 pub fn get_issues_by_project(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     project_id: String,
 ) -> Result<Vec<Issue>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -545,7 +545,7 @@ pub fn get_issues_by_project(
 /// 按里程碑获取 Issues
 #[tauri::command]
 pub fn get_issues_by_milestone(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     milestone_id: String,
 ) -> Result<Vec<Issue>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -555,7 +555,7 @@ pub fn get_issues_by_milestone(
 /// 获取单个 Issue
 #[tauri::command]
 pub fn get_issue_by_id(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     id: String,
 ) -> Result<Option<Issue>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -564,14 +564,14 @@ pub fn get_issue_by_id(
 
 /// 更新 Issue
 #[tauri::command]
-pub fn update_issue(app_handle: tauri::AppHandle, issue: Issue) -> Result<(), String> {
+pub fn update_issue(_app_handle: tauri::AppHandle, issue: Issue) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::update_issue(&conn, &issue).map_err(|e| e.to_string())
 }
 
 /// 删除 Issue
 #[tauri::command]
-pub fn delete_issue(app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
+pub fn delete_issue(_app_handle: tauri::AppHandle, id: String) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::delete_issue(&conn, &id).map_err(|e| e.to_string())
 }
@@ -581,7 +581,7 @@ pub fn delete_issue(app_handle: tauri::AppHandle, id: String) -> Result<(), Stri
 /// 创建 Agent Session
 #[tauri::command]
 pub fn create_agent_session(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     session_id: String,
     agent_id: String,
     agent_type: String,
@@ -616,7 +616,7 @@ pub fn create_agent_session(
 /// 获取项目的所有 Sessions
 #[tauri::command]
 pub fn get_sessions_by_project(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     project_id: String,
 ) -> Result<Vec<AgentSession>, String> {
     let conn = db::get_connection().map_err(|e| {
@@ -638,7 +638,7 @@ pub fn get_sessions_by_project(
 /// 获取单个 Agent Session（按 agent_id）
 #[tauri::command]
 pub fn get_agent_session_by_id(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     agent_id: String,
 ) -> Result<Option<AgentSession>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -648,7 +648,7 @@ pub fn get_agent_session_by_id(
 /// 获取 Agent Session（按 session_id）
 #[tauri::command]
 pub fn get_agent_session_by_session_id(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     session_id: String,
 ) -> Result<Option<AgentSession>, String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
@@ -658,7 +658,7 @@ pub fn get_agent_session_by_session_id(
 /// 更新 Agent Session 状态
 #[tauri::command]
 pub fn update_agent_session_status(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     agent_id: String,
     status: String,
     phase: String,
@@ -669,14 +669,14 @@ pub fn update_agent_session_status(
 
 /// 更新 Agent Session 完整信息
 #[tauri::command]
-pub fn update_agent_session(app_handle: tauri::AppHandle, session: AgentSession) -> Result<(), String> {
+pub fn update_agent_session(_app_handle: tauri::AppHandle, session: AgentSession) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     db::update_agent_session(&conn, &session).map_err(|e| e.to_string())
 }
 
 /// 删除 Agent Session
 #[tauri::command]
-pub fn delete_agent_session(app_handle: tauri::AppHandle, agent_id: String) -> Result<(), String> {
+pub fn delete_agent_session(_app_handle: tauri::AppHandle, agent_id: String) -> Result<(), String> {
     let conn = db::get_connection().map_err(|e| e.to_string())?;
     
     // 先获取智能体信息，检查状态
@@ -713,7 +713,7 @@ pub struct SaveSprintsRequest {
 /// 保存项目的Sprint计划（批量Upsert）
 #[tauri::command]
 pub fn save_sprints(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     request: SaveSprintsRequest,
 ) -> Result<usize, String> {
     println!("[save_sprints] Received request for project_id: {}, sprints count: {}", 
@@ -749,7 +749,7 @@ pub struct GetSprintsRequest {
 /// 获取项目的所有Sprint计划
 #[tauri::command]
 pub fn get_sprints_by_project(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     request: GetSprintsRequest,
 ) -> Result<Vec<crate::models::Sprint>, String> {
     let conn = db::get_connection().map_err(|e| {
@@ -779,7 +779,7 @@ pub struct DeleteSprintRequest {
 /// 删除单个Sprint计划
 #[tauri::command]
 pub fn delete_sprint(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     request: DeleteSprintRequest,
 ) -> Result<(), String> {
     println!("[delete_sprint] Deleting sprint_id: {}", request.sprint_id);
@@ -815,7 +815,7 @@ pub struct GetSprintStoriesRequest {
 /// 获取指定 Sprint 下的用户故事列表
 #[tauri::command]
 pub fn get_sprint_stories(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     request: GetSprintStoriesRequest,
 ) -> Result<Vec<crate::models::UserStory>, String> {
     println!("[get_sprint_stories] Querying for sprint_id: {}", request.sprint_id);

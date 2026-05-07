@@ -633,8 +633,6 @@ impl DaemonManager {
         &self,
         check_interval_secs: u64,
     ) -> Result<(), String> {
-        use tokio::time::{sleep, Duration};
-        
         log::info!(
             "[Daemon] Starting agent monitoring task with {}s interval",
             check_interval_secs

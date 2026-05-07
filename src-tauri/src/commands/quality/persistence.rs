@@ -12,7 +12,7 @@ use chrono::Utc;
 /// 保存用户故事到数据库
 #[tauri::command]
 pub async fn save_user_stories(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     request: SaveUserStoriesRequest,
 ) -> Result<SaveUserStoriesResponse, String> {
     println!("[save_user_stories] Received request for project_id: {}, stories count: {}", 
@@ -81,7 +81,7 @@ pub async fn save_user_stories(
 /// 从数据库获取项目的用户故事
 #[tauri::command]
 pub async fn get_user_stories(
-    app_handle: tauri::AppHandle,
+    _app_handle: tauri::AppHandle,
     request: GetUserStoriesRequest,
 ) -> Result<GetUserStoriesResponse, String> {
     let conn = db::get_connection().map_err(|e| {

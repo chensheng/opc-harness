@@ -45,7 +45,7 @@ impl<'a> AgentAlertsRepository<'a> {
         limit: i64,
     ) -> Result<Vec<AgentAlert>, rusqlite::Error> {
         let sql = match status {
-            Some(s) => format!(
+            Some(_) => format!(
                 "SELECT id, agent_id, level, alert_type, message, status, created_at, resolved_at
                  FROM agent_alerts
                  WHERE agent_id = ?1 AND status = ?2

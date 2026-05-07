@@ -1,7 +1,6 @@
 //! 重试引擎相关 Tauri Commands
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
 use crate::db;
 use crate::models::UserStoryRetryHistory;
 use crate::agent::retry_engine::BackoffConfig;

@@ -3,9 +3,6 @@
 //! 提供前端与后端可观测性功能的交互接口
 
 use crate::db::{
-    agent_alerts::{self, AgentAlertsRepository},
-    agent_logs::{self, AgentLogsRepository, LogStats},
-    agent_traces::{self, AgentTracesRepository},
     get_connection,
 };
 use crate::models::{AgentAlert, AgentLog, AgentTrace};

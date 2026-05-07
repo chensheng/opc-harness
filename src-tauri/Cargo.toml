@@ -21,10 +21,6 @@ lto = "thin"           # 轻量级链接时优化
 codegen-units = 1      # 减少代码生成单元,提升运行时性能
 strip = true           # 移除调试符号,减小体积
 
-# 使用并行编译 (根据 CPU 核心数)
-[build]
-jobs = 8               # 并行任务数 (根据你的 CPU 调整)
-
 [build-dependencies]
 tauri-build = { version = "2.0.0", features = [] }
 

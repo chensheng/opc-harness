@@ -25,7 +25,7 @@ pub use sprint_repository::{
     get_user_story_by_id,
     // Retry engine functions
     create_retry_history_record, update_retry_history_result, get_user_story_retry_history,
-    get_project_retry_statistics, update_user_story_next_retry_at, get_scheduled_retry_stories,
+    get_project_retry_statistics,
 };
 
 // Re-export database functions

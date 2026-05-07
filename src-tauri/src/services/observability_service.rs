@@ -3,14 +3,10 @@
 //! 提供日志收集、持久化、追踪记录、告警检测和性能监控服务
 
 use crate::db::{
-    agent_alerts::{self, AgentAlertsRepository},
-    agent_logs::{self, AgentLogsRepository},
-    agent_traces::{self, AgentTracesRepository},
     get_connection,
 };
 use crate::models::{AgentAlert, AgentLog, AgentTrace, alert_level, alert_type};
 use chrono::Utc;
-use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
