@@ -117,3 +117,29 @@ pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<
     println!("[DB::update_story_sprint] Updated {} story(s)", updated);
     Ok(updated)
 }
+
+/// 获取待重试的用户故事队列
+/// 查询状态为 'scheduled_retry' 且 next_retry_at <= now() 的故事
+pub fn get_pending_retries(conn: &Connection, limit: usize) -> Result<Vec<UserStory>> {
+    log::info!("[DB::get_pending_retries] Querying pending retries with limit: {}", limit);
+    
+    let mut stmt = conn.prepare(
+        "SELECT * FROM user_stories 
+         WHERE status = 'scheduled_retry' 
+           AND next_retry_at <= datetime('now')
+         ORDER BY next_retry_at ASC
+         LIMIT ?1"
+    )?;
+    
+    let stories = stmt.query_map([limit], |row| {
+        UserStory::from_row(row)
+    })?;
+
+    let mut result = Vec::new();
+    for story_result in stories {
+        result.push(story_result?);
+    }
+    
+    log::info!("[DB::get_pending_retries] Found {} pending retries", result.len());
+    Ok(result)
+}

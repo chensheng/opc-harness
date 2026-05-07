@@ -181,6 +181,28 @@ impl AgentWorker {
             }
         });
 
+        // 启动重试调度器
+        if let Some(ws_manager) = &self.websocket_manager {
+            let scheduler_config = crate::agent::retry_engine::SchedulerConfig::default();
+            let mut scheduler = crate::agent::retry_engine::RetryScheduler::new(scheduler_config);
+            let project_id_clone = self.config.project_id.clone();
+            let ws_manager_clone = ws_manager.clone();
+            
+            tokio::spawn(async move {
+                scheduler.run(project_id_clone, ws_manager_clone).await;
+            });
+            
+            log::info!(
+                "[AgentWorker:{}] 🔄 RetryScheduler started in background",
+                self.config.worker_id
+            );
+        } else {
+            log::warn!(
+                "[AgentWorker:{}] WebSocket manager not available, RetryScheduler not started",
+                self.config.worker_id
+            );
+        }
+
         Ok(())
     }
 

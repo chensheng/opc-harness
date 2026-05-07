@@ -230,6 +230,11 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_user_stories_sprint_id ON user_stories(sprint_id)",
         [],
     )?;
+    // 为 next_retry_at 字段创建索引，优化重试调度器查询性能
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_stories_next_retry_at ON user_stories(next_retry_at)",
+        [],
+    )?;
 
     // 迁移：为 user_stories 表添加 Agent Loop 相关字段（如果不存在）
     migrate_add_agent_loop_fields(&conn)?;

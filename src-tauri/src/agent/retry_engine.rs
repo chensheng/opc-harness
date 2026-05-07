@@ -2,6 +2,9 @@ use chrono::{Duration, Utc};
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration as StdDuration;
+use tokio::sync::RwLock;
 
 /// 错误类型分类
 #[derive(Debug, Clone, PartialEq)]
@@ -250,10 +253,24 @@ impl Default for SchedulerConfig {
     }
 }
 
+/// 调度器状态
+#[derive(Debug, Clone)]
+pub struct SchedulerStatus {
+    /// 是否正在运行
+    pub is_running: bool,
+    /// 活跃重试数量
+    pub active_retry_count: usize,
+    /// 活跃重试列表 (story_id -> agent_id)
+    pub active_retries: HashMap<String, String>,
+    /// 最后扫描时间
+    pub last_scan_at: Option<String>,
+}
+
 /// 重试调度器
 pub struct RetryScheduler {
     config: SchedulerConfig,
     active_retries: HashMap<String, String>, // story_id -> agent_id
+    last_scan_at: Option<String>,
 }
 
 impl RetryScheduler {
@@ -261,6 +278,7 @@ impl RetryScheduler {
         Self {
             config,
             active_retries: HashMap::new(),
+            last_scan_at: None,
         }
     }
 
@@ -314,6 +332,164 @@ impl RetryScheduler {
     /// 获取检查间隔（秒）
     pub fn get_check_interval(&self) -> u64 {
         self.config.check_interval_seconds
+    }
+
+    /// 获取调度器状态
+    pub fn get_status(&self) -> SchedulerStatus {
+        SchedulerStatus {
+            is_running: true, // TODO: 跟踪实际运行状态
+            active_retry_count: self.active_retries.len(),
+            active_retries: self.active_retries.clone(),
+            last_scan_at: self.last_scan_at.clone(),
+        }
+    }
+
+    /// 运行调度器主循环
+    pub async fn run(
+        &mut self,
+        project_id: String,
+        websocket_manager: Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
+    ) {
+        log::info!("[RetryScheduler] Started for project: {}", project_id);
+
+        let mut interval = tokio::time::interval(StdDuration::from_secs(self.config.check_interval_seconds));
+        
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    // 执行单次扫描
+                    if let Err(e) = self.scan_and_trigger(&project_id, &websocket_manager).await {
+                        log::error!("[RetryScheduler] Scan failed: {}", e);
+                    }
+                }
+                _ = tokio::signal::ctrl_c() => {
+                    log::info!("[RetryScheduler] Received shutdown signal, waiting for active retries...");
+                    
+                    // 等待所有活跃的重试任务完成
+                    while !self.active_retries.is_empty() {
+                        log::info!(
+                            "[RetryScheduler] Waiting for {} active retries to complete...",
+                            self.active_retries.len()
+                        );
+                        tokio::time::sleep(StdDuration::from_secs(5)).await;
+                    }
+                    
+                    log::info!("[RetryScheduler] All active retries completed, shutting down");
+                    break;
+                }
+            }
+        }
+    }
+
+    /// 执行单次扫描并触发待重试任务
+    async fn scan_and_trigger(
+        &mut self,
+        project_id: &str,
+        websocket_manager: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
+    ) -> Result<(), String> {
+        log::debug!("[RetryScheduler] Scanning for pending retries...");
+
+        // 更新最后扫描时间
+        self.last_scan_at = Some(chrono::Utc::now().to_rfc3339());
+
+        // 1. 查询待重试队列
+        let conn = crate::db::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+        let pending_stories = crate::db::get_pending_retries(
+            &conn,
+            self.config.max_concurrent_retries,
+        ).map_err(|e| format!("Failed to query pending retries: {}", e))?;
+
+        if pending_stories.is_empty() {
+            log::debug!("[RetryScheduler] No pending retries found");
+            return Ok(());
+        }
+
+        log::info!(
+            "[RetryScheduler] Found {} pending retries",
+            pending_stories.len()
+        );
+
+        // 2. 遍历待重试故事，触发重试
+        for story in pending_stories {
+            // 检查并发限制
+            if !self.can_start_new_retry() {
+                log::warn!(
+                    "[RetryScheduler] Max concurrent retries reached ({}), skipping remaining stories",
+                    self.config.max_concurrent_retries
+                );
+                break;
+            }
+
+            // 触发重试
+            if let Err(e) = self.trigger_retry(&story, websocket_manager).await {
+                log::error!(
+                    "[RetryScheduler] Failed to trigger retry for story {}: {}",
+                    story.id,
+                    e
+                );
+                // 继续处理下一个故事
+                continue;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 触发单个故事的重试
+    async fn trigger_retry(
+        &mut self,
+        story: &crate::models::UserStory,
+        websocket_manager: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
+    ) -> Result<(), String> {
+        log::info!(
+            "[RetryScheduler] Triggering retry for story {} (attempt {})",
+            story.story_number,
+            story.retry_count + 1
+        );
+
+        let conn = crate::db::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+        // 1. 更新 Story 状态为 in_progress
+        let now = chrono::Utc::now().to_rfc3339();
+        crate::db::update_user_story_status(&conn, &story.id, "in_progress")
+            .map_err(|e| format!("Failed to update story status: {}", e))?;
+
+        // 2. 创建重试历史记录（result='pending'）
+        let retry_history = crate::models::UserStoryRetryHistory {
+            id: format!("retry_{}_{}", story.id, now.replace(':', "-")),
+            user_story_id: story.id.clone(),
+            retry_number: (story.retry_count + 1) as i32,
+            triggered_at: now.clone(),
+            error_message: None,
+            error_type: None,
+            decision: "retry".to_string(),
+            next_retry_at: None,
+            completed_at: None,
+            result: Some("pending".to_string()),
+            created_at: now.clone(),
+        };
+
+        crate::db::create_retry_history_record(&conn, &retry_history)
+            .map_err(|e| format!("Failed to create retry history: {}", e))?;
+
+        // 3. TODO: 通过 WebSocket 发送通知（任务 6 中完善）
+        // 目前跳过 WebSocket 通知，因为需要 session_id
+        
+        // 4. 注册到 active_retries
+        let agent_id = format!("retry-agent-{}", story.id);
+        self.register_retry(story.id.clone(), agent_id.clone());
+
+        // 5. TODO: 调用 execute_user_story 启动 Agent
+        // 这部分将在任务 4.3 中实现
+        log::info!(
+            "[RetryScheduler] Registered story {} for retry execution",
+            story.story_number
+        );
+
+        Ok(())
     }
 }
 

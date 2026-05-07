@@ -74,7 +74,8 @@ pub use issue_repository::{
 pub use user_story_repository::{
     get_user_stories_by_project, 
     get_user_stories_by_sprint,
-    upsert_user_stories
+    upsert_user_stories,
+    get_pending_retries
 };
 
 // Re-export Sprint CRUD operations
