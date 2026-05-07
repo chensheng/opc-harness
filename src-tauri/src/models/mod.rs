@@ -340,6 +340,12 @@ pub struct UserStory {
     /// 最大重试次数配置（重试引擎新增）
     #[serde(default = "default_max_retries")]
     pub max_retries: i32,
+    /// 失败原因（失败追踪新增）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_reason: Option<String>,
+    /// 最后错误时间戳（失败追踪新增）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error_timestamp: Option<String>,
     /// 创建时间
     pub created_at: String,
     /// 更新时间

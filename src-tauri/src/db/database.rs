@@ -506,6 +506,36 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
         )?;
     }
     
+    // 检查 failure_reason 字段（失败原因追踪新增）
+    let has_failure_reason: Option<String> = conn.query_row(
+        "SELECT name FROM pragma_table_info('user_stories') WHERE name='failure_reason'",
+        [],
+        |row| row.get(0)
+    ).optional()?;
+    
+    if has_failure_reason.is_none() {
+        log::info!("Adding failure_reason column to user_stories table");
+        conn.execute(
+            "ALTER TABLE user_stories ADD COLUMN failure_reason TEXT",
+            [],
+        )?;
+    }
+    
+    // 检查 last_error_timestamp 字段（失败原因追踪新增）
+    let has_last_error_timestamp: Option<String> = conn.query_row(
+        "SELECT name FROM pragma_table_info('user_stories') WHERE name='last_error_timestamp'",
+        [],
+        |row| row.get(0)
+    ).optional()?;
+    
+    if has_last_error_timestamp.is_none() {
+        log::info!("Adding last_error_timestamp column to user_stories table");
+        conn.execute(
+            "ALTER TABLE user_stories ADD COLUMN last_error_timestamp TEXT",
+            [],
+        )?;
+    }
+    
     log::info!("Agent Loop fields migration completed");
     Ok(())
 }

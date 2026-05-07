@@ -283,6 +283,8 @@ pub fn fail_user_story(conn: &Connection, story_id: &str, error_message: &str) -
          SET status = ?1,
              failed_at = ?2,
              error_message = ?3,
+             failure_reason = ?3,
+             last_error_timestamp = ?2,
              retry_count = retry_count + 1,
              updated_at = ?2
          WHERE id = ?4",

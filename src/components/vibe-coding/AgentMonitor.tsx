@@ -21,6 +21,7 @@ import {
   List,
   Bot,
   AlertTriangle,
+  AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -836,6 +837,21 @@ export function AgentMonitor() {
                       <div className="text-sm">
                         <span className="text-muted-foreground">当前任务：</span>
                         <span>{agent.currentTask}</span>
+                      </div>
+                    )}
+
+                    {/* Failure Reason Display */}
+                    {agent.status === 'failed' && agent.logs.length > 0 && (
+                      <div className="mt-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-red-800 dark:text-red-300 mb-1">失败原因：</p>
+                            <p className="text-xs text-red-700 dark:text-red-400 break-all font-mono">
+                              {agent.logs.find(log => log.includes('❌') || log.includes('error'))?.replace(/^[⚠️❌]+\s*/, '') || '未知错误'}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
