@@ -63,7 +63,11 @@ export function useAgent(): UseAgentReturn {
 
   /** 处理接收到的 WebSocket 消息 */
   const handleWsMessage = useCallback((wsMessage: WsMessage) => {
-    console.log('[useAgent] Received WebSocket message:', wsMessage)
+    // 仅在开发模式下打印简要日志
+    if (import.meta.env.DEV && wsMessage.type === 'Log') {
+      const logPayload = wsMessage.payload as WsLogPayload
+      console.log(`[useAgent] ${logPayload.level}: ${logPayload.message.substring(0, 100)}`)
+    }
 
     // 根据消息类型转换为 AgentMessage
     let agentMessage: AgentMessage | null = null

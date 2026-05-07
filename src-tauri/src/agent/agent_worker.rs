@@ -223,18 +223,6 @@ impl AgentWorker {
             project_id
         );
 
-        // 发送开始执行周期的日志到前端
-        Self::send_ws_log_to_both(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &worker_id,
-            project_id,
-            "info",
-            &format!("🔄 开始执行周期 - 项目: {}", project_id),
-            Some("AgentWorker"),
-        ).await;
-
         // Step 1: 查询活跃 Sprint（修复：添加项目隔离）
         let conn = db::get_connection()
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
@@ -284,18 +272,6 @@ impl AgentWorker {
                 active_sprint.name
             );
             
-            // 发送没有待处理 Stories 的日志到前端
-            Self::send_ws_log_to_both(
-                websocket_manager,
-                app_handle,
-                last_log_timestamps,
-                &worker_id,
-                project_id,
-                "info",
-                &format!("ℹ️ Sprint '{}' 中没有待处理的 Stories", active_sprint.name),
-                Some("AgentWorker"),
-            ).await;
-            
             return Ok(0);
         }
 
@@ -304,18 +280,6 @@ impl AgentWorker {
             worker_id,
             pending_stories.len()
         );
-
-        // 发送找到待处理 Stories 的日志到前端
-        Self::send_ws_log_to_both(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &worker_id,
-            project_id,
-            "success",
-            &format!("✅ 找到 {} 个待处理的 Story", pending_stories.len()),
-            Some("AgentWorker"),
-        ).await;
 
         // Step 3: 尝试锁定第一个可用的 Story（乐观锁）
         let mut started_count = 0;
@@ -348,18 +312,6 @@ impl AgentWorker {
                         story.story_number,
                         story.title
                     );
-
-                    // 发送成功锁定 Story 的日志到前端
-                    Self::send_ws_log_to_both(
-                        websocket_manager,
-                        app_handle,
-                        last_log_timestamps,
-                        &worker_id,
-                        project_id,
-                        "success",
-                        &format!("✅ 成功锁定 Story: {} - {}", story.story_number, story.title),
-                        Some("AgentWorker"),
-                    ).await;
 
                     // Step 4: 启动 Coding Agent
                     match Self::start_coding_agent(
@@ -413,18 +365,6 @@ impl AgentWorker {
                         story.story_number,
                         e
                     );
-                    
-                    // 发送锁定失败的日志到前端
-                    Self::send_ws_log_to_both(
-                        websocket_manager,
-                        app_handle,
-                        last_log_timestamps,
-                        &worker_id,
-                        project_id,
-                        "error",
-                        &format!("❌ 锁定 Story {} 失败: {}", story.story_number, e),
-                        Some("AgentWorker"),
-                    ).await;
                 }
             }
         }
@@ -458,32 +398,8 @@ impl AgentWorker {
             story.story_number
         );
 
-        // 📤 发送实时日志：开始启动
-        Self::send_ws_log_to_both_for_coding(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            agent_id,
-            project_id,
-            "info", 
-            &format!("🚀 智能体 {} 开始处理故事 {}", agent_id, story.story_number),
-            Some("AgentWorker")
-        ).await;
-
         // 从数据库获取 Story 上下文
         let story_context = Self::get_story_context(&story.id)?;
-
-        // 📤 发送实时日志：获取 Story 上下文
-        Self::send_ws_log_to_both_for_coding(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            agent_id,
-            project_id,
-            "info", 
-            &format!("📋 加载故事上下文: {}", story.title),
-            Some("AgentWorker")
-        ).await;
 
         // 创建 Worktree
         let worktree_path = if let Some(ref wt_manager) = worktree_manager {
@@ -1389,10 +1305,10 @@ impl AgentWorker {
             
             match handle.emit(&event_name, &ws_message) {
                 Ok(_) => {
-                    log::debug!("[{}] [{}] ✅ 通过 AppHandle 发送日志成功", source_tag, session_id);
+                    log::debug!("[{}] [{}] ✅ Sent via AppHandle", source_tag, session_id);
                 },
                 Err(e) => {
-                    log::warn!("[{}] [{}] ❌ 通过 AppHandle 发送日志失败: {}", source_tag, session_id, e);
+                    log::warn!("[{}] [{}] ❌ AppHandle emit failed: {}", source_tag, session_id, e);
                     // 回退到 WebSocket Manager
                 }
             }
@@ -1401,22 +1317,21 @@ impl AgentWorker {
         
         // 4. 回退方案：使用 WebSocket Manager
         if let Some(ws_manager) = websocket_manager {
-            log::debug!("[{}] [{}] 📤 尝试通过 WebSocket Manager 发送日志", source_tag, session_id);
             if let Ok(manager) = ws_manager.try_read() {
                 let session_id_string = session_id.to_string();
                 match manager.send_log(&session_id_string, level, message, source).await {
                     Ok(_) => {
-                        log::debug!("[{}] [{}] ✅ WebSocket 日志发送成功", source_tag, session_id);
+                        log::debug!("[{}] [{}] ✅ Sent via WebSocket Manager", source_tag, session_id);
                     },
                     Err(e) => {
-                        log::warn!("[{}] [{}] ❌ WebSocket 日志发送失败: {}", source_tag, session_id, e);
+                        log::warn!("[{}] [{}] ❌ WebSocket send failed: {}", source_tag, session_id, e);
                     }
                 }
             } else {
-                log::warn!("[{}] [{}] ⚠️ 无法获取 WebSocket Manager 读锁", source_tag, session_id);
+                log::warn!("[{}] [{}] ⚠️ Cannot acquire WebSocket Manager lock", source_tag, session_id);
             }
         } else {
-            log::debug!("[{}] [{}] ℹ️ WebSocket Manager 不可用，仅输出控制台日志", source_tag, session_id);
+            log::debug!("[{}] [{}] ℹ️ WebSocket Manager unavailable", source_tag, session_id);
         }
     }
 
