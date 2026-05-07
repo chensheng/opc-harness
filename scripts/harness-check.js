@@ -175,13 +175,66 @@ async function invokeRustCompilationCheck() {
     return;
   }
   
-  // Run cargo check
+  // Run cargo check and capture output
   try {
-    await execa('cargo', ['check'], {
+    const result = await execa('cargo', ['check'], {
       cwd: path.join(projectRoot, 'src-tauri'),
       stdio: 'pipe'
     });
-    writeCheckResult('PASS', 'Rust compilation check passed');
+    
+    // Parse warnings from stderr
+    const output = result.stderr || result.stdout;
+    const warningMatches = output.match(/^warning:/gm);
+    const warningCount = warningMatches ? warningMatches.length : 0;
+    
+    if (warningCount === 0) {
+      // No warnings - full score
+      writeCheckResult('PASS', 'Rust compilation check passed');
+    } else {
+      // Has warnings - calculate penalty
+      const pointsPerWarning = 2;
+      const baseScore = config.scoreWeights.Rust; // 28 points total for Rust section
+      const penalty = Math.min(warningCount * pointsPerWarning, baseScore);
+      const finalScore = Math.max(0, baseScore - penalty);
+      
+      // Extract first 5 warnings for display
+      const warningLines = output.split('\n')
+        .filter(line => line.startsWith('warning:'))
+        .slice(0, 5);
+      
+      if (warningCount <= 6) {
+        // Minor warnings - show warning status
+        writeCheckResult('WARN', `Found ${warningCount} warnings (-${penalty} points)`);
+        
+        if (verbose || warningLines.length > 0) {
+          console.log(chalk.gray('  Warning details:'));
+          warningLines.forEach(line => {
+            console.log(chalk.gray(`    ${line}`));
+          });
+          if (warningCount > 5) {
+            console.log(chalk.gray(`    ... and ${warningCount - 5} more warnings`));
+          }
+        }
+        
+        addIssue('Rust', 'Warning', `${warningCount} compilation warning(s)`, penalty);
+      } else {
+        // Major warnings - show fail status
+        writeCheckResult('FAIL', `Found ${warningCount} warnings (maximum penalty applied)`);
+        
+        if (verbose || warningLines.length > 0) {
+          console.log(chalk.gray('  Warning details:'));
+          warningLines.forEach(line => {
+            console.log(chalk.gray(`    ${line}`));
+          });
+          if (warningCount > 5) {
+            console.log(chalk.gray(`    ... and ${warningCount - 5} more warnings`));
+          }
+        }
+        
+        console.log(chalk.yellow('  Tip: Clean up warnings to improve health score'));
+        addIssue('Rust', 'Error', `${warningCount} compilation warnings (exceeds threshold)`, baseScore);
+      }
+    }
   } catch (error) {
     writeCheckResult('FAIL', 'Rust compilation check failed');
     addIssue('Rust', 'Error', 'Compilation error', config.scoreWeights.Rust);
