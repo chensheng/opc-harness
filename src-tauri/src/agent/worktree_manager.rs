@@ -226,17 +226,18 @@ impl WorktreeManager {
         let project_path = &self.config.project_path;
         
         log::info!(
-            "[WorktreeManager] Creating worktree for agent {} at {} from branch {}",
+            "[WorktreeManager] Creating worktree for agent {} at {} with new branch {}",
             agent_id,
             worktree_path_str,
             branch_name
         );
         
         // 构建 git worktree add 命令
-        // git worktree add <path> <branch>
+        // git worktree add -b <branch_name> <path>
+        // -b 参数会基于当前 HEAD 创建新分支并检出到 worktree
         let output = tokio::process::Command::new("git")
             .current_dir(project_path)
-            .args(&["worktree", "add", &worktree_path_str, branch_name])
+            .args(&["worktree", "add", "-b", branch_name, worktree_path_str.as_str()])
             .output()
             .await
             .map_err(|e| format!("Failed to execute git worktree add: {}", e))?;
@@ -244,8 +245,8 @@ impl WorktreeManager {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!(
-                "Git worktree add failed: {}",
-                stderr
+                "Git worktree add failed for branch '{}' at path '{}': {}",
+                branch_name, worktree_path_str, stderr
             ));
         }
         
@@ -299,7 +300,7 @@ impl WorktreeManager {
         // 执行 git worktree remove 命令
         let output = tokio::process::Command::new("git")
             .current_dir(project_path)
-            .args(&["worktree", "remove", "--force", &worktree_path_str])
+            .args(&["worktree", "remove", "--force", worktree_path_str.as_str()])
             .output()
             .await
             .map_err(|e| format!("Failed to execute git worktree remove: {}", e))?;
