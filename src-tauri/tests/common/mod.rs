@@ -31,3 +31,10 @@ pub fn cleanup_test_app(_handle: AppHandle) {
     // 清理测试资源
     // TODO: 实现具体的清理逻辑
 }
+
+/// 初始化测试数据库
+#[allow(dead_code)]
+pub fn setup_test_db() {
+    // 确保数据库已初始化
+    opc_harness::db::initialize().expect("Failed to initialize database");
+}
