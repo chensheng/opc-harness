@@ -344,6 +344,77 @@ impl RetryScheduler {
         }
     }
 
+    /// 更新重试结果并发送 WebSocket 通知
+    pub async fn update_retry_result(
+        &mut self,
+        story_id: &str,
+        story_number: &str,
+        success: bool,
+        error_message: Option<&str>,
+        websocket_manager: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
+    ) -> Result<(), String> {
+        let conn = crate::db::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
+        let now = chrono::Utc::now().to_rfc3339();
+        let result = if success { "success" } else { "failed" };
+
+        // 1. 查找最新的 pending 重试记录
+        let histories = crate::db::get_user_story_retry_history(&conn, story_id)
+            .map_err(|e| format!("Failed to query retry history: {}", e))?;
+
+        if let Some(latest_history) = histories.iter().find(|h| h.result.as_deref() == Some("pending")) {
+            // 2. 更新重试历史记录
+            crate::db::update_retry_history_result(&conn, &latest_history.id, result, &now)
+                .map_err(|e| format!("Failed to update retry history: {}", e))?;
+
+            // 3. 如果失败，更新 Story 的 error_message
+            if !success {
+                if let Some(err_msg) = error_message {
+                    let _ = crate::db::fail_user_story(&conn, story_id, err_msg);
+                }
+            } else {
+                // 如果成功，标记 Story 为 completed
+                let _ = crate::db::complete_user_story(&conn, story_id);
+            }
+
+            // 4. 发送 WebSocket 通知
+            {
+                let ws_manager = websocket_manager.read().await;
+                let message = if success {
+                    format!("✅ Story {} 重试成功", story_number)
+                } else {
+                    format!("❌ Story {} 重试失败: {}", story_number, error_message.unwrap_or("未知错误"))
+                };
+                
+                if let Err(e) = ws_manager.send_log(
+                    &story_id.to_string(),
+                    if success { "success" } else { "error" },
+                    &message,
+                    Some("RetryScheduler"),
+                ).await {
+                    log::warn!("[RetryScheduler] Failed to send WebSocket notification: {}", e);
+                }
+            }
+
+            // 5. 从 active_retries 中移除
+            self.complete_retry(story_id);
+
+            log::info!(
+                "[RetryScheduler] Updated retry result for story {}: {}",
+                story_number,
+                result
+            );
+        } else {
+            log::warn!(
+                "[RetryScheduler] No pending retry history found for story {}",
+                story_id
+            );
+        }
+
+        Ok(())
+    }
+
     /// 运行调度器主循环
     pub async fn run(
         &mut self,
@@ -475,8 +546,19 @@ impl RetryScheduler {
         crate::db::create_retry_history_record(&conn, &retry_history)
             .map_err(|e| format!("Failed to create retry history: {}", e))?;
 
-        // 3. TODO: 通过 WebSocket 发送通知（任务 6 中完善）
-        // 目前跳过 WebSocket 通知，因为需要 session_id
+        // 3. 通过 WebSocket 发送通知（使用 story.id 作为 session_id）
+        {
+            let ws_manager = websocket_manager.read().await;
+            let session_id = story.id.clone();
+            if let Err(e) = ws_manager.send_log(
+                &session_id,
+                "info",
+                &format!("🔄 开始重试 Story {}（第 {} 次）", story.story_number, story.retry_count + 1),
+                Some("RetryScheduler"),
+            ).await {
+                log::warn!("[RetryScheduler] Failed to send WebSocket notification: {}", e);
+            }
+        }
         
         // 4. 注册到 active_retries
         let agent_id = format!("retry-agent-{}", story.id);

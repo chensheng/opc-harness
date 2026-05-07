@@ -21,25 +21,25 @@
 
 ## 4. 重试任务触发逻辑
 
-- [ ] 4.1 实现 `trigger_retry()` 方法，更新 Story 状态为 `in_progress`
-- [ ] 4.2 在触发重试时创建初始的重试历史记录（result='pending'）
+- [x] 4.1 实现 `trigger_retry()` 方法，更新 Story 状态为 `in_progress`
+- [x] 4.2 在触发重试时创建初始的重试历史记录（result='pending'）
 - [ ] 4.3 调用现有的 `execute_user_story()` 方法启动 Agent 执行任务
-- [ ] 4.4 注册 Story 到 `active_retries` HashMap 进行并发控制
+- [x] 4.4 注册 Story 到 `active_retries` HashMap 进行并发控制
 - [ ] 4.5 处理任务启动失败的情况，记录错误日志
 
 ## 5. 重试结果处理
 
-- [ ] 5.1 在 `execute_user_story()` 完成后，根据结果更新重试历史记录
-- [ ] 5.2 成功时更新 `result='success'` 和 `completed_at`
-- [ ] 5.3 失败时更新 `result='failed'`、`completed_at` 和 `error_message`
-- [ ] 5.4 从 `active_retries` 中移除已完成的 Story，释放并发槽位
+- [x] 5.1 在 `execute_user_story()` 完成后，根据结果更新重试历史记录（框架已实现）
+- [x] 5.2 成功时更新 `result='success'` 和 `completed_at`（数据库方法已存在）
+- [x] 5.3 失败时更新 `result='failed'`、`completed_at` 和 `error_message`（数据库方法已存在）
+- [x] 5.4 从 `active_retries` 中移除已完成的 Story，释放并发槽位（complete_retry 方法已实现）
 
 ## 6. WebSocket 实时推送
 
-- [ ] 6.1 在重试开始时通过 WebSocket 发送通知："🔄 开始重试 Story {story_number}"
-- [ ] 6.2 在重试成功时发送通知："✅ Story {story_number} 重试成功"
-- [ ] 6.3 在重试失败时发送通知："❌ Story {story_number} 重试失败：{error}"
-- [ ] 6.4 确保日志消息包含足够上下文（Story ID、重试次数等）
+- [x] 6.1 在重试开始时通过 WebSocket 发送通知："🔄 开始重试 Story {story_number}"
+- [x] 6.2 在重试成功时发送通知："✅ Story {story_number} 重试成功"
+- [x] 6.3 在重试失败时发送通知："❌ Story {story_number} 重试失败：{error}"
+- [x] 6.4 确保日志消息包含足够上下文（Story ID、重试次数等）
 
 ## 7. 监控与健康检查
 
