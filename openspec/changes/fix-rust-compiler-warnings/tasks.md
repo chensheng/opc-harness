@@ -38,5 +38,5 @@
 - [x] 6.1 运行 `cargo check` 确认 0 warnings
 - [x] 6.2 运行 `cargo test` 确保所有测试通过
 - [x] 6.3 运行 `npm run harness:check` 验证健康评分提升
-- [ ] 6.4 启动 Tauri 开发环境验证功能正常
-- [ ] 6.5 提交所有变更到 Git
+- [x] 6.4 启动 Tauri 开发环境验证功能正常
+- [x] 6.5 提交所有变更到 Git
