@@ -8,7 +8,7 @@ use rusqlite::{Connection, params};
 use uuid::Uuid;
 
 /// 获取追踪存储库
-pub fn get_traces_repository(conn: &Connection) -> AgentTracesRepository {
+pub fn get_traces_repository(conn: &Connection) -> AgentTracesRepository<'_> {
     AgentTracesRepository { conn }
 }
 

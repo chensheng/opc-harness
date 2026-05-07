@@ -8,7 +8,7 @@ use rusqlite::{Connection, params};
 use uuid::Uuid;
 
 /// 获取告警存储库
-pub fn get_alerts_repository(conn: &Connection) -> AgentAlertsRepository {
+pub fn get_alerts_repository(conn: &Connection) -> AgentAlertsRepository<'_> {
     AgentAlertsRepository { conn }
 }
 

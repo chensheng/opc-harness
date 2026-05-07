@@ -86,7 +86,7 @@ pub async fn create_agent(
 /// 创建新的 Agent（使用 CLI 类型和 AGENTS.md 内容）
 #[tauri::command]
 pub async fn create_agent_with_cli(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     state: State<'_, Arc<RwLock<AgentManager>>>,
     cli_type: String,
     agents_content: String,

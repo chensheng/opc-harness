@@ -8,7 +8,7 @@ use rusqlite::{Connection, params};
 use uuid::Uuid;
 
 /// 获取日志存储库
-pub fn get_logs_repository(conn: &Connection) -> AgentLogsRepository {
+pub fn get_logs_repository(conn: &Connection) -> AgentLogsRepository<'_> {
     AgentLogsRepository { conn }
 }
 
