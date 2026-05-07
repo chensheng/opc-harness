@@ -240,22 +240,10 @@ impl AgentWorker {
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         log::info!(
-            "[AgentWorker:{}] Querying active sprint for project: {}",
+            "[AgentWorker:{}] 🔄 Starting execution cycle for project: {}",
             worker_id,
             project_id
         );
-
-        // 发送查询 Sprint 的日志到前端
-        Self::send_ws_log_to_both(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &worker_id,
-            project_id,
-            "info",
-            "🔍 正在查询活跃的 Sprint...",
-            Some("AgentWorker"),
-        ).await;
 
         // ✅ 关键修复：传入 project_id 实现项目隔离
         let active_sprint = match db::get_active_sprint(&conn, project_id)
@@ -263,64 +251,28 @@ impl AgentWorker {
             Some(sprint) => sprint,
             None => {
                 log::warn!(
-                    "[AgentWorker:{}] No active Sprint found for current time (project: {})",
+                    "[AgentWorker:{}] ⚠️ No active Sprint found for project: {}",
                     worker_id,
                     project_id
                 );
-                
-                // 发送未找到活跃 Sprint 的警告日志到前端
-                Self::send_ws_log_to_both(
-                    websocket_manager,
-                    app_handle,
-                    last_log_timestamps,
-                    &worker_id,
-                    project_id,
-                    "warning",
-                    &format!("⚠️ 当前时间没有找到活跃的 Sprint - 项目: {}", project_id),
-                    Some("AgentWorker"),
-                ).await;
                 
                 return Ok(0);
             }
         };
 
         log::info!(
-            "[AgentWorker:{}] Found active Sprint: {} ({})",
+            "[AgentWorker:{}] ✅ Found active Sprint: {} ({})",
             worker_id,
             active_sprint.name,
             active_sprint.id
         );
 
-        // 发送找到活跃 Sprint 的日志到前端
-        Self::send_ws_log_to_both(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &worker_id,
-            project_id,
-            "success",
-            &format!("✅ 找到活跃 Sprint: {} (ID: {})", active_sprint.name, active_sprint.id),
-            Some("AgentWorker"),
-        ).await;
-
         // Step 2: 加载待执行的 User Stories
         log::info!(
-            "[AgentWorker:{}] Querying pending stories for Sprint: {}",
+            "[AgentWorker:{}] 📋 Querying pending stories for Sprint: {}",
             worker_id,
             active_sprint.name
         );
-
-        // 发送查询待处理 Stories 的日志到前端
-        Self::send_ws_log_to_both(
-            websocket_manager,
-            app_handle,
-            last_log_timestamps,
-            &worker_id,
-            project_id,
-            "info",
-            &format!("📋 正在查询 Sprint '{}' 中待处理的 Stories...", active_sprint.name),
-            Some("AgentWorker"),
-        ).await;
 
         let pending_stories = db::get_pending_stories_by_sprint(&conn, &active_sprint.id, project_id)
             .map_err(|e| format!("Failed to query pending stories: {}", e))?;
@@ -378,39 +330,15 @@ impl AgentWorker {
         );
 
         for story in pending_stories.iter() {
-            // 发送尝试锁定 Story 的日志到前端
-            Self::send_ws_log_to_both(
-                websocket_manager,
-                app_handle,
-                last_log_timestamps,
-                &worker_id,
-                project_id,
-                "info",
-                &format!("🔒 尝试锁定 Story: {} - {}", story.story_number, story.title),
-                Some("AgentWorker"),
-            ).await;
-
             // 乐观锁：将 locked_by 字段设置为 agent_id
             match db::lock_user_story(&conn, &story.id, &agent_id, lock_timeout_minutes) {
                 Ok(locked) => {
                     if !locked {
                         log::info!(
-                            "[AgentWorker:{}] Story {} already locked by another agent, skipping",
+                            "[AgentWorker:{}] ⚠️ Story {} already locked by another agent, skipping",
                             worker_id,
                             story.story_number
                         );
-                        
-                        // 发送 Story 已被锁定的日志到前端
-                        Self::send_ws_log_to_both(
-                            websocket_manager,
-                            app_handle,
-                            last_log_timestamps,
-                            &worker_id,
-                            project_id,
-                            "warning",
-                            &format!("⚠️ Story {} 已被其他 Agent 锁定，跳过", story.story_number),
-                            Some("AgentWorker"),
-                        ).await;
                         continue;
                     }
 
@@ -449,46 +377,22 @@ impl AgentWorker {
                         Ok(_) => {
                             started_count += 1;
                             log::info!(
-                                "[AgentWorker:{}] ✅ Successfully started agent {} for story {}",
+                                "[AgentWorker:{}] 🚀 Started agent {} for story {}",
                                 worker_id,
                                 agent_id,
                                 story.story_number
                             );
-                            
-                            // 发送 Agent 启动成功的日志到前端
-                            Self::send_ws_log_to_both(
-                                websocket_manager,
-                                app_handle,
-                                last_log_timestamps,
-                                &worker_id,
-                                project_id,
-                                "success",
-                                &format!("🚀 Agent 已启动处理 Story: {}", story.story_number),
-                                Some("AgentWorker"),
-                            ).await;
                             
                             // 每个 Worker 每次循环只处理一个 Story
                             break;
                         }
                         Err(e) => {
                             log::error!(
-                                "[AgentWorker:{}] Failed to start agent for story {}: {}",
+                                "[AgentWorker:{}] ❌ Failed to start agent for story {}: {}",
                                 worker_id,
                                 story.story_number,
                                 e
                             );
-                            
-                            // 发送 Agent 启动失败的日志到前端
-                            Self::send_ws_log_to_both(
-                                websocket_manager,
-                                app_handle,
-                                last_log_timestamps,
-                                &worker_id,
-                                project_id,
-                                "error",
-                                &format!("❌ Agent 启动失败 (Story {}): {}", story.story_number, e),
-                                Some("AgentWorker"),
-                            ).await;
                             
                             // 解锁 Story，允许其他 Agent 重试
                             if let Err(unlock_err) = db::unlock_user_story(&conn, &story.id) {
@@ -1471,10 +1375,6 @@ impl AgentWorker {
         if should_throttle {
             return;
         }
-        
-        // 记录即将发送的日志（用于调试）
-        log::debug!("[{}] [{}] 📤 准备发送日志 - 级别: {}, 消息: {}", 
-            source_tag, session_id, level, message);
         
         // 3. 优先使用 AppHandle 直接发送（更高效）
         if let Some(handle) = app_handle {

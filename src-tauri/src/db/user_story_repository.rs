@@ -4,7 +4,7 @@ use rusqlite::{Connection, Result};
 
 /// 批量创建或更新用户故事（Upsert）
 pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserStory]) -> Result<()> {
-    println!("[DB::upsert_user_stories] Starting upsert for project_id: {}, count: {}", 
+    log::debug!("[DB::upsert_user_stories] Starting upsert for project_id: {}, count: {}", 
              project_id, stories.len());
     
     // 使用事务确保原子性
@@ -15,7 +15,7 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
         "DELETE FROM user_stories WHERE project_id = ?1",
         [project_id],
     )?;
-    println!("[DB::upsert_user_stories] Deleted {} old stories", deleted);
+    log::debug!("[DB::upsert_user_stories] Deleted {} old stories", deleted);
 
     // 批量插入新故事
     let mut inserted_count = 0;
@@ -49,10 +49,10 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
         )?;
         inserted_count += 1;
     }
-    println!("[DB::upsert_user_stories] Inserted {} new stories", inserted_count);
+    log::debug!("[DB::upsert_user_stories] Inserted {} new stories", inserted_count);
 
     tx.commit()?;
-    println!("[DB::upsert_user_stories] Transaction committed successfully");
+    log::debug!("[DB::upsert_user_stories] Transaction committed successfully");
     Ok(())
 }
 
@@ -77,7 +77,7 @@ pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Resul
 /// 获取指定 Sprint 下的所有用户故事
 #[allow(dead_code)]
 pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<Vec<UserStory>> {
-    println!("[DB::get_user_stories_by_sprint] Querying for sprint_id: {}", sprint_id);
+    log::debug!("[DB::get_user_stories_by_sprint] Querying for sprint_id: {}", sprint_id);
     
     let mut stmt = conn.prepare(
         "SELECT * FROM user_stories WHERE sprint_id = ?1 ORDER BY story_number ASC"
@@ -92,7 +92,7 @@ pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<
         result.push(story_result?);
     }
     
-    println!("[DB::get_user_stories_by_sprint] Retrieved {} stories", result.len());
+    log::debug!("[DB::get_user_stories_by_sprint] Retrieved {} stories", result.len());
 
     Ok(result)
 }
@@ -100,7 +100,7 @@ pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<
 /// 更新用户故事的 Sprint 关联
 #[allow(dead_code)]
 pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<&str>) -> Result<usize> {
-    println!("[DB::update_story_sprint] Updating story_id: {} to sprint_id: {:?}", 
+    log::debug!("[DB::update_story_sprint] Updating story_id: {} to sprint_id: {:?}", 
              story_id, sprint_id);
     
     let updated = match sprint_id {
@@ -114,14 +114,14 @@ pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<
         )?,
     };
     
-    println!("[DB::update_story_sprint] Updated {} story(s)", updated);
+    log::debug!("[DB::update_story_sprint] Updated {} story(s)", updated);
     Ok(updated)
 }
 
 /// 获取待重试的用户故事队列
 /// 查询状态为 'scheduled_retry' 且 next_retry_at <= now() 的故事
 pub fn get_pending_retries(conn: &Connection, limit: usize) -> Result<Vec<UserStory>> {
-    log::info!("[DB::get_pending_retries] Querying pending retries with limit: {}", limit);
+    log::debug!("[DB::get_pending_retries] Querying pending retries with limit: {}", limit);
     
     let mut stmt = conn.prepare(
         "SELECT * FROM user_stories 
@@ -140,6 +140,6 @@ pub fn get_pending_retries(conn: &Connection, limit: usize) -> Result<Vec<UserSt
         result.push(story_result?);
     }
     
-    log::info!("[DB::get_pending_retries] Found {} pending retries", result.len());
+    log::debug!("[DB::get_pending_retries] Found {} pending retries", result.len());
     Ok(result)
 }

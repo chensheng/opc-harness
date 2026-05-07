@@ -35,14 +35,14 @@ fn migrate_add_project_tags_field(conn: &Connection) -> Result<()> {
 
     // 检查是否包含 tags 列
     if !columns.contains(&"tags".to_string()) {
-        log::info!("Adding 'tags' column to projects table...");
+        log::debug!("Adding 'tags' column to projects table...");
         conn.execute(
             "ALTER TABLE projects ADD COLUMN tags TEXT",
             [],
         )?;
         log::info!("✅ projects table updated with 'tags' column");
     } else {
-        log::info!("projects table already has 'tags' column");
+        log::debug!("projects table already has 'tags' column");
     }
 
     Ok(())
