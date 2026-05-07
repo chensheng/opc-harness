@@ -43,7 +43,7 @@ function safeSerialize(value: unknown): string {
  * Console Bridge Hook - 拦截前端 console 方法并转发到后端
  *
  * @param enabled - 是否启用 console bridge（默认根据环境变量自动判断）
- * 
+ *
  * 环境变量配置：
  * - VITE_ENABLE_CONSOLE_BRIDGE=true: 强制启用
  * - import.meta.env.DEV=true: 开发模式自动启用
@@ -65,7 +65,7 @@ interface CustomImportMeta {
 
 /**
  * 检查是否应该启用 console bridge
- * 
+ *
  * 优先级：传入参数 > 环境变量 > DEV 模式
  */
 function shouldEnableConsoleBridge(enabled?: boolean): boolean {
