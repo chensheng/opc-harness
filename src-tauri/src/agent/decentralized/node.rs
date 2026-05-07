@@ -134,7 +134,7 @@ impl DecentralizedAgentNode {
         node_id: &str,
         event_bus: &EventBusClient,
         lock_manager: &Arc<SharedLockManager>,
-        daemon_manager: &Arc<RwLock<DaemonManager>>,
+        _daemon_manager: &Arc<RwLock<DaemonManager>>,
         worktree_manager: &Option<Arc<WorktreeManager>>,
         max_concurrent: usize,
     ) -> Result<(), String> {
@@ -188,7 +188,7 @@ impl DecentralizedAgentNode {
         
         // ✅ 启动 Agent 执行任务
         let agent_id = format!("agent-{}-{}", node_id, story_id);
-        let daemon = daemon_manager.read().await;
+        // let daemon = daemon_manager.read().await; // 未使用 - TODO: 调用 daemon.start_agent()
         
         // TODO: 调用 daemon.start_agent() 启动实际的 AI CLI 进程
         log::info!("[DecentralizedNode:{}] Started agent {} for story {} at {}", 
@@ -206,7 +206,7 @@ impl DecentralizedAgentNode {
     }
     
     /// 自主决策逻辑: 根据负载决定是否接受任务
-    async fn should_accept_story(node_id: &str, max_concurrent: usize) -> bool {
+    async fn should_accept_story(node_id: &str, _max_concurrent: usize) -> bool {
         // TODO: 从 daemon_manager 获取当前运行的 Agent 数量
         // 这里简化为随机决策用于演示
         

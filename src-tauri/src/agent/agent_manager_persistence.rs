@@ -214,7 +214,6 @@ pub async fn update_stats(
             AgentStatus::Idle => new_stats.idle_agents += 1,
             AgentStatus::Completed => new_stats.completed_agents += 1,
             AgentStatus::Failed(_) => new_stats.failed_agents += 1,
-            _ => {}
         }
     }
 

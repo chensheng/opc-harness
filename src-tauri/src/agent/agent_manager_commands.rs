@@ -979,13 +979,13 @@ Fixes #
 /// 创建 Worktree
 #[tauri::command]
 pub async fn create_worktree(
-    state: State<'_, Arc<RwLock<AgentManager>>>,
+    _state: State<'_, Arc<RwLock<AgentManager>>>,
     project_id: String,  // 新增：项目 ID 参数
     agent_id: String,
-    story_id: String,
-    branch_name: String,
+    _story_id: String,
+    _branch_name: String,
 ) -> Result<String, String> {
-    let manager = state.read().await;
+    // let manager = state.read().await; // 未使用
     
     // 验证项目 ID（可选：检查项目是否存在）
     log::debug!("[create_worktree] Creating worktree for project: {}, agent: {}", project_id, agent_id);

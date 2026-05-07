@@ -3,6 +3,7 @@
 //! 提供前端与后端可观测性功能的交互接口
 
 use crate::db::{
+    agent_logs::LogStats,
     get_connection,
 };
 use crate::models::{AgentAlert, AgentLog, AgentTrace};
@@ -247,7 +248,7 @@ pub async fn clear_agent_logs(
 /// 导出智能体日志（CSV 格式）
 #[tauri::command]
 pub async fn export_agent_logs(
-    obs_state: State<'_, ObservabilityState>,
+    _obs_state: State<'_, ObservabilityState>,
     agent_id: String,
 ) -> Result<String, String> {
     let conn = get_connection().map_err(|e| e.to_string())?;
