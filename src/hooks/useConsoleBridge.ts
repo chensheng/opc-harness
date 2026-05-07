@@ -42,7 +42,12 @@ function safeSerialize(value: unknown): string {
 /**
  * Console Bridge Hook - 拦截前端 console 方法并转发到后端
  *
- * @param enabled - 是否启用 console bridge(默认根据开发模式自动判断)
+ * @param enabled - 是否启用 console bridge（默认根据环境变量自动判断）
+ * 
+ * 环境变量配置：
+ * - VITE_ENABLE_CONSOLE_BRIDGE=true: 强制启用
+ * - import.meta.env.DEV=true: 开发模式自动启用
+ * - 传入参数 enabled: 最高优先级，覆盖环境变量
  */
 export function useConsoleBridge(enabled?: boolean) {
   initializeConsoleBridge(enabled)
@@ -60,10 +65,17 @@ interface CustomImportMeta {
 
 /**
  * 检查是否应该启用 console bridge
+ * 
+ * 优先级：传入参数 > 环境变量 > DEV 模式
  */
 function shouldEnableConsoleBridge(enabled?: boolean): boolean {
   const meta = import.meta as unknown as CustomImportMeta
-  return enabled ?? (meta.env?.DEV || meta.env?.VITE_ENABLE_CONSOLE_BRIDGE === 'true')
+  // 如果传入了 explicit 参数，使用它（最高优先级）
+  if (enabled !== undefined) {
+    return enabled
+  }
+  // 否则根据环境变量或 DEV 模式判断
+  return meta.env?.VITE_ENABLE_CONSOLE_BRIDGE === 'true' || meta.env?.DEV === true
 }
 
 interface WindowWithConsoleBridge extends Window {
@@ -125,10 +137,17 @@ export function initializeConsoleBridge(enabled?: boolean) {
         invoke('console_log', {
           level,
           message: fullMessage,
-        }).catch(err => {
-          // invoke 失败不影响原始 console 功能
-          originalConsole.error('[ConsoleBridge] Failed to send log to backend:', err)
         })
+          .then(() => {
+            // 成功发送到后端（仅在开发模式下显示）
+            if (level === 'error' || level === 'warn') {
+              originalConsole.debug(`[ConsoleBridge] ✓ Sent ${level} log to backend`)
+            }
+          })
+          .catch(err => {
+            // invoke 失败不影响原始 console 功能
+            originalConsole.error('[ConsoleBridge] Failed to send log to backend:', err)
+          })
       } catch (error) {
         // 捕获任何意外错误,确保不影响原始 console
         console.warn('[ConsoleBridge] Error in console wrapper:', error)
