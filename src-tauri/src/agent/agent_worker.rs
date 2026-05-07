@@ -1387,7 +1387,12 @@ impl AgentWorker {
             self.config.worker_id
         );
 
-        // TODO: 优雅停止正在运行的 Agent
+        // RetryScheduler 会在收到 ctrl_c 信号时自动优雅停止
+        // 它会等待所有活跃的重试任务完成后再退出
+        log::info!(
+            "[AgentWorker:{}] ℹ️  RetryScheduler will gracefully shutdown on signal",
+            self.config.worker_id
+        );
 
         Ok(())
     }

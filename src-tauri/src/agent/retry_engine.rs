@@ -271,6 +271,7 @@ pub struct RetryScheduler {
     config: SchedulerConfig,
     active_retries: HashMap<String, String>, // story_id -> agent_id
     last_scan_at: Option<String>,
+    is_running: bool,  // 运行状态标志
 }
 
 impl RetryScheduler {
@@ -279,6 +280,7 @@ impl RetryScheduler {
             config,
             active_retries: HashMap::new(),
             last_scan_at: None,
+            is_running: false,
         }
     }
 
@@ -337,11 +339,16 @@ impl RetryScheduler {
     /// 获取调度器状态
     pub fn get_status(&self) -> SchedulerStatus {
         SchedulerStatus {
-            is_running: true, // TODO: 跟踪实际运行状态
+            is_running: self.is_running,
             active_retry_count: self.active_retries.len(),
             active_retries: self.active_retries.clone(),
             last_scan_at: self.last_scan_at.clone(),
         }
+    }
+
+    /// 检查调度器是否正在运行
+    pub fn is_running(&self) -> bool {
+        self.is_running
     }
 
     /// 更新重试结果并发送 WebSocket 通知
@@ -421,6 +428,7 @@ impl RetryScheduler {
         project_id: String,
         websocket_manager: Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
     ) {
+        self.is_running = true;
         log::info!("[RetryScheduler] Started for project: {}", project_id);
 
         let mut interval = tokio::time::interval(StdDuration::from_secs(self.config.check_interval_seconds));
@@ -446,6 +454,7 @@ impl RetryScheduler {
                     }
                     
                     log::info!("[RetryScheduler] All active retries completed, shutting down");
+                    self.is_running = false;
                     break;
                 }
             }
@@ -575,13 +584,30 @@ impl RetryScheduler {
         
         // 4. 注册到 active_retries
         let agent_id = format!("retry-agent-{}", story.id);
-        self.register_retry(story.id.clone(), agent_id.clone());
+        if !self.register_retry(story.id.clone(), agent_id.clone()) {
+            return Err(format!(
+                "Failed to register retry for story {}: max concurrent retries reached",
+                story.story_number
+            ));
+        }
 
         // 5. TODO: 调用 execute_user_story 启动 Agent
-        // 这部分将在任务 4.3 中实现
+        // 
+        // 完整的实现需要：
+        // 1. 获取 daemon_manager 和 worktree_manager 引用
+        // 2. 调用 start_coding_agent() 方法
+        // 3. 传递必要的参数（project_id, session_id, story 等）
+        // 4. 处理 Agent 执行结果并更新重试历史
+        //
+        // 当前简化方案：
+        // - 将 Story 状态设置为 in_progress
+        // - 下一个 Agent Loop 周期会自动拾取并执行
+        // - 或者通过 WebSocket 通知前端手动触发
+        
         log::info!(
-            "[RetryScheduler] Registered story {} for retry execution",
-            story.story_number
+            "[RetryScheduler] Registered story {} for retry execution (agent_id: {})",
+            story.story_number,
+            agent_id
         );
 
         Ok(())
@@ -810,11 +836,16 @@ mod tests {
         let config = SchedulerConfig::default();
         let mut scheduler = RetryScheduler::new(config);
 
-        // 初始状态
+        // 初始状态（未启动）
         let status = scheduler.get_status();
-        assert!(status.is_running);
+        assert!(!status.is_running);  // 初始为 false
         assert_eq!(status.active_retry_count, 0);
         assert!(status.last_scan_at.is_none());
+
+        // 模拟启动
+        scheduler.is_running = true;
+        let status = scheduler.get_status();
+        assert!(status.is_running);
 
         // 注册一些重试任务
         scheduler.register_retry("story1".to_string(), "agent1".to_string());
