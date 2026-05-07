@@ -17,15 +17,15 @@
 - [x] 3.1 分析 `src-tauri/src/agent/agent_worker.rs` 中所有未使用的 `app_handle` 变量
 - [x] 3.2 将预留但未使用的参数重命名为 `_app_handle` 前缀
 - [x] 3.3 移除确实不需要的未使用变量
-- [ ] 3.4 为计划未来使用的变量添加 TODO 注释
-- [ ] 3.5 验证 agent/ 目录编译无警告
+- [x] 3.4 为计划未来使用的变量添加 TODO 注释
+- [x] 3.5 验证 agent/ 目录编译无警告
 
 ## 4. 修复 Unreachable Pattern 警告
 
 - [x] 4.1 定位 unreachable pattern 警告的具体位置
 - [x] 4.2 分析 match 表达式逻辑,确定是否需要该分支
 - [x] 4.3 移除冗余的 match arms 或调整 pattern 顺序
-- [ ] 4.4 验证逻辑正确性,确保不改变业务行为
+- [x] 4.4 验证逻辑正确性,确保不改变业务行为
 
 ## 5. 清理 Cargo.toml Manifest 警告
 
@@ -37,6 +37,6 @@
 
 - [x] 6.1 运行 `cargo check` 确认 0 warnings
 - [x] 6.2 运行 `cargo test` 确保所有测试通过
-- [ ] 6.3 运行 `npm run harness:check` 验证健康评分提升
+- [x] 6.3 运行 `npm run harness:check` 验证健康评分提升
 - [ ] 6.4 启动 Tauri 开发环境验证功能正常
 - [ ] 6.5 提交所有变更到 Git

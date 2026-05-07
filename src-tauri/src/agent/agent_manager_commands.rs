@@ -985,7 +985,7 @@ pub async fn create_worktree(
     _story_id: String,
     _branch_name: String,
 ) -> Result<String, String> {
-    // let manager = state.read().await; // 未使用
+    // let manager = state.read().await; // 未使用 - TODO: 未来用于验证 agent 状态
     
     // 验证项目 ID（可选：检查项目是否存在）
     log::debug!("[create_worktree] Creating worktree for project: {}, agent: {}", project_id, agent_id);
