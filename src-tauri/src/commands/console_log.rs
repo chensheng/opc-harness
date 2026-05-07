@@ -4,6 +4,9 @@ use tauri::command;
 pub fn console_log(level: String, message: String) -> Result<(), String> {
     let prefix = "[Frontend]";
     
+    // 调试日志：确认 command 被调用
+    eprintln!("[ConsoleBridge Debug] Received log - level: {}, message: {}", level, message);
+    
     match level.as_str() {
         "debug" => {
             log::debug!("{} {}", prefix, message);
