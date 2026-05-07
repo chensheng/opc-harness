@@ -17,8 +17,11 @@ interface ImportMeta {
 
 // Initialize Console Bridge in development mode
 // This forwards frontend console logs to the Rust backend
-// Auto-enabled by VITE_ENABLE_CONSOLE_BRIDGE env var or DEV mode
-initializeConsoleBridge()
+// Enabled by VITE_ENABLE_CONSOLE_BRIDGE env var or DEV mode
+const shouldEnable = 
+  import.meta.env.VITE_ENABLE_CONSOLE_BRIDGE === 'true' || 
+  import.meta.env.DEV === true;
+initializeConsoleBridge(shouldEnable)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
