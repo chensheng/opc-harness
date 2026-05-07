@@ -149,35 +149,10 @@ export function AgentMonitor() {
     // 获取最后一条消息
     const lastMessage = messages[messages.length - 1]
 
-    // 🚫 过滤掉系统级别的连接状态消息，不显示在智能体日志中
+    // 🚫 过滤掉系统级别的连接状态消息,不显示在智能体日志中
     if (lastMessage.type === 'status' && lastMessage.content?.includes('Frontend connected')) {
-      console.log('[AgentMonitor] Skipping system connection status message')
       return
     }
-
-    console.log('[AgentMonitor] Processing message:', {
-      type: lastMessage.type,
-      sessionId: lastMessage.sessionId,
-      content: lastMessage.content?.substring(0, 100),
-      metadata: lastMessage.metadata,
-      timestamp: lastMessage.timestamp,
-    })
-
-    // 打印所有智能体的 ID 信息，用于调试
-    console.log(
-      '[AgentMonitor] Available agents:',
-      agents.map(a => ({
-        agentId: a.agentId,
-        sessionId: a.sessionId,
-        projectId: a.projectId,
-        expectedSessionIds: [
-          `agent-${a.agentId}`, // WebSocket 日志使用的格式
-          a.sessionId, // 数据库中的 session_id（兼容旧格式）
-        ],
-      }))
-    )
-
-    console.log('[AgentMonitor] Trying to match message sessionId:', lastMessage.sessionId)
 
     // 根据 sessionId 找到对应的智能体
     setAgents(prev => {
@@ -207,12 +182,6 @@ export function AgentMonitor() {
         return prev
       }
 
-      console.log('[AgentMonitor] Matched agent:', {
-        agentId: prev[matchedAgentIndex].agentId,
-        agentProjectId: prev[matchedAgentIndex].projectId,
-        messageSessionId: lastMessage.sessionId,
-      })
-
       // 处理 log、status、progress、error 类型的消息
       if (
         lastMessage.type === 'log' ||
@@ -237,13 +206,7 @@ export function AgentMonitor() {
           logContent = `[${timestamp}] ❌ ${lastMessage.content}`
         }
 
-        console.log(
-          '[AgentMonitor] Adding log to agent:',
-          prev[matchedAgentIndex].agentId,
-          logContent
-        )
-
-        // 创建新的数组，只更新匹配的智能体
+        // 创建新的数组,只更新匹配的智能体
         const newAgents = [...prev]
         const currentAgent = newAgents[matchedAgentIndex]
 
@@ -257,7 +220,6 @@ export function AgentMonitor() {
 
       return prev
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, projectId]) // 移除 agents 依赖，避免循环触发
 
   // 刷新智能体列表（从数据库加载）
@@ -289,13 +251,6 @@ export function AgentMonitor() {
 
       runningAgents.forEach(agent => {
         const sessionId = `agent-${agent.agentId}`
-        console.log(
-          '[AgentMonitor] Establishing WebSocket connection for agent:',
-          agent.agentId,
-          'sessionId:',
-          sessionId
-        )
-
         connectWebSocket(sessionId).catch(err => {
           console.error(
             `[AgentMonitor] Failed to connect WebSocket for agent ${agent.agentId}:`,
@@ -331,7 +286,6 @@ export function AgentMonitor() {
         const workers =
           await invoke<Array<{ is_running: boolean; worker_id: string }>>('list_agent_workers')
         runningWorkers = workers.filter(w => w.is_running).map(w => w.worker_id)
-        console.log('[AgentMonitor] Running workers:', runningWorkers)
       } catch (error) {
         console.warn('[AgentMonitor] Failed to get running workers:', error)
       }
@@ -340,9 +294,8 @@ export function AgentMonitor() {
       const agentInfos = sessions.map(session => {
         const info = convertSessionToAgentInfo(session)
 
-        // 如果数据库中状态为 running，但实际没有对应的 Worker，则修正为 stopped
+        // 如果数据库中状态为 running,但实际没有对应的 Worker,则修正为 stopped
         if (info.status === 'running' && !runningWorkers.includes(info.agentId)) {
-          console.log(`[AgentMonitor] Agent ${info.agentId} marked as stopped (no worker found)`)
           info.status = 'stopped'
         }
 
@@ -408,29 +361,19 @@ export function AgentMonitor() {
 
   const handleStartAgent = async (agentId: string) => {
     try {
-      console.log('[AgentMonitor] Starting agent worker:', agentId)
-
       // 获取当前项目 ID
       if (!projectId) {
         console.error('[AgentMonitor] Project ID is not available')
         return
       }
 
-      console.log('[AgentMonitor] Calling start_agent_worker with params:', {
-        workerId: agentId,
-        projectId: projectId,
-        checkInterval: 30,
-      })
-
       // 调用后端 API 真正启动 Agent Worker
-      // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
-      const workerId = await invoke<string>('start_agent_worker', {
+      // 注意:Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
+      await invoke<string>('start_agent_worker', {
         workerId: agentId,
         projectId: projectId,
         checkInterval: 30, // 每 30 秒检查一次待处理的故事
       })
-
-      console.log('[AgentMonitor] Agent worker started:', workerId)
 
       // 更新数据库中的状态
       await invoke('update_agent_session_status', {
@@ -441,9 +384,6 @@ export function AgentMonitor() {
 
       // 更新前端状态
       setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
-
-      // 显示成功提示
-      console.log('[AgentMonitor] ✅ Agent worker started successfully')
     } catch (error) {
       console.error('[AgentMonitor] Failed to start agent:', error)
       alert(`启动智能体失败: ${error}`)
@@ -452,15 +392,11 @@ export function AgentMonitor() {
 
   const handlePauseAgent = async (agentId: string) => {
     try {
-      console.log('[AgentMonitor] Pausing agent worker:', agentId)
-
       // 调用后端 API 真正停止 Agent Worker
-      // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
+      // 注意:Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
       await invoke('stop_agent_worker', {
         workerId: agentId,
       })
-
-      console.log('[AgentMonitor] Agent worker stopped:', agentId)
 
       // 更新数据库中的状态
       await invoke('update_agent_session_status', {
@@ -473,8 +409,6 @@ export function AgentMonitor() {
       setAgents(prev =>
         prev.map(a => (a.agentId === agentId ? { ...a, status: 'paused', cpuUsage: 0 } : a))
       )
-
-      console.log('[AgentMonitor] ✅ Agent worker paused successfully')
     } catch (error) {
       console.error('[AgentMonitor] Failed to pause agent:', error)
       alert(`暂停智能体失败: ${error}`)
@@ -483,22 +417,18 @@ export function AgentMonitor() {
 
   const handleResumeAgent = async (agentId: string) => {
     try {
-      console.log('[AgentMonitor] Resuming agent worker:', agentId)
-
       if (!projectId) {
         console.error('[AgentMonitor] Project ID is not available')
         return
       }
 
       // 调用后端 API 重新启动 Agent Worker
-      // 注意：Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
-      const workerId = await invoke<string>('start_agent_worker', {
+      // 注意:Tauri 2.x 会自动将 Rust 的蛇形命名转换为 JS 的驼峰命名
+      await invoke<string>('start_agent_worker', {
         workerId: agentId,
         projectId: projectId,
         checkInterval: 30,
       })
-
-      console.log('[AgentMonitor] Agent worker resumed:', workerId)
 
       // 更新数据库中的状态
       await invoke('update_agent_session_status', {
@@ -509,8 +439,6 @@ export function AgentMonitor() {
 
       // 更新前端状态
       setAgents(prev => prev.map(a => (a.agentId === agentId ? { ...a, status: 'running' } : a)))
-
-      console.log('[AgentMonitor] ✅ Agent worker resumed successfully')
     } catch (error) {
       console.error('[AgentMonitor] Failed to resume agent:', error)
       alert(`恢复智能体失败: ${error}`)
@@ -544,12 +472,6 @@ export function AgentMonitor() {
       // 从列表中移除已删除的智能体
       setAgents(prev => {
         const newAgents = prev.filter(a => a.agentId !== agentId)
-        console.log(
-          '[AgentMonitor] Updated agents list, removed agent:',
-          agentId,
-          'remaining:',
-          newAgents.length
-        )
         return newAgents
       })
     } catch (error) {
@@ -560,15 +482,13 @@ export function AgentMonitor() {
     }
   }
 
-  const handleAgentCreated = (agentId: string) => {
-    console.log('智能体创建成功:', agentId)
-    // 重新加载智能体列表（静默刷新）
+  const handleAgentCreated = (_agentId: string) => {
+    // 重新加载智能体列表(静默刷新)
     loadAgents(true)
   }
 
   const handleAgentEdited = () => {
-    console.log('智能体编辑成功')
-    // 重新加载智能体列表（静默刷新）
+    // 重新加载智能体列表(静默刷新)
     loadAgents(true)
   }
 
