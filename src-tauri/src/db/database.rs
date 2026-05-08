@@ -351,6 +351,9 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
     // 初始化重试引擎相关表
     init_retry_engine_tables(conn)?;
 
+    // 初始化 HITL Checkpoint 相关表
+    init_checkpoint_tables(conn)?;
+
     if !has_all_columns || has_old_column {
         // 表结构不匹配，删除并重建
         log::warn!("agent_sessions table structure mismatch, rebuilding...");
@@ -692,5 +695,49 @@ fn init_retry_engine_tables(conn: &Connection) -> Result<()> {
     )?;
 
     log::info!("Retry engine tables initialized successfully");
+    Ok(())
+}
+
+/// 初始化 HITL Checkpoint 相关表
+fn init_checkpoint_tables(conn: &Connection) -> Result<()> {
+    // 创建 agent_checkpoints 表
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS agent_checkpoints (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            story_id TEXT NOT NULL,
+            checkpoint_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            data TEXT NOT NULL,
+            user_decision TEXT,
+            user_feedback TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT,
+            expires_at TEXT,
+            FOREIGN KEY (agent_id) REFERENCES agent_sessions(agent_id) ON DELETE CASCADE,
+            FOREIGN KEY (story_id) REFERENCES user_stories(id) ON DELETE CASCADE
+        )",
+        [],
+    )?;
+
+    // 创建 agent_checkpoints 索引
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_checkpoints_agent_id ON agent_checkpoints(agent_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_checkpoints_story_id ON agent_checkpoints(story_id)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_checkpoints_status ON agent_checkpoints(status)",
+        [],
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_checkpoints_type ON agent_checkpoints(checkpoint_type)",
+        [],
+    )?;
+
+    log::info!("Checkpoint tables initialized successfully");
     Ok(())
 }

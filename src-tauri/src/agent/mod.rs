@@ -33,6 +33,7 @@ pub mod agent_stdio;
 pub mod ai_cli_interaction;
 
 // Native Coding Agent (新增)
+pub mod checkpoint_manager;
 pub mod native_coding_agent;
 pub mod tools;
 

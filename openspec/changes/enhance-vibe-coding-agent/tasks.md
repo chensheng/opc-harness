@@ -22,13 +22,13 @@
 
 ## 3. HITL Checkpoint 机制 - 后端实现
 
-- [ ] 3.1 创建数据库迁移文件 `migrations/005_create_agent_checkpoints.sql`
-- [ ] 3.2 定义 agent_checkpoints 表结构（id, agent_id, story_id, type, status, data, feedback, timestamps）
-- [ ] 3.3 创建 `src-tauri/src/agent/checkpoint_manager.rs`，实现 CheckpointManager
-- [ ] 3.4 实现 `create_checkpoint(type, data)` 方法，创建 checkpoint 记录
-- [ ] 3.5 实现 `resolve_checkpoint(id, decision, feedback)` 方法，处理用户决策
-- [ ] 3.6 实现 WebSocket 事件推送：checkpoint_created, checkpoint_resolved
-- [ ] 3.7 实现超时机制：30 分钟无响应自动标记为 timeout
+- [x] 3.1 创建数据库迁移文件 `migrations/005_create_agent_checkpoints.sql`
+- [x] 3.2 定义 agent_checkpoints 表结构（id, agent_id, story_id, type, status, data, feedback, timestamps）
+- [x] 3.3 创建 `src-tauri/src/agent/checkpoint_manager.rs`，实现 CheckpointManager
+- [x] 3.4 实现 `create_checkpoint(type, data)` 方法，创建 checkpoint 记录
+- [x] 3.5 实现 `resolve_checkpoint(id, decision, feedback)` 方法，处理用户决策
+- [x] 3.6 实现 WebSocket 事件推送：checkpoint_created, checkpoint_resolved
+- [x] 3.7 实现超时机制：30 分钟无响应自动标记为 timeout
 - [ ] 3.8 在 `native_coding_agent.rs` 中添加 checkpoint 触发点（代码生成后、依赖安装前）
 - [ ] 3.9 实现阻塞等待逻辑：wait_for_checkpoint_decision(checkpoint_id)
 - [ ] 3.10 实现回滚机制：当用户拒绝时撤销代码更改
