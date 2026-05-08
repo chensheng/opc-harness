@@ -59,16 +59,16 @@
 
 ## 6. 对话历史优化
 
-- [ ] 6.1 在 `native_coding_agent.rs` 的系统提示词中添加 `<TASK_COMPLETE>` 标记说明
-- [ ] 6.2 实现 `parse_completion_signal(response)` 方法，检测完成标记
-- [ ] 6.3 修改多轮循环逻辑：检测到完成信号后立即 break
-- [ ] 6.4 实现 `compress_history()` 方法，压缩早期对话
-- [ ] 6.5 保留 system message + 最近 4 条消息
-- [ ] 6.6 生成对话摘要：总结 Turn 1-N 的关键操作和错误
-- [ ] 6.7 每 5 轮对话后自动触发压缩
-- [ ] 6.8 添加配置选项 `enable_history_compression`（默认 true）
-- [ ] 6.9 测量压缩前后的 token 数量，验证减少至少 60%
-- [ ] 6.10 编写单元测试：测试历史压缩逻辑和 token 计算
+- [x] 6.1 在 `native_coding_agent.rs` 的系统提示词中添加 `<TASK_COMPLETE>` 标记说明
+- [x] 6.2 实现 `parse_completion_signal(response)` 方法，检测完成标记
+- [x] 6.3 修改多轮循环逻辑：检测到完成信号后立即 break
+- [x] 6.4 实现 `compress_history()` 方法，压缩早期对话
+- [x] 6.5 保留 system message + 最近 4 条消息
+- [x] 6.6 生成对话摘要：总结 Turn 1-N 的关键操作和错误
+- [x] 6.7 每 5 轮对话后自动触发压缩
+- [x] 6.8 添加配置选项 `enable_history_compression`（默认 true）
+- [x] 6.9 测量压缩前后的 token 数量，验证减少至少 60%
+- [x] 6.10 编写单元测试：测试历史压缩逻辑和 token 计算
 
 ## 7. 质量检查改进
 

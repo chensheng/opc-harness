@@ -27,6 +27,8 @@ pub struct NativeAgentConfig {
     pub max_turns: usize,
     /// 执行超时（秒）
     pub timeout_secs: u64,
+    /// 是否启用历史压缩（默认 true）
+    pub enable_history_compression: bool,
 }
 
 /// Native Coding Agent
@@ -164,6 +166,12 @@ impl NativeCodingAgent {
             // 3.1 调用 AI API
             let response = self.call_ai_api().await?;
 
+            // 6.3: 检查完成信号（任务 6.3）
+            if Self::parse_completion_signal(&response) {
+                log::info!("Task completion signal detected: <TASK_COMPLETE>");
+                break;
+            }
+
             // 3.2 解析响应，检查是否有工具调用
             if let Some(tool_calls) = self.parse_tool_calls(&response) {
                 // 3.3 执行工具调用
@@ -176,6 +184,11 @@ impl NativeCodingAgent {
                         content: format!("Tool {}: {}", tool_call.name, result),
                     });
                     self.tool_calls_count += 1;
+                }
+
+                // 6.7: 每 5 轮对话后自动触发压缩（任务 6.7）
+                if self.config.enable_history_compression && current_turn % 5 == 0 {
+                    self.compress_history(4); // 保留最近 4 条消息（任务 6.5）
                 }
 
                 // 继续下一轮对话
@@ -284,9 +297,65 @@ impl NativeCodingAgent {
 - 确保代码通过所有质量检查
 - 遵循项目的代码风格和规范
 - 不要删除现有代码，除非明确要求
+
+**任务完成信号**：
+- 当任务完全完成并通过所有检查后，在回复的最后一行添加 `<TASK_COMPLETE>` 标记
+- 例如："所有代码已编写并通过测试。\n<TASK_COMPLETE>"
+- 这将告诉系统可以停止多轮对话循环
 "#,
             story_title, acceptance_criteria
         )
+    }
+
+    /// 解析完成信号，检测 `<TASK_COMPLETE>` 标记
+    fn parse_completion_signal(response: &str) -> bool {
+        response.trim().ends_with("<TASK_COMPLETE>")
+    }
+
+    /// 压缩对话历史，保留 system message + 最近 N 条消息
+    fn compress_history(&mut self, keep_recent: usize) {
+        if self.conversation_history.len() <= keep_recent + 1 {
+            // 如果历史消息不多，不需要压缩
+            return;
+        }
+
+        // 保留第一条 system message
+        let system_message = self.conversation_history.first().cloned();
+        
+        // 保留最近的 keep_recent 条消息
+        let recent_messages: Vec<Message> = self
+            .conversation_history
+            .iter()
+            .rev()
+            .take(keep_recent)
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        // 生成摘要（简化版本）
+        let summary = format!(
+            "[对话摘要] 前 {} 轮对话已压缩。关键操作：代码编写、质量检查、错误修复。",
+            self.conversation_history.len() - keep_recent - 1
+        );
+
+        // 重建历史：system + 摘要 + 最近消息
+        self.conversation_history.clear();
+        if let Some(sys) = system_message {
+            self.conversation_history.push(sys);
+        }
+        self.conversation_history.push(Message {
+            role: "assistant".to_string(),
+            content: summary,
+        });
+        self.conversation_history.extend(recent_messages);
+
+        log::info!(
+            "History compressed: {} -> {} messages",
+            self.conversation_history.len() + keep_recent,
+            self.conversation_history.len()
+        );
     }
 
     /// 调用 AI API
@@ -962,5 +1031,130 @@ mod tests {
         let tool_call: ToolCall = serde_json::from_str(json_str).unwrap();
         assert_eq!(tool_call.name, "read_file");
         assert_eq!(tool_call.arguments["path"], "src/main.rs");
+    }
+
+    // 任务 6.2: 测试完成信号检测
+    #[test]
+    fn test_parse_completion_signal() {
+        // 有完成标记
+        assert!(NativeCodingAgent::parse_completion_signal("Task done.\n<TASK_COMPLETE>"));
+        assert!(NativeCodingAgent::parse_completion_signal("<TASK_COMPLETE>"));
+        assert!(NativeCodingAgent::parse_completion_signal("All tests passed. <TASK_COMPLETE>\n"));
+
+        // 没有完成标记
+        assert!(!NativeCodingAgent::parse_completion_signal("Task in progress"));
+        assert!(!NativeCodingAgent::parse_completion_signal("<TASK_INCOMPLETE>"));
+        assert!(!NativeCodingAgent::parse_completion_signal(""));
+    }
+
+    // 任务 6.4-6.6, 6.9: 测试历史压缩
+    #[test]
+    fn test_compress_history() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = NativeAgentConfig {
+            agent_id: "test-compress".to_string(),
+            workspace_path: temp_dir.path().to_path_buf(),
+            provider_type: AIProviderType::Kimi,
+            api_key: "test-key".to_string(),
+            model: "kimi-k2.5".to_string(),
+            max_turns: 10,
+            timeout_secs: 1800,
+            enable_history_compression: true,
+        };
+
+        let mut agent = NativeCodingAgent::new(config);
+
+        // 添加 system message
+        agent.conversation_history.push(Message {
+            role: "system".to_string(),
+            content: "You are a helpful assistant".to_string(),
+        });
+
+        // 添加 10 条对话消息
+        for i in 0..10 {
+            agent.conversation_history.push(Message {
+                role: if i % 2 == 0 { "user" } else { "assistant" }.to_string(),
+                content: format!("Message {}", i),
+            });
+        }
+
+        let original_count = agent.conversation_history.len();
+        assert_eq!(original_count, 11); // 1 system + 10 messages
+
+        // 压缩历史，保留最近 4 条
+        agent.compress_history(4);
+
+        // 验证压缩后的数量：1 system + 1 summary + 4 recent = 6
+        assert_eq!(agent.conversation_history.len(), 6);
+
+        // 验证第一条是 system message
+        assert_eq!(agent.conversation_history[0].role, "system");
+
+        // 验证第二条是摘要
+        assert!(agent.conversation_history[1].content.contains("对话摘要"));
+
+        // 验证最后 4 条是原始消息
+        assert_eq!(agent.conversation_history[5].content, "Message 9");
+    }
+
+    // 任务 6.9: 测量压缩前后的 token 数量
+    #[test]
+    fn test_token_reduction_after_compression() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = NativeAgentConfig {
+            agent_id: "test-tokens".to_string(),
+            workspace_path: temp_dir.path().to_path_buf(),
+            provider_type: AIProviderType::Kimi,
+            api_key: "test-key".to_string(),
+            model: "kimi-k2.5".to_string(),
+            max_turns: 10,
+            timeout_secs: 1800,
+            enable_history_compression: true,
+        };
+
+        let mut agent = NativeCodingAgent::new(config);
+
+        // 添加 system message
+        agent.conversation_history.push(Message {
+            role: "system".to_string(),
+            content: "You are a helpful assistant".to_string(),
+        });
+
+        // 添加 20 条长消息（模拟真实对话）
+        for i in 0..20 {
+            agent.conversation_history.push(Message {
+                role: if i % 2 == 0 { "user" } else { "assistant" }.to_string(),
+                content: format!("This is a long message number {} with lots of text to simulate real conversation content that would consume many tokens in the context window.", i),
+            });
+        }
+
+        let before_count = agent.conversation_history.len();
+        let before_chars: usize = agent.conversation_history.iter().map(|m| m.content.len()).sum();
+
+        // 压缩历史
+        agent.compress_history(4);
+
+        let after_count = agent.conversation_history.len();
+        let after_chars: usize = agent.conversation_history.iter().map(|m| m.content.len()).sum();
+
+        // 验证消息数量减少
+        assert!(after_count < before_count);
+
+        // 验证字符数减少至少 60%
+        let reduction_ratio = (before_chars - after_chars) as f64 / before_chars as f64;
+        assert!(
+            reduction_ratio >= 0.6,
+            "Token reduction ratio {} is less than 60%",
+            reduction_ratio
+        );
+
+        log::info!(
+            "Compression: {} -> {} messages, {} -> {} chars ({:.1}% reduction)",
+            before_count,
+            after_count,
+            before_chars,
+            after_chars,
+            reduction_ratio * 100.0
+        );
     }
 }

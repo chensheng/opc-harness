@@ -520,6 +520,7 @@ impl AgentWorker {
             model,
             max_turns: 10,
             timeout_secs: 1800, // 30 分钟
+            enable_history_compression: true, // 默认启用历史压缩（任务 6.8）
         };
 
         let mut native_agent = NativeCodingAgent::new(config);
