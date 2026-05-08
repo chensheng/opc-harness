@@ -35,14 +35,14 @@
 
 ## 4. HITL Checkpoint 机制 - 前端实现
 
-- [ ] 4.1 创建 `src/components/vibe-coding/CheckpointApprovalDialog.tsx` 组件
-- [ ] 4.2 集成 react-diff-viewer 显示代码差异
-- [ ] 4.3 实现批准/拒绝按钮及反馈输入框
-- [ ] 4.4 通过 WebSocket 监听 checkpoint_created 事件
-- [ ] 4.5 实现决策提交：调用后端 API `/api/checkpoints/{id}/resolve`
-- [ ] 4.6 添加批量审批功能："全部批准"按钮
-- [ ] 4.7 显示待审批 checkpoints 数量徽章
-- [ ] 4.8 处理超时情况：显示超时警告并提供重新触发选项
+- [x] 4.1 创建 `src/components/vibe-coding/CheckpointApprovalDialog.tsx` 组件
+- [x] 4.2 集成 react-diff-viewer 显示代码差异
+- [x] 4.3 实现批准/拒绝按钮及反馈输入框
+- [x] 4.4 通过 WebSocket 监听 checkpoint_created 事件
+- [x] 4.5 实现决策提交：调用后端 API `/api/checkpoints/{id}/resolve`
+- [x] 4.6 添加批量审批功能：“全部批准”按钮
+- [x] 4.7 显示待审批 checkpoints 数量徽章
+- [x] 4.8 处理超时情况：显示超时警告并提供重新触发选项
 
 ## 5. Worktree 自动清理
 
