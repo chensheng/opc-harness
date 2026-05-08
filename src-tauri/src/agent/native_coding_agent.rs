@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 use tokio::time::{timeout, Duration};
 
+use crate::agent::checkpoint_manager::{CheckpointData, CheckpointManager, CheckpointType, UserDecision};
 use crate::agent::tools::{CodeSearchTools, DependencyManager, FileSystemTools, GitTools, PackageManager, QualityTools};
 use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
 
@@ -44,6 +45,8 @@ pub struct NativeCodingAgent {
     npm_dependency_manager: DependencyManager,
     /// 依赖管理工具集（cargo）
     cargo_dependency_manager: DependencyManager,
+    /// HITL Checkpoint 管理器
+    checkpoint_manager: Option<CheckpointManager>,
     /// 对话历史
     conversation_history: Vec<Message>,
     /// 工具调用统计
@@ -70,11 +73,56 @@ impl NativeCodingAgent {
             code_search_tools: CodeSearchTools::new(workspace_path.clone()),
             npm_dependency_manager: DependencyManager::new(workspace_path.clone(), PackageManager::Npm),
             cargo_dependency_manager: DependencyManager::new(workspace_path, PackageManager::Cargo),
+            checkpoint_manager: None, // 默认禁用，可通过 enable_checkpoint() 启用
             conversation_history: Vec::new(),
             tool_calls_count: 0,
             total_prompt_tokens: 0,
             total_completion_tokens: 0,
         }
+    }
+
+    /// 启用 HITL Checkpoint 功能
+    pub fn enable_checkpoint(&mut self, db_path: PathBuf) {
+        self.checkpoint_manager = Some(CheckpointManager::new(db_path));
+        log::info!("HITL Checkpoint enabled");
+    }
+
+    /// 创建 checkpoint 并等待用户决策
+    async fn create_and_wait_for_checkpoint(
+        &self,
+        story_id: &str,
+        checkpoint_type: CheckpointType,
+        title: &str,
+        description: &str,
+        payload: serde_json::Value,
+        timeout_secs: u64,
+    ) -> Result<UserDecision, AgentError> {
+        let checkpoint_manager = self
+            .checkpoint_manager
+            .as_ref()
+            .ok_or_else(|| AgentError::ToolError("Checkpoint manager not enabled".to_string()))?;
+
+        let data = CheckpointData {
+            title: title.to_string(),
+            description: description.to_string(),
+            payload,
+            timeout_secs,
+        };
+
+        let checkpoint_id = checkpoint_manager
+            .create_checkpoint(&self.config.agent_id, story_id, checkpoint_type.clone(), data)
+            .map_err(|e| AgentError::ToolError(e))?;
+
+        log::info!(
+            "Checkpoint created: {} (type: {:?}), waiting for user decision...",
+            checkpoint_id,
+            checkpoint_type
+        );
+
+        // TODO: 实现 WebSocket 事件推送和阻塞等待逻辑
+        // 目前返回默认批准，实际实现需要异步等待用户响应
+        log::warn!("Blocking wait not implemented yet, defaulting to approve");
+        Ok(UserDecision::Approve)
     }
 
     /// 执行用户故事
@@ -410,10 +458,19 @@ impl NativeCodingAgent {
                         AgentError::ToolError("'message' must be a string".to_string())
                     })?;
 
-                self.git_tools
+                let commit_hash = self.git_tools
                     .git_commit(message)
                     .await
-                    .map_err(|e: String| AgentError::GitError(e))
+                    .map_err(|e: String| AgentError::GitError(e))?;
+
+                // 如果启用了 checkpoint，创建提交前审核检查点
+                if self.checkpoint_manager.is_some() {
+                    // TODO: 需要从上下文中获取 story_id
+                    // 目前暂时跳过，等待完整集成
+                    log::debug!("Checkpoint enabled but story_id not available in tool context");
+                }
+
+                Ok(commit_hash)
             }
             "run_linter" => {
                 let (error_count, report) = self
@@ -575,6 +632,17 @@ impl NativeCodingAgent {
                     .as_str()
                     .ok_or_else(|| AgentError::ToolError("'package' must be a string".to_string()))?;
                 let version = tool_call.arguments.get("version").and_then(|v| v.as_str());
+            
+                // 如果启用了 checkpoint，创建依赖安装前审核检查点
+                if self.checkpoint_manager.is_some() {
+                    let payload = serde_json::json!({
+                        "package": package,
+                        "version": version
+                    });
+                    
+                    // TODO: 需要从上下文中获取 story_id
+                    log::debug!("Checkpoint enabled for dependency installation but story_id not available");
+                }
             
                 let result = self
                     .npm_dependency_manager

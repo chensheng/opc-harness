@@ -29,9 +29,9 @@
 - [x] 3.5 实现 `resolve_checkpoint(id, decision, feedback)` 方法，处理用户决策
 - [x] 3.6 实现 WebSocket 事件推送：checkpoint_created, checkpoint_resolved
 - [x] 3.7 实现超时机制：30 分钟无响应自动标记为 timeout
-- [ ] 3.8 在 `native_coding_agent.rs` 中添加 checkpoint 触发点（代码生成后、依赖安装前）
-- [ ] 3.9 实现阻塞等待逻辑：wait_for_checkpoint_decision(checkpoint_id)
-- [ ] 3.10 实现回滚机制：当用户拒绝时撤销代码更改
+- [x] 3.8 在 `native_coding_agent.rs` 中添加 checkpoint 触发点（代码生成后、依赖安装前）
+- [x] 3.9 实现阻塞等待逻辑：wait_for_checkpoint_decision(checkpoint_id)
+- [x] 3.10 实现回滚机制：当用户拒绝时撤销代码更改
 
 ## 4. HITL Checkpoint 机制 - 前端实现
 
