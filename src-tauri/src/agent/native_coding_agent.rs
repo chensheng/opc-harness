@@ -704,7 +704,7 @@ impl NativeCodingAgent {
             
                 // 如果启用了 checkpoint，创建依赖安装前审核检查点
                 if self.checkpoint_manager.is_some() {
-                    let payload = serde_json::json!({
+                    let _payload = serde_json::json!({
                         "package": package,
                         "version": version
                     });
@@ -908,6 +908,7 @@ mod tests {
             model: "kimi-k2.5".to_string(),
             max_turns: 10,
             timeout_secs: 1800,
+            enable_history_compression: true,
         };
 
         let agent = NativeCodingAgent::new(config);
@@ -942,6 +943,7 @@ mod tests {
             model: "kimi-k2.5".to_string(),
             max_turns: 10,
             timeout_secs: 300, // 缩短超时时间用于测试
+            enable_history_compression: true,
         };
 
         let agent = NativeCodingAgent::new(config);
@@ -965,6 +967,7 @@ mod tests {
             model: "kimi-k2.5".to_string(),
             max_turns: 10,
             timeout_secs: 1800,
+            enable_history_compression: true,
         };
 
         let agent = NativeCodingAgent::new(config);
@@ -986,6 +989,7 @@ mod tests {
             model: "kimi-k2.5".to_string(),
             max_turns: 10,
             timeout_secs: 1800,
+            enable_history_compression: true,
         };
 
         let agent = NativeCodingAgent::new(config);

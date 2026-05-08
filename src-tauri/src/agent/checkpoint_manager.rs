@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Checkpoint 类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CheckpointType {
     /// 代码生成后审核
     CodeGeneration,
@@ -47,7 +47,7 @@ impl std::str::FromStr for CheckpointType {
 }
 
 /// Checkpoint 状态
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CheckpointStatus {
     /// 等待用户决策
     Pending,
