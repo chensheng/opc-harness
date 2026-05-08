@@ -3,7 +3,7 @@
 ## Tauri Application Validation
 
 **Status**: PASS  
-**Startup Time**: ~30 seconds  
+**Startup Time**: ~43 seconds (Rust compilation) + 0.4s (Vite)  
 **Tested At**: 2026-05-08
 
 ## Environment
@@ -23,7 +23,7 @@
 
 **Console Output**:
 ```
-VITE v4.x.x  ready in xxx ms
+VITE v5.4.21  ready in 444 ms
 
 ➜  Local:   http://localhost:1420/
 ```
@@ -36,9 +36,14 @@ VITE v4.x.x  ready in xxx ms
 
 **Backend Logs**:
 ```
-[INFO] Tauri application starting...
-[INFO] Database initialized
-[INFO] Agent system ready
+[INFO ] Ensuring system PATH is inherited on Windows...
+[INFO ] Initializing database at: "C:\\Users\\37844\\.opc-harness\\opc-harness.db"
+[INFO ] Observability tables initialized successfully
+[INFO ] Retry engine tables initialized successfully
+[INFO ] Daemon started with max_concurrent_agents: 3
+[INFO ] Restored 3 agent sessions from persistence
+[INFO ] Agent Manager initialized and Daemon started
+[INFO ] [Frontend] [ConsoleBridge] Initialized - Frontend logs will be forwarded to backend
 ```
 
 ## Runtime Checks
@@ -51,8 +56,15 @@ VITE v4.x.x  ready in xxx ms
 - [ ] Yes ❌ (list below)
 
 **Warnings Found**:
-- [x] None ✅
-- [ ] Yes ⚠️ (list below)
+- [ ] None ✅
+- [x] Yes ⚠️ (list below)
+
+```
+[WARN ] [Frontend] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7.
+[WARN ] [Frontend] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7.
+```
+
+**Note**: These are React Router v7 future compatibility warnings, not errors. They do not affect current functionality.
 
 ### Backend Errors
 <!-- Check terminal output for Rust logs -->
@@ -121,8 +133,7 @@ No regression in functionality observed.
 
 **Shutdown Logs**:
 ```
-[INFO] Application shutting down...
-[INFO] Cleanup completed successfully
+成功: 已终止进程 "opc-harness.exe"，其 PID 为 78168。
 ```
 
 ## Final Assessment
@@ -138,4 +149,5 @@ Ready for archive.
 ---
 
 **Tested by**: AI Agent  
-**Duration**: ~5 minutes
+**Duration**: ~5 minutes (including Rust compilation)
+**Actual Validation**: ✅ Performed real runtime test with `npm run tauri:dev`
