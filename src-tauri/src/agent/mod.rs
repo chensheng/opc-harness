@@ -26,6 +26,7 @@ pub mod daemon_core;
 pub mod daemon_types;
 
 // Worktree 管理
+pub mod worktree_lifecycle;
 pub mod worktree_manager;
 
 // AI CLI 交互

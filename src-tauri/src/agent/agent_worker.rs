@@ -417,6 +417,7 @@ impl AgentWorker {
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
     ) -> Result<(), String> {
         use crate::agent::native_coding_agent::{NativeAgentConfig, NativeCodingAgent};
+        use crate::agent::worktree_lifecycle::WorktreeLifecycleManager;
         use crate::ai::AIProviderType;
 
         log::info!(
@@ -429,7 +430,7 @@ impl AgentWorker {
         let story_context = Self::get_story_context(&story.id)?;
 
         // 2. 创建 Worktree
-        let worktree_path = if let Some(ref wt_manager) = worktree_manager {
+        let (worktree_path, branch_name) = if let Some(ref wt_manager) = worktree_manager {
             let branch_name = format!("story-{}", story.story_number);
 
             Self::send_ws_log_to_both_for_coding(
@@ -462,7 +463,7 @@ impl AgentWorker {
                         Some("AgentWorker"),
                     )
                     .await;
-                    path
+                    (path, branch_name)
                 }
                 Err(e) => {
                     log::error!(
@@ -484,7 +485,7 @@ impl AgentWorker {
                     .await;
 
                     let workspaces_root = crate::utils::paths::get_workspaces_dir();
-                    workspaces_root.to_string_lossy().to_string()
+                    (workspaces_root.to_string_lossy().to_string(), branch_name)
                 }
             }
         } else {
@@ -493,7 +494,7 @@ impl AgentWorker {
                 agent_id
             );
             let workspaces_root = crate::utils::paths::get_workspaces_dir();
-            workspaces_root.to_string_lossy().to_string()
+            (workspaces_root.to_string_lossy().to_string(), String::new())
         };
 
         // 3. 配置 Native Agent
@@ -590,6 +591,41 @@ impl AgentWorker {
                     );
                 }
 
+                // 清理 Worktree（任务 5.5-5.6）
+                if !branch_name.is_empty() && worktree_manager.is_some() {
+                    let lifecycle_manager = WorktreeLifecycleManager::new(
+                        std::path::PathBuf::from(&worktree_path),
+                        false, // preserve_branches 默认为 false
+                    );
+
+                    match lifecycle_manager
+                        .cleanup_with_retry(
+                            agent_id,
+                            &story.id,
+                            "success",
+                            &worktree_path,
+                            &branch_name,
+                            3, // 最多重试 3 次
+                        )
+                        .await
+                    {
+                        Ok(cleanup_result) => {
+                            log::info!(
+                                "[AgentWorker:{}] Worktree cleanup result: {}",
+                                agent_id,
+                                cleanup_result.message
+                            );
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "[AgentWorker:{}] Worktree cleanup failed (non-critical): {}",
+                                agent_id,
+                                e
+                            );
+                        }
+                    }
+                }
+
                 Ok(())
             }
             Err(e) => {
@@ -620,6 +656,41 @@ impl AgentWorker {
                         agent_id,
                         update_err
                     );
+                }
+
+                // 清理 Worktree（任务 5.5-5.6）- 即使失败也要清理
+                if !branch_name.is_empty() && worktree_manager.is_some() {
+                    let lifecycle_manager = WorktreeLifecycleManager::new(
+                        std::path::PathBuf::from(&worktree_path),
+                        false, // preserve_branches 默认为 false
+                    );
+
+                    match lifecycle_manager
+                        .cleanup_with_retry(
+                            agent_id,
+                            &story.id,
+                            "failed",
+                            &worktree_path,
+                            &branch_name,
+                            3, // 最多重试 3 次
+                        )
+                        .await
+                    {
+                        Ok(cleanup_result) => {
+                            log::info!(
+                                "[AgentWorker:{}] Worktree cleanup result: {}",
+                                agent_id,
+                                cleanup_result.message
+                            );
+                        }
+                        Err(e) => {
+                            log::warn!(
+                                "[AgentWorker:{}] Worktree cleanup failed (non-critical): {}",
+                                agent_id,
+                                e
+                            );
+                        }
+                    }
                 }
 
                 Err(format!("Native Agent execution failed: {}", e))

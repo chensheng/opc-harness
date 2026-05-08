@@ -46,16 +46,16 @@
 
 ## 5. Worktree 自动清理
 
-- [ ] 5.1 创建 `src-tauri/src/agent/worktree_lifecycle.rs`，实现 WorktreeLifecycleManager
-- [ ] 5.2 实现 `cleanup_after_story(agent_id, story_id, outcome)` 方法
-- [ ] 5.3 删除 worktree 目录（tokio::fs::remove_dir_all）
-- [ ] 5.4 移除 Git worktree 引用（git worktree remove）
-- [ ] 5.5 在 `agent_worker.rs` 的 execute_native_agent 结束时调用清理
-- [ ] 5.6 确保成功和失败两种情况下都执行清理
-- [ ] 5.7 实现清理失败重试机制：后台任务定期重试（最多 3 次）
-- [ ] 5.8 添加配置选项 `preserve_worktree_branches`（默认 false）
-- [ ] 5.9 如果启用保留分支，在清理前创建永久分支
-- [ ] 5.10 编写集成测试：验证 Story 完成后 worktree 被删除
+- [x] 5.1 创建 `src-tauri/src/agent/worktree_lifecycle.rs`，实现 WorktreeLifecycleManager
+- [x] 5.2 实现 `cleanup_after_story(agent_id, story_id, outcome)` 方法
+- [x] 5.3 删除 worktree 目录（tokio::fs::remove_dir_all）
+- [x] 5.4 移除 Git worktree 引用（git worktree remove）
+- [x] 5.5 在 `agent_worker.rs` 的 execute_native_agent 结束时调用清理
+- [x] 5.6 确保成功和失败两种情况下都执行清理
+- [x] 5.7 实现清理失败重试机制：后台任务定期重试（最多 3 次）
+- [x] 5.8 添加配置选项 `preserve_worktree_branches`（默认 false）
+- [x] 5.9 如果启用保留分支，在清理前创建永久分支
+- [x] 5.10 编写集成测试：验证 Story 完成后 worktree 被删除
 
 ## 6. 对话历史优化
 
