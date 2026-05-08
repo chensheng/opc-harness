@@ -19,6 +19,13 @@ OPC-HARNESS 是一个为独立创造者整合产品构思 (Vibe Design)、快速
 - 代码编辑器和文件管理
 - 实时预览功能
 - 一键部署到 Vercel/Netlify
+- **Native Coding Agent**: 纯 Rust 实现的智能编码代理
+  - 🔍 代码搜索工具：grep、find_files、find_symbol
+  - 📦 依赖管理：npm install、cargo add
+  - 👥 HITL Checkpoint：人工审核关键决策点
+  - 🌿 Worktree 自动清理：防止磁盘空间泄漏
+  - 💬 对话历史优化：自动压缩，节省 Token
+  - ✅ 分阶段质量检查：lint → type-check → test
 
 ### 📈 Vibe Marketing - 增长运营
 
