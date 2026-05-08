@@ -11,11 +11,11 @@
 
 ## 2. 工具集扩展 - 依赖管理
 
-- [ ] 2.1 创建 `src-tauri/src/agent/tools/dependency_manager.rs`，实现 DependencyManager 结构体
-- [ ] 2.2 实现 `npm_install(package, version?)` 方法，支持 npm 包安装
-- [ ] 2.3 实现 `cargo_add(crate, features?)` 方法，支持 Rust crate 添加
-- [ ] 2.4 实现 `list_dependencies()` 方法，解析 package.json/Cargo.toml
-- [ ] 2.5 添加包名合法性验证（仅允许官方 registry）
+- [x] 2.1 创建 `src-tauri/src/agent/tools/dependency_manager.rs`，实现 DependencyManager 结构体
+- [x] 2.2 实现 `npm_install(package, version?)` 方法，支持 npm 包安装
+- [x] 2.3 实现 `cargo_add(crate, features?)` 方法，支持 Rust crate 添加
+- [x] 2.4 实现 `list_dependencies()` 方法，解析 package.json/Cargo.toml
+- [x] 2.5 添加包名合法性验证（仅允许官方 registry）
 - [ ] 2.6 在 `native_coding_agent.rs` 中集成 dependency 工具
 - [ ] 2.7 更新系统提示词，告知 AI 可用的依赖管理工具
 - [ ] 2.8 编写单元测试：Mock npm/cargo 命令，测试包名验证逻辑
