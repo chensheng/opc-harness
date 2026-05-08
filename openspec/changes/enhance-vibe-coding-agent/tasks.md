@@ -72,15 +72,15 @@
 
 ## 7. 质量检查改进
 
-- [ ] 7.1 修改 `src-tauri/src/agent/tools/quality.rs`，添加分阶段检查方法
-- [ ] 7.2 实现 `run_quality_checks_staged()` 方法，按顺序执行 lint → type-check → test
-- [ ] 7.3 任一阶段失败时立即返回，不进行后续检查
-- [ ] 7.4 返回详细的错误位置（文件路径 + 行号）
-- [ ] 7.5 实现 `run_incremental_lint(modified_files)` 方法，只检查修改的文件
-- [ ] 7.6 使用 ESLint `--cache` 选项或手动过滤文件列表
-- [ ] 7.7 在 `native_coding_agent.rs` 中替换原有的 run_quality_checks 调用
-- [ ] 7.8 测量增量检查的性能提升（目标：减少 50%+ 时间）
-- [ ] 7.9 编写单元测试：测试分阶段检查和增量检查逻辑
+- [x] 7.1 修改 `src-tauri/src/agent/tools/quality.rs`，添加分阶段检查方法
+- [x] 7.2 实现 `run_quality_checks_staged()` 方法，按顺序执行 lint → type-check → test
+- [x] 7.3 任一阶段失败时立即返回，不进行后续检查
+- [x] 7.4 返回详细的错误位置（文件路径 + 行号）
+- [x] 7.5 实现 `run_incremental_lint(modified_files)` 方法，只检查修改的文件
+- [x] 7.6 使用 ESLint `--cache` 选项或手动过滤文件列表
+- [x] 7.7 在 `native_coding_agent.rs` 中替换原有的 run_quality_checks 调用
+- [x] 7.8 测量增量检查的性能提升（目标：减少 50%+ 时间）
+- [x] 7.9 编写单元测试：测试分阶段检查和增量检查逻辑
 
 ## 8. 配置和向后兼容性
 

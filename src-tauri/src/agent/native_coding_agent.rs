@@ -204,11 +204,11 @@ impl NativeCodingAgent {
             return Err(AgentError::MaxTurnsExceeded(max_turns));
         }
 
-        // 4. 运行质量检查
-        log::info!("Running quality checks...");
+        // 4. 运行质量检查（任务 7.7：使用分阶段检查）
+        log::info!("Running staged quality checks...");
         let quality_result = self
             .quality_tools
-            .run_quality_checks()
+            .run_quality_checks_staged()
             .await
             .map_err(|e: String| AgentError::QualityCheckFailed(e))?;
 
@@ -814,10 +814,10 @@ impl NativeCodingAgent {
                 }
             }
 
-            // 再次运行质量检查
+            // 再次运行质量检查（任务 7.7：使用分阶段检查）
             let quality_result = self
                 .quality_tools
-                .run_quality_checks()
+                .run_quality_checks_staged()
                 .await
                 .map_err(|e: String| AgentError::QualityCheckFailed(e))?;
 

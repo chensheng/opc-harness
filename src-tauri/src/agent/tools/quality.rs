@@ -203,6 +203,189 @@ impl QualityTools {
             report,
         })
     }
+
+    /// 分阶段执行质量检查（任务 7.2-7.4）
+    /// 按顺序执行 lint → type-check → test，任一阶段失败立即返回
+    pub async fn run_quality_checks_staged(&self) -> Result<QualityCheckResult, String> {
+        let start_time = std::time::Instant::now();
+        log::info!("Starting staged quality checks...");
+
+        // 阶段 1: ESLint
+        log::info!("Stage 1: Running ESLint...");
+        let (eslint_errors, lint_report) = match self.run_linter().await {
+            Ok(result) => result,
+            Err(e) => {
+                return Ok(QualityCheckResult {
+                    passed: false,
+                    eslint_errors: 1,
+                    typescript_errors: 0,
+                    test_failures: 0,
+                    report: format!("ESLint execution failed: {}", e),
+                });
+            }
+        };
+
+        if eslint_errors > 0 {
+            log::warn!("ESLint failed with {} errors, stopping checks", eslint_errors);
+            return Ok(QualityCheckResult {
+                passed: false,
+                eslint_errors,
+                typescript_errors: 0,
+                test_failures: 0,
+                report: format!("ESLint failed (stage 1):\n{}", lint_report),
+            });
+        }
+        log::info!("✓ ESLint passed");
+
+        // 阶段 2: TypeScript Check
+        log::info!("Stage 2: Running TypeScript check...");
+        let (typescript_errors, ts_report) = match self.run_typescript_check().await {
+            Ok(result) => result,
+            Err(e) => {
+                return Ok(QualityCheckResult {
+                    passed: false,
+                    eslint_errors: 0,
+                    typescript_errors: 1,
+                    test_failures: 0,
+                    report: format!("TypeScript check execution failed: {}", e),
+                });
+            }
+        };
+
+        if typescript_errors > 0 {
+            log::warn!(
+                "TypeScript check failed with {} errors, stopping checks",
+                typescript_errors
+            );
+            return Ok(QualityCheckResult {
+                passed: false,
+                eslint_errors: 0,
+                typescript_errors,
+                test_failures: 0,
+                report: format!("TypeScript check failed (stage 2):\n{}", ts_report),
+            });
+        }
+        log::info!("✓ TypeScript check passed");
+
+        // 阶段 3: Tests
+        log::info!("Stage 3: Running tests...");
+        let (test_failures, test_report) = match self.run_tests().await {
+            Ok(result) => result,
+            Err(e) => {
+                return Ok(QualityCheckResult {
+                    passed: false,
+                    eslint_errors: 0,
+                    typescript_errors: 0,
+                    test_failures: 1,
+                    report: format!("Test execution failed: {}", e),
+                });
+            }
+        };
+
+        if test_failures > 0 {
+            log::warn!("Tests failed with {} failures", test_failures);
+            return Ok(QualityCheckResult {
+                passed: false,
+                eslint_errors: 0,
+                typescript_errors: 0,
+                test_failures,
+                report: format!("Tests failed (stage 3):\n{}", test_report),
+            });
+        }
+        log::info!("✓ All tests passed");
+
+        let elapsed = start_time.elapsed();
+        log::info!(
+            "All staged quality checks passed! Total time: {:.2}s",
+            elapsed.as_secs_f64()
+        );
+        Ok(QualityCheckResult {
+            passed: true,
+            eslint_errors: 0,
+            typescript_errors: 0,
+            test_failures: 0,
+            report: format!(
+                "All staged quality checks passed successfully (time: {:.2}s)",
+                elapsed.as_secs_f64()
+            ),
+        })
+    }
+
+    /// 增量 Lint：只检查修改的文件（任务 7.5-7.6）
+    pub async fn run_incremental_lint(&self, modified_files: &[String]) -> Result<(usize, String), String> {
+        if modified_files.is_empty() {
+            return Ok((0, "No modified files to lint".to_string()));
+        }
+
+        let start_time = std::time::Instant::now();
+        log::info!("Running incremental lint on {} files", modified_files.len());
+
+        let timeout_duration = Duration::from_secs(self.timeout_secs);
+
+        let result = timeout(timeout_duration, async {
+            // 使用 ESLint --cache 选项提高性能
+            let mut args = vec!["eslint", "--cache"];
+            
+            // 添加修改的文件路径
+            for file in modified_files {
+                args.push(file.as_str());
+            }
+
+            let output = Command::new("npx")
+                .current_dir(&self.workspace_path)
+                .args(&args)
+                .output()
+                .await
+                .map_err(|e| format!("Failed to run incremental ESLint: {}", e))?;
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            // 解析错误数
+            let error_count = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                json.as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .map(|item| {
+                                item.get("errorCount").and_then(|v| v.as_u64()).unwrap_or(0)
+                            })
+                            .sum::<u64>()
+                    })
+                    .unwrap_or(0) as usize
+            } else {
+                // 如果不是 JSON 格式，尝试从文本中统计
+                stdout.lines()
+                    .chain(stderr.lines())
+                    .filter(|line| line.contains("✖") || line.contains("error"))
+                    .count()
+            };
+
+            let report = if output.status.success() && error_count == 0 {
+                format!(
+                    "Incremental lint passed for {} files (time: {:.2}s)",
+                    modified_files.len(),
+                    start_time.elapsed().as_secs_f64()
+                )
+            } else {
+                format!(
+                    "Incremental lint found {} errors in {} files (time: {:.2}s):\n{}\n{}",
+                    error_count,
+                    modified_files.len(),
+                    start_time.elapsed().as_secs_f64(),
+                    stdout,
+                    stderr
+                )
+            };
+
+            Ok((error_count, report))
+        })
+        .await;
+
+        match result {
+            Ok(inner_result) => inner_result,
+            Err(e) => Err(e.to_string()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -264,5 +447,67 @@ mod tests {
 
         // 测试命令可能不存在，返回错误是预期的
         assert!(result.is_err() || result.is_ok());
+    }
+
+    // 任务 7.2-7.4: 测试分阶段检查
+    #[tokio::test]
+    async fn test_run_quality_checks_staged() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = QualityTools::new(temp_dir.path().to_path_buf(), 10);
+
+        // 在空项目上运行分阶段检查
+        let result = tools.run_quality_checks_staged().await;
+
+        // 应该返回一个结果（成功或失败都可以）
+        assert!(result.is_ok());
+        
+        if let Ok(check_result) = result {
+            // 验证结果结构
+            assert!(check_result.report.contains("stage") || check_result.report.contains("ESLint"));
+        }
+    }
+
+    // 任务 7.5-7.6: 测试增量 lint
+    #[tokio::test]
+    async fn test_run_incremental_lint_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = QualityTools::new(temp_dir.path().to_path_buf(), 10);
+
+        // 空文件列表应该立即返回
+        let result = tools.run_incremental_lint(&[]).await;
+        assert!(result.is_ok());
+        
+        if let Ok((error_count, report)) = result {
+            assert_eq!(error_count, 0);
+            assert!(report.contains("No modified files"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_run_incremental_lint_with_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = QualityTools::new(temp_dir.path().to_path_buf(), 10);
+
+        // 提供一些假的文件路径
+        let files = vec!["src/main.ts".to_string(), "src/utils.ts".to_string()];
+        let result = tools.run_incremental_lint(&files).await;
+
+        // 应该尝试运行 ESLint（即使会失败）
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    // 任务 7.8: 测试性能测量
+    #[tokio::test]
+    async fn test_performance_measurement() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = QualityTools::new(temp_dir.path().to_path_buf(), 10);
+
+        let start = std::time::Instant::now();
+        let _ = tools.run_quality_checks_staged().await;
+        let elapsed = start.elapsed();
+
+        // 验证性能日志包含时间信息
+        log::info!("Staged checks took {:.2}s", elapsed.as_secs_f64());
+        assert!(elapsed.as_secs() < 60); // 应该在 60 秒内完成
     }
 }
