@@ -98,7 +98,7 @@
 - [ ] 9.4 手动测试 worktree 清理：执行 Story → 验证 worktree 被删除
 - [ ] 9.5 性能测试：测量对话历史压缩的 token 节省效果
 - [ ] 9.6 性能测试：测量增量质量检查的时间节省效果
-- [ ] 9.7 运行 `npm run harness:check` 确保 Health Score = 100/100
+- [x] 9.7 运行 `npm run harness:check` 确保 Health Score = 100/100
 - [ ] 9.8 启动 Tauri 开发环境，验证无运行时错误
 - [ ] 9.9 端到端测试：完整执行一个 User Story，验证所有新功能协同工作
 
