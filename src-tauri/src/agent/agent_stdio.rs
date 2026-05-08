@@ -1,14 +1,14 @@
 //! Agent Stdio 管道通信层
-//! 
+//!
 //! 实现基于标准输入输出的进程间通信 (IPC) 机制
 //! 用于守护进程与子 Agent 进程之间的消息传递
 
+use crate::agent::types::AgentConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
-use crate::agent::types::AgentConfig;
 
 /// Stdio 消息格式
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,11 +34,19 @@ pub enum StdioMessageType {
     /// 命令请求
     Command(String),
     /// 命令响应
-    Response { success: bool, data: Option<serde_json::Value>, error: Option<String> },
+    Response {
+        success: bool,
+        data: Option<serde_json::Value>,
+        error: Option<String>,
+    },
     /// 日志输出
     Log { level: String, message: String },
     /// 进度更新
-    Progress { current: usize, total: usize, description: String },
+    Progress {
+        current: usize,
+        total: usize,
+        description: String,
+    },
     /// 心跳包
     Heartbeat,
     /// 自定义事件
@@ -87,7 +95,7 @@ pub struct StdioChannelStats {
 }
 
 /// Stdio 通道
-/// 
+///
 /// 封装了与子进程的 stdin/stdout 通信
 pub struct StdioChannel {
     /// 通道 ID
@@ -111,7 +119,7 @@ impl StdioChannel {
     /// 创建新的 Stdio 通道 (不启动进程)
     pub fn new(config: AgentConfig) -> Self {
         let channel_id = format!("stdio-{}", uuid::Uuid::new_v4());
-        
+
         Self {
             channel_id,
             config,
@@ -146,12 +154,12 @@ impl StdioChannel {
 
         self.process = Some(Arc::new(Mutex::new(child)));
         self.status = StdioChannelStatus::Connected;
-        
+
         // 启动后台线程读取 stdout
         if let Some(process_arc) = &self.process {
             let process_clone = Arc::clone(process_arc);
             let message_queue = Arc::clone(&self.message_queue);
-            
+
             std::thread::spawn(move || {
                 let mut process = process_clone.lock().unwrap();
                 if let Some(stdout) = process.stdout.take() {
@@ -178,26 +186,28 @@ impl StdioChannel {
             return Err("Channel is not connected".to_string());
         }
 
-        let process_arc = self.process.as_ref()
+        let process_arc = self
+            .process
+            .as_ref()
             .ok_or("Process handle not available")?;
-        
-        let mut process = process_arc.lock()
+
+        let mut process = process_arc
+            .lock()
             .map_err(|e| format!("Failed to lock process: {}", e))?;
 
         // 获取 stdin 句柄
-        let stdin = process.stdin.as_mut()
-            .ok_or("Stdin not available")?;
+        let stdin = process.stdin.as_mut().ok_or("Stdin not available")?;
 
         // 序列化消息为 JSON
         let json = serde_json::to_string(message)
             .map_err(|e| format!("Failed to serialize message: {}", e))?;
 
         // 写入消息 (换行符分隔)
-        writeln!(stdin, "{}", json)
-            .map_err(|e| format!("Failed to write to stdin: {}", e))?;
+        writeln!(stdin, "{}", json).map_err(|e| format!("Failed to write to stdin: {}", e))?;
 
         // 刷新缓冲区
-        stdin.flush()
+        stdin
+            .flush()
             .map_err(|e| format!("Failed to flush stdin: {}", e))?;
 
         // 更新统计
@@ -217,26 +227,29 @@ impl StdioChannel {
     pub fn pop_message(&mut self) -> Option<StdioMessage> {
         let mut queue = self.message_queue.lock().unwrap();
         let msg = queue.pop_front();
-        
+
         if msg.is_some() {
             self.stats.messages_received += 1;
             self.stats.last_activity = Some(chrono::Utc::now().timestamp_millis());
         }
-        
+
         msg
     }
 
     /// 接收下一条消息 (阻塞直到有消息或超时)
-    pub fn recv_message_timeout(&mut self, timeout_secs: u64) -> Result<Option<StdioMessage>, String> {
+    pub fn recv_message_timeout(
+        &mut self,
+        timeout_secs: u64,
+    ) -> Result<Option<StdioMessage>, String> {
         let start = std::time::Instant::now();
-        
+
         while start.elapsed().as_secs() < timeout_secs {
             if let Some(msg) = self.pop_message() {
                 return Ok(Some(msg));
             }
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
-        
+
         Ok(None) // 超时
     }
 
@@ -248,7 +261,7 @@ impl StdioChannel {
         timeout_secs: u64,
     ) -> Result<serde_json::Value, String> {
         let message_id = uuid::Uuid::new_v4().to_string();
-        
+
         // 构建命令消息
         let request = StdioMessage {
             id: message_id.clone(),
@@ -263,19 +276,28 @@ impl StdioChannel {
         self.send_message(&request)?;
 
         // 等待响应
-        let response = self.recv_message_timeout(timeout_secs)?
-            .ok_or(format!("Timeout waiting for response after {} seconds", timeout_secs))?;
+        let response = self.recv_message_timeout(timeout_secs)?.ok_or(format!(
+            "Timeout waiting for response after {} seconds",
+            timeout_secs
+        ))?;
 
         // 验证响应
         match &response.message_type {
-            StdioMessageType::Response { success, data, error } => {
+            StdioMessageType::Response {
+                success,
+                data,
+                error,
+            } => {
                 if *success {
                     Ok(data.clone().unwrap_or(serde_json::Value::Null))
                 } else {
                     Err(error.clone().unwrap_or("Unknown error".to_string()))
                 }
             }
-            _ => Err(format!("Unexpected message type: {:?}", response.message_type)),
+            _ => Err(format!(
+                "Unexpected message type: {:?}",
+                response.message_type
+            )),
         }
     }
 
@@ -336,9 +358,10 @@ impl StdioChannel {
     /// 停止子进程并关闭通道
     pub fn stop(&mut self) -> Result<(), String> {
         if let Some(process_arc) = &self.process {
-            let mut process = process_arc.lock()
+            let mut process = process_arc
+                .lock()
                 .map_err(|e| format!("Failed to lock process: {}", e))?;
-            
+
             // 尝试优雅终止
             #[cfg(unix)]
             {
@@ -347,31 +370,34 @@ impl StdioChannel {
                     libc::kill(process.id() as i32, libc::SIGTERM);
                 }
             }
-            
+
             // 等待进程退出
-            process.wait()
+            process
+                .wait()
                 .map_err(|e| format!("Failed to wait for process: {}", e))?;
         }
 
         self.process = None;
         self.status = StdioChannelStatus::Closed;
-        
+
         Ok(())
     }
 
     /// 强制终止子进程
     pub fn kill(&mut self) -> Result<(), String> {
         if let Some(process_arc) = &self.process {
-            let mut process = process_arc.lock()
+            let mut process = process_arc
+                .lock()
                 .map_err(|e| format!("Failed to lock process: {}", e))?;
-            
-            process.kill()
+
+            process
+                .kill()
                 .map_err(|e| format!("Failed to kill process: {}", e))?;
         }
 
         self.process = None;
         self.status = StdioChannelStatus::Closed;
-        
+
         Ok(())
     }
 
@@ -413,12 +439,18 @@ impl Drop for StdioChannel {
 
 // ========== Tauri Commands ==========
 
-use tauri::State;
 use std::collections::HashMap;
+use tauri::State;
 
 /// 全局 Stdio 通道管理器
 pub struct StdioChannelManager {
     channels: HashMap<String, StdioChannel>,
+}
+
+impl Default for StdioChannelManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StdioChannelManager {
@@ -472,9 +504,10 @@ pub fn start_stdio_channel(
     args: Vec<String>,
 ) -> Result<(), String> {
     let mut mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel_mut(&channel_id)
+    let channel = mgr
+        .get_channel_mut(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     channel.start(&command, &args_ref)
 }
@@ -487,9 +520,10 @@ pub fn send_stdio_message(
     message: StdioMessage,
 ) -> Result<(), String> {
     let mut mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel_mut(&channel_id)
+    let channel = mgr
+        .get_channel_mut(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     channel.send_message(&message)
 }
 
@@ -500,9 +534,10 @@ pub fn recv_stdio_message(
     channel_id: String,
 ) -> Result<Option<StdioMessage>, String> {
     let mut mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel_mut(&channel_id)
+    let channel = mgr
+        .get_channel_mut(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     Ok(channel.pop_message())
 }
 
@@ -516,9 +551,10 @@ pub fn send_stdio_command(
     timeout_secs: u64,
 ) -> Result<serde_json::Value, String> {
     let mut mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel_mut(&channel_id)
+    let channel = mgr
+        .get_channel_mut(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     channel.send_command_with_response(&command, payload, timeout_secs)
 }
 
@@ -529,9 +565,10 @@ pub fn stop_stdio_channel(
     channel_id: String,
 ) -> Result<(), String> {
     let mut mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel_mut(&channel_id)
+    let channel = mgr
+        .get_channel_mut(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     channel.stop()
 }
 
@@ -542,9 +579,10 @@ pub fn get_stdio_channel_status(
     channel_id: String,
 ) -> Result<StdioChannelStatus, String> {
     let mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel(&channel_id)
+    let channel = mgr
+        .get_channel(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     Ok(channel.get_status())
 }
 
@@ -555,12 +593,12 @@ pub fn get_stdio_channel_stats(
     channel_id: String,
 ) -> Result<StdioChannelStats, String> {
     let mgr = manager.lock().map_err(|e| e.to_string())?;
-    let channel = mgr.get_channel(&channel_id)
+    let channel = mgr
+        .get_channel(&channel_id)
         .ok_or(format!("Channel {} not found", channel_id))?;
-    
+
     Ok(channel.get_stats())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -595,7 +633,10 @@ mod tests {
             data: Some(serde_json::json!({"result": "ok"})),
             error: None,
         };
-        assert!(matches!(resp_success, StdioMessageType::Response { success: true, .. }));
+        assert!(matches!(
+            resp_success,
+            StdioMessageType::Response { success: true, .. }
+        ));
 
         // Response error
         let resp_error = StdioMessageType::Response {
@@ -603,7 +644,14 @@ mod tests {
             data: None,
             error: Some("Something went wrong".to_string()),
         };
-        assert!(matches!(resp_error, StdioMessageType::Response { success: false, error: Some(_), .. }));
+        assert!(matches!(
+            resp_error,
+            StdioMessageType::Response {
+                success: false,
+                error: Some(_),
+                ..
+            }
+        ));
 
         // Log
         let log = StdioMessageType::Log {
@@ -625,7 +673,7 @@ mod tests {
     fn test_stdio_channel_creation() {
         let config = create_test_agent_config();
         let channel = StdioChannel::new(config);
-        
+
         assert!(channel.channel_id.starts_with("stdio-"));
         assert_eq!(channel.get_status(), StdioChannelStatus::Disconnected);
         assert!(!channel.is_connected());
@@ -636,29 +684,29 @@ mod tests {
         let mut config = create_test_agent_config();
         // 使用一个确实存在的目录
         config.project_path = std::env::temp_dir().to_string_lossy().to_string();
-        
+
         let mut channel = StdioChannel::new(config);
-        
+
         // 测试启动一个简单的命令
         #[cfg(target_os = "windows")]
         {
             let result = channel.start("cmd.exe", &["/c", "echo", "test"]);
             if result.is_ok() {
                 assert_eq!(channel.get_status(), StdioChannelStatus::Connected);
-                
+
                 // 测试停止
                 let stop_result = channel.stop();
                 assert!(stop_result.is_ok());
             }
             // 如果启动失败，跳过此测试 (可能在某些环境无法创建进程)
         }
-        
+
         #[cfg(not(target_os = "windows"))]
         {
             let result = channel.start("echo", &["test"]);
             if result.is_ok() {
                 assert_eq!(channel.get_status(), StdioChannelStatus::Connected);
-                
+
                 let stop_result = channel.stop();
                 assert!(stop_result.is_ok());
             }
@@ -669,9 +717,9 @@ mod tests {
     fn test_stdio_channel_double_start_fails() {
         let mut config = create_test_agent_config();
         config.project_path = "/tmp".to_string();
-        
+
         let mut channel = StdioChannel::new(config);
-        
+
         #[cfg(target_os = "windows")]
         {
             let _ = channel.start("cmd.exe", &["/c", "echo test"]);
@@ -685,7 +733,7 @@ mod tests {
     fn test_stdio_channel_send_message_before_start_fails() {
         let config = create_test_agent_config();
         let mut channel = StdioChannel::new(config);
-        
+
         let msg = StdioMessage {
             id: "test".to_string(),
             from: "daemon".to_string(),
@@ -694,7 +742,7 @@ mod tests {
             payload: serde_json::Value::Null,
             timestamp: 0,
         };
-        
+
         let result = channel.send_message(&msg);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not connected"));
@@ -704,7 +752,7 @@ mod tests {
     fn test_stdio_channel_stats() {
         let config = create_test_agent_config();
         let channel = StdioChannel::new(config);
-        
+
         let stats = channel.get_stats();
         assert_eq!(stats.messages_sent, 0);
         assert_eq!(stats.messages_received, 0);
@@ -722,7 +770,7 @@ mod tests {
     fn test_stdio_channel_manager_create_channel() {
         let mut manager = StdioChannelManager::new();
         let config = create_test_agent_config();
-        
+
         let channel_id = manager.create_channel(config).unwrap();
         assert!(channel_id.starts_with("stdio-"));
         assert_eq!(manager.channels.len(), 1);
@@ -732,14 +780,14 @@ mod tests {
     fn test_stdio_channel_manager_get_channel() {
         let mut manager = StdioChannelManager::new();
         let config = create_test_agent_config();
-        
+
         let channel_id = manager.create_channel(config.clone()).unwrap();
-        
+
         // Get immutable reference
         let channel = manager.get_channel(&channel_id);
         assert!(channel.is_some());
         assert_eq!(channel.unwrap().config.agent_id, config.agent_id);
-        
+
         // Get mutable reference
         let channel_mut = manager.get_channel_mut(&channel_id);
         assert!(channel_mut.is_some());
@@ -749,10 +797,10 @@ mod tests {
     fn test_stdio_channel_manager_remove_channel() {
         let mut manager = StdioChannelManager::new();
         let config = create_test_agent_config();
-        
+
         let channel_id = manager.create_channel(config).unwrap();
         assert_eq!(manager.channels.len(), 1);
-        
+
         let removed = manager.remove_channel(&channel_id);
         assert!(removed.is_some());
         assert_eq!(manager.channels.len(), 0);
@@ -761,7 +809,7 @@ mod tests {
     #[test]
     fn test_stdio_channel_manager_get_nonexistent_channel() {
         let mut manager = StdioChannelManager::new();
-        
+
         assert!(manager.get_channel("nonexistent").is_none());
         assert!(manager.get_channel_mut("nonexistent").is_none());
     }

@@ -1,5 +1,5 @@
 //! AI Code Generator 实现
-//! 
+//!
 //! 负责根据自然语言描述自动生成代码。
 //! 支持多种编程语言（Rust/TypeScript/JavaScript）。
 //! 提供代码补全、函数生成、类生成、测试生成等功能。
@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 /// AI 模型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[allow(non_camel_case_types)]
+#[derive(Default)]
 pub enum AIModel {
     /// OpenAI GPT-4
+    #[default]
     OpenAI_GPT4,
     /// OpenAI GPT-3.5 Turbo
     OpenAI_GPT3_5_Turbo,
@@ -20,12 +22,6 @@ pub enum AIModel {
     Claude_3_Sonnet,
     /// 通义千问 Max
     Qwen_Max,
-}
-
-impl Default for AIModel {
-    fn default() -> Self {
-        AIModel::OpenAI_GPT4
-    }
 }
 
 impl std::fmt::Display for AIModel {
@@ -168,8 +164,15 @@ impl AICodeGenerator {
     }
 
     /// 根据描述生成代码
-    pub async fn generate_code(&self, request: CodeGenerationRequest) -> Result<CodeGenerationResponse, String> {
-        log::info!("开始生成代码，类型：{:?}, 语言：{}", request.generation_type, request.language);
+    pub async fn generate_code(
+        &self,
+        request: CodeGenerationRequest,
+    ) -> Result<CodeGenerationResponse, String> {
+        log::info!(
+            "开始生成代码，类型：{:?}, 语言：{}",
+            request.generation_type,
+            request.language
+        );
 
         // 构建 prompt
         let prompt = self.build_prompt(&request);
@@ -191,7 +194,11 @@ impl AICodeGenerator {
     }
 
     /// 代码补全
-    pub async fn complete_code(&self, code: String, cursor_position: usize) -> Result<CodeGenerationResponse, String> {
+    pub async fn complete_code(
+        &self,
+        code: String,
+        cursor_position: usize,
+    ) -> Result<CodeGenerationResponse, String> {
         log::info!("开始代码补全，位置：{}", cursor_position);
 
         // 构建补全 prompt
@@ -210,7 +217,11 @@ impl AICodeGenerator {
     }
 
     /// 生成函数
-    pub async fn generate_function(&self, description: String, language: String) -> Result<CodeGenerationResponse, String> {
+    pub async fn generate_function(
+        &self,
+        description: String,
+        language: String,
+    ) -> Result<CodeGenerationResponse, String> {
         let request = CodeGenerationRequest {
             description,
             context: None,
@@ -222,7 +233,11 @@ impl AICodeGenerator {
     }
 
     /// 生成类
-    pub async fn generate_class(&self, description: String, language: String) -> Result<CodeGenerationResponse, String> {
+    pub async fn generate_class(
+        &self,
+        description: String,
+        language: String,
+    ) -> Result<CodeGenerationResponse, String> {
         let request = CodeGenerationRequest {
             description,
             context: None,
@@ -234,7 +249,11 @@ impl AICodeGenerator {
     }
 
     /// 生成测试代码
-    pub async fn generate_test(&self, code: String, language: String) -> Result<CodeGenerationResponse, String> {
+    pub async fn generate_test(
+        &self,
+        code: String,
+        language: String,
+    ) -> Result<CodeGenerationResponse, String> {
         let request = CodeGenerationRequest {
             description: format!("为以下代码生成单元测试：\n\n{}", code),
             context: Some(code),
@@ -257,9 +276,7 @@ impl AICodeGenerator {
 
         let mut prompt = format!(
             "请帮我生成一段{}代码。\n\n要求：\n{}\n\n语言：{}",
-            generation_type_str,
-            request.description,
-            request.language
+            generation_type_str, request.description, request.language
         );
 
         if let Some(context) = &request.context {
@@ -275,7 +292,7 @@ impl AICodeGenerator {
     async fn call_ai_api(&self, prompt: &str) -> Result<CodeGenerationResponse, String> {
         // TODO: 实际项目中需要实现真实的 AI API 调用
         // 这里使用示例代码作为占位
-        
+
         log::debug!("调用 AI API，prompt 长度：{}", prompt.len());
 
         // 根据生成类型返回不同的示例代码
@@ -340,7 +357,8 @@ mod tests {
         assert_eq!(fibonacci(4), 3);
         assert_eq!(fibonacci(5), 5);
     }
-}"#.to_string();
+}"#
+        .to_string();
 
         let explanation = "这是一个高效的斐波那契数列实现，使用迭代而非递归，时间复杂度 O(n)，空间复杂度 O(1)。包含完整的文档注释和单元测试。".to_string();
 
@@ -376,7 +394,8 @@ describe('fibonacci', () => {
         expect(fibonacci(4)).toBe(3);
         expect(fibonacci(5)).toBe(5);
     });
-});"#.to_string();
+});"#
+            .to_string();
 
         let explanation = "这是一个 TypeScript 实现的斐波那契数列函数，使用迭代方法和解构赋值，类型安全且高效。包含 JSDoc 注释和 Jest 测试用例。".to_string();
 
@@ -386,7 +405,8 @@ describe('fibonacci', () => {
     /// 生成通用示例代码
     fn generate_generic_example(&self) -> (String, String) {
         let code = "// Generated code example\nfunction example(): void {\n    console.log('Hello, World!');\n}".to_string();
-        let explanation = "这是一个示例代码片段。请提供更详细的描述以生成更有用的代码。".to_string();
+        let explanation =
+            "这是一个示例代码片段。请提供更详细的描述以生成更有用的代码。".to_string();
         (code, explanation)
     }
 
@@ -396,7 +416,7 @@ describe('fibonacci', () => {
         if position > chars.len() {
             return format!("{} |", code);
         }
-        
+
         let mut result = String::new();
         for (i, ch) in chars.iter().enumerate() {
             if i == position {
@@ -413,17 +433,23 @@ describe('fibonacci', () => {
     /// 检查代码质量
     pub fn check_code_quality(&self, code: &str) -> CodeQuality {
         let mut suggestions = Vec::new();
-        
+
         // 基础质量检查
         let has_comments = code.contains("//") || code.contains("/*");
-        let has_tests = code.contains("#[test]") || code.contains("describe(") || code.contains("it(");
-        let has_error_handling = code.contains("Result<") || code.contains("try ") || code.contains("catch ");
-        
+        let has_tests =
+            code.contains("#[test]") || code.contains("describe(") || code.contains("it(");
+        let has_error_handling =
+            code.contains("Result<") || code.contains("try ") || code.contains("catch ");
+
         // 计算各项评分
         let style_score = if has_comments { 0.9 } else { 0.6 };
-        let maintainability_score = if has_comments && code.len() < 500 { 0.85 } else { 0.7 };
+        let maintainability_score = if has_comments && code.len() < 500 {
+            0.85
+        } else {
+            0.7
+        };
         let performance_score = 0.8; // 简化实现
-        
+
         // 生成建议
         if !has_comments {
             suggestions.push("建议添加文档注释".to_string());
@@ -496,16 +522,16 @@ mod tests {
     fn test_code_quality_with_comments() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = r#"
 /// This is a comment
 pub fn test() -> i32 {
     42
 }
 "#;
-        
+
         let quality = generator.check_code_quality(code);
-        
+
         assert!(quality.score > 0.7);
         assert!(quality.style_score > 0.8);
         assert!(quality.suggestions.is_empty() || quality.suggestions.len() < 3);
@@ -515,15 +541,15 @@ pub fn test() -> i32 {
     fn test_code_quality_without_comments() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = r#"
 pub fn test() -> i32 {
     42
 }
 "#;
-        
+
         let quality = generator.check_code_quality(code);
-        
+
         assert!(quality.style_score < 0.7);
         assert!(quality.suggestions.iter().any(|s| s.contains("注释")));
     }
@@ -532,7 +558,7 @@ pub fn test() -> i32 {
     fn test_code_quality_with_tests() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = r#"
 pub fn test() -> i32 {
     42
@@ -546,9 +572,9 @@ mod tests {
     }
 }
 "#;
-        
+
         let quality = generator.check_code_quality(code);
-        
+
         // 有测试代码应该提高可维护性评分
         assert!(quality.maintainability_score >= 0.7);
     }
@@ -557,10 +583,10 @@ mod tests {
     fn test_insert_cursor_marker_basic() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = "fn main() {}";
         let result = generator.insert_cursor_marker(code, 3);
-        
+
         assert_eq!(result, "fn |main() {}");
     }
 
@@ -568,10 +594,10 @@ mod tests {
     fn test_insert_cursor_marker_at_end() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = "fn main() {}";
         let result = generator.insert_cursor_marker(code, 12);
-        
+
         assert_eq!(result, "fn main() {}|");
     }
 
@@ -579,10 +605,10 @@ mod tests {
     fn test_insert_cursor_marker_beyond_end() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = "fn main() {}";
         let result = generator.insert_cursor_marker(code, 100);
-        
+
         assert_eq!(result, "fn main() {} |");
     }
 
@@ -590,7 +616,7 @@ mod tests {
     fn test_generator_creation() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config.clone(), "test_key".to_string());
-        
+
         assert_eq!(generator.get_config().model, AIModel::OpenAI_GPT4);
         assert_eq!(generator.get_model(), &AIModel::OpenAI_GPT4);
     }
@@ -599,16 +625,16 @@ mod tests {
     fn test_build_prompt_function() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let request = CodeGenerationRequest {
             description: "创建一个计算阶乘的函数".to_string(),
             context: None,
             language: "rust".to_string(),
             generation_type: GenerationType::Function,
         };
-        
+
         let prompt = generator.build_prompt(&request);
-        
+
         assert!(prompt.contains("函数"));
         assert!(prompt.contains("创建一个计算阶乘的函数"));
         assert!(prompt.contains("rust"));
@@ -618,16 +644,16 @@ mod tests {
     fn test_build_prompt_with_context() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let request = CodeGenerationRequest {
             description: "完善这个函数".to_string(),
             context: Some("fn add(a: i32, b: i32) -> i32 {}".to_string()),
             language: "rust".to_string(),
             generation_type: GenerationType::Function,
         };
-        
+
         let prompt = generator.build_prompt(&request);
-        
+
         assert!(prompt.contains("上下文代码"));
         assert!(prompt.contains("fn add"));
     }
@@ -640,7 +666,7 @@ mod tests {
             0.85,
             vec!["添加注释".to_string()],
         );
-        
+
         assert_eq!(response.code, "fn test() {}");
         assert_eq!(response.quality_score, 0.85);
         assert_eq!(response.suggestions.len(), 1);
@@ -650,7 +676,7 @@ mod tests {
     fn test_code_quality_comprehensive() {
         let config = GenerationConfig::default();
         let generator = AICodeGenerator::new(config, "test_key".to_string());
-        
+
         let code = r#"
 /// 计算两个数的和
 /// 
@@ -674,9 +700,9 @@ mod tests {
     }
 }
 "#;
-        
+
         let quality = generator.check_code_quality(code);
-        
+
         assert!(quality.score > 0.8);
         assert!(quality.style_score > 0.8);
         assert!(quality.maintainability_score > 0.8);

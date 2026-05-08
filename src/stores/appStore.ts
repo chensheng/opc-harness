@@ -22,6 +22,7 @@ const initialSettings: AppSettings = {
   theme: 'system',
   language: 'zh',
   autoSave: true,
+  useNativeAgent: false, // 默认使用 CLI Agent
 }
 
 export const useAppStore = create<AppState & AppActions>()(

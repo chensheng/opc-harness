@@ -1,5 +1,5 @@
 //! PRD 文档解析器
-//! 
+//!
 //! VC-006: 实现 PRD 文档解析器
 //! 负责从 PRD 文档中提取关键信息并转化为结构化数据
 
@@ -157,16 +157,16 @@ impl PRDParser {
     pub async fn parse_prd(&self, prd_content: &str) -> Result<PRDResult, String> {
         // 1. 构建提示词
         let prompt = PRD_PARSING_PROMPT.replace("{prd_content}", prd_content);
-        
+
         // 2. 调用 AI 服务进行解析（TODO: 实际调用）
         let ai_response = self.call_ai_service(&prompt).await?;
-        
+
         // 3. 解析 AI 返回的 JSON 结果
         let parsed_data = self.parse_ai_response(&ai_response)?;
-        
+
         // 4. 转换为 PRDResult
         let result = self.convert_to_prd_result(parsed_data)?;
-        
+
         Ok(result)
     }
 
@@ -179,25 +179,23 @@ impl PRDParser {
         tech_stack: &[String],
     ) -> Result<Vec<crate::agent::messages::Issue>, String> {
         // 1. 构建提示词
-        let mut prompt = TASK_DECOMPOSITION_PROMPT
-            .replace("{product_name}", product_name);
-        prompt = prompt
-            .replace("{product_description}", product_description);
-        
+        let mut prompt = TASK_DECOMPOSITION_PROMPT.replace("{product_name}", product_name);
+        prompt = prompt.replace("{product_description}", product_description);
+
         let features_json = serde_json::to_string(core_features)
             .map_err(|e| format!("序列化功能列表失败：{}", e))?;
         prompt = prompt.replace("{core_features}", &features_json);
-        
-        let tech_json = serde_json::to_string(tech_stack)
-            .map_err(|e| format!("序列化技术栈失败：{}", e))?;
+
+        let tech_json =
+            serde_json::to_string(tech_stack).map_err(|e| format!("序列化技术栈失败：{}", e))?;
         prompt = prompt.replace("{tech_stack}", &tech_json);
-        
+
         // 2. 调用 AI 服务
         let ai_response = self.call_ai_service(&prompt).await?;
-        
+
         // 3. 解析 Issues
         let issues = self.parse_issues_response(&ai_response)?;
-        
+
         Ok(issues)
     }
 
@@ -205,18 +203,17 @@ impl PRDParser {
     async fn call_ai_service(&self, _prompt: &str) -> Result<String, String> {
         // TODO: 实际调用 AI 服务
         log::info!("调用 AI 服务进行 PRD 解析...");
-        
+
         // 模拟 AI 响应延迟
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        
+
         // 返回 Mock 数据用于测试
         Ok("{\"status\":\"mock\",\"message\":\"AI service not yet integrated\"}".to_string())
     }
 
     /// 解析 AI 响应
     fn parse_ai_response(&self, response: &str) -> Result<serde_json::Value, String> {
-        serde_json::from_str(response)
-            .map_err(|e| format!("解析 AI 响应失败：{}", e))
+        serde_json::from_str(response).map_err(|e| format!("解析 AI 响应失败：{}", e))
     }
 
     /// 转换为 PRDResult
@@ -225,36 +222,50 @@ impl PRDParser {
             .as_str()
             .unwrap_or("未命名产品")
             .to_string();
-        
+
         let product_description = data["product_description"]
             .as_str()
             .unwrap_or("")
             .to_string();
-        
+
         let target_users = data["target_users"]
             .as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
-        
+
         let core_features = data["core_features"]
             .as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
-        
+
         let non_functional_requirements = data["non_functional_requirements"]
             .as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
-        
+
         let suggested_tech_stack = data["suggested_tech_stack"]
             .as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
-        
-        let confidence_score = data["confidence_score"]
-            .as_f64()
-            .unwrap_or(0.5) as f32;
-        
+
+        let confidence_score = data["confidence_score"].as_f64().unwrap_or(0.5) as f32;
+
         Ok(PRDResult {
             product_name,
             product_description,
@@ -268,45 +279,41 @@ impl PRDParser {
     }
 
     /// 解析 Issues 响应
-    fn parse_issues_response(&self, response: &str) -> Result<Vec<crate::agent::messages::Issue>, String> {
+    fn parse_issues_response(
+        &self,
+        response: &str,
+    ) -> Result<Vec<crate::agent::messages::Issue>, String> {
         use crate::agent::messages::{Issue, Priority};
-        
-        let issues: Vec<serde_json::Value> = serde_json::from_str(response)
-            .map_err(|e| format!("解析 Issues 失败：{}", e))?;
-        
+
+        let issues: Vec<serde_json::Value> =
+            serde_json::from_str(response).map_err(|e| format!("解析 Issues 失败：{}", e))?;
+
         let mut result = Vec::new();
-        
+
         for issue_data in issues.iter() {
             let title = issue_data["title"]
                 .as_str()
                 .unwrap_or("未命名任务")
                 .to_string();
-            
-            let description = issue_data["description"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
-            
-            let priority_str = issue_data["priority"]
-                .as_str()
-                .unwrap_or("medium");
-            
+
+            let description = issue_data["description"].as_str().unwrap_or("").to_string();
+
+            let priority_str = issue_data["priority"].as_str().unwrap_or("medium");
+
             let priority = match priority_str {
                 "high" => Priority::High,
                 "low" => Priority::Low,
                 _ => Priority::Medium,
             };
-            
-            let estimated_hours = issue_data["estimated_hours"]
-                .as_f64()
-                .map(|h| h as f32);
-            
+
+            let estimated_hours = issue_data["estimated_hours"].as_f64().map(|h| h as f32);
+
             let issue = Issue::new(title, description, priority)
                 .with_estimated_hours(estimated_hours.unwrap_or(4.0));
-            
+
             result.push(issue);
         }
-        
+
         Ok(result)
     }
 }
@@ -327,9 +334,9 @@ mod tests {
             },
             use_streaming: false,
         };
-        
+
         let _parser = PRDParser::new(config);
-        
+
         // 验证解析器创建成功
         assert!(true);
     }
@@ -340,10 +347,7 @@ mod tests {
             product_name: "智能营销平台".to_string(),
             product_description: "基于 AI 的自动化营销系统".to_string(),
             target_users: vec!["营销人员".to_string(), "产品经理".to_string()],
-            core_features: vec![
-                "PRD 自动生成".to_string(),
-                "代码自动编写".to_string(),
-            ],
+            core_features: vec!["PRD 自动生成".to_string(), "代码自动编写".to_string()],
             non_functional_requirements: vec![
                 "响应时间 < 2s".to_string(),
                 "支持 1000+ 并发".to_string(),
@@ -356,7 +360,7 @@ mod tests {
             confidence_score: 0.95,
             identified_issues: Vec::new(),
         };
-        
+
         assert_eq!(result.product_name, "智能营销平台");
         assert_eq!(result.target_users.len(), 2);
         assert_eq!(result.core_features.len(), 2);
@@ -375,7 +379,7 @@ mod tests {
             },
             use_streaming: false,
         });
-        
+
         let mock_response = r#"{
             "product_name": "Test Product",
             "product_description": "A test product",
@@ -385,9 +389,9 @@ mod tests {
             "suggested_tech_stack": ["React", "Node.js"],
             "confidence_score": 0.9
         }"#;
-        
+
         let result = parser.parse_ai_response(mock_response);
-        
+
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(value["product_name"], "Test Product");
@@ -405,10 +409,10 @@ mod tests {
             },
             use_streaming: false,
         });
-        
+
         let invalid_response = "This is not valid JSON";
         let result = parser.parse_ai_response(invalid_response);
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("解析 AI 响应失败"));
     }
@@ -424,7 +428,7 @@ mod tests {
             },
             use_streaming: false,
         });
-        
+
         let mock_issues = r#"[
             {
                 "issue_id": "ISSUE-001",
@@ -441,9 +445,9 @@ mod tests {
                 "estimated_hours": 8.0
             }
         ]"#;
-        
+
         let result = parser.parse_issues_response(mock_issues);
-        
+
         assert!(result.is_ok());
         let issues = result.unwrap();
         assert_eq!(issues.len(), 2);
@@ -463,7 +467,7 @@ mod tests {
             },
             use_streaming: false,
         });
-        
+
         let mock_data = serde_json::json!({
             "product_name": "Test Platform",
             "product_description": "AI-powered platform",
@@ -473,9 +477,9 @@ mod tests {
             "suggested_tech_stack": ["React", "Rust"],
             "confidence_score": 0.85
         });
-        
+
         let result = parser.convert_to_prd_result(mock_data);
-        
+
         assert!(result.is_ok());
         let prd_result = result.unwrap();
         assert_eq!(prd_result.product_name, "Test Platform");
@@ -489,7 +493,7 @@ mod tests {
         // 验证提示词模板已定义
         assert!(!PRD_PARSING_PROMPT.is_empty());
         assert!(!TASK_DECOMPOSITION_PROMPT.is_empty());
-        
+
         // 验证模板包含关键字段
         assert!(PRD_PARSING_PROMPT.contains("product_name"));
         assert!(PRD_PARSING_PROMPT.contains("confidence_score"));

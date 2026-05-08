@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 /// US-031: 深度 AI 解析 PRD
-/// 
+///
 /// 提供深度的 PRD 分析功能，包括：
 /// - 功能点提取（20+ 个）
 /// - 功能分类（核心/辅助/增强）
@@ -9,7 +9,6 @@
 /// - 依赖关系识别
 /// - 风险评估
 /// - 工作量估算
-
 use serde::{Deserialize, Serialize};
 
 /// 功能类型枚举
@@ -139,30 +138,40 @@ impl PrdAnalysis {
     /// 从分析结果计算统计数据
     pub fn calculate_estimates(&mut self) {
         self.estimates.total_features = self.features.len() as u32;
-        
-        self.estimates.core_features = self.features.iter()
+
+        self.estimates.core_features = self
+            .features
+            .iter()
             .filter(|f| matches!(f.feature_type, FeatureType::Core))
             .count() as u32;
-        
-        self.estimates.auxiliary_features = self.features.iter()
+
+        self.estimates.auxiliary_features = self
+            .features
+            .iter()
             .filter(|f| matches!(f.feature_type, FeatureType::Auxiliary))
             .count() as u32;
-        
-        self.estimates.enhanced_features = self.features.iter()
+
+        self.estimates.enhanced_features = self
+            .features
+            .iter()
             .filter(|f| matches!(f.feature_type, FeatureType::Enhanced))
             .count() as u32;
-        
+
         if !self.features.is_empty() {
-            self.estimates.average_complexity = self.features.iter()
+            self.estimates.average_complexity = self
+                .features
+                .iter()
                 .map(|f| f.complexity as f32)
-                .sum::<f32>() / self.features.len() as f32;
+                .sum::<f32>()
+                / self.features.len() as f32;
         }
-        
-        self.estimates.total_estimated_hours = self.features.iter()
-            .map(|f| f.estimated_hours)
-            .sum();
-        
-        self.estimates.high_risks_count = self.risks.iter()
+
+        self.estimates.total_estimated_hours =
+            self.features.iter().map(|f| f.estimated_hours).sum();
+
+        self.estimates.high_risks_count = self
+            .risks
+            .iter()
             .filter(|r| matches!(r.level, RiskLevel::High | RiskLevel::Critical))
             .count() as u32;
     }
@@ -178,23 +187,32 @@ impl PrdDeepAnalyzer {
     }
 
     /// 执行深度分析
-    pub async fn analyze(&self, prd_content: &str) -> Result<PrdAnalysis, Box<dyn std::error::Error>> {
+    pub async fn analyze(
+        &self,
+        prd_content: &str,
+    ) -> Result<PrdAnalysis, Box<dyn std::error::Error>> {
         // TODO: 调用 AI API 进行深度分析
         // 这里先实现一个简单的示例
-        
+
         let mut analysis = PrdAnalysis::empty();
-        
+
         // 示例：基于关键词提取功能点
-        let keywords = ["用户", "管理", "数据", "分析", "报告", "配置", "导入", "导出"];
+        let keywords = [
+            "用户", "管理", "数据", "分析", "报告", "配置", "导入", "导出",
+        ];
         let mut feature_id = 1;
-        
+
         for keyword in keywords.iter() {
             if prd_content.contains(keyword) {
                 analysis.features.push(Feature {
                     id: format!("F{:03}", feature_id),
                     name: format!("{}功能", keyword),
                     description: format!("与{}相关的功能", keyword),
-                    feature_type: if feature_id <= 3 { FeatureType::Core } else { FeatureType::Auxiliary },
+                    feature_type: if feature_id <= 3 {
+                        FeatureType::Core
+                    } else {
+                        FeatureType::Auxiliary
+                    },
                     complexity: ((feature_id % 5) + 1) as u8,
                     estimated_hours: ((feature_id % 5) + 1) as f32 * 2.0,
                     priority: (10 - feature_id % 10) as u8,
@@ -203,19 +221,23 @@ impl PrdDeepAnalyzer {
                 feature_id += 1;
             }
         }
-        
+
         // 计算统计数据
         analysis.calculate_estimates();
-        
+
         Ok(analysis)
     }
 
     /// 使用 AI 执行深度分析（完整实现）
-    pub async fn analyze_with_ai(&self, _prd_content: &str, _api_key: &str) -> Result<PrdAnalysis, Box<dyn std::error::Error>> {
+    pub async fn analyze_with_ai(
+        &self,
+        _prd_content: &str,
+        _api_key: &str,
+    ) -> Result<PrdAnalysis, Box<dyn std::error::Error>> {
         // TODO: 调用 Claude API 进行深度分析
         // 这将在后续实现
-        
-        self.analyze(_prd_content).await  // 临时实现，忽略参数
+
+        self.analyze(_prd_content).await // 临时实现，忽略参数
     }
 }
 
@@ -232,7 +254,7 @@ mod tests {
     #[test]
     fn test_empty_analysis() {
         let analysis = PrdAnalysis::empty();
-        
+
         assert_eq!(analysis.features.len(), 0);
         assert_eq!(analysis.dependencies.len(), 0);
         assert_eq!(analysis.risks.len(), 0);
@@ -243,9 +265,9 @@ mod tests {
     async fn test_analyze_basic() {
         let analyzer = PrdDeepAnalyzer::new();
         let prd = "这是一个用户管理系统，需要数据分析和报告功能";
-        
+
         let result = analyzer.analyze(prd).await.unwrap();
-        
+
         assert!(result.features.len() > 0);
         assert!(result.estimates.total_features > 0);
     }
@@ -253,7 +275,7 @@ mod tests {
     #[tokio::test]
     async fn test_calculate_estimates() {
         let mut analysis = PrdAnalysis::empty();
-        
+
         analysis.features.push(Feature {
             id: "F001".to_string(),
             name: "核心功能".to_string(),
@@ -264,7 +286,7 @@ mod tests {
             priority: 8,
             dependencies: vec![],
         });
-        
+
         analysis.features.push(Feature {
             id: "F002".to_string(),
             name: "辅助功能".to_string(),
@@ -275,9 +297,9 @@ mod tests {
             priority: 5,
             dependencies: vec![],
         });
-        
+
         analysis.calculate_estimates();
-        
+
         assert_eq!(analysis.estimates.total_features, 2);
         assert_eq!(analysis.estimates.core_features, 1);
         assert_eq!(analysis.estimates.auxiliary_features, 1);

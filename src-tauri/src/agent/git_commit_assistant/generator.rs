@@ -1,9 +1,9 @@
 //! Git Commit Assistant 提交信息生成器
-//! 
+//!
 //! 负责生成提交摘要、详细描述和完整的提交信息
 
-use super::types::{CommitType, ChangeInfo, FileChangeType, CommitMessage};
 use super::config::GitCommitAssistantConfig;
+use super::types::{ChangeInfo, CommitMessage, CommitType, FileChangeType};
 
 /// 提交信息生成器
 #[derive(Clone, Debug)]
@@ -25,10 +25,10 @@ impl MessageGenerator {
     ) -> Result<CommitMessage, String> {
         // 生成摘要
         let summary = self.generate_summary(commit_type.clone(), changes)?;
-        
+
         // 生成描述
         let description = self.generate_description(changes);
-        
+
         // 收集变更文件列表
         let changed_files: Vec<String> = if self.config.include_file_list {
             changes.iter().map(|c| c.file_path.clone()).collect()
@@ -37,12 +37,7 @@ impl MessageGenerator {
         };
 
         // 创建提交信息
-        let message = CommitMessage::new(
-            commit_type,
-            summary,
-            description,
-            changed_files,
-        );
+        let message = CommitMessage::new(commit_type, summary, description, changed_files);
 
         Ok(message)
     }
@@ -72,7 +67,7 @@ impl MessageGenerator {
             .map(|c| {
                 c.file_path
                     .split('/')
-                    .last()
+                    .next_back()
                     .unwrap_or(&c.file_path)
                     .split('.')
                     .next()
@@ -88,7 +83,7 @@ impl MessageGenerator {
         };
 
         let summary = format!("{} {}", action, target);
-        
+
         // 确保不超过最大长度
         if summary.len() <= self.config.max_summary_length {
             Ok(summary)
@@ -107,11 +102,17 @@ impl MessageGenerator {
                 FileChangeType::Deleted => format!("Remove file: {}", change.file_path),
                 FileChangeType::Modified => {
                     if change.additions > 0 && change.deletions > 0 {
-                        format!("Modify {}: +{} -{}", change.file_path, change.additions, change.deletions)
+                        format!(
+                            "Modify {}: +{} -{}",
+                            change.file_path, change.additions, change.deletions
+                        )
                     } else if change.additions > 0 {
                         format!("Add lines to {}: +{}", change.file_path, change.additions)
                     } else {
-                        format!("Remove lines from {}: -{}", change.file_path, change.deletions)
+                        format!(
+                            "Remove lines from {}: -{}",
+                            change.file_path, change.deletions
+                        )
                     }
                 }
                 FileChangeType::Renamed => format!("Rename file: {}", change.file_path),

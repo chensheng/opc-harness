@@ -178,9 +178,7 @@ pub async fn detect_tools() -> Result<DetectToolsResponse, String> {
         name: "CodeFree CLI".to_string(),
         is_installed: codefree_installed,
         version: codefree_version,
-        install_url: Some(
-            "https://codefree.ai".to_string(),
-        ),
+        install_url: Some("https://codefree.ai".to_string()),
     });
 
     Ok(DetectToolsResponse { tools })

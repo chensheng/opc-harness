@@ -1,10 +1,10 @@
 //! Agent 追踪数据访问层
-//! 
+//!
 //! 提供追踪记录的 CRUD 操作
 
 use crate::db::Entity;
 use crate::models::AgentTrace;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use uuid::Uuid;
 
 /// 获取追踪存储库
@@ -77,12 +77,10 @@ impl<'a> AgentTracesRepository<'a> {
              FROM agent_traces
              WHERE agent_id = ?1
              ORDER BY timestamp ASC
-             LIMIT ?2"
+             LIMIT ?2",
         )?;
 
-        let traces = stmt.query_map(params![agent_id, limit], |row| {
-            AgentTrace::from_row(row)
-        })?;
+        let traces = stmt.query_map(params![agent_id, limit], |row| AgentTrace::from_row(row))?;
 
         traces.collect()
     }
@@ -99,7 +97,7 @@ impl<'a> AgentTracesRepository<'a> {
              FROM agent_traces
              WHERE agent_id = ?1 AND event_type = ?2
              ORDER BY timestamp ASC
-             LIMIT ?3"
+             LIMIT ?3",
         )?;
 
         let traces = stmt.query_map(params![agent_id, event_type, limit], |row| {
@@ -115,19 +113,20 @@ impl<'a> AgentTracesRepository<'a> {
             "SELECT id, agent_id, session_id, event_type, timestamp, data, parent_id, created_at
              FROM agent_traces
              WHERE parent_id = ?1
-             ORDER BY timestamp ASC"
+             ORDER BY timestamp ASC",
         )?;
 
-        let traces = stmt.query_map(params![parent_id], |row| {
-            AgentTrace::from_row(row)
-        })?;
+        let traces = stmt.query_map(params![parent_id], |row| AgentTrace::from_row(row))?;
 
         traces.collect()
     }
 
     /// 清空智能体的所有追踪记录
     pub fn clear_by_agent_id(&self, agent_id: &str) -> Result<usize, rusqlite::Error> {
-        self.conn.execute("DELETE FROM agent_traces WHERE agent_id = ?1", params![agent_id])
+        self.conn.execute(
+            "DELETE FROM agent_traces WHERE agent_id = ?1",
+            params![agent_id],
+        )
     }
 }
 
@@ -143,7 +142,7 @@ mod tests {
 
     fn setup_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
-        
+
         conn.execute(
             "CREATE TABLE agent_traces (
                 id TEXT PRIMARY KEY,
@@ -156,7 +155,8 @@ mod tests {
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         conn
     }

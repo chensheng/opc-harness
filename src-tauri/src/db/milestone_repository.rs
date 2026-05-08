@@ -25,7 +25,8 @@ pub fn create_milestone(conn: &Connection, milestone: &Milestone) -> Result<()> 
 
 /// 获取项目的所有里程碑
 pub fn get_milestones_by_project(conn: &Connection, project_id: &str) -> Result<Vec<Milestone>> {
-    let mut stmt = conn.prepare("SELECT * FROM milestones WHERE project_id = ?1 ORDER BY order_index")?;
+    let mut stmt =
+        conn.prepare("SELECT * FROM milestones WHERE project_id = ?1 ORDER BY order_index")?;
     let milestones = stmt.query_map([project_id], |row| {
         Ok(Milestone {
             id: row.get(0)?,

@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::db::Entity;
 use rusqlite::Row;
+use serde::{Deserialize, Serialize};
 
 /// 智能体追踪模型（思考链、工具调用、决策）
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,11 +18,17 @@ pub struct AgentTrace {
 }
 
 impl Entity for AgentTrace {
-    fn table_name() -> &'static str { "agent_traces" }
+    fn table_name() -> &'static str {
+        "agent_traces"
+    }
 
-    fn primary_key() -> &'static str { "id" }
+    fn primary_key() -> &'static str {
+        "id"
+    }
 
-    fn get_primary_key(&self) -> &str { &self.id }
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
 
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(AgentTrace {

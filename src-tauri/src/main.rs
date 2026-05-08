@@ -1,11 +1,13 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![allow(dead_code)]  // 允许未使用的代码(开发阶段)
+#![allow(dead_code)] // 允许未使用的代码(开发阶段)
 
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tauri::Manager;
+use tokio::sync::RwLock;
 
+pub mod agent;
+pub mod agent_protocol;
 mod ai;
 mod cli;
 mod commands;
@@ -17,11 +19,9 @@ mod prompts;
 mod quality;
 mod services;
 #[cfg(test)]
-mod test_utils;  // 娴嬭瘯宸ュ叿妯″潡锛堜粎鍦ㄦ祴璇曟椂缂栬瘧锛?
+mod test_utils; // 娴嬭瘯宸ュ叿妯″潡锛堜粎鍦ㄦ祴璇曟椂缂栬瘧锛?
 mod user_preference;
 mod utils;
-pub mod agent;
-pub mod agent_protocol;
 pub mod websocket;
 
 // 瀵煎嚭缁熶竴閿欒绫诲瀷
@@ -34,36 +34,25 @@ fn expand_environment_strings(input: &str) -> String {
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsW;
-    
+
     // 棣栧厛鑾峰彇闇€瑕佺殑缂撳啿鍖哄ぇ灏?
     let input_wide: Vec<u16> = input.encode_utf16().chain(std::iter::once(0)).collect();
-    let size = unsafe {
-        ExpandEnvironmentStringsW(
-            input_wide.as_ptr(),
-            std::ptr::null_mut(),
-            0,
-        )
-    };
-    
+    let size = unsafe { ExpandEnvironmentStringsW(input_wide.as_ptr(), std::ptr::null_mut(), 0) };
+
     if size == 0 {
         // 濡傛灉澶辫触锛岃繑鍥炲師濮嬪瓧绗︿覆
         return input.to_string();
     }
-    
+
     // 鍒嗛厤缂撳啿鍖哄苟鍐嶆璋冪敤
     let mut buffer = vec![0u16; size as usize];
-    let result = unsafe {
-        ExpandEnvironmentStringsW(
-            input_wide.as_ptr(),
-            buffer.as_mut_ptr(),
-            size,
-        )
-    };
-    
+    let result =
+        unsafe { ExpandEnvironmentStringsW(input_wide.as_ptr(), buffer.as_mut_ptr(), size) };
+
     if result == 0 {
         return input.to_string();
     }
-    
+
     // 杞崲涓?Rust 瀧楃涓?
     let len = buffer.iter().position(|&x| x == 0).unwrap_or(buffer.len());
     OsString::from_wide(&buffer[..len])
@@ -143,7 +132,7 @@ fn main() {
             // Initialize database
             let app_handle = app.handle();
             tauri::async_runtime::block_on(async move {
-                if let Err(e) = db::init_database(&app_handle).await {
+                if let Err(e) = db::init_database(app_handle).await {
                     eprintln!("Failed to initialize database: {}", e);
                 }
             });
@@ -185,7 +174,7 @@ fn main() {
             log::info!("ObservabilityService registered");
 
             // Check and create workspace directories for all projects
-            if let Err(e) = db::ensure_all_project_workspaces(&app.app_handle()) {
+            if let Err(e) = db::ensure_all_project_workspaces(app.app_handle()) {
                 log::warn!("Failed to ensure project workspaces: {}", e);
             } else {
                 log::info!("All project workspace directories verified");

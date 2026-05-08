@@ -1,5 +1,5 @@
 //! 代码生成提示词 - 类型定义
-//! 
+//!
 //! VC-019: 为 Coding Agent 提供标准化的代码生成提示词库的类型定义
 
 #![allow(dead_code)]
@@ -33,13 +33,13 @@ pub enum CodeScenario {
     TypeDefinition,
     TestGeneration,
     StyleGeneration,
-    
+
     // Rust 场景
     ModuleGeneration,
     TraitImplementation,
     ErrorHandling,
     ApiEndpoint,
-    
+
     // 通用场景
     Refactoring,
     BugFixing,

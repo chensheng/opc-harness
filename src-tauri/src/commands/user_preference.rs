@@ -1,6 +1,5 @@
 /// 用户偏好相关 Tauri Commands
-
-use crate::user_preference::manager::{UserPreferenceManager, Feedback, PreferenceModel};
+use crate::user_preference::manager::{Feedback, PreferenceModel, UserPreferenceManager};
 
 /// 获取用户偏好
 #[tauri::command]
@@ -11,9 +10,7 @@ pub async fn get_user_preferences() -> Result<PreferenceModel, String> {
 
 /// 更新用户偏好
 #[tauri::command]
-pub async fn update_user_preferences(
-    model: PreferenceModel,
-) -> Result<(), String> {
+pub async fn update_user_preferences(model: PreferenceModel) -> Result<(), String> {
     let mut manager = UserPreferenceManager::new();
     manager.save_preferences(&model)
 }
@@ -29,9 +26,7 @@ pub async fn analyze_preference_from_feedback(
 
 /// 应用偏好到 PRD
 #[tauri::command]
-pub async fn apply_preference_to_prd(
-    prd_json: String,
-) -> Result<String, String> {
+pub async fn apply_preference_to_prd(prd_json: String) -> Result<String, String> {
     let manager = UserPreferenceManager::new();
     manager.apply_preferences(&prd_json)
 }

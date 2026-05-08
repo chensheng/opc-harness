@@ -1,10 +1,9 @@
 #![allow(dead_code)]
 
 /// ESLint 质量检查器
-/// 
+///
 /// 用于运行 ESLint 检查 TypeScript/JavaScript 代码质量
 /// 支持自动修复功能
-
 use serde::{Deserialize, Serialize};
 
 /// ESLint 检查结果
@@ -103,7 +102,12 @@ impl ESLintChecker {
     }
 
     /// 解析 ESLint 输出
-    fn parse_eslint_output(&self, stdout: &str, stderr: &str, success: bool) -> Result<ESLintResult, String> {
+    fn parse_eslint_output(
+        &self,
+        stdout: &str,
+        stderr: &str,
+        success: bool,
+    ) -> Result<ESLintResult, String> {
         let json_output = if !stdout.trim().is_empty() {
             stdout
         } else {
@@ -111,12 +115,12 @@ impl ESLintChecker {
         };
 
         let has_errors = !success && (json_output.contains("error") || json_output.contains("✖"));
-        
+
         let error_count = json_output.matches("error").count();
         let warning_count = json_output.matches("warning").count();
 
         let mut messages = Vec::new();
-        
+
         for line in json_output.lines() {
             if line.contains("error") || line.contains("warning") {
                 messages.push(ESLintMessage {

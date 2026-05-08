@@ -1,8 +1,8 @@
 //! Agent Manager 实现 (VC-004)
-//! 
+//!
 //! 统一的 Agent 管理器，整合 WebSocketManager、StdioChannelManager 和 DaemonManager
 //! 提供高级 API 供前端调用
-//! 
+//!
 //! 核心功能:
 //! - Agent 生命周期管理（创建、启动、暂停、恢复、终止）
 //! - Agent 状态追踪和持久化
@@ -11,8 +11,8 @@
 //! - Tauri Commands 暴露
 
 // 重新导出主要类型
-pub use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
 pub use crate::agent::agent_manager_core::AgentManager;
+pub use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
 
 // 重新导出所有 Tauri Commands
 pub use crate::agent::agent_manager_commands::*;
@@ -24,7 +24,7 @@ pub use crate::agent::agent_manager_commands::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::types::{AgentType, AgentStatus, AgentPhase};
+    use crate::agent::types::{AgentPhase, AgentStatus, AgentType};
 
     #[test]
     fn test_agent_handle_creation() {
@@ -33,7 +33,7 @@ mod tests {
             "test-session".to_string(),
             "/tmp/test".to_string(),
             None,
-            None,  // agents_md_content
+            None, // agents_md_content
         );
 
         assert!(!handle.agent_id.is_empty());
@@ -52,14 +52,14 @@ mod tests {
             "session-123".to_string(),
             "/tmp/project".to_string(),
             None,
-            None,  // agents_md_content
+            None, // agents_md_content
         );
 
         assert_eq!(handle.status, AgentStatus::Idle);
-        
+
         handle.update_status(AgentStatus::Running);
         assert_eq!(handle.status, AgentStatus::Running);
-        
+
         handle.update_status(AgentStatus::Completed);
         assert_eq!(handle.status, AgentStatus::Completed);
     }
@@ -71,11 +71,11 @@ mod tests {
             "session-456".to_string(),
             "/tmp/mr".to_string(),
             None,
-            None,  // agents_md_content
+            None, // agents_md_content
         );
 
         assert!(handle.stdio_channel_id.is_none());
-        
+
         handle.set_stdio_channel("channel-789".to_string());
         assert_eq!(handle.stdio_channel_id, Some("channel-789".to_string()));
     }
@@ -87,11 +87,11 @@ mod tests {
             "test".to_string(),
             "/tmp".to_string(),
             None,
-            None,  // agents_md_content
+            None, // agents_md_content
         );
 
         assert!(!handle.registered_to_daemon);
-        
+
         handle.mark_registered();
         assert!(handle.registered_to_daemon);
     }
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn test_agent_manager_stats_default() {
         let stats = AgentManagerStats::default();
-        
+
         assert_eq!(stats.total_agents, 0);
         assert_eq!(stats.running_agents, 0);
         assert_eq!(stats.idle_agents, 0);
@@ -131,7 +131,10 @@ mod tests {
         assert_eq!(format!("{}", AgentStatus::Idle), "idle");
         assert_eq!(format!("{}", AgentStatus::Running), "running");
         assert_eq!(format!("{}", AgentStatus::Completed), "completed");
-        assert_eq!(format!("{}", AgentStatus::Failed("error".to_string())), "failed:error");
+        assert_eq!(
+            format!("{}", AgentStatus::Failed("error".to_string())),
+            "failed:error"
+        );
     }
 
     #[test]
@@ -169,6 +172,9 @@ mod tests {
         let deserialized: crate::models::AgentSession = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.session_id, session.session_id);
         assert_eq!(deserialized.agent_id, session.agent_id);
-        assert_eq!(deserialized.registered_to_daemon, session.registered_to_daemon);
+        assert_eq!(
+            deserialized.registered_to_daemon,
+            session.registered_to_daemon
+        );
     }
 }

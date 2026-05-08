@@ -2,10 +2,7 @@
 //!
 //! 提供前端与后端可观测性功能的交互接口
 
-use crate::db::{
-    agent_logs::LogStats,
-    get_connection,
-};
+use crate::db::{agent_logs::LogStats, get_connection};
 use crate::models::{AgentAlert, AgentLog, AgentTrace};
 use crate::services::observability_service::{ApiCallStats, ObservabilityService};
 use serde::{Deserialize, Serialize};
@@ -161,13 +158,17 @@ pub async fn get_agent_logs(
     let offset = params.offset.unwrap_or(0);
 
     let logs = if let Some(level) = params.level {
-        repo.get_by_level(&params.agent_id, &level, limit).map_err(|e| e.to_string())?
+        repo.get_by_level(&params.agent_id, &level, limit)
+            .map_err(|e| e.to_string())?
     } else if let (Some(start), Some(end)) = (params.start_time, params.end_time) {
-        repo.get_by_agent_id_and_time_range(&params.agent_id, &start, &end, limit).map_err(|e| e.to_string())?
+        repo.get_by_agent_id_and_time_range(&params.agent_id, &start, &end, limit)
+            .map_err(|e| e.to_string())?
     } else if let Some(keyword) = params.keyword {
-        repo.search(&params.agent_id, &keyword, limit).map_err(|e| e.to_string())?
+        repo.search(&params.agent_id, &keyword, limit)
+            .map_err(|e| e.to_string())?
     } else {
-        repo.get_by_agent_id(&params.agent_id, limit, offset).map_err(|e| e.to_string())?
+        repo.get_by_agent_id(&params.agent_id, limit, offset)
+            .map_err(|e| e.to_string())?
     };
 
     Ok(logs)
@@ -200,9 +201,11 @@ pub async fn get_agent_traces(
     let limit = limit.unwrap_or(100);
 
     let traces = if let Some(et) = event_type {
-        repo.get_by_event_type(&agent_id, &et, limit).map_err(|e| e.to_string())?
+        repo.get_by_event_type(&agent_id, &et, limit)
+            .map_err(|e| e.to_string())?
     } else {
-        repo.get_by_agent_id(&agent_id, limit).map_err(|e| e.to_string())?
+        repo.get_by_agent_id(&agent_id, limit)
+            .map_err(|e| e.to_string())?
     };
 
     Ok(traces.into_iter().map(Into::into).collect())
@@ -222,9 +225,11 @@ pub async fn get_agent_alerts(
     let limit = limit.unwrap_or(50);
 
     let alerts = if let Some(s) = status {
-        repo.get_by_agent_id(&agent_id, Some(&s), limit).map_err(|e| e.to_string())?
+        repo.get_by_agent_id(&agent_id, Some(&s), limit)
+            .map_err(|e| e.to_string())?
     } else {
-        repo.get_by_agent_id(&agent_id, None, limit).map_err(|e| e.to_string())?
+        repo.get_by_agent_id(&agent_id, None, limit)
+            .map_err(|e| e.to_string())?
     };
 
     Ok(alerts.into_iter().map(Into::into).collect())
@@ -239,7 +244,9 @@ pub async fn clear_agent_logs(
     let conn = get_connection().map_err(|e| e.to_string())?;
     let repo = crate::db::agent_logs::get_logs_repository(&conn);
 
-    let count = repo.clear_by_agent_id(&agent_id).map_err(|e| e.to_string())?;
+    let count = repo
+        .clear_by_agent_id(&agent_id)
+        .map_err(|e| e.to_string())?;
     obs_state.clear_logs(&agent_id);
 
     Ok(count)
@@ -254,7 +261,9 @@ pub async fn export_agent_logs(
     let conn = get_connection().map_err(|e| e.to_string())?;
     let repo = crate::db::agent_logs::get_logs_repository(&conn);
 
-    let logs = repo.get_by_agent_id(&agent_id, 1000, 0).map_err(|e| e.to_string())?;
+    let logs = repo
+        .get_by_agent_id(&agent_id, 1000, 0)
+        .map_err(|e| e.to_string())?;
 
     // CSV 格式
     let mut csv = String::from("id,timestamp,level,source,message\n");
@@ -317,10 +326,16 @@ pub async fn record_agent_tool_call(
     parameters: String,
     parent_id: Option<String>,
 ) -> Result<String, String> {
-    let params: serde_json::Value = serde_json::from_str(&parameters)
-        .map_err(|e| format!("Invalid JSON parameters: {}", e))?;
+    let params: serde_json::Value =
+        serde_json::from_str(&parameters).map_err(|e| format!("Invalid JSON parameters: {}", e))?;
 
-    Ok(obs_state.record_tool_call(&agent_id, &session_id, &tool_name, params, parent_id.as_deref()))
+    Ok(obs_state.record_tool_call(
+        &agent_id,
+        &session_id,
+        &tool_name,
+        params,
+        parent_id.as_deref(),
+    ))
 }
 
 /// 记录工具执行结果
@@ -334,10 +349,17 @@ pub async fn record_agent_tool_result(
     duration_ms: u64,
     parent_id: String,
 ) -> Result<(), String> {
-    let result_value: serde_json::Value = serde_json::from_str(&result)
-        .map_err(|e| format!("Invalid JSON result: {}", e))?;
+    let result_value: serde_json::Value =
+        serde_json::from_str(&result).map_err(|e| format!("Invalid JSON result: {}", e))?;
 
-    obs_state.record_tool_result(&agent_id, &session_id, success, result_value, duration_ms, &parent_id);
+    obs_state.record_tool_result(
+        &agent_id,
+        &session_id,
+        success,
+        result_value,
+        duration_ms,
+        &parent_id,
+    );
     Ok(())
 }
 
@@ -352,7 +374,14 @@ pub async fn record_agent_decision(
     reason: String,
     parent_id: Option<String>,
 ) -> Result<(), String> {
-    obs_state.record_decision(&agent_id, &session_id, &context, &decision, &reason, parent_id.as_deref());
+    obs_state.record_decision(
+        &agent_id,
+        &session_id,
+        &context,
+        &decision,
+        &reason,
+        parent_id.as_deref(),
+    );
     Ok(())
 }
 
@@ -386,15 +415,15 @@ pub async fn get_performance_metrics(
     obs_state: State<'_, ObservabilityService>,
     agent_id: String,
 ) -> Result<Option<PerformanceMetricsResponse>, String> {
-    Ok(obs_state.get_metrics(&agent_id).map(|m| {
-        PerformanceMetricsResponse {
+    Ok(obs_state
+        .get_metrics(&agent_id)
+        .map(|m| PerformanceMetricsResponse {
             agent_id: m.agent_id,
             cpu_usage: m.cpu_usage,
             memory_usage_mb: m.memory_usage_mb,
             api_calls: m.api_calls.into(),
             last_updated: m.timestamp,
-        }
-    }))
+        }))
 }
 
 /// 解决告警

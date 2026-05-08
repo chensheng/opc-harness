@@ -7,30 +7,30 @@ use rusqlite::{Connection, Result};
 mod user_story_status {
     /// 待处理状态（可被 Agent 选取）
     pub const PENDING: &[&str] = &["draft", "refined", "approved"];
-    
+
     /// 开发中状态
     pub const IN_DEVELOPMENT: &str = "in_development";
-    
+
     /// 完成状态
     pub const COMPLETED: &str = "completed";
-    
+
     /// 失败状态
     pub const FAILED: &str = "failed";
 }
 
 /// 批量创建或更新Sprint（Upsert）
 pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -> Result<()> {
-    log::debug!("[DB::upsert_sprints] Starting upsert for project_id: {}, count: {}", 
-             project_id, sprints.len());
-    
+    log::debug!(
+        "[DB::upsert_sprints] Starting upsert for project_id: {}, count: {}",
+        project_id,
+        sprints.len()
+    );
+
     // 使用事务确保原子性
     let tx = conn.unchecked_transaction()?;
-    
+
     // 先删除该项目的旧Sprint
-    let deleted = tx.execute(
-        "DELETE FROM sprints WHERE project_id = ?1",
-        [project_id],
-    )?;
+    let deleted = tx.execute("DELETE FROM sprints WHERE project_id = ?1", [project_id])?;
     log::debug!("[DB::upsert_sprints] Deleted {} old sprints", deleted);
 
     // 批量插入新Sprint
@@ -57,7 +57,10 @@ pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -
         )?;
         inserted_count += 1;
     }
-    log::debug!("[DB::upsert_sprints] Inserted {} new sprints", inserted_count);
+    log::debug!(
+        "[DB::upsert_sprints] Inserted {} new sprints",
+        inserted_count
+    );
 
     tx.commit()?;
     log::debug!("[DB::upsert_sprints] Transaction committed successfully");
@@ -66,31 +69,25 @@ pub fn upsert_sprints(conn: &Connection, project_id: &str, sprints: &[Sprint]) -
 
 /// 获取项目的所有Sprint
 pub fn get_sprints_by_project(conn: &Connection, project_id: &str) -> Result<Vec<Sprint>> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM sprints WHERE project_id = ?1 ORDER BY start_date DESC"
-    )?;
-    
-    let sprints = stmt.query_map([project_id], |row| {
-        Sprint::from_row(row)
-    })?;
+    let mut stmt =
+        conn.prepare("SELECT * FROM sprints WHERE project_id = ?1 ORDER BY start_date DESC")?;
+
+    let sprints = stmt.query_map([project_id], |row| Sprint::from_row(row))?;
 
     let mut result = Vec::new();
     for sprint_result in sprints {
         result.push(sprint_result?);
     }
-    
+
     Ok(result)
 }
 
 /// 删除单个Sprint
 pub fn delete_sprint(conn: &Connection, sprint_id: &str) -> Result<usize> {
     log::debug!("[DB::delete_sprint] Deleting sprint_id: {}", sprint_id);
-    
-    let deleted = conn.execute(
-        "DELETE FROM sprints WHERE id = ?1",
-        [sprint_id],
-    )?;
-    
+
+    let deleted = conn.execute("DELETE FROM sprints WHERE id = ?1", [sprint_id])?;
+
     log::debug!("[DB::delete_sprint] Deleted {} sprint(s)", deleted);
     Ok(deleted)
 }
@@ -98,9 +95,9 @@ pub fn delete_sprint(conn: &Connection, sprint_id: &str) -> Result<usize> {
 /// 获取指定项目的活跃 Sprint（修复：添加项目隔离）
 pub fn get_active_sprint(conn: &Connection, project_id: &str) -> Result<Option<Sprint>> {
     let now = Utc::now().to_rfc3339();
-    
+
     log::debug!("[DB::get_active_sprint] Current time (UTC): {}", now);
-    
+
     // 简化查询：只检查状态为 'active' 的 Sprint，不检查日期范围
     // 这样可以避免因日期设置错误导致智能体无法工作
     // ✅ 关键修复：添加 project_id 过滤，实现项目隔离
@@ -108,26 +105,37 @@ pub fn get_active_sprint(conn: &Connection, project_id: &str) -> Result<Option<S
         "SELECT * FROM sprints 
          WHERE project_id = ?1 AND status = 'active'
          ORDER BY created_at DESC 
-         LIMIT 1"
+         LIMIT 1",
     )?;
-    
+
     let mut rows = stmt.query([project_id])?;
-    
+
     if let Some(row) = rows.next()? {
         let sprint = Sprint::from_row(row)?;
-        log::info!("[DB::get_active_sprint] Found active sprint in project {}: {} (ID: {})", 
-                   project_id, sprint.name, sprint.id);
+        log::info!(
+            "[DB::get_active_sprint] Found active sprint in project {}: {} (ID: {})",
+            project_id,
+            sprint.name,
+            sprint.id
+        );
         Ok(Some(sprint))
     } else {
-        log::debug!("[DB::get_active_sprint] No active sprint found in project {}", project_id);
+        log::debug!(
+            "[DB::get_active_sprint] No active sprint found in project {}",
+            project_id
+        );
         Ok(None)
     }
 }
 
 /// 获取指定 Sprint 下待执行的用户故事（按优先级排序）
-pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str, project_id: &str) -> Result<Vec<UserStory>> {
+pub fn get_pending_stories_by_sprint(
+    conn: &Connection,
+    sprint_id: &str,
+    project_id: &str,
+) -> Result<Vec<UserStory>> {
     log::debug!("[DB::get_pending_stories_by_sprint] Querying pending stories for sprint_id: {}, project_id: {}", sprint_id, project_id);
-    
+
     // ✅ 使用统一的状态常量，并添加项目隔离验证
     let status_list = user_story_status::PENDING.join("','");
     let query = format!(
@@ -146,9 +154,9 @@ pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str, project
             story_number ASC",
         status_list
     );
-    
+
     let mut stmt = conn.prepare(&query)?;
-    
+
     let stories = stmt.query_map(rusqlite::params![sprint_id, project_id], |row| {
         UserStory::from_row(row)
     })?;
@@ -157,15 +165,23 @@ pub fn get_pending_stories_by_sprint(conn: &Connection, sprint_id: &str, project
     for story_result in stories {
         result.push(story_result?);
     }
-    
-    log::debug!("[DB::get_pending_stories_by_sprint] Retrieved {} pending stories", result.len());
+
+    log::debug!(
+        "[DB::get_pending_stories_by_sprint] Retrieved {} pending stories",
+        result.len()
+    );
     Ok(result)
 }
 
 /// 锁定用户故事（乐观锁，用于 Agent 竞争）
-pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str, lock_timeout_minutes: u64) -> Result<bool> {
+pub fn lock_user_story(
+    conn: &Connection,
+    story_id: &str,
+    agent_id: &str,
+    lock_timeout_minutes: u64,
+) -> Result<bool> {
     let now = Utc::now().to_rfc3339();
-    
+
     // ✅ 使用统一的状态常量
     let status_list = user_story_status::PENDING.join("','");
     let query = format!(
@@ -183,22 +199,22 @@ pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str, lock_t
         status_list,
         lock_timeout_minutes
     );
-    
+
     // 使用原子 UPDATE 操作，只有当故事处于可执行状态且未被锁定时才能成功
     // 注意：这里假设如果 locked_at 超过配置的时间则视为锁失效，允许重新抢占
     let updated = conn.execute(&query, rusqlite::params![agent_id, now, story_id])?;
-    
+
     let success = updated > 0;
-    
+
     if !success {
         // 锁定失败时，查询当前锁定的 Agent 信息
-        if let Ok(mut stmt) = conn.prepare(
-            "SELECT assigned_agent, locked_at FROM user_stories WHERE id = ?1"
-        ) {
+        if let Ok(mut stmt) =
+            conn.prepare("SELECT assigned_agent, locked_at FROM user_stories WHERE id = ?1")
+        {
             match stmt.query_row([story_id], |row| {
                 Ok((
                     row.get::<_, Option<String>>(0)?,
-                    row.get::<_, Option<String>>(1)?
+                    row.get::<_, Option<String>>(1)?,
                 ))
             }) {
                 Ok((current_agent, locked_at)) => {
@@ -218,10 +234,12 @@ pub fn lock_user_story(conn: &Connection, story_id: &str, agent_id: &str, lock_t
     } else {
         log::debug!(
             "[DB::lock_user_story] Story {} lock SUCCESS by agent {} (timeout: {}min)",
-            story_id, agent_id, lock_timeout_minutes
+            story_id,
+            agent_id,
+            lock_timeout_minutes
         );
     }
-    
+
     Ok(success)
 }
 
@@ -235,7 +253,7 @@ pub fn unlock_user_story(conn: &Connection, story_id: &str) -> Result<()> {
          WHERE id = ?2",
         rusqlite::params![Utc::now().to_rfc3339(), story_id],
     )?;
-    
+
     log::debug!("[DB::unlock_user_story] Story {} unlocked", story_id);
     Ok(())
 }
@@ -243,22 +261,26 @@ pub fn unlock_user_story(conn: &Connection, story_id: &str) -> Result<()> {
 /// 更新用户故事状态
 pub fn update_user_story_status(conn: &Connection, story_id: &str, status: &str) -> Result<usize> {
     let now = Utc::now().to_rfc3339();
-    
+
     let updated = conn.execute(
         "UPDATE user_stories 
          SET status = ?1, updated_at = ?2
          WHERE id = ?3",
         rusqlite::params![status, now, story_id],
     )?;
-    
-    log::debug!("[DB::update_user_story_status] Updated story {} to status: {}", story_id, status);
+
+    log::debug!(
+        "[DB::update_user_story_status] Updated story {} to status: {}",
+        story_id,
+        status
+    );
     Ok(updated)
 }
 
 /// 标记用户故事完成
 pub fn complete_user_story(conn: &Connection, story_id: &str) -> Result<usize> {
     let now = Utc::now().to_rfc3339();
-    
+
     // ✅ 使用统一的状态常量
     let updated = conn.execute(
         "UPDATE user_stories 
@@ -268,7 +290,7 @@ pub fn complete_user_story(conn: &Connection, story_id: &str) -> Result<usize> {
          WHERE id = ?3",
         rusqlite::params![user_story_status::COMPLETED, now, story_id],
     )?;
-    
+
     log::info!("[DB::complete_user_story] ✅ Completed story: {}", story_id);
     Ok(updated)
 }
@@ -276,7 +298,7 @@ pub fn complete_user_story(conn: &Connection, story_id: &str) -> Result<usize> {
 /// 标记用户故事失败
 pub fn fail_user_story(conn: &Connection, story_id: &str, error_message: &str) -> Result<usize> {
     let now = Utc::now().to_rfc3339();
-    
+
     // ✅ 使用统一的状态常量
     let updated = conn.execute(
         "UPDATE user_stories 
@@ -290,19 +312,21 @@ pub fn fail_user_story(conn: &Connection, story_id: &str, error_message: &str) -
          WHERE id = ?4",
         rusqlite::params![user_story_status::FAILED, now, error_message, story_id],
     )?;
-    
-    log::warn!("[DB::fail_user_story] ❌ Failed story: {} - {}", story_id, error_message);
+
+    log::warn!(
+        "[DB::fail_user_story] ❌ Failed story: {} - {}",
+        story_id,
+        error_message
+    );
     Ok(updated)
 }
 
 /// 根据 ID 查询单个用户故事的详细信息
 pub fn get_user_story_by_id(conn: &Connection, story_id: &str) -> Result<Option<UserStory>> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM user_stories WHERE id = ?1"
-    )?;
-    
+    let mut stmt = conn.prepare("SELECT * FROM user_stories WHERE id = ?1")?;
+
     let mut rows = stmt.query([story_id])?;
-    
+
     if let Some(row) = rows.next()? {
         let story = UserStory::from_row(row)?;
         Ok(Some(story))
@@ -337,8 +361,11 @@ pub fn create_retry_history_record(
             history.created_at,
         ],
     )?;
-    
-    println!("[DB::create_retry_history_record] Created retry history for story: {}", history.user_story_id);
+
+    println!(
+        "[DB::create_retry_history_record] Created retry history for story: {}",
+        history.user_story_id
+    );
     Ok(updated)
 }
 
@@ -356,8 +383,11 @@ pub fn update_retry_history_result(
          WHERE id = ?3",
         rusqlite::params![result, completed_at, history_id],
     )?;
-    
-    println!("[DB::update_retry_history_result] Updated retry history: {} with result: {}", history_id, result);
+
+    println!(
+        "[DB::update_retry_history_result] Updated retry history: {} with result: {}",
+        history_id, result
+    );
     Ok(updated)
 }
 
@@ -369,19 +399,21 @@ pub fn get_user_story_retry_history(
     let mut stmt = conn.prepare(
         "SELECT * FROM user_story_retry_history 
          WHERE user_story_id = ?1 
-         ORDER BY triggered_at DESC"
+         ORDER BY triggered_at DESC",
     )?;
-    
-    let rows = stmt.query_map([story_id], |row| {
-        UserStoryRetryHistory::from_row(row)
-    })?;
-    
+
+    let rows = stmt.query_map([story_id], |row| UserStoryRetryHistory::from_row(row))?;
+
     let mut histories = Vec::new();
     for row in rows {
         histories.push(row?);
     }
-    
-    println!("[DB::get_user_story_retry_history] Found {} retry records for story: {}", histories.len(), story_id);
+
+    println!(
+        "[DB::get_user_story_retry_history] Found {} retry records for story: {}",
+        histories.len(),
+        story_id
+    );
     Ok(histories)
 }
 
@@ -398,7 +430,7 @@ pub fn get_project_retry_statistics(
         [project_id],
         |row| row.get(0),
     )?;
-    
+
     // 成功重试次数
     let successful_retries: i64 = conn.query_row(
         "SELECT COUNT(*) FROM user_story_retry_history usrh
@@ -407,7 +439,7 @@ pub fn get_project_retry_statistics(
         [project_id],
         |row| row.get(0),
     )?;
-    
+
     // 失败重试次数
     let failed_retries: i64 = conn.query_row(
         "SELECT COUNT(*) FROM user_story_retry_history usrh
@@ -416,7 +448,7 @@ pub fn get_project_retry_statistics(
         [project_id],
         |row| row.get(0),
     )?;
-    
+
     // 待处理重试次数
     let pending_retries: i64 = conn.query_row(
         "SELECT COUNT(*) FROM user_story_retry_history usrh
@@ -425,20 +457,22 @@ pub fn get_project_retry_statistics(
         [project_id],
         |row| row.get(0),
     )?;
-    
+
     // 平均重试次数（每个 Story）
-    let avg_retries: f64 = conn.query_row(
-        "SELECT AVG(retry_count) FROM user_stories WHERE project_id = ?1",
-        [project_id],
-        |row| row.get(0),
-    ).unwrap_or(0.0);
-    
+    let avg_retries: f64 = conn
+        .query_row(
+            "SELECT AVG(retry_count) FROM user_stories WHERE project_id = ?1",
+            [project_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0.0);
+
     let success_rate = if total_retries > 0 {
         (successful_retries as f64 / total_retries as f64) * 100.0
     } else {
         0.0
     };
-    
+
     Ok(ProjectRetryStats {
         total_retries: total_retries as i32,
         successful_retries: successful_retries as i32,
@@ -473,36 +507,39 @@ pub fn update_user_story_next_retry_at(
          WHERE id = ?2",
         rusqlite::params![next_retry_at, story_id],
     )?;
-    
-    println!("[DB::update_user_story_next_retry_at] Updated next_retry_at for story: {}", story_id);
+
+    println!(
+        "[DB::update_user_story_next_retry_at] Updated next_retry_at for story: {}",
+        story_id
+    );
     Ok(updated)
 }
 
 /// 获取待重试的用户故事列表
-pub fn get_scheduled_retry_stories(
-    conn: &Connection,
-    limit: usize,
-) -> Result<Vec<UserStory>> {
+pub fn get_scheduled_retry_stories(conn: &Connection, limit: usize) -> Result<Vec<UserStory>> {
     let now = Utc::now().to_rfc3339();
-    
+
     let mut stmt = conn.prepare(
         "SELECT * FROM user_stories 
          WHERE status = 'scheduled_retry'
            AND next_retry_at IS NOT NULL
            AND next_retry_at <= ?1
          ORDER BY next_retry_at ASC
-         LIMIT ?2"
+         LIMIT ?2",
     )?;
-    
+
     let rows = stmt.query_map(rusqlite::params![now, limit], |row| {
         UserStory::from_row(row)
     })?;
-    
+
     let mut stories = Vec::new();
     for row in rows {
         stories.push(row?);
     }
-    
-    println!("[DB::get_scheduled_retry_stories] Found {} stories ready for retry", stories.len());
+
+    println!(
+        "[DB::get_scheduled_retry_stories] Found {} stories ready for retry",
+        stories.len()
+    );
     Ok(stories)
 }

@@ -1,18 +1,19 @@
 //! Daemon Manager Core Implementation
-//! 
+//!
 //! DaemonManager 核心业务逻辑实现
 
 use std::collections::{HashMap, HashSet};
 use std::process::{Command as StdCommand, Stdio};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 
-use super::daemon_types::*;
 use super::ai_cli_interaction::{AICLIInteraction, AICLIMessage};
+use super::daemon_types::*;
 use crate::agent::types::AgentStatus;
 
 /// 守护进程管理器
+#[derive(Default)]
 pub struct DaemonManager {
     daemon_id: String,
     status: DaemonStatus,
@@ -22,10 +23,10 @@ pub struct DaemonManager {
     pending_tasks: Vec<String>,
     start_time: i64,
     // ========== VC-013: 并发控制相关字段 ==========
-    pub(super) running_count: usize,                    // 当前运行中的 Agent 数量
-    pub(super) max_concurrent: usize,                   // 最大并发数 (从 config 同步)
-    pub(super) agent_queue: Vec<String>,                // 等待中的 Agent ID 队列
-    running_agents: HashSet<String>,         // 正在运行的 Agent ID 集合
+    pub(super) running_count: usize,     // 当前运行中的 Agent 数量
+    pub(super) max_concurrent: usize,    // 最大并发数 (从 config 同步)
+    pub(super) agent_queue: Vec<String>, // 等待中的 Agent ID 队列
+    running_agents: HashSet<String>,     // 正在运行的 Agent ID 集合
     // ========== 进程管理 ==========
     /// 存储活跃的 Child 进程句柄（使用 Arc<Mutex> 以支持异步访问）
     child_processes: HashMap<String, Arc<Mutex<Option<std::process::Child>>>>,
@@ -63,16 +64,19 @@ impl DaemonManager {
 
         // ========== VC-013: 初始化并发控制配置 ==========
         self.max_concurrent = config.max_concurrent_agents;
-        
+
         self.config = Some(config);
         self.status = DaemonStatus::Starting;
         self.start_time = chrono::Utc::now().timestamp();
-        
-        log::info!("Daemon started with max_concurrent_agents: {}", self.max_concurrent);
-        
+
+        log::info!(
+            "Daemon started with max_concurrent_agents: {}",
+            self.max_concurrent
+        );
+
         // TODO: 初始化资源监控、日志系统等
         self.status = DaemonStatus::Running;
-        
+
         Ok(())
     }
 
@@ -83,7 +87,7 @@ impl DaemonManager {
         }
 
         self.status = DaemonStatus::Stopping;
-        
+
         // TODO: 停止所有 Agent 进程
         if graceful {
             // 优雅停止：等待当前任务完成，然后设置为 Idle
@@ -96,10 +100,10 @@ impl DaemonManager {
             // 强制停止：立即终止所有 Agent
             self.agents.clear();
         }
-        
+
         self.status = DaemonStatus::Stopped;
         self.pending_tasks.clear();
-        
+
         Ok(())
     }
 
@@ -115,7 +119,7 @@ impl DaemonManager {
                 agent.status = AgentStatus::Idle;
             }
         }
-        
+
         self.status = DaemonStatus::Paused;
         Ok(())
     }
@@ -132,7 +136,7 @@ impl DaemonManager {
                 agent.status = AgentStatus::Running;
             }
         }
-        
+
         self.status = DaemonStatus::Running;
         Ok(())
     }
@@ -144,7 +148,7 @@ impl DaemonManager {
         }
 
         let agent_id = format!("{}-{}", agent_type, uuid::Uuid::new_v4());
-        
+
         // 根据 Agent 类型选择对应的 CLI 工具
         // 在测试模式下使用简单命令，生产模式使用实际的 AI CLI
         let cli_command = if std::env::var("HARNESS_TEST_MODE").is_ok() {
@@ -170,7 +174,7 @@ impl DaemonManager {
             if cfg!(windows) {
                 // Windows: ping localhost 持续运行
                 StdCommand::new(cli_command)
-                    .args(&["-n", "9999", "127.0.0.1"])
+                    .args(["-n", "9999", "127.0.0.1"])
                     .current_dir(project_path)
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
@@ -198,11 +202,11 @@ impl DaemonManager {
                 agent_type: agent_type.to_string(),
                 extra_args: vec![],
             };
-            
+
             let args = ai_config.build_args();
-            
+
             log::info!("[Daemon] Building CLI command: {} {:?}", cli_command, args);
-            
+
             StdCommand::new(cli_command)
                 .args(&args)
                 .current_dir(project_path)
@@ -221,7 +225,7 @@ impl DaemonManager {
                 let child_arc = Arc::new(Mutex::new(Some(child)));
                 self.child_processes.insert(agent_id.clone(), child_arc);
 
-                // 创建 Agent 信息
+                // 创建 Agent 信息（CLI Agent）
                 let agent_info = AgentProcessInfo {
                     agent_id: agent_id.clone(),
                     agent_type: agent_type.to_string(),
@@ -229,16 +233,24 @@ impl DaemonManager {
                     status: AgentStatus::Running,
                     started_at: chrono::Utc::now().timestamp(),
                     resource_usage: ResourceUsage::default(),
+                    // Native Agent 字段
+                    is_native: false,
+                    token_usage: None,
+                    tool_calls_count: 0,
+                    current_turn: 0,
+                    max_turns: 0,
                 };
 
                 self.agents.insert(agent_id.clone(), agent_info);
                 self.pending_tasks.push(agent_id.clone());
-                
+
                 Ok(agent_id)
             }
             Err(e) => {
-                let error_msg = format!("Failed to spawn {} agent: {}. Please ensure {} is installed and in PATH.", 
-                    agent_type, e, cli_command);
+                let error_msg = format!(
+                    "Failed to spawn {} agent: {}. Please ensure {} is installed and in PATH.",
+                    agent_type, e, cli_command
+                );
                 log::error!("{}", error_msg);
                 Err(error_msg)
             }
@@ -251,12 +263,16 @@ impl DaemonManager {
             return Err(format!("Agent {} not found", agent_id));
         }
 
-        // 终止进程
+        // 终止进程（仅 CLI Agent）
         if let Some(child_arc) = self.child_processes.remove(agent_id) {
             let mut child_guard = futures::executor::block_on(child_arc.lock());
             if let Some(mut child) = child_guard.take() {
                 match child.kill() {
-                    Ok(_) => log::info!("Agent {} (PID: {:?}) killed successfully", agent_id, child.id()),
+                    Ok(_) => log::info!(
+                        "Agent {} (PID: {:?}) killed successfully",
+                        agent_id,
+                        child.id()
+                    ),
                     Err(e) => log::warn!("Failed to kill agent {}: {}", agent_id, e),
                 }
             }
@@ -264,8 +280,86 @@ impl DaemonManager {
 
         self.agents.remove(agent_id);
         self.pending_tasks.retain(|id| id != agent_id);
-        
+
         Ok(())
+    }
+
+    /// 注册 Native Agent（不创建进程，仅记录状态）
+    pub fn register_native_agent(
+        &mut self,
+        agent_id: &str,
+        agent_type: &str,
+        max_turns: usize,
+    ) -> Result<(), String> {
+        if self.status != DaemonStatus::Running {
+            return Err("Daemon is not running".to_string());
+        }
+
+        if self.agents.contains_key(agent_id) {
+            return Err(format!("Agent {} already exists", agent_id));
+        }
+
+        log::info!(
+            "Registering Native Agent {} (type: {}, max_turns: {})",
+            agent_id,
+            agent_type,
+            max_turns
+        );
+
+        // 创建 Native Agent 信息
+        let agent_info = AgentProcessInfo {
+            agent_id: agent_id.to_string(),
+            agent_type: agent_type.to_string(),
+            pid: None, // Native Agent 无进程 ID
+            status: AgentStatus::Running,
+            started_at: chrono::Utc::now().timestamp(),
+            resource_usage: ResourceUsage::default(),
+            // Native Agent 字段
+            is_native: true,
+            token_usage: None,
+            tool_calls_count: 0,
+            current_turn: 0,
+            max_turns,
+        };
+
+        self.agents.insert(agent_id.to_string(), agent_info);
+        self.pending_tasks.push(agent_id.to_string());
+
+        Ok(())
+    }
+
+    /// 更新 Native Agent 的执行状态
+    pub fn update_native_agent_status(
+        &mut self,
+        agent_id: &str,
+        status: AgentStatus,
+        token_usage: Option<super::daemon_types::TokenUsage>,
+        tool_calls_count: usize,
+        current_turn: usize,
+    ) -> Result<(), String> {
+        if let Some(agent) = self.agents.get_mut(agent_id) {
+            if !agent.is_native {
+                return Err(format!("Agent {} is not a Native Agent", agent_id));
+            }
+
+            agent.status = status;
+            agent.token_usage = token_usage;
+            agent.tool_calls_count = tool_calls_count;
+            agent.current_turn = current_turn;
+
+            log::info!(
+                "Updated Native Agent {} status: {:?}, turns: {}/{}, tool_calls: {}",
+                agent_id,
+                agent.status,
+                current_turn,
+                agent.max_turns,
+                tool_calls_count
+            );
+
+            Ok(())
+        } else {
+            Err(format!("Agent {} not found", agent_id))
+        }
     }
 
     /// 获取守护进程状态
@@ -276,7 +370,7 @@ impl DaemonManager {
     /// 获取守护进程快照
     pub fn get_snapshot(&self) -> DaemonSnapshot {
         let system_info = self.get_system_info();
-        
+
         DaemonSnapshot {
             daemon_id: self.daemon_id.clone(),
             status: self.status.clone(),
@@ -324,22 +418,63 @@ impl DaemonManager {
     /// 更新资源使用情况
     pub fn update_resource_usage(&mut self) {
         let sys = sysinfo::System::new_all();
-        
+
         for (_agent_id, agent) in self.agents.iter_mut() {
-            if let Some(pid) = agent.pid {
-                // 查找对应的进程
-                if let Some(process) = sys.process(sysinfo::Pid::from_u32(pid)) {
-                    agent.resource_usage = ResourceUsage {
-                        cpu_percent: process.cpu_usage(),
-                        memory_mb: (process.memory() / 1024 / 1024) as usize,
-                        disk_io_read: 0,  // TODO: 需要更精确的磁盘 IO 统计
-                        disk_io_write: 0,
-                        network_rx: 0,    // TODO: 需要网络统计
-                        network_tx: 0,
-                    };
+            // CLI Agent：通过 PID 监控
+            if !agent.is_native {
+                if let Some(pid) = agent.pid {
+                    // 查找对应的进程
+                    if let Some(process) = sys.process(sysinfo::Pid::from_u32(pid)) {
+                        agent.resource_usage = ResourceUsage {
+                            cpu_percent: process.cpu_usage(),
+                            memory_mb: (process.memory() / 1024 / 1024) as usize,
+                            disk_io_read: 0, // TODO: 需要更精确的磁盘 IO 统计
+                            disk_io_write: 0,
+                            network_rx: 0, // TODO: 需要网络统计
+                            network_tx: 0,
+                        };
+                    }
                 }
             }
+            // Native Agent：无进程，但可以通过其他方式估算资源使用
+            // （目前主要通过 Token 统计和工具调用次数来衡量）
         }
+    }
+
+    /// 获取 Native Agent 的详细统计信息
+    pub fn get_native_agent_stats(&self, agent_id: &str) -> Result<NativeAgentStats, String> {
+        if let Some(agent) = self.agents.get(agent_id) {
+            if !agent.is_native {
+                return Err(format!("Agent {} is not a Native Agent", agent_id));
+            }
+
+            Ok(NativeAgentStats {
+                agent_id: agent.agent_id.clone(),
+                status: agent.status.clone(),
+                started_at: agent.started_at,
+                elapsed_secs: chrono::Utc::now().timestamp() - agent.started_at,
+                token_usage: agent.token_usage.clone(),
+                tool_calls_count: agent.tool_calls_count,
+                current_turn: agent.current_turn,
+                max_turns: agent.max_turns,
+                turn_progress: if agent.max_turns > 0 {
+                    (agent.current_turn as f32 / agent.max_turns as f32) * 100.0
+                } else {
+                    0.0
+                },
+            })
+        } else {
+            Err(format!("Agent {} not found", agent_id))
+        }
+    }
+
+    /// 获取所有 Native Agent 的汇总统计
+    pub fn get_all_native_agents_stats(&self) -> Vec<NativeAgentStats> {
+        self.agents
+            .values()
+            .filter(|agent| agent.is_native)
+            .filter_map(|agent| self.get_native_agent_stats(&agent.agent_id).ok())
+            .collect()
     }
 
     /// 标记任务完成
@@ -357,11 +492,7 @@ impl DaemonManager {
 
     /// 获取可用的并发槽位数
     pub fn available_slots(&self) -> usize {
-        if self.running_count >= self.max_concurrent {
-            0
-        } else {
-            self.max_concurrent - self.running_count
-        }
+        self.max_concurrent.saturating_sub(self.running_count)
     }
 
     /// 尝试启动 Agent（受并发限制）
@@ -387,12 +518,12 @@ impl DaemonManager {
                 Ok(_) => {
                     self.running_agents.insert(agent_id.to_string());
                     self.running_count += 1;
-                    
+
                     // 更新 Agent 状态为 Running
                     if let Some(agent) = self.agents.get_mut(agent_id) {
                         agent.status = AgentStatus::Running;
                     }
-                    
+
                     log::info!("Agent {} started successfully", agent_id);
                     true
                 }
@@ -409,12 +540,12 @@ impl DaemonManager {
             // 加入等待队列
             if !self.agent_queue.contains(&agent_id.to_string()) {
                 self.agent_queue.push(agent_id.to_string());
-                
+
                 // 更新 Agent 状态为 Idle (等待中)
                 if let Some(agent) = self.agents.get_mut(agent_id) {
                     agent.status = AgentStatus::Idle;
                 }
-                
+
                 log::info!("Agent {} queued (no available slots)", agent_id);
             }
             false
@@ -467,7 +598,7 @@ impl DaemonManager {
         while self.can_spawn_agent() && !self.agent_queue.is_empty() {
             if let Some(next_agent_id) = self.agent_queue.first().cloned() {
                 self.agent_queue.remove(0);
-                
+
                 // 启动该 Agent
                 let agent_type = if let Some(agent) = self.agents.get(&next_agent_id) {
                     agent.agent_type.clone()
@@ -480,12 +611,12 @@ impl DaemonManager {
                     Ok(_) => {
                         self.running_agents.insert(next_agent_id.clone());
                         self.running_count += 1;
-                        
+
                         // 更新 Agent 状态
                         if let Some(agent) = self.agents.get_mut(&next_agent_id) {
                             agent.status = AgentStatus::Running;
                         }
-                        
+
                         log::info!("Scheduled agent {} started", next_agent_id);
                     }
                     Err(e) => {
@@ -545,12 +676,11 @@ impl DaemonManager {
                 self.running_agents.remove(&agent_id);
                 self.agent_queue.push(agent_id);
             }
-            
+
             self.running_count = new_limit;
         } else {
             // 如果新限制更大，尝试启动更多 Agent
             self.schedule_next_agent();
-
         }
 
         Ok(())
@@ -566,14 +696,65 @@ impl DaemonManager {
         self.running_agents.iter().collect()
     }
 
+    /// 暂停指定的 Native Agent
+    /// 注意：CLI Agent 不支持暂停，只能通过 kill 终止
+    pub fn pause_native_agent(&mut self, agent_id: &str) -> Result<(), String> {
+        if let Some(agent) = self.agents.get_mut(agent_id) {
+            if !agent.is_native {
+                return Err(format!(
+                    "Agent {} is not a Native Agent, cannot pause",
+                    agent_id
+                ));
+            }
+
+            if agent.status == AgentStatus::Running {
+                agent.status = AgentStatus::Idle; // 使用 Idle 表示暂停状态
+                log::info!("Native Agent {} paused", agent_id);
+                Ok(())
+            } else {
+                Err(format!(
+                    "Agent {} is not running (current status: {:?})",
+                    agent_id, agent.status
+                ))
+            }
+        } else {
+            Err(format!("Agent {} not found", agent_id))
+        }
+    }
+
+    /// 恢复指定的 Native Agent
+    pub fn resume_native_agent(&mut self, agent_id: &str) -> Result<(), String> {
+        if let Some(agent) = self.agents.get_mut(agent_id) {
+            if !agent.is_native {
+                return Err(format!(
+                    "Agent {} is not a Native Agent, cannot resume",
+                    agent_id
+                ));
+            }
+
+            if agent.status == AgentStatus::Idle {
+                agent.status = AgentStatus::Running;
+                log::info!("Native Agent {} resumed", agent_id);
+                Ok(())
+            } else {
+                Err(format!(
+                    "Agent {} is not paused (current status: {:?})",
+                    agent_id, agent.status
+                ))
+            }
+        } else {
+            Err(format!("Agent {} not found", agent_id))
+        }
+    }
+
     /// 检查并更新已完成或失败的 Agent 进程
     /// 返回已完成的 Agent ID 列表
     pub fn check_completed_agents(&mut self) -> Vec<String> {
         let mut completed_ids = Vec::new();
-        
+
         for (agent_id, child_arc) in &self.child_processes {
             let mut child_guard = futures::executor::block_on(child_arc.lock());
-            
+
             if let Some(ref mut child) = *child_guard {
                 // 尝试检查进程是否已结束
                 match child.try_wait() {
@@ -584,24 +765,29 @@ impl DaemonManager {
                             agent_id,
                             status
                         );
-                        
+
                         // 更新 Agent 状态
                         if let Some(agent) = self.agents.get_mut(agent_id) {
                             if status.success() {
                                 agent.status = AgentStatus::Completed;
                                 log::info!("[Daemon] Agent {} completed successfully", agent_id);
                             } else {
-                                agent.status = AgentStatus::Failed("Process exited with error".to_string());
-                                log::warn!("[Daemon] Agent {} failed with status: {:?}", agent_id, status);
+                                agent.status =
+                                    AgentStatus::Failed("Process exited with error".to_string());
+                                log::warn!(
+                                    "[Daemon] Agent {} failed with status: {:?}",
+                                    agent_id,
+                                    status
+                                );
                             }
                         }
-                        
+
                         completed_ids.push(agent_id.clone());
-                        
+
                         // 从 running_agents 中移除
                         self.running_agents.remove(agent_id);
                         self.running_count = self.running_count.saturating_sub(1);
-                        
+
                         // 清理进程句柄
                         *child_guard = None;
                     }
@@ -614,41 +800,42 @@ impl DaemonManager {
                 }
             }
         }
-        
+
         // 清理已完成的进程句柄
         for agent_id in &completed_ids {
             self.child_processes.remove(agent_id);
         }
-        
+
         if !completed_ids.is_empty() {
-            log::info!("[Daemon] Found {} completed agents: {:?}", completed_ids.len(), completed_ids);
+            log::info!(
+                "[Daemon] Found {} completed agents: {:?}",
+                completed_ids.len(),
+                completed_ids
+            );
         }
-        
+
         completed_ids
     }
 
     /// 启动后台监控任务，定期检查 Agent 状态
     /// 注意：此方法需要在 tokio runtime 中调用
-    pub async fn start_monitoring(
-        &self,
-        check_interval_secs: u64,
-    ) -> Result<(), String> {
+    pub async fn start_monitoring(&self, check_interval_secs: u64) -> Result<(), String> {
         log::info!(
             "[Daemon] Starting agent monitoring task with {}s interval",
             check_interval_secs
         );
-        
+
         // 克隆必要的引用以供异步任务使用
         // 注意：实际使用时需要通过 Arc<Mutex<DaemonManager>> 共享状态
         // 这里仅提供接口设计，具体实现在 AgentManager 层
-        
+
         Ok(())
     }
 
     /// 在指定 Worktree 中生成新的 Agent 进程 (深度集成版本)
     pub fn spawn_agent_in_worktree(
-        &mut self, 
-        agent_type: &str, 
+        &mut self,
+        agent_type: &str,
         worktree_path: &str,
         story_id: &str,
     ) -> Result<String, String> {
@@ -662,7 +849,7 @@ impl DaemonManager {
         }
 
         let agent_id = format!("{}-{}", agent_type, uuid::Uuid::new_v4());
-        
+
         // 根据 Agent 类型选择对应的 CLI 工具
         let cli_command = if std::env::var("HARNESS_TEST_MODE").is_ok() {
             if cfg!(windows) {
@@ -688,7 +875,7 @@ impl DaemonManager {
         let child_result = if std::env::var("HARNESS_TEST_MODE").is_ok() {
             if cfg!(windows) {
                 StdCommand::new(cli_command)
-                    .args(&["-n", "9999", "127.0.0.1"])
+                    .args(["-n", "9999", "127.0.0.1"])
                     .current_dir(worktree_path)
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
@@ -706,7 +893,7 @@ impl DaemonManager {
         } else {
             // 生产模式: 从数据库查询 Story 详细信息并构建 AICLIConfig
             let story_info = self.get_story_context(story_id)?;
-            
+
             let ai_config = AICLIConfig {
                 command: cli_command.to_string(),
                 working_dir: worktree_path.to_string(),
@@ -714,16 +901,17 @@ impl DaemonManager {
                 story_title: story_info.title,
                 acceptance_criteria: story_info.acceptance_criteria,
                 agent_type: agent_type.to_string(),
-                extra_args: vec![
-                    "--worktree".to_string(),
-                    worktree_path.to_string(),
-                ],
+                extra_args: vec!["--worktree".to_string(), worktree_path.to_string()],
             };
-            
+
             let args = ai_config.build_args();
-            
-            log::info!("[Daemon] Building CLI command for worktree with full context: {} {:?}", cli_command, args);
-            
+
+            log::info!(
+                "[Daemon] Building CLI command for worktree with full context: {} {:?}",
+                cli_command,
+                args
+            );
+
             StdCommand::new(cli_command)
                 .args(&args)
                 .current_dir(worktree_path)
@@ -747,7 +935,7 @@ impl DaemonManager {
                 let child_arc = Arc::new(Mutex::new(Some(child)));
                 self.child_processes.insert(agent_id.clone(), child_arc);
 
-                // 创建 Agent 信息
+                // 创建 Agent 信息（CLI Agent）
                 let agent_info = AgentProcessInfo {
                     agent_id: agent_id.clone(),
                     agent_type: agent_type.to_string(),
@@ -755,23 +943,29 @@ impl DaemonManager {
                     status: AgentStatus::Running,
                     started_at: chrono::Utc::now().timestamp(),
                     resource_usage: ResourceUsage::default(),
+                    // Native Agent 字段
+                    is_native: false,
+                    token_usage: None,
+                    tool_calls_count: 0,
+                    current_turn: 0,
+                    max_turns: 0,
                 };
 
                 self.agents.insert(agent_id.clone(), agent_info);
                 self.pending_tasks.push(agent_id.clone());
-                
+
                 log::info!(
                     "[Daemon] Agent {} info stored with worktree: {}, story: {}",
                     agent_id,
                     worktree_path,
                     story_id
                 );
-                
+
                 Ok(agent_id)
             }
             Err(e) => {
                 let error_msg = format!(
-                    "Failed to spawn {} agent in worktree {}: {}. Please ensure {} is installed.", 
+                    "Failed to spawn {} agent in worktree {}: {}. Please ensure {} is installed.",
                     agent_type, worktree_path, e, cli_command
                 );
                 log::error!("{}", error_msg);
@@ -783,12 +977,13 @@ impl DaemonManager {
     /// 从数据库获取 Story 的上下文信息
     fn get_story_context(&self, story_id: &str) -> Result<StoryContext, String> {
         use crate::db;
-        
-        let conn = db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
-        
+
+        let conn = db::get_connection()
+            .map_err(|e| format!("Failed to get database connection: {}", e))?;
+
         let story = db::get_user_story_by_id(&conn, story_id)
             .map_err(|e| format!("Failed to query story {}: {}", story_id, e))?;
-        
+
         match story {
             Some(s) => {
                 log::info!(
@@ -797,7 +992,7 @@ impl DaemonManager {
                     s.title,
                     s.acceptance_criteria.len()
                 );
-                
+
                 Ok(StoryContext {
                     title: Some(s.title),
                     // acceptance_criteria 是 String 类型,如果为空字符串则返回 None
@@ -809,7 +1004,10 @@ impl DaemonManager {
                 })
             }
             None => {
-                log::warn!("[Daemon] Story {} not found in database, using empty context", story_id);
+                log::warn!(
+                    "[Daemon] Story {} not found in database, using empty context",
+                    story_id
+                );
                 Ok(StoryContext {
                     title: None,
                     acceptance_criteria: None,
@@ -836,7 +1034,7 @@ impl DaemonManager {
         }
 
         let agent_id = format!("{}-{}", agent_type, uuid::Uuid::new_v4());
-        
+
         // 根据 Agent 类型选择对应的 CLI 工具
         let cli_command = if std::env::var("HARNESS_TEST_MODE").is_ok() {
             if cfg!(windows) {
@@ -860,7 +1058,7 @@ impl DaemonManager {
 
         // 从数据库查询 Story 详细信息
         let story_info = self.get_story_context(story_id)?;
-        
+
         // 构建 AICLIConfig
         let ai_config = AICLIConfig {
             command: cli_command.to_string(),
@@ -869,16 +1067,17 @@ impl DaemonManager {
             story_title: story_info.title,
             acceptance_criteria: story_info.acceptance_criteria,
             agent_type: agent_type.to_string(),
-            extra_args: vec![
-                "--worktree".to_string(),
-                worktree_path.to_string(),
-            ],
+            extra_args: vec!["--worktree".to_string(), worktree_path.to_string()],
         };
-        
+
         let args = ai_config.build_args();
-        
-        log::info!("[Daemon] Building CLI command with full context: {} {:?}", cli_command, args);
-        
+
+        log::info!(
+            "[Daemon] Building CLI command with full context: {} {:?}",
+            cli_command,
+            args
+        );
+
         // 使用 tokio::process::Command 启动进程
         let child_result = tokio::process::Command::new(cli_command)
             .args(&args)
@@ -900,22 +1099,27 @@ impl DaemonManager {
 
                 // 创建 AICLIInteraction 并启动 STDIO 监听
                 let interaction = AICLIInteraction::new(child, agent_id.clone(), message_tx);
-                
+
                 // 在后台启动异步监听任务 (带 30 分钟超时)
                 let agent_id_for_log = agent_id.clone();
                 let interaction_clone = interaction.clone();
                 tokio::spawn(async move {
                     // 使用 30 分钟超时 (1800 秒)
                     if let Err(e) = interaction_clone.start_listening_with_timeout(1800).await {
-                        log::error!("[Daemon] Failed to start listening for agent {}: {}", agent_id_for_log, e);
+                        log::error!(
+                            "[Daemon] Failed to start listening for agent {}: {}",
+                            agent_id_for_log,
+                            e
+                        );
                     }
                 });
 
                 // 存储交互管理器
                 let interaction_arc = Arc::new(Mutex::new(Some(interaction)));
-                self.ai_interactions.insert(agent_id.clone(), interaction_arc);
+                self.ai_interactions
+                    .insert(agent_id.clone(), interaction_arc);
 
-                // 创建 Agent 信息
+                // 创建 Agent 信息（CLI Agent with STDIO）
                 let agent_info = AgentProcessInfo {
                     agent_id: agent_id.clone(),
                     agent_type: agent_type.to_string(),
@@ -923,23 +1127,29 @@ impl DaemonManager {
                     status: AgentStatus::Running,
                     started_at: chrono::Utc::now().timestamp(),
                     resource_usage: ResourceUsage::default(),
+                    // Native Agent 字段
+                    is_native: false,
+                    token_usage: None,
+                    tool_calls_count: 0,
+                    current_turn: 0,
+                    max_turns: 0,
                 };
 
                 self.agents.insert(agent_id.clone(), agent_info);
                 self.pending_tasks.push(agent_id.clone());
-                
+
                 log::info!(
                     "[Daemon] Agent {} info stored with worktree: {}, story: {}, STDIO monitoring enabled",
                     agent_id,
                     worktree_path,
                     story_id
                 );
-                
+
                 Ok(agent_id)
             }
             Err(e) => {
                 let error_msg = format!(
-                    "Failed to spawn {} agent in worktree {}: {}. Please ensure {} is installed.", 
+                    "Failed to spawn {} agent in worktree {}: {}. Please ensure {} is installed.",
                     agent_type, worktree_path, e, cli_command
                 );
                 log::error!("{}", error_msg);

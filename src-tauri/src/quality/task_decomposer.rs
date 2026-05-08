@@ -1,14 +1,13 @@
 #![allow(dead_code)]
 
 /// US-032: 智能任务分解与依赖识别
-/// 
+///
 /// 基于 PRD 功能点列表，智能分解为技术任务并识别依赖关系：
 /// - 任务分解（前端/后端/数据库/测试）
 /// - 依赖识别（模块依赖/技术依赖/数据流依赖）
 /// - 优先级排序（基于依赖和复杂度）
 /// - 工时估算（详细到每个任务）
 /// - 关键路径计算
-
 use serde::{Deserialize, Serialize};
 
 /// 任务类型枚举
@@ -124,52 +123,57 @@ impl TaskDependencyGraph {
     /// 计算统计数据
     pub fn calculate_statistics(&mut self) {
         self.statistics.total_tasks = self.tasks.len() as u32;
-        
-        self.statistics.frontend_tasks = self.tasks.iter()
+
+        self.statistics.frontend_tasks = self
+            .tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Frontend))
             .count() as u32;
-        
-        self.statistics.backend_tasks = self.tasks.iter()
+
+        self.statistics.backend_tasks = self
+            .tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Backend))
             .count() as u32;
-        
-        self.statistics.database_tasks = self.tasks.iter()
+
+        self.statistics.database_tasks = self
+            .tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Database))
             .count() as u32;
-        
-        self.statistics.testing_tasks = self.tasks.iter()
+
+        self.statistics.testing_tasks = self
+            .tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Testing))
             .count() as u32;
-        
+
         if !self.tasks.is_empty() {
-            self.statistics.average_hours = self.tasks.iter()
-                .map(|t| t.estimated_hours)
-                .sum::<f32>() / self.tasks.len() as f32;
-            
-            self.statistics.average_complexity = self.tasks.iter()
-                .map(|t| t.complexity as f32)
-                .sum::<f32>() / self.tasks.len() as f32;
+            self.statistics.average_hours =
+                self.tasks.iter().map(|t| t.estimated_hours).sum::<f32>() / self.tasks.len() as f32;
+
+            self.statistics.average_complexity =
+                self.tasks.iter().map(|t| t.complexity as f32).sum::<f32>()
+                    / self.tasks.len() as f32;
         }
-        
-        self.total_estimated_hours = self.tasks.iter()
-            .map(|t| t.estimated_hours)
-            .sum();
+
+        self.total_estimated_hours = self.tasks.iter().map(|t| t.estimated_hours).sum();
     }
 
     /// 计算关键路径（简化版）
     pub fn calculate_critical_path(&mut self) {
         // TODO: 实现完整的关路径算法（CPM）
         // 这里使用简化版本：按依赖关系排序
-        
+
         let mut visited = std::collections::HashSet::new();
         let mut path = Vec::new();
-        
+
         for task in &self.tasks {
             if task.dependencies.is_empty() && !visited.contains(&task.id) {
                 self.dfs_critical_path(task.id.clone(), &mut visited, &mut path);
             }
         }
-        
+
         self.critical_path = path;
     }
 
@@ -182,10 +186,10 @@ impl TaskDependencyGraph {
         if visited.contains(&task_id) {
             return;
         }
-        
+
         visited.insert(task_id.clone());
         path.push(task_id.clone());
-        
+
         // 查找依赖当前任务的所有任务
         for edge in &self.edges {
             if edge.from_task == task_id {
@@ -210,22 +214,22 @@ impl TaskDecomposer {
         features: &[crate::quality::prd_deep_analyzer::Feature],
     ) -> Result<TaskDependencyGraph, Box<dyn std::error::Error>> {
         let mut graph = TaskDependencyGraph::empty();
-        
+
         // 为每个功能点生成技术任务
         for feature in features {
             let tasks = self.generate_tasks_for_feature(feature);
             graph.tasks.extend(tasks);
         }
-        
+
         // 识别依赖关系
         graph.edges = self.identify_dependencies(&graph.tasks);
-        
+
         // 计算统计数据
         graph.calculate_statistics();
-        
+
         // 计算关键路径
         graph.calculate_critical_path();
-        
+
         Ok(graph)
     }
 
@@ -236,12 +240,12 @@ impl TaskDecomposer {
     ) -> Vec<TechnicalTask> {
         let mut tasks = Vec::new();
         let mut task_counter = 1;
-        
+
         // 根据功能类型生成不同类型的任务
         match feature.feature_type {
             crate::quality::prd_deep_analyzer::FeatureType::Core => {
                 // 核心功能：完整的开发流程
-                
+
                 // 数据库任务
                 tasks.push(TechnicalTask {
                     id: format!("T{}-DB", task_counter),
@@ -256,7 +260,7 @@ impl TaskDecomposer {
                     skills: vec!["SQL".to_string(), "Database Design".to_string()],
                 });
                 task_counter += 1;
-                
+
                 // 后端任务
                 tasks.push(TechnicalTask {
                     id: format!("T{}-BE-API", task_counter),
@@ -271,7 +275,7 @@ impl TaskDecomposer {
                     skills: vec!["Rust".to_string(), "API Design".to_string()],
                 });
                 task_counter += 1;
-                
+
                 // 前端任务
                 tasks.push(TechnicalTask {
                     id: format!("T{}-FE-UI", task_counter),
@@ -286,7 +290,7 @@ impl TaskDecomposer {
                     skills: vec!["React".to_string(), "TypeScript".to_string()],
                 });
                 task_counter += 1;
-                
+
                 // 测试任务
                 tasks.push(TechnicalTask {
                     id: format!("T{}-TEST", task_counter),
@@ -304,10 +308,10 @@ impl TaskDecomposer {
                     skills: vec!["Testing".to_string(), "Vitest".to_string()],
                 });
             }
-            
+
             crate::quality::prd_deep_analyzer::FeatureType::Auxiliary => {
                 // 辅助功能：简化的开发流程
-                
+
                 // 后端任务
                 tasks.push(TechnicalTask {
                     id: format!("T{}-BE", task_counter),
@@ -322,7 +326,7 @@ impl TaskDecomposer {
                     skills: vec!["Rust".to_string()],
                 });
                 task_counter += 1;
-                
+
                 // 前端任务
                 tasks.push(TechnicalTask {
                     id: format!("T{}-FE", task_counter),
@@ -337,10 +341,10 @@ impl TaskDecomposer {
                     skills: vec!["React".to_string()],
                 });
             }
-            
+
             crate::quality::prd_deep_analyzer::FeatureType::Enhanced => {
                 // 增强功能：最简化的开发流程
-                
+
                 tasks.push(TechnicalTask {
                     id: format!("T{}-ENH", task_counter),
                     title: format!("{} - 增强实现", feature.name),
@@ -355,27 +359,30 @@ impl TaskDecomposer {
                 });
             }
         }
-        
+
         tasks
     }
 
     /// 识别任务间的依赖关系
     fn identify_dependencies(&self, tasks: &[TechnicalTask]) -> Vec<DependencyEdge> {
         let mut edges = Vec::new();
-        
+
         // 基于任务类型的依赖规则
-        let db_tasks: Vec<_> = tasks.iter()
+        let db_tasks: Vec<_> = tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Database))
             .collect();
-        
-        let be_tasks: Vec<_> = tasks.iter()
+
+        let be_tasks: Vec<_> = tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Backend))
             .collect();
-        
-        let fe_tasks: Vec<_> = tasks.iter()
+
+        let fe_tasks: Vec<_> = tasks
+            .iter()
             .filter(|t| matches!(t.task_type, TaskType::Frontend))
             .collect();
-        
+
         // 数据库 → 后端依赖
         for db_task in db_tasks {
             for be_task in &be_tasks {
@@ -389,7 +396,7 @@ impl TaskDecomposer {
                 }
             }
         }
-        
+
         // 后端 → 前端依赖
         for be_task in be_tasks {
             for fe_task in &fe_tasks {
@@ -403,7 +410,7 @@ impl TaskDecomposer {
                 }
             }
         }
-        
+
         edges
     }
 }
@@ -422,7 +429,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         let graph = TaskDependencyGraph::empty();
-        
+
         assert_eq!(graph.tasks.len(), 0);
         assert_eq!(graph.edges.len(), 0);
         assert_eq!(graph.statistics.total_tasks, 0);
@@ -431,22 +438,20 @@ mod tests {
     #[tokio::test]
     async fn test_decompose_core_feature() {
         let decomposer = TaskDecomposer::new();
-        
-        let features = vec![
-            Feature {
-                id: "F001".to_string(),
-                name: "用户管理".to_string(),
-                description: "用户 CRUD 操作".to_string(),
-                feature_type: FeatureType::Core,
-                complexity: 3,
-                estimated_hours: 6.0,
-                priority: 8,
-                dependencies: vec![],
-            }
-        ];
-        
+
+        let features = vec![Feature {
+            id: "F001".to_string(),
+            name: "用户管理".to_string(),
+            description: "用户 CRUD 操作".to_string(),
+            feature_type: FeatureType::Core,
+            complexity: 3,
+            estimated_hours: 6.0,
+            priority: 8,
+            dependencies: vec![],
+        }];
+
         let graph = decomposer.decompose_features(&features).await.unwrap();
-        
+
         // 核心功能应该生成至少 4 个任务（DB/BE/FE/TEST）
         assert!(graph.tasks.len() >= 4);
         assert!(graph.statistics.backend_tasks > 0);
@@ -456,7 +461,7 @@ mod tests {
     #[tokio::test]
     async fn test_decompose_mixed_features() {
         let decomposer = TaskDecomposer::new();
-        
+
         let features = vec![
             Feature {
                 id: "F001".to_string(),
@@ -479,10 +484,10 @@ mod tests {
                 dependencies: vec![],
             },
         ];
-        
+
         let mut graph = decomposer.decompose_features(&features).await.unwrap();
         graph.calculate_statistics();
-        
+
         assert!(graph.tasks.len() >= 6); // Core(4) + Auxiliary(2)
         assert!(graph.statistics.total_tasks >= 6);
     }
@@ -490,7 +495,7 @@ mod tests {
     #[test]
     fn test_calculate_statistics() {
         let mut graph = TaskDependencyGraph::empty();
-        
+
         graph.tasks.push(TechnicalTask {
             id: "T1".to_string(),
             title: "Backend Task".to_string(),
@@ -503,7 +508,7 @@ mod tests {
             complexity: 3,
             skills: vec!["Rust".to_string()],
         });
-        
+
         graph.tasks.push(TechnicalTask {
             id: "T2".to_string(),
             title: "Frontend Task".to_string(),
@@ -516,9 +521,9 @@ mod tests {
             complexity: 2,
             skills: vec!["React".to_string()],
         });
-        
+
         graph.calculate_statistics();
-        
+
         assert_eq!(graph.statistics.total_tasks, 2);
         assert_eq!(graph.statistics.backend_tasks, 1);
         assert_eq!(graph.statistics.frontend_tasks, 1);

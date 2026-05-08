@@ -1,5 +1,5 @@
 //! Git Commit Assistant 类型定义
-//! 
+//!
 //! 包含提交类型、变更类型、变更信息、提交信息等核心数据结构
 
 use serde::{Deserialize, Serialize};
@@ -126,9 +126,16 @@ impl CommitMessage {
     ) -> Self {
         let scope = None;
         let breaking_changes = vec![];
-        
+
         // 格式化：type(scope): summary\n\ndescription\n\nBREAKING CHANGE: ...\n\nChanged files: ...
-        let formatted = Self::format_commit_message(&commit_type, &scope, &summary, &description, &breaking_changes, &changed_files);
+        let formatted = Self::format_commit_message(
+            &commit_type,
+            &scope,
+            &summary,
+            &description,
+            &breaking_changes,
+            &changed_files,
+        );
 
         Self {
             commit_type,
@@ -150,7 +157,14 @@ impl CommitMessage {
         changed_files: Vec<String>,
     ) -> Self {
         let breaking_changes = vec![];
-        let formatted = Self::format_commit_message(&commit_type, &Some(scope.clone()), &summary, &description, &breaking_changes, &changed_files);
+        let formatted = Self::format_commit_message(
+            &commit_type,
+            &Some(scope.clone()),
+            &summary,
+            &description,
+            &breaking_changes,
+            &changed_files,
+        );
 
         Self {
             commit_type,

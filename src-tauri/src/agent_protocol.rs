@@ -1,7 +1,7 @@
 //! Agent 通信协议定义（向后兼容的重导出模块）
-//! 
+//!
 //! 本模块已重构为多模块结构，详细内容请查看 agent/ 子模块
-//! 
+//!
 //! 模块结构:
 //! - types: 基础类型定义 (AgentPhase, AgentStatus, AgentConfig 等)
 //! - messages: 消息结构 (AgentRequest, AgentResponse, AgentMessage 等)

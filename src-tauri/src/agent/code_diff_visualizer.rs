@@ -1,5 +1,5 @@
 //! Code Diff Visualizer 实现
-//! 
+//!
 //! 负责解析 Git diff 输出并生成可视化的对比数据
 
 use serde::{Deserialize, Serialize};
@@ -125,7 +125,10 @@ impl CodeDiffVisualizer {
     pub fn with_config(config: CodeDiffVisualizerConfig) -> Result<Self, String> {
         let workspace_root = PathBuf::from(&config.project_path);
         if !workspace_root.exists() {
-            return Err(format!("Project path does not exist: {}", config.project_path));
+            return Err(format!(
+                "Project path does not exist: {}",
+                config.project_path
+            ));
         }
 
         Ok(Self {
@@ -152,10 +155,10 @@ impl CodeDiffVisualizer {
         }
 
         let diff_output = String::from_utf8_lossy(&output.stdout).to_string();
-        
+
         // 解析 unified diff
         let mut file_diff = self.parse_unified_diff(&diff_output, file_path)?;
-        
+
         // 计算统计信息
         file_diff.stats = self.calculate_stats(&file_diff.hunks);
 
@@ -163,7 +166,11 @@ impl CodeDiffVisualizer {
     }
 
     /// 解析 unified diff 输出
-    pub fn parse_unified_diff(&self, diff_output: &str, file_path: &str) -> Result<FileDiff, String> {
+    pub fn parse_unified_diff(
+        &self,
+        diff_output: &str,
+        file_path: &str,
+    ) -> Result<FileDiff, String> {
         let mut hunks = Vec::new();
         let mut current_hunk: Option<DiffHunk> = None;
         let mut old_line_num = 0u32;
@@ -195,7 +202,7 @@ impl CodeDiffVisualizer {
 
                 // 解析新的 hunk header
                 let (old_start, old_count, new_start, new_count) = self.parse_hunk_header(line)?;
-                
+
                 // 重置行号计数器
                 old_line_num = old_start;
                 new_line_num = new_start;
@@ -273,28 +280,27 @@ impl CodeDiffVisualizer {
     fn parse_hunk_header(&self, header: &str) -> Result<(u32, u32, u32, u32), String> {
         // 格式：@@ -old_start,old_count +new_start,new_count @@
         // 例如：@@ -10,7 +10,8 @@
-        
+
         // 去掉首尾的 @@
         let trimmed = header.trim();
         if !trimmed.starts_with("@@") || !trimmed.ends_with("@@") {
             return Err(format!("Invalid hunk header: {}", header));
         }
-        
+
         // 提取中间部分：-old_start,old_count +new_start,new_count
-        let content = &trimmed[2..(trimmed.len()-2)].trim();
-        
+        let content = &trimmed[2..(trimmed.len() - 2)].trim();
+
         let mut old_start = 1u32;
         let mut old_count = 1u32;
         let mut new_start = 1u32;
         let mut new_count = 1u32;
-        
+
         // 分割为两部分：-old_start,old_count 和 +new_start,new_count
         let parts: Vec<&str> = content.split_whitespace().collect();
-        
+
         for part in parts {
-            if part.starts_with('-') {
+            if let Some(range) = part.strip_prefix('-') {
                 // 解析旧文件范围：-10,7
-                let range = &part[1..];
                 let nums: Vec<&str> = range.split(',').collect();
                 if !nums.is_empty() {
                     old_start = nums[0].parse().unwrap_or(1);
@@ -302,9 +308,8 @@ impl CodeDiffVisualizer {
                         old_count = nums[1].parse().unwrap_or(1);
                     }
                 }
-            } else if part.starts_with('+') {
+            } else if let Some(range) = part.strip_prefix('+') {
                 // 解析新文件范围：+10,8
-                let range = &part[1..];
                 let nums: Vec<&str> = range.split(',').collect();
                 if !nums.is_empty() {
                     new_start = nums[0].parse().unwrap_or(1);
@@ -314,7 +319,7 @@ impl CodeDiffVisualizer {
                 }
             }
         }
-        
+
         Ok((old_start, old_count, new_start, new_count))
     }
 
@@ -452,7 +457,8 @@ mod tests {
         let visualizer = CodeDiffVisualizer::new(temp_dir).unwrap();
 
         let header = "@@ -10,7 +10,8 @@";
-        let (old_start, old_count, new_start, new_count) = visualizer.parse_hunk_header(header).unwrap();
+        let (old_start, old_count, new_start, new_count) =
+            visualizer.parse_hunk_header(header).unwrap();
 
         // 实际解析结果
         assert_eq!(old_start, 10);
@@ -467,7 +473,8 @@ mod tests {
         let visualizer = CodeDiffVisualizer::new(temp_dir).unwrap();
 
         let header = "@@ -5 +5 @@";
-        let (old_start, old_count, new_start, new_count) = visualizer.parse_hunk_header(header).unwrap();
+        let (old_start, old_count, new_start, new_count) =
+            visualizer.parse_hunk_header(header).unwrap();
 
         // 单行格式默认为 count=1
         assert_eq!(old_start, 5);
@@ -594,9 +601,27 @@ mod tests {
 
         // 实际：7 行（5 个上下文，1 个删除，1 个新增）
         assert_eq!(lines.len(), 7);
-        assert!(lines.iter().filter(|l| l.change_type == LineChangeType::Unchanged).count() == 5);
-        assert!(lines.iter().filter(|l| l.change_type == LineChangeType::Removed).count() == 1);
-        assert!(lines.iter().filter(|l| l.change_type == LineChangeType::Added).count() == 1);
+        assert!(
+            lines
+                .iter()
+                .filter(|l| l.change_type == LineChangeType::Unchanged)
+                .count()
+                == 5
+        );
+        assert!(
+            lines
+                .iter()
+                .filter(|l| l.change_type == LineChangeType::Removed)
+                .count()
+                == 1
+        );
+        assert!(
+            lines
+                .iter()
+                .filter(|l| l.change_type == LineChangeType::Added)
+                .count()
+                == 1
+        );
     }
 
     #[test]
@@ -621,7 +646,7 @@ mod tests {
         // line6 modified: old=None, new=6 (新增)
         // new line: old=None, new=7 (新增)
         // line7: old=7, new=8 (上下文)
-        
+
         assert_eq!(lines.len(), 5);
         assert_eq!(lines[0].line_number_old, Some(5));
         assert_eq!(lines[0].line_number_new, Some(5));
@@ -644,35 +669,33 @@ mod tests {
             file_path: "test.txt".to_string(),
             old_path: None,
             new_path: None,
-            hunks: vec![
-                DiffHunk {
-                    header: "@@ -1,2 +1,3 @@".to_string(),
-                    lines: vec![
-                        DiffLine {
-                            line_number_old: Some(1),
-                            line_number_new: Some(1),
-                            content: "line1".to_string(),
-                            change_type: LineChangeType::Unchanged,
-                        },
-                        DiffLine {
-                            line_number_old: Some(2),
-                            line_number_new: None,
-                            content: "line2".to_string(),
-                            change_type: LineChangeType::Removed,
-                        },
-                        DiffLine {
-                            line_number_old: None,
-                            line_number_new: Some(2),
-                            content: "line2 new".to_string(),
-                            change_type: LineChangeType::Added,
-                        },
-                    ],
-                    old_start: 1,
-                    old_count: 2,
-                    new_start: 1,
-                    new_count: 3,
-                },
-            ],
+            hunks: vec![DiffHunk {
+                header: "@@ -1,2 +1,3 @@".to_string(),
+                lines: vec![
+                    DiffLine {
+                        line_number_old: Some(1),
+                        line_number_new: Some(1),
+                        content: "line1".to_string(),
+                        change_type: LineChangeType::Unchanged,
+                    },
+                    DiffLine {
+                        line_number_old: Some(2),
+                        line_number_new: None,
+                        content: "line2".to_string(),
+                        change_type: LineChangeType::Removed,
+                    },
+                    DiffLine {
+                        line_number_old: None,
+                        line_number_new: Some(2),
+                        content: "line2 new".to_string(),
+                        change_type: LineChangeType::Added,
+                    },
+                ],
+                old_start: 1,
+                old_count: 2,
+                new_start: 1,
+                new_count: 3,
+            }],
             stats: DiffStats {
                 total_lines: 3,
                 additions: 1,
@@ -685,16 +708,16 @@ mod tests {
 
         assert_eq!(view.left_lines.len(), 3);
         assert_eq!(view.right_lines.len(), 3);
-        
+
         // 检查第一行（未变更）
         assert_eq!(view.left_lines[0].content, "line1");
         assert_eq!(view.right_lines[0].content, "line1");
-        
+
         // 检查第二行（左侧删除，右侧空白）
         assert_eq!(view.left_lines[1].content, "line2");
         assert_eq!(view.left_lines[1].change_type, LineChangeType::Removed);
         assert_eq!(view.right_lines[1].content, "");
-        
+
         // 检查第三行（左侧空白，右侧新增）
         assert_eq!(view.left_lines[2].content, "");
         assert_eq!(view.right_lines[2].content, "line2 new");

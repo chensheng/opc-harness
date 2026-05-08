@@ -1,8 +1,7 @@
 /// PRD 一致性检查器
-/// 
+///
 /// 用于检查 PRD（产品需求文档）的一致性
 /// 检测不同章节之间的矛盾和不一致之处
-
 use serde::{Deserialize, Serialize};
 
 /// 不一致性类型
@@ -10,29 +9,24 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum InconsistencyType {
     /// 目标用户与功能不匹配
-    UserNotServed {
-        user: String,
-    },
-    
+    UserNotServed { user: String },
+
     /// 技术栈与功能需求不匹配
     TechStackMismatch {
         feature: String,
         required_techs: Vec<String>,
         missing_techs: Vec<String>,
     },
-    
+
     /// 工作量低估
     EffortUnderestimate {
         complexity_score: f64,
         estimated_hours: f64,
     },
-    
+
     /// 术语不一致
-    TerminologyInconsistent {
-        term: String,
-        variants: Vec<String>,
-    },
-    
+    TerminologyInconsistent { term: String, variants: Vec<String> },
+
     /// 章节间逻辑矛盾
     LogicalContradiction {
         section1: String,
@@ -188,18 +182,12 @@ impl PRDConsistencyChecker {
         );
 
         // 4. 检查术语一致性
-        let terminology_score = self.check_terminology_consistency(
-            prd,
-            &mut inconsistencies,
-            &mut suggestions,
-        );
+        let terminology_score =
+            self.check_terminology_consistency(prd, &mut inconsistencies, &mut suggestions);
 
         // 5. 检查逻辑一致性
-        let logical_score = self.check_logical_consistency(
-            prd,
-            &mut inconsistencies,
-            &mut suggestions,
-        );
+        let logical_score =
+            self.check_logical_consistency(prd, &mut inconsistencies, &mut suggestions);
 
         // 计算总体得分（加权平均）
         let overall_score = self.calculate_overall_score(
@@ -240,32 +228,33 @@ impl PRDConsistencyChecker {
         }
 
         let mut score = 100u8;
-        
+
         // 简单启发式：检查每个用户是否至少有一个功能与之相关
         for user in users {
             let has_related_feature = features.iter().any(|f| {
                 // 简单的关键词匹配（实际应该用更智能的语义分析）
-                f.to_lowercase().contains(&user.to_lowercase()) ||
-                f.to_lowercase().contains("用户") ||
-                f.to_lowercase().contains("管理") ||
-                f.to_lowercase().contains("展示")
+                f.to_lowercase().contains(&user.to_lowercase())
+                    || f.to_lowercase().contains("用户")
+                    || f.to_lowercase().contains("管理")
+                    || f.to_lowercase().contains("展示")
             });
 
             if !has_related_feature {
                 score = score.saturating_sub(20);
                 inconsistencies.push(Inconsistency {
-                    inconsistency_type: InconsistencyType::UserNotServed {
-                        user: user.clone(),
-                    },
+                    inconsistency_type: InconsistencyType::UserNotServed { user: user.clone() },
                     severity: Severity::Major,
                     description: format!("目标用户 '{}' 没有明确对应的功能支持", user),
-                    suggestion: Some(format!("添加针对 '{}' 用户的专属功能，或在现有功能中明确说明如何服务该用户群体", user)),
+                    suggestion: Some(format!(
+                        "添加针对 '{}' 用户的专属功能，或在现有功能中明确说明如何服务该用户群体",
+                        user
+                    )),
                 });
                 suggestions.push(format!("为 '{}' 用户添加明确的功能支持", user));
             }
         }
 
-        score.max(0)
+        score
     }
 
     /// 检查技术栈与功能需求的对齐
@@ -289,35 +278,58 @@ impl PRDConsistencyChecker {
         // 检查每个功能是否有相应的技术支持
         for feature in features {
             let feature_lower = feature.to_lowercase();
-            
+
             // 检测是否需要特定技术
             let mut required_techs = Vec::new();
             let mut missing_techs = Vec::new();
 
-            if feature_lower.contains("实时") || feature_lower.contains("聊天") || feature_lower.contains("推送") {
+            if feature_lower.contains("实时")
+                || feature_lower.contains("聊天")
+                || feature_lower.contains("推送")
+            {
                 required_techs.push("WebSocket".to_string());
                 if !techs_lower.iter().any(|t| t.contains("websocket")) {
                     missing_techs.push("WebSocket".to_string());
                 }
             }
 
-            if feature_lower.contains("数据库") || feature_lower.contains("存储") || feature_lower.contains("持久化") {
+            if feature_lower.contains("数据库")
+                || feature_lower.contains("存储")
+                || feature_lower.contains("持久化")
+            {
                 required_techs.push("Database".to_string());
-                if !techs_lower.iter().any(|t| t.contains("sql") || t.contains("database") || t.contains("mongo")) {
+                if !techs_lower
+                    .iter()
+                    .any(|t| t.contains("sql") || t.contains("database") || t.contains("mongo"))
+                {
                     missing_techs.push("Database".to_string());
                 }
             }
 
-            if feature_lower.contains("界面") || feature_lower.contains("可视化") || feature_lower.contains("图表") {
+            if feature_lower.contains("界面")
+                || feature_lower.contains("可视化")
+                || feature_lower.contains("图表")
+            {
                 required_techs.push("Frontend Framework".to_string());
-                if !techs_lower.iter().any(|t| t.contains("react") || t.contains("vue") || t.contains("angular")) {
+                if !techs_lower
+                    .iter()
+                    .any(|t| t.contains("react") || t.contains("vue") || t.contains("angular"))
+                {
                     missing_techs.push("Frontend Framework".to_string());
                 }
             }
 
-            if feature_lower.contains("api") || feature_lower.contains("接口") || feature_lower.contains("后端") {
+            if feature_lower.contains("api")
+                || feature_lower.contains("接口")
+                || feature_lower.contains("后端")
+            {
                 required_techs.push("Backend Framework".to_string());
-                if !techs_lower.iter().any(|t| t.contains("rust") || t.contains("node") || t.contains("python") || t.contains("spring")) {
+                if !techs_lower.iter().any(|t| {
+                    t.contains("rust")
+                        || t.contains("node")
+                        || t.contains("python")
+                        || t.contains("spring")
+                }) {
                     missing_techs.push("Backend Framework".to_string());
                 }
             }
@@ -331,14 +343,21 @@ impl PRDConsistencyChecker {
                         missing_techs: missing_techs.clone(),
                     },
                     severity: Severity::Major,
-                    description: format!("功能 '{}' 需要技术栈 {:?}，但未在技术栈列表中找到", feature, missing_techs),
+                    description: format!(
+                        "功能 '{}' 需要技术栈 {:?}，但未在技术栈列表中找到",
+                        feature, missing_techs
+                    ),
                     suggestion: Some(format!("在技术栈中添加：{}", missing_techs.join(", "))),
                 });
-                suggestions.push(format!("为功能 '{}' 添加必要的技术支持：{}", feature, missing_techs.join(", ")));
+                suggestions.push(format!(
+                    "为功能 '{}' 添加必要的技术支持：{}",
+                    feature,
+                    missing_techs.join(", ")
+                ));
             }
         }
 
-        score.max(0)
+        score
     }
 
     /// 检查工作量估算的合理性
@@ -358,7 +377,7 @@ impl PRDConsistencyChecker {
 
         // 计算功能复杂度分数
         let complexity_score = features.len() as f64 * 2.0; // 每个功能基础分 2 分
-        
+
         // 解析预估工时（简化处理）
         let estimated_hours = self.parse_effort_to_hours(effort);
 
@@ -397,7 +416,7 @@ impl PRDConsistencyChecker {
     /// 解析工作量字符串为小时数
     fn parse_effort_to_hours(&self, effort: &str) -> f64 {
         let effort_lower = effort.to_lowercase();
-        
+
         // 尝试提取数字
         let re = regex::Regex::new(r"(\d+(?:\.\d+)?)").unwrap();
         if let Some(caps) = re.captures(effort) {
@@ -414,7 +433,7 @@ impl PRDConsistencyChecker {
                 }
             }
         }
-        
+
         0.0
     }
 
@@ -427,7 +446,7 @@ impl PRDConsistencyChecker {
     ) -> u8 {
         // TODO: 实现术语一致性检查
         // 这里可以提取全文术语并检查使用的一致性
-        
+
         // 示例实现：检查产品名称的一致性
         if let Some(title) = &_prd.title {
             if title.len() > 3 {
@@ -449,7 +468,7 @@ impl PRDConsistencyChecker {
                 }
             }
         }
-        
+
         100
     }
 
@@ -462,7 +481,7 @@ impl PRDConsistencyChecker {
     ) -> u8 {
         // TODO: 实现逻辑一致性检查
         // 这里可以检测章节间的逻辑矛盾
-        
+
         // 示例实现：检查概述和功能的一致性
         if let Some(overview) = &_prd.overview {
             if let Some(features) = &_prd.core_features {
@@ -476,7 +495,8 @@ impl PRDConsistencyChecker {
                             contradiction: "产品定位与实际功能数量不符".to_string(),
                         },
                         severity: Severity::Major,
-                        description: "产品概述描述为'简单'，但核心功能数量较多，存在逻辑矛盾".to_string(),
+                        description: "产品概述描述为'简单'，但核心功能数量较多，存在逻辑矛盾"
+                            .to_string(),
                         suggestion: Some("调整产品定位描述，或精简功能列表".to_string()),
                     });
                     suggestions.push("确保产品定位与功能规划保持一致".to_string());
@@ -484,7 +504,7 @@ impl PRDConsistencyChecker {
                 }
             }
         }
-        
+
         100
     }
 
@@ -498,16 +518,18 @@ impl PRDConsistencyChecker {
         logical: u8,
     ) -> u8 {
         let weights = &self.weights;
-        let total_weight = weights.user_feature + weights.tech_feature + 
-                          weights.effort_reasonableness + weights.terminology + weights.logical;
-        
-        let weighted_sum = 
-            (user_feature as f32 * weights.user_feature) +
-            (tech_feature as f32 * weights.tech_feature) +
-            (effort as f32 * weights.effort_reasonableness) +
-            (terminology as f32 * weights.terminology) +
-            (logical as f32 * weights.logical);
-        
+        let total_weight = weights.user_feature
+            + weights.tech_feature
+            + weights.effort_reasonableness
+            + weights.terminology
+            + weights.logical;
+
+        let weighted_sum = (user_feature as f32 * weights.user_feature)
+            + (tech_feature as f32 * weights.tech_feature)
+            + (effort as f32 * weights.effort_reasonableness)
+            + (terminology as f32 * weights.terminology)
+            + (logical as f32 * weights.logical);
+
         (weighted_sum / total_weight) as u8
     }
 }
@@ -536,12 +558,16 @@ mod tests {
             overview: Some("一个简单的团队协作工具，帮助团队更好地沟通和协作。".to_string()),
             target_users: Some(vec!["团队成员".to_string(), "项目经理".to_string()]),
             core_features: Some(vec!["实时聊天功能".to_string(), "任务管理".to_string()]),
-            tech_stack: Some(vec!["React".to_string(), "Rust".to_string(), "WebSocket".to_string()]),
+            tech_stack: Some(vec![
+                "React".to_string(),
+                "Rust".to_string(),
+                "WebSocket".to_string(),
+            ]),
             estimated_effort: Some("2 周".to_string()),
         };
 
         let report = checker.check_consistency(&prd);
-        
+
         // 完整且一致的 PRD 应该有较高的分数
         assert!(report.overall_score >= 80);
         assert!(report.inconsistencies.is_empty() || report.inconsistencies.len() <= 1);
@@ -553,7 +579,11 @@ mod tests {
         let prd = PRDDocument {
             title: Some("复杂系统".to_string()),
             overview: Some("这是一个非常简单的系统".to_string()),
-            target_users: Some(vec!["普通用户".to_string(), "管理员".to_string(), "访客".to_string()]),
+            target_users: Some(vec![
+                "普通用户".to_string(),
+                "管理员".to_string(),
+                "访客".to_string(),
+            ]),
             core_features: Some(vec![
                 "用户管理".to_string(),
                 "权限控制".to_string(),
@@ -566,7 +596,7 @@ mod tests {
         };
 
         let report = checker.check_consistency(&prd);
-        
+
         // 不一致的 PRD 应该有较低的分数（但可能不会 < 70）
         assert!(report.overall_score < 85);
         assert!(!report.inconsistencies.is_empty());
@@ -585,7 +615,7 @@ mod tests {
         };
 
         let report = checker.check_consistency(&prd);
-        
+
         // 设计师可能没有对应的功能支持
         assert!(report.dimensions.user_feature_alignment <= 80);
     }
@@ -603,7 +633,7 @@ mod tests {
         };
 
         let report = checker.check_consistency(&prd);
-        
+
         // 缺少 WebSocket 和数据库技术
         assert!(report.dimensions.tech_feature_alignment < 100);
     }
@@ -632,7 +662,7 @@ mod tests {
         };
 
         let report = checker.check_consistency(&prd);
-        
+
         // 工作量明显低估
         assert!(report.dimensions.effort_reasonableness < 60);
     }
@@ -650,7 +680,7 @@ mod tests {
         };
 
         let report = checker.check_consistency(&prd);
-        
+
         // 空 PRD 应该跳过所有检查，得分为 100
         assert_eq!(report.overall_score, 100);
         assert!(report.inconsistencies.is_empty());

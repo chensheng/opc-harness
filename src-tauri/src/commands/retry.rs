@@ -1,17 +1,17 @@
 //! 重试引擎相关 Tauri Commands
 
-use serde::{Deserialize, Serialize};
+use crate::agent::retry_engine::BackoffConfig;
 use crate::db;
 use crate::models::UserStoryRetryHistory;
-use crate::agent::retry_engine::BackoffConfig;
+use serde::{Deserialize, Serialize};
 
 /// 获取用户故事的重试历史
 #[tauri::command]
 pub fn get_user_story_retry_history(
     story_id: String,
 ) -> Result<Vec<UserStoryRetryHistory>, String> {
-    let conn = db::get_connection()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+    let conn =
+        db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     db::get_user_story_retry_history(&conn, &story_id)
         .map_err(|e| format!("Failed to query retry history: {}", e))
@@ -27,9 +27,7 @@ pub struct UpdateRetryConfigRequest {
 }
 
 #[tauri::command]
-pub fn update_user_story_retry_config(
-    request: UpdateRetryConfigRequest,
-) -> Result<(), String> {
+pub fn update_user_story_retry_config(request: UpdateRetryConfigRequest) -> Result<(), String> {
     // TODO: 实现项目级别重试配置的持久化存储
     // 目前仅在内存中验证参数范围
 
@@ -50,7 +48,7 @@ pub fn update_user_story_retry_config(
         if !(300..=7200).contains(&max_delay) {
             return Err("max_delay_seconds must be between 300 and 7200".to_string());
         }
-        
+
         // 确保 max_delay >= base_delay
         if let Some(base_delay) = request.base_delay_seconds {
             if max_delay < base_delay {
@@ -85,11 +83,9 @@ pub struct ProjectRetryStats {
 
 /// 获取项目的重试统计数据
 #[tauri::command]
-pub fn get_project_retry_statistics(
-    project_id: String,
-) -> Result<ProjectRetryStats, String> {
-    let conn = db::get_connection()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+pub fn get_project_retry_statistics(project_id: String) -> Result<ProjectRetryStats, String> {
+    let conn =
+        db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let stats = db::get_project_retry_statistics(&conn, &project_id)
         .map_err(|e| format!("Failed to get retry statistics: {}", e))?;
@@ -106,11 +102,9 @@ pub fn get_project_retry_statistics(
 
 /// 手动触发用户故事重试
 #[tauri::command]
-pub fn trigger_manual_retry(
-    story_id: String,
-) -> Result<(), String> {
-    let conn = db::get_connection()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+pub fn trigger_manual_retry(story_id: String) -> Result<(), String> {
+    let conn =
+        db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     // 获取 Story 信息
     let story = db::get_user_story_by_id(&conn, &story_id)
@@ -132,14 +126,16 @@ pub fn trigger_manual_retry(
 
     // 更新 Story 状态
     let now = chrono::Utc::now().to_rfc3339();
-    let updated = conn.execute(
-        "UPDATE user_stories 
+    let updated = conn
+        .execute(
+            "UPDATE user_stories 
          SET status = 'scheduled_retry',
              next_retry_at = ?1,
              updated_at = ?2
          WHERE id = ?3",
-        rusqlite::params![next_retry_at, now, story_id],
-    ).map_err(|e| format!("Failed to update story status: {}", e))?;
+            rusqlite::params![next_retry_at, now, story_id],
+        )
+        .map_err(|e| format!("Failed to update story status: {}", e))?;
 
     if updated == 0 {
         return Err(format!("Story {} not found", story_id));

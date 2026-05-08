@@ -6,18 +6,18 @@ pub mod router;
 
 // 子模块
 mod ai_types;
+mod openai_provider;
 mod provider_core;
 mod service_manager;
-mod openai_provider;
 
 // Provider 实现子模块（在 providers_impl 内部声明会导致路径问题）
-mod openai_impl;
 mod anthropic_impl;
-mod kimi_impl;
-mod glm_impl;
-mod minimax_impl;
+mod codefree_impl;
 mod deepl_impl;
-mod codefree_impl;  // CodeFree CLI Provider
+mod glm_impl;
+mod kimi_impl;
+mod minimax_impl;
+mod openai_impl; // CodeFree CLI Provider
 
 // 重新导出常用类型
 pub use ai_types::*;
@@ -130,7 +130,11 @@ mod tests {
     #[test]
     fn test_ai_service_manager_register_openai() {
         let mut manager = AIServiceManager::new();
-        let config = AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-test".to_string());
+        let config = AIConfig::with_key(
+            "openai".to_string(),
+            "gpt-4o".to_string(),
+            "sk-test".to_string(),
+        );
         let result = manager.register_from_config(config);
         assert!(result.is_ok());
         let providers = manager.registered_providers();
@@ -143,8 +147,16 @@ mod tests {
         let mut manager = AIServiceManager::new();
         assert_eq!(manager.count(), 0);
         let configs = vec![
-            AIConfig::with_key("openai".to_string(), "gpt-4o".to_string(), "sk-openai".to_string()),
-            AIConfig::with_key("kimi".to_string(), "moonshot-v1-8k".to_string(), "sk-kimi".to_string()),
+            AIConfig::with_key(
+                "openai".to_string(),
+                "gpt-4o".to_string(),
+                "sk-openai".to_string(),
+            ),
+            AIConfig::with_key(
+                "kimi".to_string(),
+                "moonshot-v1-8k".to_string(),
+                "sk-kimi".to_string(),
+            ),
         ];
         manager.register_multiple(configs).unwrap();
         assert_eq!(manager.count(), 2);

@@ -1,18 +1,20 @@
 //! Real-time Code Suggestions 实现
-//! 
+//!
 //! 负责在开发者编写代码时提供实时的智能建议。
 //! 支持代码异味检测、性能优化建议、安全漏洞预警、最佳实践推荐。
 //! 基于文件监听，低延迟（<100ms）提供非侵入式的建议提示。
 
-use notify::{Config, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher, EventKind};
+use notify::{
+    Config, EventKind, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher,
+};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::mpsc::{self, Sender, Receiver};
-use tokio::time::{Duration, sleep};
+use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::Mutex;
-use regex::Regex;
+use tokio::time::{sleep, Duration};
 
 /// 建议类型枚举
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -196,13 +198,15 @@ impl RealtimeCodeSuggestions {
                 }
             },
             Config::default(),
-        ).map_err(|e| format!("创建监听器失败：{}", e))?;
+        )
+        .map_err(|e| format!("创建监听器失败：{}", e))?;
 
         // 添加监听文件
         for file_path in &file_paths {
             let path = PathBuf::from(file_path);
             if path.exists() {
-                watcher.watch(&path, RecursiveMode::NonRecursive)
+                watcher
+                    .watch(&path, RecursiveMode::NonRecursive)
                     .map_err(|e| format!("监听文件失败：{}", e))?;
                 self.watched_files.insert(path);
             }
@@ -245,9 +249,9 @@ impl RealtimeCodeSuggestions {
         while let Some(file_path) = event_rx.recv().await {
             // 防抖处理
             sleep(Duration::from_millis(config.analysis_delay_ms)).await;
-            
+
             log::debug!("检测到文件变更：{}", file_path);
-            
+
             // 这里可以触发分析逻辑
             // 简化实现：仅记录日志
         }
@@ -259,13 +263,13 @@ impl RealtimeCodeSuggestions {
 
         // 检测代码异味
         suggestions.extend(self.detect_code_smells(content, file_path));
-        
+
         // 性能优化建议
         suggestions.extend(self.suggest_optimizations(content, file_path));
-        
+
         // 安全检查
         suggestions.extend(self.check_security_issues(content, file_path));
-        
+
         // 最佳实践建议
         suggestions.extend(self.generate_best_practices(content, file_path));
 
@@ -295,7 +299,7 @@ impl RealtimeCodeSuggestions {
                 function_lines = 0;
             } else if in_function {
                 function_lines += 1;
-                
+
                 // 函数超过 50 行
                 if function_lines > 50 && line.trim() == "}" {
                     suggestions.push(CodeSuggestion::new(
@@ -319,7 +323,10 @@ impl RealtimeCodeSuggestions {
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
             if trimmed.len() > 20 && !trimmed.starts_with("//") && !trimmed.starts_with("#") {
-                line_counts.entry(trimmed.to_string()).or_insert_with(Vec::new).push(i);
+                line_counts
+                    .entry(trimmed.to_string())
+                    .or_insert_with(Vec::new)
+                    .push(i);
             }
         }
 
@@ -429,7 +436,7 @@ impl RealtimeCodeSuggestions {
         // 检测缺少文档注释的公共函数
         let re_pub_fn = Regex::new(r"pub\s+fn\s+\w+").unwrap();
         let has_doc_comments = content.contains("///") || content.contains("//!");
-        
+
         if re_pub_fn.is_match(content) && !has_doc_comments {
             suggestions.push(CodeSuggestion::new(
                 "best_practice_docs_1".to_string(),
@@ -447,7 +454,7 @@ impl RealtimeCodeSuggestions {
         // 检测命名规范
         let re_snake_case = Regex::new(r"fn\s+[a-z][a-z0-9_]*").unwrap();
         let re_camel_case = Regex::new(r"fn\s+[A-Z]").unwrap();
-        
+
         if re_camel_case.is_match(content) && !re_snake_case.is_match(content) {
             suggestions.push(CodeSuggestion::new(
                 "best_practice_naming_1".to_string(),
@@ -559,7 +566,7 @@ mod tests {
         long_function.push_str("}\n");
 
         let suggestions = manager.detect_code_smells(&long_function, "test.rs");
-        
+
         assert!(!suggestions.is_empty());
         assert!(suggestions.iter().any(|s| s.message.contains("过长")));
     }
@@ -578,7 +585,7 @@ fn test() {
 "#;
 
         let suggestions = manager.detect_code_smells(code, "test.rs");
-        
+
         // 简化实现：只检测完全相同的行
         // 实际项目中需要更复杂的重复检测算法
         // assert!(!suggestions.is_empty());
@@ -599,7 +606,7 @@ fn test() -> Option<i32> {
 "#;
 
         let suggestions = manager.check_security_issues(code, "test.rs");
-        
+
         assert!(!suggestions.is_empty());
         assert!(suggestions.iter().any(|s| s.message.contains("unwrap")));
     }
@@ -617,9 +624,11 @@ fn connect() {
 "#;
 
         let suggestions = manager.check_security_issues(code, "test.rs");
-        
+
         assert!(!suggestions.is_empty());
-        assert!(suggestions.iter().any(|s| s.severity == SuggestionSeverity::Critical));
+        assert!(suggestions
+            .iter()
+            .any(|s| s.severity == SuggestionSeverity::Critical));
     }
 
     #[test]
@@ -634,7 +643,7 @@ pub fn public_function() {
 "#;
 
         let suggestions = manager.generate_best_practices(code, "test.rs");
-        
+
         assert!(!suggestions.is_empty());
         assert!(suggestions.iter().any(|s| s.message.contains("文档注释")));
     }
@@ -656,7 +665,7 @@ pub fn process_data(data: Vec<i32>) -> i32 {
 "#;
 
         let suggestions = manager.analyze_file("test.rs", code);
-        
+
         // 简化实现可能不会检测到所有问题，只验证返回了建议
         // assert!(!suggestions.is_empty());
         // 验证至少有一种类型的建议
@@ -676,7 +685,7 @@ pub fn test() {
 "#;
 
         let suggestions = manager.analyze_file("test.rs", code);
-        
+
         // 验证按优先级排序
         for i in 1..suggestions.len() {
             assert!(suggestions[i - 1].priority <= suggestions[i].priority);
@@ -694,7 +703,7 @@ pub fn test() {
         }
 
         let suggestions = manager.suggest_optimizations(&code, "test.rs");
-        
+
         assert!(!suggestions.is_empty());
         assert!(suggestions.iter().any(|s| s.message.contains(".clone()")));
     }

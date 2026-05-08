@@ -1,5 +1,5 @@
 //! Code Review Agent 实现
-//! 
+//!
 //! 负责分析代码变更，识别潜在问题，并提供改进建议。
 //! 支持多种审查维度：代码风格、性能优化、安全漏洞、最佳实践等
 
@@ -113,7 +113,12 @@ pub struct ReviewResult {
 
 impl ReviewResult {
     /// 创建新的审查结果
-    pub fn new(comments: Vec<ReviewComment>, summary: String, score: f32, ai_generated: bool) -> Self {
+    pub fn new(
+        comments: Vec<ReviewComment>,
+        summary: String,
+        score: f32,
+        ai_generated: bool,
+    ) -> Self {
         Self {
             comments,
             summary,
@@ -129,14 +134,16 @@ impl ReviewResult {
 
     /// 获取严重问题数量
     pub fn critical_count(&self) -> usize {
-        self.comments.iter()
+        self.comments
+            .iter()
             .filter(|c| c.severity == ReviewSeverity::Critical)
             .count()
     }
 
     /// 获取高优先级问题数量
     pub fn high_count(&self) -> usize {
-        self.comments.iter()
+        self.comments
+            .iter()
             .filter(|c| c.severity == ReviewSeverity::High)
             .count()
     }
@@ -235,9 +242,12 @@ impl CodeReviewAgent {
     }
 
     /// 运行完整的代码审查流程
-    pub async fn run_review(&mut self, code_changes: &[CodeChange]) -> Result<ReviewResult, String> {
+    pub async fn run_review(
+        &mut self,
+        code_changes: &[CodeChange],
+    ) -> Result<ReviewResult, String> {
         log::info!("开始代码审查，共 {} 个文件", code_changes.len());
-        
+
         self.status = CodeReviewStatus::Analyzing;
         let mut all_comments = Vec::new();
 
@@ -270,7 +280,7 @@ impl CodeReviewAgent {
         // 过滤和排序
         let comment_count = all_comments.len();
         let score = self.calculate_score(&all_comments);
-        
+
         let mut result = ReviewResult::new(
             all_comments,
             "代码审查完成".to_string(),
@@ -286,7 +296,11 @@ impl CodeReviewAgent {
     }
 
     /// 分析代码（通用入口）
-    async fn analyze_code(&self, code: &str, _language: &str) -> Result<Vec<ReviewComment>, String> {
+    async fn analyze_code(
+        &self,
+        code: &str,
+        _language: &str,
+    ) -> Result<Vec<ReviewComment>, String> {
         let mut comments = Vec::new();
 
         // 根据审查维度执行检查
@@ -296,7 +310,11 @@ impl CodeReviewAgent {
             }
         }
 
-        if self.config.dimensions.contains(&ReviewDimension::Performance) {
+        if self
+            .config
+            .dimensions
+            .contains(&ReviewDimension::Performance)
+        {
             if let Ok(perf_comments) = self.check_performance(code).await {
                 comments.extend(perf_comments);
             }
@@ -308,7 +326,11 @@ impl CodeReviewAgent {
             }
         }
 
-        if self.config.dimensions.contains(&ReviewDimension::BestPractice) {
+        if self
+            .config
+            .dimensions
+            .contains(&ReviewDimension::BestPractice)
+        {
             if let Ok(bp_comments) = self.check_best_practices(code).await {
                 comments.extend(bp_comments);
             }
@@ -372,7 +394,11 @@ impl CodeReviewAgent {
         }
 
         // 检查嵌套过深
-        let max_nesting = code.split('{').map(|s| s.matches('}').count()).max().unwrap_or(0);
+        let max_nesting = code
+            .split('{')
+            .map(|s| s.matches('}').count())
+            .max()
+            .unwrap_or(0);
         if max_nesting > 5 {
             comments.push(ReviewComment::new(
                 "<current_file>".to_string(),
@@ -482,12 +508,16 @@ impl CodeReviewAgent {
     }
 
     /// AI 生成审查意见（模板实现）
-    async fn generate_ai_review(&self, _code_changes: &[CodeChange], manual_comments: &[ReviewComment]) -> Result<ReviewResult, String> {
+    async fn generate_ai_review(
+        &self,
+        _code_changes: &[CodeChange],
+        manual_comments: &[ReviewComment],
+    ) -> Result<ReviewResult, String> {
         log::info!("生成 AI 审查意见");
-        
+
         // TODO: 实际实现中需要调用 AI API
         // 这里提供模板实现
-        
+
         let mut ai_comments = Vec::new();
 
         // 基于手动审查的结果，AI 补充建议
@@ -499,7 +529,10 @@ impl CodeReviewAgent {
                     comment.dimension.clone(),
                     comment.severity.clone(),
                     format!("[AI] {}", comment.message),
-                    Some(format!("[AI 建议] {}", comment.suggestion.as_ref().unwrap_or(&"无".to_string()))),
+                    Some(format!(
+                        "[AI 建议] {}",
+                        comment.suggestion.as_ref().unwrap_or(&"无".to_string())
+                    )),
                     comment.code_snippet.clone(),
                 ));
             }
@@ -585,38 +618,43 @@ mod tests {
 
     #[test]
     fn test_review_result_sorting() {
-        let mut result = ReviewResult::new(vec![
-            ReviewComment::new(
-                "file1.rs".to_string(),
-                None,
-                ReviewDimension::Style,
-                ReviewSeverity::Low,
-                "Style issue".to_string(),
-                None,
-                None,
-            ),
-            ReviewComment::new(
-                "file2.rs".to_string(),
-                None,
-                ReviewDimension::Security,
-                ReviewSeverity::Critical,
-                "Security issue".to_string(),
-                None,
-                None,
-            ),
-            ReviewComment::new(
-                "file3.rs".to_string(),
-                None,
-                ReviewDimension::Performance,
-                ReviewSeverity::High,
-                "Performance issue".to_string(),
-                None,
-                None,
-            ),
-        ], "Test".to_string(), 100.0, false);
+        let mut result = ReviewResult::new(
+            vec![
+                ReviewComment::new(
+                    "file1.rs".to_string(),
+                    None,
+                    ReviewDimension::Style,
+                    ReviewSeverity::Low,
+                    "Style issue".to_string(),
+                    None,
+                    None,
+                ),
+                ReviewComment::new(
+                    "file2.rs".to_string(),
+                    None,
+                    ReviewDimension::Security,
+                    ReviewSeverity::Critical,
+                    "Security issue".to_string(),
+                    None,
+                    None,
+                ),
+                ReviewComment::new(
+                    "file3.rs".to_string(),
+                    None,
+                    ReviewDimension::Performance,
+                    ReviewSeverity::High,
+                    "Performance issue".to_string(),
+                    None,
+                    None,
+                ),
+            ],
+            "Test".to_string(),
+            100.0,
+            false,
+        );
 
         result.sort_by_severity();
-        
+
         // 应该按严重程度排序：Critical > High > Low
         assert_eq!(result.comments[0].severity, ReviewSeverity::Critical);
         assert_eq!(result.comments[1].severity, ReviewSeverity::High);
@@ -625,11 +663,40 @@ mod tests {
 
     #[test]
     fn test_review_result_critical_count() {
-        let result = ReviewResult::new(vec![
-            ReviewComment::new("f1.rs".to_string(), None, ReviewDimension::Security, ReviewSeverity::Critical, "".to_string(), None, None),
-            ReviewComment::new("f2.rs".to_string(), None, ReviewDimension::Security, ReviewSeverity::Critical, "".to_string(), None, None),
-            ReviewComment::new("f3.rs".to_string(), None, ReviewDimension::Style, ReviewSeverity::Low, "".to_string(), None, None),
-        ], "Test".to_string(), 100.0, false);
+        let result = ReviewResult::new(
+            vec![
+                ReviewComment::new(
+                    "f1.rs".to_string(),
+                    None,
+                    ReviewDimension::Security,
+                    ReviewSeverity::Critical,
+                    "".to_string(),
+                    None,
+                    None,
+                ),
+                ReviewComment::new(
+                    "f2.rs".to_string(),
+                    None,
+                    ReviewDimension::Security,
+                    ReviewSeverity::Critical,
+                    "".to_string(),
+                    None,
+                    None,
+                ),
+                ReviewComment::new(
+                    "f3.rs".to_string(),
+                    None,
+                    ReviewDimension::Style,
+                    ReviewSeverity::Low,
+                    "".to_string(),
+                    None,
+                    None,
+                ),
+            ],
+            "Test".to_string(),
+            100.0,
+            false,
+        );
 
         assert_eq!(result.critical_count(), 2);
         assert_eq!(result.high_count(), 0);
@@ -664,7 +731,7 @@ mod tests {
     #[test]
     fn test_style_check_long_line() {
         let long_code = format!("fn main() {{ {} }}", "a".repeat(150));
-        
+
         // 这里不实际调用 async 方法，只测试数据结构
         let comment = ReviewComment::new(
             "test.rs".to_string(),
@@ -684,7 +751,7 @@ mod tests {
     fn test_security_check_patterns() {
         let sql_injection_code = "SELECT * FROM users WHERE id = \" + user_id";
         let eval_code = "eval(user_input)";
-        
+
         // 测试数据结构
         let sql_comment = ReviewComment::new(
             "db.rs".to_string(),
@@ -713,11 +780,35 @@ mod tests {
     #[test]
     fn test_score_calculation() {
         let agent = CodeReviewAgent::new(CodeReviewAgentConfig::default());
-        
+
         let comments = vec![
-            ReviewComment::new("f1.rs".to_string(), None, ReviewDimension::Security, ReviewSeverity::Critical, "".to_string(), None, None),
-            ReviewComment::new("f2.rs".to_string(), None, ReviewDimension::Performance, ReviewSeverity::High, "".to_string(), None, None),
-            ReviewComment::new("f3.rs".to_string(), None, ReviewDimension::Style, ReviewSeverity::Medium, "".to_string(), None, None),
+            ReviewComment::new(
+                "f1.rs".to_string(),
+                None,
+                ReviewDimension::Security,
+                ReviewSeverity::Critical,
+                "".to_string(),
+                None,
+                None,
+            ),
+            ReviewComment::new(
+                "f2.rs".to_string(),
+                None,
+                ReviewDimension::Performance,
+                ReviewSeverity::High,
+                "".to_string(),
+                None,
+                None,
+            ),
+            ReviewComment::new(
+                "f3.rs".to_string(),
+                None,
+                ReviewDimension::Style,
+                ReviewSeverity::Medium,
+                "".to_string(),
+                None,
+                None,
+            ),
         ];
 
         let score = agent.calculate_score(&comments);
@@ -728,7 +819,7 @@ mod tests {
     #[test]
     fn test_empty_code_review_result() {
         let result = ReviewResult::new(vec![], "No issues found".to_string(), 100.0, false);
-        
+
         assert_eq!(result.comments.len(), 0);
         assert_eq!(result.score, 100.0);
         assert_eq!(result.critical_count(), 0);

@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 /// PRD 反馈和重新生成处理器
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -91,13 +90,13 @@ impl PRDFeedbackProcessor {
     pub fn parse_feedback(&self, content: &str) -> Result<ParsedFeedback, String> {
         // 简单的情感分析（实际项目中可以使用更复杂的 NLP）
         let sentiment = self.analyze_sentiment(content);
-        
+
         // 识别优先级
         let priority = self.identify_priority(content);
-        
+
         // 提取关键改进点
         let improvement_points = self.extract_improvement_points(content);
-        
+
         Ok(ParsedFeedback {
             content: content.to_string(),
             sentiment,
@@ -109,13 +108,22 @@ impl PRDFeedbackProcessor {
     /// 分析情感倾向
     fn analyze_sentiment(&self, content: &str) -> FeedbackSentiment {
         let content_lower = content.to_lowercase();
-        
+
         // 简单关键词匹配
-        if content_lower.contains("建议") || content_lower.contains("希望") || content_lower.contains("可以") {
+        if content_lower.contains("建议")
+            || content_lower.contains("希望")
+            || content_lower.contains("可以")
+        {
             FeedbackSentiment::Suggestion
-        } else if content_lower.contains("不好") || content_lower.contains("问题") || content_lower.contains("错误") {
+        } else if content_lower.contains("不好")
+            || content_lower.contains("问题")
+            || content_lower.contains("错误")
+        {
             FeedbackSentiment::Negative
-        } else if content_lower.contains("好") || content_lower.contains("不错") || content_lower.contains("满意") {
+        } else if content_lower.contains("好")
+            || content_lower.contains("不错")
+            || content_lower.contains("满意")
+        {
             FeedbackSentiment::Positive
         } else {
             FeedbackSentiment::Neutral
@@ -125,8 +133,11 @@ impl PRDFeedbackProcessor {
     /// 识别优先级
     fn identify_priority(&self, content: &str) -> FeedbackPriority {
         let content_lower = content.to_lowercase();
-        
-        if content_lower.contains("严重") || content_lower.contains("必须") || content_lower.contains("紧急") {
+
+        if content_lower.contains("严重")
+            || content_lower.contains("必须")
+            || content_lower.contains("紧急")
+        {
             FeedbackPriority::Critical
         } else if content_lower.contains("重要") || content_lower.contains("优先") {
             FeedbackPriority::High
@@ -141,7 +152,7 @@ impl PRDFeedbackProcessor {
     fn extract_improvement_points(&self, content: &str) -> Vec<String> {
         // 简单按句号分割，实际项目可以用更智能的方法
         content
-            .split(|c| c == '。' || c == '.' || c == ';' || c == '；')
+            .split(['。', '.', ';', '；'])
             .filter(|s| !s.trim().is_empty())
             .map(|s| s.trim().to_string())
             .collect()
@@ -154,11 +165,11 @@ impl PRDFeedbackProcessor {
         _prd_structure: &PRDStructure,
     ) -> Vec<String> {
         let mut affected_sections = Vec::new();
-        
+
         // 检查改进点中是否包含章节关键词
         for point in &feedback.improvement_points {
             let point_lower = point.to_lowercase();
-            
+
             // 匹配常见章节
             if point_lower.contains("用户") || point_lower.contains("画像") {
                 affected_sections.push("用户画像".to_string());
@@ -176,12 +187,12 @@ impl PRDFeedbackProcessor {
                 affected_sections.push("时间规划".to_string());
             }
         }
-        
+
         // 如果没有明确匹配，默认影响整体
         if affected_sections.is_empty() {
             affected_sections.push("整体".to_string());
         }
-        
+
         affected_sections
     }
 
@@ -197,20 +208,17 @@ impl PRDFeedbackProcessor {
 
         // 构建再生成提示
         let prompt = self.build_regeneration_prompt(request)?;
-        
+
         // 调用 AI 进行再生成（这里简化处理，实际应调用 AI Agent）
         let new_content = self.call_ai_regeneration(&prompt)?;
-        
+
         // 计算质量评分变化（简化版本）
         let quality_before = 85.0 + (request.iteration_count as f64 * 2.0);
         let quality_after = quality_before + 3.0 + (request.feedbacks.len() as f64 * 0.5);
-        
+
         // 识别变更的章节
-        let changed_sections = self.identify_changed_sections(
-            &request.prd_content,
-            &new_content,
-        );
-        
+        let changed_sections = self.identify_changed_sections(&request.prd_content, &new_content);
+
         Ok(RegenerateResult {
             new_prd_content: new_content,
             changed_sections,
@@ -224,10 +232,10 @@ impl PRDFeedbackProcessor {
     /// 构建再生成提示
     fn build_regeneration_prompt(&self, request: &RegenerateRequest) -> Result<String, String> {
         let mut prompt = String::new();
-        
+
         // 添加原始 PRD
         prompt.push_str(&format!("原始 PRD:\n{}\n\n", request.prd_content));
-        
+
         // 添加历史反馈
         prompt.push_str("历史反馈:\n");
         for (i, feedback) in request.feedbacks.iter().enumerate() {
@@ -245,19 +253,19 @@ impl PRDFeedbackProcessor {
             ));
         }
         prompt.push('\n');
-        
+
         // 添加再生成要求
         prompt.push_str(&format!(
             "请根据以上反馈重新生成以下章节：{:?}\n\n",
             request.sections_to_regenerate
         ));
-        
+
         prompt.push_str("要求：\n");
         prompt.push_str("1. 保持与原始 PRD 的一致性\n");
         prompt.push_str("2. 充分吸收用户反馈\n");
         prompt.push_str("3. 确保内容质量和完整性\n");
         prompt.push_str("4. 标注出修改的部分\n");
-        
+
         Ok(prompt)
     }
 
@@ -276,10 +284,10 @@ impl PRDFeedbackProcessor {
         // 简单的差异检测（实际项目应该用更智能的 diff 算法）
         let old_lines: Vec<&str> = old_content.lines().collect();
         let new_lines: Vec<&str> = new_content.lines().collect();
-        
+
         let mut changed_sections = Vec::new();
         let mut in_change = false;
-        
+
         for (i, line) in new_lines.iter().enumerate() {
             if i < old_lines.len() && line != &old_lines[i] {
                 if !in_change {
@@ -293,11 +301,11 @@ impl PRDFeedbackProcessor {
                 in_change = false;
             }
         }
-        
+
         if changed_sections.is_empty() {
             changed_sections.push("整体优化".to_string());
         }
-        
+
         changed_sections
     }
 
@@ -401,7 +409,9 @@ mod tests {
     #[test]
     fn test_improvement_points_extraction() {
         let processor = PRDFeedbackProcessor::new();
-        let parsed = processor.parse_feedback("第一点改进。第二点改进;第三点改进").unwrap();
+        let parsed = processor
+            .parse_feedback("第一点改进。第二点改进;第三点改进")
+            .unwrap();
         assert!(!parsed.improvement_points.is_empty());
         assert!(parsed.improvement_points.len() >= 2);
     }
@@ -433,7 +443,7 @@ mod tests {
             sections_to_regenerate: vec!["整体".to_string()],
             iteration_count: 0,
         };
-        
+
         let result = processor.regenerate_with_feedback(&request);
         assert!(result.is_ok());
         let result = result.unwrap();
@@ -450,7 +460,7 @@ mod tests {
             sections_to_regenerate: vec!["整体".to_string()],
             iteration_count: 10, // 已达到最大限制
         };
-        
+
         let result = processor.regenerate_with_feedback(&request);
         assert!(result.is_err());
     }
@@ -460,21 +470,19 @@ mod tests {
         let processor = PRDFeedbackProcessor::new();
         let request = RegenerateRequest {
             prd_content: "# Test PRD".to_string(),
-            feedbacks: vec![
-                Feedback {
-                    id: "1".to_string(),
-                    prd_id: "test".to_string(),
-                    section: Some("用户画像".to_string()),
-                    content: "需要更详细".to_string(),
-                    sentiment: FeedbackSentiment::Suggestion,
-                    priority: FeedbackPriority::Medium,
-                    timestamp: "2026-03-31".to_string(),
-                }
-            ],
+            feedbacks: vec![Feedback {
+                id: "1".to_string(),
+                prd_id: "test".to_string(),
+                section: Some("用户画像".to_string()),
+                content: "需要更详细".to_string(),
+                sentiment: FeedbackSentiment::Suggestion,
+                priority: FeedbackPriority::Medium,
+                timestamp: "2026-03-31".to_string(),
+            }],
             sections_to_regenerate: vec!["用户画像".to_string()],
             iteration_count: 0,
         };
-        
+
         let result = processor.regenerate_with_feedback(&request).unwrap();
         assert!(result.quality_score_after > result.quality_score_before);
     }

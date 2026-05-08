@@ -15,7 +15,11 @@ impl AIProvider {
     }
 
     /// DeepL 流式聊天（占位实现）
-    pub(super) async fn stream_chat_deepl<F>(&self, _request: ChatRequest, _on_chunk: F) -> Result<String, AIError>
+    pub(super) async fn stream_chat_deepl<F>(
+        &self,
+        _request: ChatRequest,
+        _on_chunk: F,
+    ) -> Result<String, AIError>
     where
         F: FnMut(String) -> Result<(), AIError>,
     {

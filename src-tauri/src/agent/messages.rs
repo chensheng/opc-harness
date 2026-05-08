@@ -1,9 +1,9 @@
 //! Agent 消息定义
-//! 
+//!
 //! 包含请求、响应、事件等消息结构
 
+use crate::agent::types::AgentStatus;
 use serde::{Deserialize, Serialize};
-use crate::agent::types::{AgentStatus};
 
 /// Agent 请求消息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,50 +199,33 @@ pub struct StdioOutput {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum WebSocketMessage {
     /// 客户端连接
-    Connect {
-        session_id: String,
-    },
+    Connect { session_id: String },
     /// 客户端断开
-    Disconnect {
-        session_id: String,
-    },
+    Disconnect { session_id: String },
     /// 普通消息
-    Message {
-        data: serde_json::Value,
-    },
+    Message { data: serde_json::Value },
     /// 心跳消息
-    Heartbeat {
-        timestamp: i64,
-    },
+    Heartbeat { timestamp: i64 },
     /// 订阅 Agent 消息
-    Subscribe {
-        agent_id: String,
-    },
+    Subscribe { agent_id: String },
     /// 取消订阅
-    Unsubscribe {
-        agent_id: String,
-    },
+    Unsubscribe { agent_id: String },
 }
 
 // ========== VC-001: Agent 通信协议扩展 ==========
 
 /// Issue/任务优先级
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Priority {
     /// 紧急
     Critical,
     /// 高优先级
     High,
     /// 中等优先级
+    #[default]
     Medium,
     /// 低优先级
     Low,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Medium
-    }
 }
 
 /// Issue/任务状态
@@ -548,7 +531,8 @@ impl QualityGateResult {
         self.typescript_passed = count == 0;
         self.passed &= self.typescript_passed;
         if count > 0 {
-            self.errors.push(format!("TypeScript 发现 {} 个错误", count));
+            self.errors
+                .push(format!("TypeScript 发现 {} 个错误", count));
         }
         self
     }
@@ -641,7 +625,7 @@ mod tests {
             "initialize".to_string(),
             serde_json::json!({"project": "test"}),
         );
-        
+
         assert!(!request.request_id.is_empty());
         assert_eq!(request.agent_id, "agent-001");
         assert_eq!(request.action, "initialize");
@@ -653,7 +637,7 @@ mod tests {
             "req-001".to_string(),
             Some(serde_json::json!({"result": "ok"})),
         );
-        
+
         assert!(response.success);
         assert!(response.error.is_none());
         assert!(response.data.is_some());
@@ -661,11 +645,9 @@ mod tests {
 
     #[test]
     fn test_agent_response_error() {
-        let response = AgentResponse::error(
-            "req-001".to_string(),
-            "Something went wrong".to_string(),
-        );
-        
+        let response =
+            AgentResponse::error("req-001".to_string(), "Something went wrong".to_string());
+
         assert!(!response.success);
         assert!(response.error.is_some());
         assert!(response.data.is_none());
@@ -673,8 +655,11 @@ mod tests {
 
     #[test]
     fn test_agent_message_log() {
-        let msg = AgentMessage::log("agent-001".to_string(), "Starting initialization...".to_string());
-        
+        let msg = AgentMessage::log(
+            "agent-001".to_string(),
+            "Starting initialization...".to_string(),
+        );
+
         assert_eq!(msg.message_type, MessageType::Log);
         assert_eq!(msg.source, "agent-001");
         assert_eq!(msg.content, "Starting initialization...");
@@ -683,7 +668,7 @@ mod tests {
     #[test]
     fn test_agent_message_progress() {
         let msg = AgentMessage::progress("agent-001".to_string(), "Processing...".to_string(), 0.5);
-        
+
         assert_eq!(msg.message_type, MessageType::Progress);
         assert!(msg.metadata.is_some());
     }
@@ -691,7 +676,7 @@ mod tests {
     #[test]
     fn test_stdio_command_creation() {
         let cmd = StdioCommand::new("git".to_string(), vec!["init".to_string()]);
-        
+
         assert!(!cmd.command_id.is_empty());
         assert_eq!(cmd.cmd_type, "git");
         assert_eq!(cmd.args.len(), 1);
@@ -702,7 +687,7 @@ mod tests {
         let msg = WebSocketMessage::Connect {
             session_id: "session-001".to_string(),
         };
-        
+
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"type\":\"connect\""));
         assert!(json.contains("session-001"));
@@ -717,18 +702,19 @@ mod tests {
             "需要实现基于 JWT 的用户登录".to_string(),
             Priority::High,
         );
-        
+
         assert!(!issue.issue_id.is_empty());
         assert_eq!(issue.title, "实现用户登录功能");
         assert_eq!(issue.priority, Priority::High);
         assert_eq!(issue.status, IssueStatus::Todo);
-        
-        issue = issue.with_number("#123".to_string())
+
+        issue = issue
+            .with_number("#123".to_string())
             .with_requirement("REQ-001".to_string())
             .with_estimated_hours(4.0)
             .assign_to("agent-coding-001".to_string())
             .add_label("feature".to_string());
-        
+
         assert_eq!(issue.issue_number, Some("#123".to_string()));
         assert_eq!(issue.requirement_id, Some("REQ-001".to_string()));
         assert_eq!(issue.estimated_hours, Some(4.0));
@@ -743,12 +729,12 @@ mod tests {
             "Description".to_string(),
             Priority::Medium,
         );
-        
+
         assert_eq!(issue.status, IssueStatus::Todo);
-        
+
         // 等待一小段时间，确保时间戳不同
         std::thread::sleep(std::time::Duration::from_millis(10));
-        
+
         issue.update_status(IssueStatus::InProgress);
         assert_eq!(issue.status, IssueStatus::InProgress);
         assert!(issue.updated_at >= issue.created_at);
@@ -763,27 +749,31 @@ mod tests {
             "请审查以下任务分解是否合理".to_string(),
             serde_json::json!({"tasks": ["task1", "task2"]}),
         );
-        
+
         assert!(!checkpoint.checkpoint_id.is_empty());
-        assert_eq!(checkpoint.checkpoint_type, CheckpointType::TaskDecompositionReview);
+        assert_eq!(
+            checkpoint.checkpoint_type,
+            CheckpointType::TaskDecompositionReview
+        );
         assert_eq!(checkpoint.agent_id, "agent-init-001");
     }
 
     #[test]
     fn test_checkpoint_response() {
         let checkpoint_id = "cp-001".to_string();
-        
+
         let approve_resp = CheckpointResponse::approve(checkpoint_id.clone());
         assert_eq!(approve_resp.decision, CheckpointDecision::Approve);
         assert!(approve_resp.comment.is_none());
-        
-        let reject_resp = CheckpointResponse::reject(
-            checkpoint_id.clone(),
-            "任务分解过于粗糙".to_string(),
+
+        let reject_resp =
+            CheckpointResponse::reject(checkpoint_id.clone(), "任务分解过于粗糙".to_string());
+        assert_eq!(
+            reject_resp.decision,
+            CheckpointDecision::Reject {
+                reason: "任务分解过于粗糙".to_string()
+            }
         );
-        assert_eq!(reject_resp.decision, CheckpointDecision::Reject { 
-            reason: "任务分解过于粗糙".to_string() 
-        });
         assert!(reject_resp.comment.is_some());
     }
 
@@ -792,14 +782,12 @@ mod tests {
         let result = QualityGateResult::success();
         assert!(result.passed);
         assert!(result.errors.is_empty());
-        
-        let failed_result = QualityGateResult::failure(vec![
-            "ESLint error in file.ts".to_string(),
-        ])
-        .with_eslint_errors(2)
-        .with_typescript_errors(1)
-        .with_test_failures(3);
-        
+
+        let failed_result = QualityGateResult::failure(vec!["ESLint error in file.ts".to_string()])
+            .with_eslint_errors(2)
+            .with_typescript_errors(1)
+            .with_test_failures(3);
+
         assert!(!failed_result.passed);
         assert!(!failed_result.eslint_passed);
         assert!(!failed_result.typescript_passed);
@@ -809,17 +797,15 @@ mod tests {
 
     #[test]
     fn test_agent_session_state() {
-        let mut session = AgentSessionState::new(
-            "session-001".to_string(),
-            "/path/to/project".to_string(),
-        );
-        
+        let mut session =
+            AgentSessionState::new("session-001".to_string(), "/path/to/project".to_string());
+
         assert_eq!(session.status, "active");
         assert!(session.active_agents.is_empty());
-        
+
         session.add_agent("agent-001".to_string());
         assert_eq!(session.active_agents.len(), 1);
-        
+
         session.pending_issues.push("issue-001".to_string());
         session.complete_issue("issue-001".to_string());
         assert!(session.pending_issues.is_empty());

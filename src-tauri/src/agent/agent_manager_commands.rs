@@ -1,7 +1,7 @@
 //! Agent Manager Tauri Commands - Main Entry Point
-//! 
+//!
 //! 所有 Tauri 命令的定义和导出
-//! 
+//!
 //! 注意：由于 Tauri 的 #[tauri::command] 宏会生成全局唯一符号，
 //! 所有命令必须在此文件中定义，不能分散到子模块中重复导出。
 
@@ -11,19 +11,32 @@ use tokio::sync::RwLock;
 
 use crate::agent::agent_manager_core::AgentManager;
 use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
-use crate::agent::types::AgentType;
-use crate::agent::daemon::DaemonStatus;
+use crate::agent::ai_code_generator::{
+    AICodeGenerator, CodeGenerationRequest, CodeGenerationResponse, GenerationConfig,
+};
 use crate::agent::branch_manager::{BranchInfo, BranchOperationResult};
-use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, ReviewResult, ReviewDimension, ReviewSeverity, CodeChange};
+use crate::agent::code_change_tracker::{ChangeStatistics, ChangeSummary, CodeChangeTracker};
+use crate::agent::code_diff_visualizer::{
+    CodeDiffVisualizer, DiffSummary as VisualDiffSummary, FileDiff,
+};
+use crate::agent::code_review_agent::{
+    CodeChange, CodeReviewAgent, CodeReviewAgentConfig, ReviewDimension, ReviewResult,
+    ReviewSeverity,
+};
+use crate::agent::daemon::DaemonStatus;
+use crate::agent::mr_description_generator::{MRDescription, MRDescriptionGenerator};
+use crate::agent::performance_benchmark_agent::{
+    BenchmarkConfig, BenchmarkReport, PerformanceBenchmarkAgent,
+};
+use crate::agent::realtime_code_suggestions::{
+    CodeSuggestion, RealtimeCodeSuggestions, SuggestionConfig,
+};
+use crate::agent::realtime_performance_monitor::{
+    MonitoringConfig, RealtimePerformanceMonitor, SystemStats,
+};
 use crate::agent::realtime_review_manager::{RealtimeReviewManager, WatchConfig};
 use crate::agent::test_runner_agent::{TestRunnerAgent, TestRunnerConfig, TestSuiteResult};
-use crate::agent::performance_benchmark_agent::{PerformanceBenchmarkAgent, BenchmarkConfig, BenchmarkReport};
-use crate::agent::realtime_performance_monitor::{RealtimePerformanceMonitor, MonitoringConfig, SystemStats};
-use crate::agent::ai_code_generator::{AICodeGenerator, GenerationConfig, CodeGenerationRequest, CodeGenerationResponse};
-use crate::agent::realtime_code_suggestions::{RealtimeCodeSuggestions, CodeSuggestion, SuggestionConfig};
-use crate::agent::mr_description_generator::{MRDescriptionGenerator, MRDescription};
-use crate::agent::code_change_tracker::{CodeChangeTracker, ChangeSummary, ChangeStatistics};
-use crate::agent::code_diff_visualizer::{CodeDiffVisualizer, FileDiff, DiffSummary as VisualDiffSummary};
+use crate::agent::types::AgentType;
 use crate::db;
 
 // ============================================================================
@@ -40,7 +53,7 @@ pub async fn create_agent(
     project_id: String,
 ) -> Result<String, String> {
     let manager = state.read().await;
-    
+
     let parsed_type = match agent_type.as_str() {
         "initializer" => AgentType::Initializer,
         "coding" => AgentType::Coding,
@@ -51,35 +64,44 @@ pub async fn create_agent(
     // 从 project_id 获取项目工作区路径
     let workspaces_root = crate::utils::paths::get_workspaces_dir();
     let project_workspace = workspaces_root.join(&project_id);
-    
+
     // 确保项目目录存在
     if !project_workspace.exists() {
         std::fs::create_dir_all(&project_workspace)
             .map_err(|e| format!("Failed to create project directory: {}", e))?;
     }
-    
+
     let project_path = project_workspace.to_string_lossy().to_string();
-    let result = manager.create_agent(
-        parsed_type.clone(), 
-        session_id.clone(), 
-        project_id.clone(), 
-        project_path.clone(), 
-        None,
-        None,  // agents_md_content: not provided in legacy API
-    ).await;
+    let result = manager
+        .create_agent(
+            parsed_type.clone(),
+            session_id.clone(),
+            project_id.clone(),
+            project_path.clone(),
+            None,
+            None, // agents_md_content: not provided in legacy API
+        )
+        .await;
     drop(manager);
-    
+
     // 注意：manager.create_agent 内部已经完成了数据库持久化，无需再次保存
     match &result {
         Ok(agent_id) => {
-            log::info!("[create_agent] Agent created successfully: agent_id={}, project_id={}", agent_id, project_id);
+            log::info!(
+                "[create_agent] Agent created successfully: agent_id={}, project_id={}",
+                agent_id,
+                project_id
+            );
             log::info!("[create_agent] Agent session already persisted by AgentManager");
         }
         Err(e) => {
-            log::warn!("Agent creation failed, skipping database persistence: {}", e);
+            log::warn!(
+                "Agent creation failed, skipping database persistence: {}",
+                e
+            );
         }
     }
-    
+
     result
 }
 
@@ -95,111 +117,149 @@ pub async fn create_agent_with_cli(
 ) -> Result<String, String> {
     use std::fs;
     use std::path::PathBuf;
-    
+
     log::info!("[create_agent_with_cli] Starting agent creation");
-    log::info!("[create_agent_with_cli] cli_type={}, project_id={}", cli_type, project_id);
-    
+    log::info!(
+        "[create_agent_with_cli] cli_type={}, project_id={}",
+        cli_type,
+        project_id
+    );
+
     // 从 project_id 获取项目工作区路径
     let workspaces_root = crate::utils::paths::get_workspaces_dir();
     let project_workspace = workspaces_root.join(&project_id);
-    
-    log::info!("[create_agent_with_cli] Project workspace path: {:?}", project_workspace);
-    
+
+    log::info!(
+        "[create_agent_with_cli] Project workspace path: {:?}",
+        project_workspace
+    );
+
     // 确保项目目录存在
     if !project_workspace.exists() {
-        log::info!("[create_agent_with_cli] Creating project directory: {:?}", project_workspace);
-        fs::create_dir_all(&project_workspace)
-            .map_err(|e| {
-                log::error!("[create_agent_with_cli] Failed to create project directory: {}", e);
-                format!("Failed to create project directory: {}", e)
-            })?;
+        log::info!(
+            "[create_agent_with_cli] Creating project directory: {:?}",
+            project_workspace
+        );
+        fs::create_dir_all(&project_workspace).map_err(|e| {
+            log::error!(
+                "[create_agent_with_cli] Failed to create project directory: {}",
+                e
+            );
+            format!("Failed to create project directory: {}", e)
+        })?;
     }
-    
+
     let project_path = project_workspace.to_string_lossy().to_string();
     log::info!("[create_agent_with_cli] Project path: {}", project_path);
-    
+
     // 生成唯一的 session_id
     let session_id = format!("session-{}", uuid::Uuid::new_v4());
-    log::info!("[create_agent_with_cli] Generated session_id: {}", session_id);
-    
+    log::info!(
+        "[create_agent_with_cli] Generated session_id: {}",
+        session_id
+    );
+
     // 根据 CLI 类型确定 Agent 类型
     let agent_type = match cli_type.as_str() {
         "codefree" | "kimi" | "claude" | "codex" => AgentType::Coding,
         _ => {
             log::error!("[create_agent_with_cli] Unsupported CLI type: {}", cli_type);
-            return Err(format!("Unsupported CLI type: {}. Supported types: codefree, kimi, claude, codex", cli_type));
+            return Err(format!(
+                "Unsupported CLI type: {}. Supported types: codefree, kimi, claude, codex",
+                cli_type
+            ));
         }
     };
     log::info!("[create_agent_with_cli] Agent type: {:?}", agent_type);
-    
+
     // 从项目路径中提取 project_id (UUID)
     let extracted_project_id = PathBuf::from(&project_path)
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| {
-            log::error!("[create_agent_with_cli] Failed to extract project_id from path: {}", project_path);
+            log::error!(
+                "[create_agent_with_cli] Failed to extract project_id from path: {}",
+                project_path
+            );
             format!("Failed to extract project_id from path: {}", project_path)
         })?
         .to_string();
-    
-    log::info!("[create_agent_with_cli] Extracted project_id: {}", extracted_project_id);
-    
+
+    log::info!(
+        "[create_agent_with_cli] Extracted project_id: {}",
+        extracted_project_id
+    );
+
     // 创建 Agent（传入 project_id、project_path、name 和 agents_md_content）
     // 注意：AGENTS.md 内容仅保存到数据库，不写入文件系统
     log::info!("[create_agent_with_cli] Calling manager.create_agent...");
     let mut manager = state.write().await;
-    let result = manager.create_agent(
-        agent_type.clone(), 
-        session_id.clone(), 
-        extracted_project_id.clone(), 
-        project_path.clone(), 
-        name,
-        Some(agents_content),  // Pass AGENTS.md content to database
-    ).await;
-    
-    log::info!("[create_agent_with_cli] manager.create_agent result: {:?}", result.is_ok());
-    
+    let result = manager
+        .create_agent(
+            agent_type.clone(),
+            session_id.clone(),
+            extracted_project_id.clone(),
+            project_path.clone(),
+            name,
+            Some(agents_content), // Pass AGENTS.md content to database
+        )
+        .await;
+
+    log::info!(
+        "[create_agent_with_cli] manager.create_agent result: {:?}",
+        result.is_ok()
+    );
+
     // 如果创建成功，立即启动去中心化 Agent Worker
     if let Ok(ref agent_id) = result {
-        log::info!("[create_agent_with_cli] ✓ Agent created: {}, now starting decentralized worker...", agent_id);
-        
+        log::info!(
+            "[create_agent_with_cli] ✓ Agent created: {}, now starting decentralized worker...",
+            agent_id
+        );
+
         // 创建 Worker 配置（使用 agent_id 作为 worker_id）
         let config = crate::agent::agent_worker::AgentWorkerConfig {
-            worker_id: agent_id.clone(),  // 使用 agent_id 作为 worker_id，统一概念
+            worker_id: agent_id.clone(), // 使用 agent_id 作为 worker_id，统一概念
             project_id: extracted_project_id.clone(),
-            check_interval_secs: 30,  // 每 30 秒检查一次数据库
+            check_interval_secs: 30, // 每 30 秒检查一次数据库
             max_concurrent: 1,
             app_handle: Some(manager.app_handle.clone()),
-            lock_timeout_minutes: 30,  // 默认 30 分钟超时
+            lock_timeout_minutes: 30, // 默认 30 分钟超时
         };
-        
+
         // 获取 Daemon Manager 和 WebSocket Manager
         let daemon_manager = manager.daemon.clone();
         let websocket_manager = manager.websocket.clone();
-        
+
         // 创建并启动 Agent Worker
         let mut worker = crate::agent::agent_worker::AgentWorker::new(config, daemon_manager);
-        
+
         // 设置 WebSocket Manager（用于实时日志推送）
         worker.set_websocket_manager(websocket_manager);
-        
+
         // 设置 Worktree Manager
         let workspaces_root = crate::utils::paths::get_workspaces_dir();
         worker.set_worktree_manager(&workspaces_root.to_string_lossy());
-        
+
         match worker.start().await {
             Ok(_) => {
                 log::info!("[create_agent_with_cli] ✓ Decentralized worker started automatically for agent: {}", agent_id);
                 // 保存 Worker 引用到 Manager
-                manager.agent_workers.insert(agent_id.clone(), Arc::new(RwLock::new(worker)));
+                manager
+                    .agent_workers
+                    .insert(agent_id.clone(), Arc::new(RwLock::new(worker)));
             }
             Err(e) => {
-                log::warn!("[create_agent_with_cli] ⚠️ Failed to auto-start worker for agent {}: {}", agent_id, e);
+                log::warn!(
+                    "[create_agent_with_cli] ⚠️ Failed to auto-start worker for agent {}: {}",
+                    agent_id,
+                    e
+                );
                 // 不返回错误，因为 Agent Session 已经创建成功，用户可以稍后手动启动
             }
         }
     }
-    
+
     drop(manager);
     result
 }
@@ -292,12 +352,11 @@ pub async fn get_all_agent_sessions(
     state: State<'_, Arc<RwLock<AgentManager>>>,
 ) -> Result<Vec<crate::models::AgentSession>, String> {
     let manager = state.read().await;
-    let conn = db::get_connection()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+    let conn =
+        db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
     drop(manager);
-    
-    db::get_all_agent_sessions(&conn)
-        .map_err(|e| format!("Failed to fetch agent sessions: {}", e))
+
+    db::get_all_agent_sessions(&conn).map_err(|e| format!("Failed to fetch agent sessions: {}", e))
 }
 
 /// 初始化 Agent Manager
@@ -309,7 +368,7 @@ pub async fn initialize_agent_manager(
     max_concurrent_agents: usize,
 ) -> Result<(), String> {
     let manager = state.read().await;
-    
+
     let config = crate::agent::daemon::DaemonConfig {
         session_id,
         project_path,
@@ -338,16 +397,16 @@ pub async fn create_feature_branch(
 ) -> Result<BranchOperationResult, String> {
     let manager = state.read().await;
     let mut branch_manager = manager.get_or_create_branch_manager().await;
-    
+
     let result = branch_manager
         .as_mut()
         .unwrap()
         .create_feature_branch(&description, Some(&issue_id), None)
         .await?;
-    
+
     drop(branch_manager);
     drop(manager);
-    
+
     Ok(result)
 }
 
@@ -360,7 +419,11 @@ pub async fn checkout_branch(
 ) -> Result<BranchOperationResult, String> {
     let manager = state.read().await;
     let mut branch_manager = manager.get_or_create_branch_manager().await;
-    let result = branch_manager.as_mut().unwrap().checkout_branch(&branch_name).await?;
+    let result = branch_manager
+        .as_mut()
+        .unwrap()
+        .checkout_branch(&branch_name)
+        .await?;
     drop(branch_manager);
     drop(manager);
     Ok(result)
@@ -376,7 +439,11 @@ pub async fn delete_branch(
 ) -> Result<BranchOperationResult, String> {
     let manager = state.read().await;
     let mut branch_manager = manager.get_or_create_branch_manager().await;
-    let result = branch_manager.as_mut().unwrap().delete_branch(&branch_name, force).await?;
+    let result = branch_manager
+        .as_mut()
+        .unwrap()
+        .delete_branch(&branch_name, force)
+        .await?;
     drop(branch_manager);
     drop(manager);
     Ok(result)
@@ -390,7 +457,11 @@ pub async fn list_branches(
 ) -> Result<Vec<BranchInfo>, String> {
     let manager = state.read().await;
     let branch_manager = manager.get_branch_manager().await;
-    let branches = branch_manager.as_ref().unwrap().get_local_branches().await?;
+    let branches = branch_manager
+        .as_ref()
+        .unwrap()
+        .get_local_branches()
+        .await?;
     drop(branch_manager);
     drop(manager);
     Ok(branches)
@@ -404,7 +475,11 @@ pub async fn get_current_branch(
 ) -> Result<Option<String>, String> {
     let manager = state.read().await;
     let branch_manager = manager.get_branch_manager().await;
-    let current = branch_manager.as_ref().unwrap().get_current_branch().await?;
+    let current = branch_manager
+        .as_ref()
+        .unwrap()
+        .get_current_branch()
+        .await?;
     drop(branch_manager);
     drop(manager);
     Ok(current)
@@ -424,10 +499,10 @@ pub async fn run_initializer_agent(
 ) -> Result<crate::agent::initializer_agent::InitializerResult, String> {
     use crate::agent::initializer_agent::InitializerAgentConfig;
     use uuid::Uuid;
-    
+
     let manager = state.read().await;
     drop(manager);
-    
+
     let _config = InitializerAgentConfig {
         agent_id: format!("initializer-{}", Uuid::new_v4()),
         project_path: project_path.clone(),
@@ -440,7 +515,7 @@ pub async fn run_initializer_agent(
         prd_file_path: None,
         prd_content: Some(prd_content),
     };
-    
+
     Ok(crate::agent::initializer_agent::InitializerResult {
         success: true,
         message: "Initialization completed (placeholder)".to_string(),
@@ -462,10 +537,10 @@ pub async fn create_merge_request(
     auto_resolve_conflicts: bool,
 ) -> Result<crate::agent::mr_creation_agent::MRCreationResult, String> {
     use crate::agent::mr_creation_agent::{MRCreationAgent, MRCreationConfig};
-    
+
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = MRCreationConfig {
         project_path: project_path.clone(),
         target_branch: target_branch.clone(),
@@ -473,10 +548,10 @@ pub async fn create_merge_request(
         run_regression_tests,
         auto_resolve_conflicts,
     };
-    
+
     let mut agent = MRCreationAgent::new(config);
     let result = agent.create_mr().await?;
-    
+
     Ok(result)
 }
 
@@ -492,10 +567,10 @@ pub async fn run_debug_agent(
     max_suggestions: usize,
 ) -> Result<crate::agent::debug_agent::DebugResult, String> {
     use crate::agent::debug_agent::{DebugAgent, DebugAgentConfig, ErrorSource};
-    
+
     let manager = state.read().await;
     drop(manager);
-    
+
     let parsed_error_source = match error_source.to_lowercase().as_str() {
         "typescript" | "ts" => ErrorSource::TypeScript,
         "rust" | "rs" => ErrorSource::Rust,
@@ -505,18 +580,22 @@ pub async fn run_debug_agent(
         "runtime" | "log" => ErrorSource::RuntimeLog,
         _ => ErrorSource::UserInput,
     };
-    
+
     let config = DebugAgentConfig {
         project_path: project_path.clone(),
         error_source: parsed_error_source,
         auto_fix,
-        max_suggestions: if max_suggestions == 0 { 5 } else { max_suggestions },
+        max_suggestions: if max_suggestions == 0 {
+            5
+        } else {
+            max_suggestions
+        },
         error_output,
     };
-    
+
     let mut agent = DebugAgent::new(config);
     let result = agent.run_debug().await?;
-    
+
     Ok(result)
 }
 
@@ -532,21 +611,25 @@ pub async fn generate_commit_message(
     conventional_commit: bool,
 ) -> Result<crate::agent::git_commit_assistant::CommitMessage, String> {
     use crate::agent::git_commit_assistant::{GitCommitAssistant, GitCommitAssistantConfig};
-    
+
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = GitCommitAssistantConfig {
         project_path: project_path.clone(),
         use_ai,
         include_file_list,
-        max_summary_length: if max_summary_length == 0 { 50 } else { max_summary_length },
+        max_summary_length: if max_summary_length == 0 {
+            50
+        } else {
+            max_summary_length
+        },
         conventional_commit,
     };
-    
+
     let mut assistant = GitCommitAssistant::new(config);
     let message = assistant.generate_commit_message().await?;
-    
+
     Ok(message)
 }
 
@@ -564,7 +647,7 @@ pub async fn run_code_review(
 ) -> Result<ReviewResult, String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = CodeReviewAgentConfig {
         project_path: ".".to_string(),
         enable_ai,
@@ -580,14 +663,12 @@ pub async fn run_code_review(
 
     let mut agent = CodeReviewAgent::new(config);
 
-    let code_changes = vec![
-        CodeChange {
-            file_path: "example.rs".to_string(),
-            content: "// Example code for review".to_string(),
-            language: "rust".to_string(),
-            change_type: "Modified".to_string(),
-        }
-    ];
+    let code_changes = vec![CodeChange {
+        file_path: "example.rs".to_string(),
+        content: "// Example code for review".to_string(),
+        language: "rust".to_string(),
+        change_type: "Modified".to_string(),
+    }];
 
     let result = agent.run_review(&code_changes).await?;
     Ok(result)
@@ -602,10 +683,10 @@ pub async fn start_realtime_review(
 ) -> Result<(), String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let mut manager_instance = RealtimeReviewManager::new(config);
     manager_instance.start_watch().await?;
-    
+
     log::info!("实时审查监听已启动 for session: {}", session_id);
     Ok(())
 }
@@ -618,7 +699,7 @@ pub async fn stop_realtime_review(
 ) -> Result<(), String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     log::info!("实时审查监听已停止 for session: {}", session_id);
     Ok(())
 }
@@ -632,13 +713,17 @@ pub async fn run_tests(
 ) -> Result<TestSuiteResult, String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let agent = TestRunnerAgent::new(config);
     let result = agent.run_tests().await?;
-    
-    log::info!("测试完成 for session {}: {} passed / {} total", 
-               session_id, result.passed, result.total);
-    
+
+    log::info!(
+        "测试完成 for session {}: {} passed / {} total",
+        session_id,
+        result.passed,
+        result.total
+    );
+
     Ok(result)
 }
 
@@ -651,13 +736,17 @@ pub async fn run_benchmark(
 ) -> Result<BenchmarkReport, String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let agent = PerformanceBenchmarkAgent::new(config);
     let report = agent.run_benchmarks().await?;
-    
-    log::info!("基准测试完成 for session {}: {} total, {} regressed", 
-               session_id, report.total_benchmarks, report.regressed_count);
-    
+
+    log::info!(
+        "基准测试完成 for session {}: {} total, {} regressed",
+        session_id,
+        report.total_benchmarks,
+        report.regressed_count
+    );
+
     Ok(report)
 }
 
@@ -670,12 +759,12 @@ pub async fn start_monitoring(
 ) -> Result<(), String> {
     let manager = state.write().await;
     drop(manager);
-    
+
     let mut monitor = RealtimePerformanceMonitor::new(config);
     monitor.start_monitoring().await?;
-    
+
     log::info!("实时性能监控已启动 for session {}", session_id);
-    
+
     Ok(())
 }
 
@@ -687,9 +776,9 @@ pub async fn stop_monitoring(
 ) -> Result<(), String> {
     let manager = state.write().await;
     drop(manager);
-    
+
     log::info!("实时性能监控已停止 for session {}", session_id);
-    
+
     Ok(())
 }
 
@@ -700,7 +789,7 @@ pub async fn get_current_stats(
 ) -> Result<SystemStats, String> {
     let config = MonitoringConfig::default();
     let monitor = RealtimePerformanceMonitor::new(config);
-    
+
     monitor.get_current_stats()
 }
 
@@ -717,14 +806,14 @@ pub async fn generate_code(
 ) -> Result<CodeGenerationResponse, String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = GenerationConfig::default();
     let generator = AICodeGenerator::new(config, "mock_api_key".to_string());
-    
+
     let response = generator.generate_code(request).await?;
-    
+
     log::info!("代码生成完成 for session {}", session_id);
-    
+
     Ok(response)
 }
 
@@ -738,14 +827,14 @@ pub async fn complete_code(
 ) -> Result<CodeGenerationResponse, String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = GenerationConfig::default();
     let generator = AICodeGenerator::new(config, "mock_api_key".to_string());
-    
+
     let response = generator.complete_code(code, cursor_position).await?;
-    
+
     log::info!("代码补全完成 for session {}", session_id);
-    
+
     Ok(response)
 }
 
@@ -759,14 +848,14 @@ pub async fn generate_function(
 ) -> Result<CodeGenerationResponse, String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = GenerationConfig::default();
     let generator = AICodeGenerator::new(config, "mock_api_key".to_string());
-    
+
     let response = generator.generate_function(description, language).await?;
-    
+
     log::info!("函数生成完成 for session {}", session_id);
-    
+
     Ok(response)
 }
 
@@ -779,14 +868,14 @@ pub async fn start_suggestions(
 ) -> Result<(), String> {
     let manager = state.read().await;
     drop(manager);
-    
+
     let config = SuggestionConfig::default();
     let mut suggestions = RealtimeCodeSuggestions::new(config);
-    
+
     suggestions.start_monitoring(file_paths).await?;
-    
+
     log::info!("代码建议已启动 for session {}", session_id);
-    
+
     Ok(())
 }
 
@@ -798,9 +887,9 @@ pub async fn stop_suggestions(
 ) -> Result<(), String> {
     let manager = state.write().await;
     drop(manager);
-    
+
     log::info!("代码建议已停止 for session {}", session_id);
-    
+
     Ok(())
 }
 
@@ -811,13 +900,12 @@ pub async fn get_suggestions(
     file_path: String,
 ) -> Result<Vec<CodeSuggestion>, String> {
     use std::fs;
-    
-    let content = fs::read_to_string(&file_path)
-        .map_err(|e| format!("读取文件失败：{}", e))?;
-    
+
+    let content = fs::read_to_string(&file_path).map_err(|e| format!("读取文件失败：{}", e))?;
+
     let config = SuggestionConfig::default();
     let analyzer = RealtimeCodeSuggestions::new(config);
-    
+
     Ok(analyzer.analyze_file(&file_path, &content))
 }
 
@@ -831,11 +919,12 @@ pub async fn get_workspace_changes(
     _state: State<'_, Arc<RwLock<AgentManager>>>,
     _session_id: String,
 ) -> Result<ChangeSummary, String> {
-    let workspace_root = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
+    let workspace_root =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
     let tracker = CodeChangeTracker::new(workspace_root)?;
     let summary = tracker.generate_summary().await?;
-    
+
     Ok(summary)
 }
 
@@ -846,11 +935,12 @@ pub async fn get_file_diff(
     _session_id: String,
     file_path: String,
 ) -> Result<String, String> {
-    let workspace_root = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
+    let workspace_root =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
     let tracker = CodeChangeTracker::new(workspace_root)?;
     let (_, _, diff) = tracker.get_file_diff(&file_path).await?;
-    
+
     Ok(diff)
 }
 
@@ -861,11 +951,12 @@ pub async fn get_file_diff_visual(
     _session_id: String,
     file_path: String,
 ) -> Result<FileDiff, String> {
-    let project_path = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
+    let project_path =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
     let visualizer = CodeDiffVisualizer::new(project_path)?;
     let file_diff = visualizer.get_file_diff_visual(&file_path).await?;
-    
+
     Ok(file_diff)
 }
 
@@ -876,17 +967,18 @@ pub async fn get_diff_summary(
     _session_id: String,
     file_path: String,
 ) -> Result<VisualDiffSummary, String> {
-    let project_path = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
+    let project_path =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
     let visualizer = CodeDiffVisualizer::new(project_path)?;
     let file_diff = visualizer.get_file_diff_visual(&file_path).await?;
-    
+
     let summary = VisualDiffSummary {
         file_path: file_diff.file_path.clone(),
         stats: file_diff.stats.clone(),
         hunk_count: file_diff.hunks.len() as u32,
     };
-    
+
     Ok(summary)
 }
 
@@ -896,12 +988,13 @@ pub async fn get_change_statistics(
     _state: State<'_, Arc<RwLock<AgentManager>>>,
     _session_id: String,
 ) -> Result<ChangeStatistics, String> {
-    let workspace_root = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
+    let workspace_root =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
     let tracker = CodeChangeTracker::new(workspace_root)?;
     let changes = tracker.detect_changes().await?;
     let statistics = tracker.calculate_statistics(&changes);
-    
+
     Ok(statistics)
 }
 
@@ -913,11 +1006,14 @@ pub async fn generate_mr_description(
     feature_branches: Vec<String>,
     target_branch: String,
 ) -> Result<MRDescription, String> {
-    let project_path = std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
+    let project_path =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
     let generator = MRDescriptionGenerator::new(project_path)?;
-    let mr_description = generator.generate_description(&feature_branches, &target_branch).await?;
-    
+    let mr_description = generator
+        .generate_description(&feature_branches, &target_branch)
+        .await?;
+
     Ok(mr_description)
 }
 
@@ -951,7 +1047,8 @@ Fixes #
 ## 📸 Screenshots (if applicable)
 <!-- Add screenshots to demonstrate UI changes -->
 
-"#.to_string(),
+"#
+        .to_string(),
         "feature" => r#"# Feature Implementation
 
 ## 🎯 Goal
@@ -965,10 +1062,16 @@ Fixes #
 - [ ] Tests added/updated
 - [ ] Documentation updated
 
-"#.to_string(),
-        _ => return Err(format!("Unknown template: {}. Available: default, feature", template_name)),
+"#
+        .to_string(),
+        _ => {
+            return Err(format!(
+                "Unknown template: {}. Available: default, feature",
+                template_name
+            ))
+        }
     };
-    
+
     Ok(templates)
 }
 
@@ -980,16 +1083,20 @@ Fixes #
 #[tauri::command]
 pub async fn create_worktree(
     _state: State<'_, Arc<RwLock<AgentManager>>>,
-    project_id: String,  // 新增：项目 ID 参数
+    project_id: String, // 新增：项目 ID 参数
     agent_id: String,
     _story_id: String,
     _branch_name: String,
 ) -> Result<String, String> {
     // let manager = state.read().await; // 未使用 - TODO: 未来用于验证 agent 状态
-    
+
     // 验证项目 ID（可选：检查项目是否存在）
-    log::debug!("[create_worktree] Creating worktree for project: {}, agent: {}", project_id, agent_id);
-    
+    log::debug!(
+        "[create_worktree] Creating worktree for project: {}, agent: {}",
+        project_id,
+        agent_id
+    );
+
     // TODO: 实现独立的 WorktreeManager，不依赖 AgentLoop
     // 当前返回错误，提示用户使用去中心化 Worker
     Err("Worktree management is now integrated with fully decentralized Agent Workers. Please use start_agent_worker to automatically manage worktrees.".to_string())
@@ -999,13 +1106,17 @@ pub async fn create_worktree(
 #[tauri::command]
 pub async fn remove_worktree(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    project_id: String,  // 新增：项目 ID 参数
+    project_id: String, // 新增：项目 ID 参数
     agent_id: String,
 ) -> Result<(), String> {
     let _manager = state.read().await;
-    
-    log::debug!("[remove_worktree] Removing worktree for project: {}, agent: {}", project_id, agent_id);
-    
+
+    log::debug!(
+        "[remove_worktree] Removing worktree for project: {}, agent: {}",
+        project_id,
+        agent_id
+    );
+
     // TODO: 实现独立的 WorktreeManager
     Err("Worktree management is now integrated with fully decentralized Agent Workers.".to_string())
 }
@@ -1014,12 +1125,15 @@ pub async fn remove_worktree(
 #[tauri::command]
 pub async fn list_worktrees(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    project_id: Option<String>,  // 新增：可选的项目 ID 参数，None 表示列出所有
+    project_id: Option<String>, // 新增：可选的项目 ID 参数，None 表示列出所有
 ) -> Result<Vec<crate::agent::worktree_manager::WorktreeInfo>, String> {
     let _manager = state.read().await;
-    
-    log::debug!("[list_worktrees] Listing worktrees for project: {:?}", project_id);
-    
+
+    log::debug!(
+        "[list_worktrees] Listing worktrees for project: {:?}",
+        project_id
+    );
+
     // TODO: 实现独立的 WorktreeManager
     Ok(vec![])
 }
@@ -1028,12 +1142,15 @@ pub async fn list_worktrees(
 #[tauri::command]
 pub async fn cleanup_orphaned_worktrees(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    project_id: Option<String>,  // 新增：可选的项目 ID 参数
+    project_id: Option<String>, // 新增：可选的项目 ID 参数
 ) -> Result<usize, String> {
     let _manager = state.read().await;
-    
-    log::debug!("[cleanup_orphaned_worktrees] Cleaning up orphaned worktrees for project: {:?}", project_id);
-    
+
+    log::debug!(
+        "[cleanup_orphaned_worktrees] Cleaning up orphaned worktrees for project: {:?}",
+        project_id
+    );
+
     // TODO: 实现独立的 WorktreeManager
     Ok(0)
 }
@@ -1042,12 +1159,15 @@ pub async fn cleanup_orphaned_worktrees(
 #[tauri::command]
 pub async fn get_worktree_disk_usage(
     state: State<'_, Arc<RwLock<AgentManager>>>,
-    project_id: Option<String>,  // 新增：可选的项目 ID 参数
+    project_id: Option<String>, // 新增：可选的项目 ID 参数
 ) -> Result<u64, String> {
     let _manager = state.read().await;
-    
-    log::debug!("[get_worktree_disk_usage] Getting disk usage for project: {:?}", project_id);
-    
+
+    log::debug!(
+        "[get_worktree_disk_usage] Getting disk usage for project: {:?}",
+        project_id
+    );
+
     // TODO: 实现真正的磁盘使用量计算
     Ok(0)
 }
@@ -1148,13 +1268,20 @@ pub async fn ws_register_connection(
 ) -> Result<String, String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    log::info!("[WebSocket] Registering connection for session: {}", session_id);
-    
+
+    log::info!(
+        "[WebSocket] Registering connection for session: {}",
+        session_id
+    );
+
     let connection_id = websocket.register_connection(session_id.clone()).await;
-    
-    log::info!("[WebSocket] Connection registered: {} for session: {}", connection_id, session_id);
-    
+
+    log::info!(
+        "[WebSocket] Connection registered: {} for session: {}",
+        connection_id,
+        session_id
+    );
+
     Ok(connection_id)
 }
 
@@ -1167,13 +1294,19 @@ pub async fn ws_unregister_connection(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    log::info!("[WebSocket] Unregistering connection: {} for session: {}", connection_id, session_id);
-    
-    websocket.unregister_connection(&session_id, &connection_id).await;
-    
+
+    log::info!(
+        "[WebSocket] Unregistering connection: {} for session: {}",
+        connection_id,
+        session_id
+    );
+
+    websocket
+        .unregister_connection(&session_id, &connection_id)
+        .await;
+
     log::info!("[WebSocket] Connection unregistered successfully");
-    
+
     Ok(())
 }
 
@@ -1188,8 +1321,10 @@ pub async fn ws_send_log(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    websocket.send_log(&session_id, &level, &message, source.as_deref()).await
+
+    websocket
+        .send_log(&session_id, &level, &message, source.as_deref())
+        .await
 }
 
 /// 发送进度更新到指定 Session
@@ -1204,8 +1339,10 @@ pub async fn ws_send_progress(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    websocket.send_progress(&session_id, &phase, current, total, description.as_deref()).await
+
+    websocket
+        .send_progress(&session_id, &phase, current, total, description.as_deref())
+        .await
 }
 
 /// 发送状态更新到指定 Session
@@ -1218,8 +1355,10 @@ pub async fn ws_send_status(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    websocket.send_status(&session_id, &status, details.as_deref()).await
+
+    websocket
+        .send_status(&session_id, &status, details.as_deref())
+        .await
 }
 
 /// 发送 Agent 响应到指定 Session
@@ -1234,8 +1373,10 @@ pub async fn ws_send_agent_response(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    websocket.send_agent_response(&session_id, request_id, success, data, error).await
+
+    websocket
+        .send_agent_response(&session_id, request_id, success, data, error)
+        .await
 }
 
 /// 发送错误消息到指定 Session
@@ -1249,8 +1390,10 @@ pub async fn ws_send_error(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
-    websocket.send_error(&session_id, &code, &message, details).await
+
+    websocket
+        .send_error(&session_id, &code, &message, details)
+        .await
 }
 
 /// 发送心跳到指定 Session
@@ -1261,7 +1404,7 @@ pub async fn ws_send_heartbeat(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
+
     websocket.send_heartbeat(&session_id).await
 }
 
@@ -1272,7 +1415,7 @@ pub async fn ws_get_stats(
 ) -> Result<crate::agent::websocket_manager::WebSocketStats, String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
+
     Ok(websocket.get_stats().await)
 }
 
@@ -1284,7 +1427,7 @@ pub async fn ws_get_connection_count(
 ) -> Result<usize, String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
+
     Ok(websocket.get_connection_count(&session_id).await)
 }
 
@@ -1296,8 +1439,8 @@ pub async fn ws_cleanup_stale_connections(
 ) -> Result<(), String> {
     let manager = state.read().await;
     let websocket = manager.websocket.read().await;
-    
+
     websocket.cleanup_stale_connections(timeout_ms).await;
-    
+
     Ok(())
 }

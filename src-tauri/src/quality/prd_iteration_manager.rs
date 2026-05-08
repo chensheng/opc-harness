@@ -1,8 +1,7 @@
 /// PRD 迭代管理器（简化版）
-/// 
+///
 /// 用于管理 PRD 的迭代优化流程
 /// 支持版本管理、反馈整合和差异对比
-
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -132,7 +131,7 @@ impl PRDIterationManager {
     /// 创建初始版本
     pub fn create_initial_version(&mut self, prd_json: &str) -> String {
         let version_id = Uuid::new_v4().to_string();
-        
+
         let version = PRDVersion {
             version_id: version_id.clone(),
             timestamp: chrono::Utc::now().timestamp(),
@@ -143,7 +142,7 @@ impl PRDIterationManager {
 
         self.history.versions.push(version);
         self.history.current_version_id = version_id.clone();
-        
+
         version_id
     }
 
@@ -166,8 +165,8 @@ impl PRDIterationManager {
         let new_version_id = Uuid::new_v4().to_string();
         let new_iteration_number = self.history.versions.len() as u8;
 
-        let optimized_prd_json = serde_json::to_string(&optimized_prd)
-            .map_err(|e| format!("序列化 PRD 失败：{}", e))?;
+        let optimized_prd_json =
+            serde_json::to_string(&optimized_prd).map_err(|e| format!("序列化 PRD 失败：{}", e))?;
 
         let version = PRDVersion {
             version_id: new_version_id.clone(),
@@ -195,30 +194,44 @@ impl PRDIterationManager {
     }
 
     /// 计算版本差异
-    pub fn calculate_diff(&self, old_prd: &serde_json::Value, new_prd: &serde_json::Value) -> PRDDiff {
-        let old_features = old_prd.get("coreFeatures")
+    pub fn calculate_diff(
+        &self,
+        old_prd: &serde_json::Value,
+        new_prd: &serde_json::Value,
+    ) -> PRDDiff {
+        let old_features = old_prd
+            .get("coreFeatures")
             .and_then(|v| v.as_array())
             .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
             .unwrap_or_default();
 
-        let new_features = new_prd.get("coreFeatures")
+        let new_features = new_prd
+            .get("coreFeatures")
             .and_then(|v| v.as_array())
             .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
             .unwrap_or_default();
 
-        let added_features = new_features.iter()
+        let added_features = new_features
+            .iter()
             .filter(|f| !old_features.contains(f))
             .map(|s| s.to_string())
             .collect();
 
-        let removed_features = old_features.iter()
+        let removed_features = old_features
+            .iter()
             .filter(|f| !new_features.contains(f))
             .map(|s| s.to_string())
             .collect();
 
         // 简单计算修改的字段数量
         let mut modified_count = 0;
-        let fields = ["title", "overview", "targetUsers", "techStack", "estimatedEffort"];
+        let fields = [
+            "title",
+            "overview",
+            "targetUsers",
+            "techStack",
+            "estimatedEffort",
+        ];
         for field in fields {
             if old_prd.get(field) != new_prd.get(field) {
                 modified_count += 1;
@@ -246,7 +259,9 @@ impl PRDIterationManager {
         if feedback.contains("添加") || feedback.contains("增加") {
             if let Some(features) = optimized.get_mut("coreFeatures") {
                 if let Some(arr) = features.as_array_mut() {
-                    arr.push(serde_json::Value::String("基于用户反馈新增的功能".to_string()));
+                    arr.push(serde_json::Value::String(
+                        "基于用户反馈新增的功能".to_string(),
+                    ));
                 }
             }
         }
@@ -257,7 +272,10 @@ impl PRDIterationManager {
     /// 回滚到指定版本
     #[allow(dead_code)]
     pub fn rollback_to_version(&mut self, version_id: &str) -> Result<&PRDVersion, String> {
-        let version = self.history.versions.iter()
+        let version = self
+            .history
+            .versions
+            .iter()
             .find(|v| v.version_id == version_id)
             .ok_or_else(|| format!("版本 {} 不存在", version_id))?;
 
@@ -281,9 +299,9 @@ mod tests {
     fn test_create_initial_version() {
         let mut manager = PRDIterationManager::new();
         let prd_json = r#"{"title": "测试产品"}"#;
-        
+
         let version_id = manager.create_initial_version(prd_json);
-        
+
         assert!(!version_id.is_empty());
         assert_eq!(manager.history.versions.len(), 1);
         assert_eq!(manager.history.current_version_id, version_id);
@@ -292,7 +310,7 @@ mod tests {
     #[test]
     fn test_iterate_with_feedback() {
         let mut manager = PRDIterationManager::new();
-        
+
         // 创建初始版本
         let initial_prd = json!({
             "title": "测试产品",
@@ -309,7 +327,7 @@ mod tests {
         };
 
         let response = manager.iterate_with_feedback(&request).unwrap();
-        
+
         assert!(!response.new_version_id.is_empty());
         assert_eq!(response.iteration_number, 1);
         assert!(response.diff.added_features.len() > 0);
@@ -319,19 +337,19 @@ mod tests {
     #[test]
     fn test_calculate_diff() {
         let manager = PRDIterationManager::new();
-        
+
         let old_prd = json!({
             "title": "旧产品",
             "coreFeatures": ["功能 1", "功能 2"]
         });
-        
+
         let new_prd = json!({
             "title": "新产品",
             "coreFeatures": ["功能 1", "功能 3"]
         });
 
         let diff = manager.calculate_diff(&old_prd, &new_prd);
-        
+
         assert!(diff.added_features.contains(&"功能 3".to_string()));
         assert!(diff.removed_features.contains(&"功能 2".to_string()));
         assert_eq!(diff.modified_fields_count, 1); // title 改变了
@@ -340,21 +358,23 @@ mod tests {
     #[test]
     fn test_rollback() {
         let mut manager = PRDIterationManager::new();
-        
+
         // 创建两个版本
         let v1_id = manager.create_initial_version(r#"{"title": "V1"}"#);
-        manager.iterate_with_feedback(&IterationRequest {
-            current_prd_json: r#"{"title": "V1"}"#.to_string(),
-            user_feedback: "优化".to_string(),
-            quality_summary: None,
-        }).unwrap();
+        manager
+            .iterate_with_feedback(&IterationRequest {
+                current_prd_json: r#"{"title": "V1"}"#.to_string(),
+                user_feedback: "优化".to_string(),
+                quality_summary: None,
+            })
+            .unwrap();
 
         // 回滚到 V1 - 使用作用域限制借用生命周期
         let rolled_back_prd_json = {
             let rolled_back = manager.rollback_to_version(&v1_id).unwrap();
             rolled_back.prd_json.clone()
         };
-        
+
         assert_eq!(manager.history.current_version_id, v1_id);
         assert!(rolled_back_prd_json.contains("V1"));
     }
@@ -362,7 +382,7 @@ mod tests {
     #[test]
     fn test_multiple_iterations() {
         let mut manager = PRDIterationManager::new();
-        
+
         // 创建初始版本
         let initial_prd = json!({
             "title": "初始版本",

@@ -1,5 +1,5 @@
 //! Debug Agent AI 诊断器
-//! 
+//!
 //! 负责分析错误并生成诊断报告和修复建议
 
 use super::types::{Diagnosis, ErrorInfo, ErrorType};
@@ -17,7 +17,7 @@ impl Diagnoser {
     pub async fn diagnose_error(&self, error: &ErrorInfo) -> Result<Diagnosis, String> {
         // TODO: 实际实现中需要调用 AI API 进行诊断
         // 这里提供一个模板实现
-        
+
         log::info!("诊断错误：{} ({})", error.message, error.error_type);
 
         // 基于错误类型生成诊断

@@ -1,21 +1,21 @@
 //! AI Types and Data Structures
-//! 
+//!
 //! 包含所有 AI 相关的类型定义、配置和数据结构
 
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 /// AI 提供商类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AIProviderType {
     OpenAI,
-    Anthropic,  // Claude
+    Anthropic, // Claude
     Kimi,
     GLM,
     MiniMax,
     DeepL,
-    CodeFree,   // CodeFree CLI
+    CodeFree, // CodeFree CLI
 }
 
 /// AI 消息结构
@@ -26,7 +26,7 @@ pub struct Message {
 }
 
 /// AI 聊天请求
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<Message>,
@@ -36,19 +36,6 @@ pub struct ChatRequest {
     /// 项目 ID（用于 CodeFree CLI 切换工作目录）
     #[serde(default)]
     pub project_id: Option<String>,
-}
-
-impl Default for ChatRequest {
-    fn default() -> Self {
-        Self {
-            model: String::new(),
-            messages: Vec::new(),
-            temperature: None,
-            max_tokens: None,
-            stream: false,
-            project_id: None,
-        }
-    }
 }
 
 /// AI 聊天响应
@@ -110,7 +97,12 @@ impl AIConfig {
     }
 
     /// 创建带有自定义 base_url 的配置
-    pub fn with_base_url(provider: String, model: String, api_key: String, base_url: String) -> Self {
+    pub fn with_base_url(
+        provider: String,
+        model: String,
+        api_key: String,
+        base_url: String,
+    ) -> Self {
         Self {
             provider,
             model,

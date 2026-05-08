@@ -1,5 +1,5 @@
 //! Test Generator Agent 实现
-//! 
+//!
 //! 负责为生成的代码自动创建单元测试
 
 use serde::{Deserialize, Serialize};
@@ -146,7 +146,11 @@ impl TestGenerationResult {
         let avg_coverage = if generated_tests.is_empty() {
             0.0
         } else {
-            generated_tests.iter().map(|tf| tf.coverage_estimate).sum::<f32>() / generated_tests.len() as f32
+            generated_tests
+                .iter()
+                .map(|tf| tf.coverage_estimate)
+                .sum::<f32>()
+                / generated_tests.len() as f32
         };
 
         Self {
@@ -193,49 +197,58 @@ impl TestGeneratorAgent {
 
     /// 执行完整的测试生成流程
     pub async fn generate_tests(&mut self) -> Result<TestGenerationResult, String> {
-        log::info!("开始执行 Test Generator Agent - Session: {}", self.session_id);
+        log::info!(
+            "开始执行 Test Generator Agent - Session: {}",
+            self.session_id
+        );
 
         // 1. 分析源代码
         self.status = TestGeneratorStatus::AnalyzingSource;
-        log::info!("步骤 1/3: 分析 {} 个源代码文件", self.config.source_files.len());
-        
+        log::info!(
+            "步骤 1/3: 分析 {} 个源代码文件",
+            self.config.source_files.len()
+        );
+
         let analysis_results = self.analyze_source_code().await?;
-        
+
         // 2. 生成测试用例
         self.status = TestGeneratorStatus::GeneratingTests;
         log::info!("步骤 2/3: 生成测试用例");
-        
+
         let test_files = self.generate_test_files(&analysis_results).await?;
-        
+
         // 3. 运行测试验证（可选）
         if !test_files.is_empty() {
             self.status = TestGeneratorStatus::RunningTests;
             log::info!("步骤 3/3: 运行测试验证");
-            
+
             // TODO: 实现测试运行逻辑
             // let test_results = self.run_tests(&test_files).await?;
         }
-        
+
         // 完成
         self.status = TestGeneratorStatus::Completed;
-        log::info!("Test Generator Agent 执行完成，生成 {} 个测试文件", test_files.len());
-        
+        log::info!(
+            "Test Generator Agent 执行完成，生成 {} 个测试文件",
+            test_files.len()
+        );
+
         Ok(TestGenerationResult::success(test_files))
     }
 
     /// 分析源代码（占位符）
     async fn analyze_source_code(&self) -> Result<Vec<SourceAnalysis>, String> {
         let mut analyses = Vec::new();
-        
+
         for file_path in &self.config.source_files {
             log::info!("分析文件：{}", file_path);
-            
+
             // TODO: 实现代码分析逻辑
             // 1. 解析 AST
             // 2. 提取函数签名
             // 3. 识别类和方法
             // 4. 检测依赖关系
-            
+
             // 占位符实现
             analyses.push(SourceAnalysis {
                 file_path: file_path.clone(),
@@ -244,28 +257,34 @@ impl TestGeneratorAgent {
                 imports: vec![],
             });
         }
-        
+
         Ok(analyses)
     }
 
     /// 生成测试文件（占位符）
-    async fn generate_test_files(&self, analyses: &[SourceAnalysis]) -> Result<Vec<TestFile>, String> {
+    async fn generate_test_files(
+        &self,
+        analyses: &[SourceAnalysis],
+    ) -> Result<Vec<TestFile>, String> {
         let mut test_files = Vec::new();
-        
+
         for analysis in analyses {
             log::info!("为文件 {} 生成测试", analysis.file_path);
-            
+
             let test_file = self.generate_test_file_for_analysis(analysis).await?;
             test_files.push(test_file);
         }
-        
+
         Ok(test_files)
     }
 
     /// 为单个文件生成测试（占位符）
-    async fn generate_test_file_for_analysis(&self, analysis: &SourceAnalysis) -> Result<TestFile, String> {
+    async fn generate_test_file_for_analysis(
+        &self,
+        analysis: &SourceAnalysis,
+    ) -> Result<TestFile, String> {
         let mut test_cases = Vec::new();
-        
+
         // 为每个函数生成测试用例
         for function in &analysis.functions {
             // 正常路径测试
@@ -276,7 +295,7 @@ impl TestGeneratorAgent {
                 test_type: TestType::UnitTest,
                 target_function: Some(function.name.clone()),
             });
-            
+
             // 边界条件测试（如果启用）
             if self.config.include_edge_cases {
                 test_cases.push(TestCase {
@@ -287,32 +306,35 @@ impl TestGeneratorAgent {
                     target_function: Some(function.name.clone()),
                 });
             }
-            
+
             // 错误处理测试（如果启用）
             if self.config.include_error_handling {
                 test_cases.push(TestCase {
                     name: format!("{}_error_handling", function.name),
                     description: format!("测试 {} 函数的错误处理", function.name),
-                    code: format!("// TODO: Implement error handling test for {}", function.name),
+                    code: format!(
+                        "// TODO: Implement error handling test for {}",
+                        function.name
+                    ),
                     test_type: TestType::ErrorHandling,
                     target_function: Some(function.name.clone()),
                 });
             }
         }
-        
+
         // 生成测试文件内容
         let _test_content = self.generate_test_content(&test_cases).await?;
-        
+
         // 确定测试文件路径
         let test_file_path = self.get_test_file_path(&analysis.file_path);
-        
+
         // 估算覆盖率
         let coverage_estimate = if analysis.functions.is_empty() {
             0.0
         } else {
             (test_cases.len() as f32 / (analysis.functions.len() * 3) as f32).min(1.0)
         };
-        
+
         Ok(TestFile {
             file_path: test_file_path,
             test_cases,
@@ -324,35 +346,33 @@ impl TestGeneratorAgent {
     /// 生成测试文件内容（占位符）
     async fn generate_test_content(&self, test_cases: &[TestCase]) -> Result<String, String> {
         let mut content = String::new();
-        
+
         // 根据测试框架生成不同的模板
         match self.config.test_framework {
             TestFramework::Jest | TestFramework::Vitest => {
                 content.push_str("/**\n * Auto-generated test file\n */\n\n");
-                
+
                 for test_case in test_cases {
                     content.push_str(&format!(
                         "test('{}', () => {{\n  // {}\n}});\n\n",
-                        test_case.name,
-                        test_case.description
+                        test_case.name, test_case.description
                     ));
                 }
             }
             TestFramework::CargoTest => {
                 content.push_str("#[cfg(test)]\nmod tests {\n    use super::*;\n\n");
-                
+
                 for test_case in test_cases {
                     content.push_str(&format!(
                         "    #[test]\n    fn {}() {{\n        // {}\n    }}\n\n",
-                        test_case.name,
-                        test_case.description
+                        test_case.name, test_case.description
                     ));
                 }
-                
+
                 content.push_str("}\n");
             }
         }
-        
+
         Ok(content)
     }
 
@@ -364,7 +384,7 @@ impl TestGeneratorAgent {
         let parent = path.parent().unwrap_or(std::path::Path::new(""));
         let file_stem = path.file_stem().unwrap_or_default().to_string_lossy();
         let extension = path.extension().unwrap_or_default().to_string_lossy();
-        
+
         match self.config.test_framework {
             TestFramework::Jest | TestFramework::Vitest => {
                 format!("{}/{}.test.{}", parent.display(), file_stem, extension)
@@ -499,10 +519,7 @@ mod tests {
     fn test_test_generator_config() {
         let config = TestGeneratorConfig {
             project_path: "/tmp/test-project".to_string(),
-            source_files: vec![
-                "src/App.tsx".to_string(),
-                "src/utils.ts".to_string(),
-            ],
+            source_files: vec!["src/App.tsx".to_string(), "src/utils.ts".to_string()],
             test_framework: TestFramework::Vitest,
             generate_for_all_functions: true,
             include_edge_cases: true,
@@ -522,15 +539,13 @@ mod tests {
         let test_files = vec![
             TestFile {
                 file_path: "src/App.test.tsx".to_string(),
-                test_cases: vec![
-                    TestCase {
-                        name: "test1".to_string(),
-                        description: "desc1".to_string(),
-                        code: "code1".to_string(),
-                        test_type: TestType::UnitTest,
-                        target_function: None,
-                    },
-                ],
+                test_cases: vec![TestCase {
+                    name: "test1".to_string(),
+                    description: "desc1".to_string(),
+                    code: "code1".to_string(),
+                    test_type: TestType::UnitTest,
+                    target_function: None,
+                }],
                 framework: TestFramework::Vitest,
                 coverage_estimate: 0.8,
             },
@@ -596,9 +611,18 @@ mod tests {
     #[test]
     fn test_status_display() {
         assert_eq!(TestGeneratorStatus::Pending.to_string(), "等待开始");
-        assert_eq!(TestGeneratorStatus::AnalyzingSource.to_string(), "分析源代码中");
-        assert_eq!(TestGeneratorStatus::GeneratingTests.to_string(), "生成测试用例中");
-        assert_eq!(TestGeneratorStatus::RunningTests.to_string(), "运行测试验证中");
+        assert_eq!(
+            TestGeneratorStatus::AnalyzingSource.to_string(),
+            "分析源代码中"
+        );
+        assert_eq!(
+            TestGeneratorStatus::GeneratingTests.to_string(),
+            "生成测试用例中"
+        );
+        assert_eq!(
+            TestGeneratorStatus::RunningTests.to_string(),
+            "运行测试验证中"
+        );
         assert_eq!(
             TestGeneratorStatus::Failed("错误".to_string()).to_string(),
             "失败：错误"
@@ -609,15 +633,13 @@ mod tests {
     fn test_source_analysis() {
         let analysis = SourceAnalysis {
             file_path: "src/App.tsx".to_string(),
-            functions: vec![
-                FunctionInfo {
-                    name: "render".to_string(),
-                    parameters: vec![],
-                    return_type: Some("JSX.Element".to_string()),
-                    is_async: false,
-                    is_exported: true,
-                },
-            ],
+            functions: vec![FunctionInfo {
+                name: "render".to_string(),
+                parameters: vec![],
+                return_type: Some("JSX.Element".to_string()),
+                is_async: false,
+                is_exported: true,
+            }],
             classes: vec![],
             imports: vec!["React".to_string()],
         };
@@ -659,13 +681,11 @@ mod tests {
         let class = ClassInfo {
             name: "UserService".to_string(),
             methods: vec![],
-            properties: vec![
-                PropertyInfo {
-                    name: "userId".to_string(),
-                    prop_type: Some("string".to_string()),
-                    is_private: false,
-                },
-            ],
+            properties: vec![PropertyInfo {
+                name: "userId".to_string(),
+                prop_type: Some("string".to_string()),
+                is_private: false,
+            }],
         };
 
         assert_eq!(class.name, "UserService");

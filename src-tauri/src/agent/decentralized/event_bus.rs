@@ -1,11 +1,10 @@
+use log;
 /// 去中心化智能体系统 - 事件总线 (纯内存实现)
-/// 
+///
 /// 基于 tokio::sync::broadcast 实现进程内事件广播,无需 Redis
-
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use log;
 
 /// 事件类型枚举
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,27 +52,37 @@ impl SharedEventBus {
         let (sender, _) = broadcast::channel(1000); // 容量 1000 条消息
         Self { sender }
     }
-    
+
     /// 发布事件
-    pub fn publish(&self, event_type: EventType, payload: impl Serialize, source_node_id: &str) -> Result<(), String> {
+    pub fn publish(
+        &self,
+        event_type: EventType,
+        payload: impl Serialize,
+        source_node_id: &str,
+    ) -> Result<(), String> {
         let payload_json = serde_json::to_value(payload)
             .map_err(|e| format!("Failed to serialize payload: {}", e))?;
-        
+
         let message = EventMessage {
             event_type: event_type.to_string(),
             payload: payload_json,
             timestamp: chrono::Utc::now().timestamp(),
             source_node_id: source_node_id.to_string(),
         };
-        
-        self.sender.send(message)
+
+        self.sender
+            .send(message)
             .map_err(|e| format!("Failed to publish event: {}", e))?;
-        
-        log::debug!("[EventBus] Published event: {} from node {}", event_type, source_node_id);
-        
+
+        log::debug!(
+            "[EventBus] Published event: {} from node {}",
+            event_type,
+            source_node_id
+        );
+
         Ok(())
     }
-    
+
     /// 订阅事件 (返回接收器)
     pub fn subscribe(&self) -> broadcast::Receiver<EventMessage> {
         self.sender.subscribe()
@@ -95,12 +104,12 @@ impl EventBusClient {
             node_id: node_id.to_string(),
         }
     }
-    
+
     /// 发布事件
     pub fn publish(&self, event_type: EventType, payload: impl Serialize) -> Result<(), String> {
         self.shared_bus.publish(event_type, payload, &self.node_id)
     }
-    
+
     /// 订阅事件
     pub fn subscribe(&self) -> broadcast::Receiver<EventMessage> {
         self.shared_bus.subscribe()

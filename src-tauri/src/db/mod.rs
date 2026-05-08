@@ -1,35 +1,42 @@
 // Database module - organized by entity repositories
 
-pub mod database;  // 改为公开模块，以便commands可以访问迁移函数
+pub mod database; // 改为公开模块，以便commands可以访问迁移函数
 mod repository;
 
 // Entity repositories
-mod project_repository;
+mod agent_session_repository;
 mod ai_config_repository;
 mod cli_session_repository;
-mod agent_session_repository;
-mod milestone_repository;
 mod issue_repository;
-mod user_story_repository;
+mod milestone_repository;
+mod project_repository;
 mod sprint_repository;
+mod user_story_repository;
 
 // Observability repositories
+pub mod agent_alerts;
 pub mod agent_logs;
 pub mod agent_traces;
-pub mod agent_alerts;
 
 // Re-export Sprint repository functions for Agent Loop
 pub use sprint_repository::{
-    get_active_sprint, get_pending_stories_by_sprint, lock_user_story, unlock_user_story,
-    update_user_story_status, complete_user_story, fail_user_story,
-    get_user_story_by_id,
+    complete_user_story,
     // Retry engine functions
-    create_retry_history_record, update_retry_history_result, get_user_story_retry_history,
+    create_retry_history_record,
+    fail_user_story,
+    get_active_sprint,
+    get_pending_stories_by_sprint,
     get_project_retry_statistics,
+    get_user_story_by_id,
+    get_user_story_retry_history,
+    lock_user_story,
+    unlock_user_story,
+    update_retry_history_result,
+    update_user_story_status,
 };
 
 // Re-export database functions
-pub use database::{get_connection, init_database, ensure_all_project_workspaces};
+pub use database::{ensure_all_project_workspaces, get_connection, init_database};
 
 // Re-export repository trait and generic implementation
 pub use repository::Entity;
@@ -72,10 +79,8 @@ pub use issue_repository::{
 
 // Re-export User Story CRUD operations
 pub use user_story_repository::{
-    get_user_stories_by_project, 
-    get_user_stories_by_sprint,
+    get_pending_retries, get_user_stories_by_project, get_user_stories_by_sprint,
     upsert_user_stories,
-    get_pending_retries
 };
 
 // Re-export Sprint CRUD operations

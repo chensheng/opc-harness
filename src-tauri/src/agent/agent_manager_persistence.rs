@@ -1,5 +1,5 @@
-﻿//! Agent Manager 持久化逻辑
-//! 
+//! Agent Manager 持久化逻辑
+//!
 //! 处理 Agent Session 的数据库持久化和恢复
 
 use std::sync::Arc;
@@ -7,22 +7,22 @@ use tauri::AppHandle;
 use tokio::sync::RwLock;
 
 use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
-use crate::agent::types::{AgentType, AgentStatus, AgentPhase, AgentConfig};
+use crate::agent::types::{AgentConfig, AgentPhase, AgentStatus, AgentType};
 use crate::db;
 
 /// 持久化 Agent 到数据库 (VC-005)
-pub async fn persist_agent(
-    _app_handle: &AppHandle,
-    handle: &AgentHandle,
-) -> Result<(), String> {
-    log::info!("[persist_agent] Persisting agent to database: agent_id={}, session_id={}, project_id={}", 
-        handle.agent_id, handle.session_id, handle.project_id);
-    
-    let conn = db::get_connection()
-        .map_err(|e| {
-            log::error!("[persist_agent] Failed to get database connection: {}", e);
-            format!("Failed to get database connection: {}", e)
-        })?;
+pub async fn persist_agent(_app_handle: &AppHandle, handle: &AgentHandle) -> Result<(), String> {
+    log::info!(
+        "[persist_agent] Persisting agent to database: agent_id={}, session_id={}, project_id={}",
+        handle.agent_id,
+        handle.session_id,
+        handle.project_id
+    );
+
+    let conn = db::get_connection().map_err(|e| {
+        log::error!("[persist_agent] Failed to get database connection: {}", e);
+        format!("Failed to get database connection: {}", e)
+    })?;
 
     let session = crate::models::AgentSession {
         session_id: handle.session_id.clone(),
@@ -43,9 +43,13 @@ pub async fn persist_agent(
         metadata: None,
         agents_md_content: handle.agents_md_content.clone(),
     };
-    
-    log::info!("[persist_agent] Session data prepared: agent_type={}, status={}, phase={}", 
-        session.agent_type, session.status, session.phase);
+
+    log::info!(
+        "[persist_agent] Session data prepared: agent_type={}, status={}, phase={}",
+        session.agent_type,
+        session.status,
+        session.phase
+    );
 
     match db::create_agent_session(&conn, &session) {
         Ok(_) => {
@@ -69,16 +73,17 @@ pub async fn update_and_persist_agent(
     // 更新内存中的状态
     {
         let mut agents_lock = agents.write().await;
-        let handle = agents_lock.get_mut(agent_id)
+        let handle = agents_lock
+            .get_mut(agent_id)
             .ok_or_else(|| format!("Agent {} not found", agent_id))?;
-        
+
         handle.update_status(status.clone());
         drop(agents_lock);
     }
 
     // 持久化到数据库
-    let conn = db::get_connection()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+    let conn =
+        db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let status_str = status.to_string().to_lowercase();
     let phase_str = "unknown".to_string(); // TODO: 从 agent 获取当前 phase
@@ -95,8 +100,8 @@ pub async fn restore_sessions(
     websocket: &Arc<RwLock<crate::agent::websocket_manager::WebSocketManager>>,
     stats: &Arc<RwLock<AgentManagerStats>>,
 ) -> Result<(), String> {
-    let conn = db::get_connection()
-        .map_err(|e| format!("Failed to get database connection: {}", e))?;
+    let conn =
+        db::get_connection().map_err(|e| format!("Failed to get database connection: {}", e))?;
 
     let sessions = db::get_all_agent_sessions(&conn)
         .map_err(|e| format!("Failed to fetch agent sessions: {}", e))?;
@@ -165,7 +170,11 @@ pub async fn restore_sessions(
                     log::info!("Restored Stdio channel for Agent {}", handle.agent_id);
                 }
                 Err(e) => {
-                    log::warn!("Failed to restore Stdio channel for Agent {}: {}", handle.agent_id, e);
+                    log::warn!(
+                        "Failed to restore Stdio channel for Agent {}: {}",
+                        handle.agent_id,
+                        e
+                    );
                 }
             }
             drop(stdio_manager);
@@ -177,7 +186,9 @@ pub async fn restore_sessions(
         agents_lock.insert(agent_id.clone(), handle);
         restored_count += 1;
 
-        log::info!("Restored Agent {} from persistence (status: {:?})", agent_id, 
+        log::info!(
+            "Restored Agent {} from persistence (status: {:?})",
+            agent_id,
             match session.status.as_str() {
                 "idle" => AgentStatus::Idle,
                 "running" => AgentStatus::Running,
@@ -186,11 +197,14 @@ pub async fn restore_sessions(
         );
     }
 
-    log::info!("Restored {} agent sessions from persistence", restored_count);
-    
+    log::info!(
+        "Restored {} agent sessions from persistence",
+        restored_count
+    );
+
     // 更新统计信息
     update_stats(agents, stdio, websocket, stats).await;
-    
+
     Ok(())
 }
 
@@ -207,7 +221,7 @@ pub async fn update_stats(
 
     let mut new_stats = AgentManagerStats::default();
     new_stats.total_agents = agents_lock.len() as u32;
-    
+
     for handle in agents_lock.values() {
         match handle.status {
             AgentStatus::Running => new_stats.running_agents += 1,

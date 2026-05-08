@@ -1,10 +1,10 @@
 //! Initializer Agent 实现
-//! 
+//!
 //! 负责 PRD 文档解析、环境检查、Git 仓库初始化和任务分解
 
-use serde::{Deserialize, Serialize};
 use crate::agent::messages::Issue;
 use crate::agent::prd_parser::{PRDParser, PRDParserConfig};
+use serde::{Deserialize, Serialize};
 use std::process::Command;
 
 /// Initializer Agent 配置
@@ -227,10 +227,8 @@ pub struct TaskDecompositionResult {
 impl TaskDecompositionResult {
     /// 创建新的分解结果
     pub fn new(issues: Vec<Issue>) -> Self {
-        let total_hours: f32 = issues.iter()
-            .filter_map(|i| i.estimated_hours)
-            .sum();
-        
+        let total_hours: f32 = issues.iter().filter_map(|i| i.estimated_hours).sum();
+
         Self {
             success: true,
             issues,
@@ -331,7 +329,7 @@ mod env_utils {
     pub fn check_git() -> (bool, Option<String>) {
         let version = check_command_version("git", "--version");
         let installed = version.is_some();
-        
+
         // Windows 特殊处理：如果失败，尝试 "git.exe"
         if !installed && cfg!(windows) {
             if let Ok(path) = std::env::var("ProgramFiles") {
@@ -341,7 +339,7 @@ mod env_utils {
                 }
             }
         }
-        
+
         (installed, version)
     }
 
@@ -423,36 +421,34 @@ impl InitializerAgent {
     }
 
     /// 解析 PRD 文档
-    /// 
+    ///
     /// VC-006: 实现 PRD 文档解析器
     pub async fn parse_prd(&mut self) -> Result<PRDParseResult, String> {
         self.status = InitializerStatus::ParsingPRD;
-        
+
         // 1. 获取 PRD 内容
         let prd_content = self.get_prd_content()?;
-        
+
         // 2. 创建 PRD 解析器
         let parser_config = PRDParserConfig {
             ai_config: self.config.ai_config.clone(),
             use_streaming: false,
         };
         let parser = PRDParser::new(parser_config);
-        
+
         // 3. 执行 PRD 解析
         let prd_result = parser.parse_prd(&prd_content).await?;
-        
+
         // 4. 转换为 PRDParseResult
-        let parse_result = PRDParseResult::new(
-            prd_result.product_name,
-            prd_result.product_description,
-        )
-        .with_target_users(prd_result.target_users)
-        .with_core_features(prd_result.core_features)
-        .with_tech_stack(prd_result.suggested_tech_stack)
-        .with_confidence(prd_result.confidence_score);
-        
+        let parse_result =
+            PRDParseResult::new(prd_result.product_name, prd_result.product_description)
+                .with_target_users(prd_result.target_users)
+                .with_core_features(prd_result.core_features)
+                .with_tech_stack(prd_result.suggested_tech_stack)
+                .with_confidence(prd_result.confidence_score);
+
         self.status = InitializerStatus::CheckingEnvironment;
-        
+
         Ok(parse_result)
     }
 
@@ -462,25 +458,24 @@ impl InitializerAgent {
         if let Some(content) = &self.config.prd_content {
             return Ok(content.clone());
         }
-        
+
         // 否则从文件读取
         if let Some(file_path) = &self.config.prd_file_path {
             use std::fs;
-            fs::read_to_string(file_path)
-                .map_err(|e| format!("读取 PRD 文件失败：{}", e))
+            fs::read_to_string(file_path).map_err(|e| format!("读取 PRD 文件失败：{}", e))
         } else {
             Err("未提供 PRD 内容或文件路径".to_string())
         }
     }
 
     /// 检查环境
-    /// 
+    ///
     /// VC-007: 实现环境检查逻辑
     pub async fn check_environment(&mut self) -> Result<EnvironmentCheckResult, String> {
         self.status = InitializerStatus::CheckingEnvironment;
-        
+
         let mut result = EnvironmentCheckResult::success();
-        
+
         // 1. 检查 Git
         let (git_installed, git_version) = env_utils::check_git();
         if git_installed {
@@ -488,11 +483,9 @@ impl InitializerAgent {
                 result = result.with_git_version(version);
             }
         } else {
-            result = result.add_error(
-                "Git 未安装。请安装 Git: https://git-scm.com/".to_string()
-            );
+            result = result.add_error("Git 未安装。请安装 Git: https://git-scm.com/".to_string());
         }
-        
+
         // 2. 检查 Node.js
         let (node_installed, node_version) = env_utils::check_nodejs();
         if node_installed {
@@ -500,11 +493,10 @@ impl InitializerAgent {
                 result = result.with_node_version(version);
             }
         } else {
-            result = result.add_error(
-                "Node.js 未安装。请安装 Node.js: https://nodejs.org/".to_string()
-            );
+            result =
+                result.add_error("Node.js 未安装。请安装 Node.js: https://nodejs.org/".to_string());
         }
-        
+
         // 3. 检查 npm
         let (npm_installed, npm_version) = env_utils::check_npm();
         if npm_installed {
@@ -513,14 +505,12 @@ impl InitializerAgent {
             }
         } else if node_installed {
             result = result.add_warning(
-                "npm 未找到，但 Node.js 已安装。请确认 npm 是否正确配置。".to_string()
+                "npm 未找到，但 Node.js 已安装。请确认 npm 是否正确配置。".to_string(),
             );
         } else {
-            result = result.add_error(
-                "npm 未安装。npm 通常随 Node.js 一起安装。".to_string()
-            );
+            result = result.add_error("npm 未安装。npm 通常随 Node.js 一起安装。".to_string());
         }
-        
+
         // 4. 检查 Cargo (Rust)
         let (cargo_installed, cargo_version) = env_utils::check_cargo();
         if cargo_installed {
@@ -529,10 +519,11 @@ impl InitializerAgent {
             }
         } else {
             result = result.add_warning(
-                "Cargo (Rust) 未安装。如果需要构建 Rust 项目，请安装：https://rustup.rs/".to_string()
+                "Cargo (Rust) 未安装。如果需要构建 Rust 项目，请安装：https://rustup.rs/"
+                    .to_string(),
             );
         }
-        
+
         // 5. 检查 IDE
         let ides = env_utils::check_ide();
         for ide in &ides {
@@ -540,38 +531,37 @@ impl InitializerAgent {
         }
         if ides.is_empty() {
             result = result.add_warning(
-                "未检测到常见 IDE (VSCode/Cursor)。请确保已安装代码编辑器。".to_string()
+                "未检测到常见 IDE (VSCode/Cursor)。请确保已安装代码编辑器。".to_string(),
             );
         }
-        
+
         // 6. 检查项目目录
         let project_exists = env_utils::check_project_dir(&self.config.project_path);
         result.project_dir_exists = project_exists;
         if !project_exists {
-            result = result.add_error(
-                format!("项目目录不存在：{}", self.config.project_path)
-            );
+            result = result.add_error(format!("项目目录不存在：{}", self.config.project_path));
         }
-        
+
         // 7. 添加版本兼容性警告
         let node_version_cloned = result.node_version.clone();
         if let Some(ref version) = node_version_cloned {
             if version.starts_with("v") && version.len() > 1 {
                 if let Ok(major) = version[1..].split('.').next().unwrap_or("0").parse::<u32>() {
                     if major < 18 {
-                        result = result.add_warning(
-                            format!("Node.js 版本 {} 可能过旧，建议使用 Node.js 18+ LTS 版本", version)
-                        );
+                        result = result.add_warning(format!(
+                            "Node.js 版本 {} 可能过旧，建议使用 Node.js 18+ LTS 版本",
+                            version
+                        ));
                     }
                 }
             }
         }
-        
+
         Ok(result)
     }
 
     /// 初始化 Git 仓库
-    /// 
+    ///
     /// VC-008: 验证 Git 仓库已初始化（项目创建/打开时已自动初始化）
     pub async fn initialize_git(&self) -> Result<bool, String> {
         use std::path::Path;
@@ -595,13 +585,13 @@ impl InitializerAgent {
         log::warn!("⚠️  Git 仓库未初始化：{}", project_path);
         log::warn!("   这可能是因为项目是在 Git 自动初始化功能添加之前创建的");
         log::warn!("   建议通过 GitDetector 组件手动初始化 Git");
-        
+
         // 返回 false 表示 Git 未初始化，但不阻止后续流程
         Ok(false)
     }
 
     /// 配置 Git 用户信息
-    /// 
+    ///
     /// @deprecated 此函数已不再使用，Git 用户配置现在在项目创建/打开时由 database.rs 处理
     #[allow(dead_code)]
     async fn configure_git_user(&self, project_path: &str) -> Result<(), String> {
@@ -648,7 +638,7 @@ impl InitializerAgent {
     }
 
     /// 创建 .gitignore 文件
-    /// 
+    ///
     /// @deprecated 此函数已不再使用，.gitignore 现在在项目创建/打开时由 database.rs 处理
     #[allow(dead_code)]
     fn create_gitignore(&self, project_path: &str) -> Result<(), String> {

@@ -2,15 +2,23 @@ use crate::commands::quality::types::{DecomposeTasksRequest, DecomposeTasksRespo
 
 /// 分解任务
 #[tauri::command]
-pub async fn decompose_tasks(request: DecomposeTasksRequest) -> Result<DecomposeTasksResponse, String> {
+pub async fn decompose_tasks(
+    request: DecomposeTasksRequest,
+) -> Result<DecomposeTasksResponse, String> {
     log::info!("Starting task decomposition...");
-    
+
     let decomposer = crate::quality::task_decomposer::TaskDecomposer::new();
-    
-    match decomposer.decompose_features(&request.analysis.features).await {
+
+    match decomposer
+        .decompose_features(&request.analysis.features)
+        .await
+    {
         Ok(task_graph) => {
-            log::info!("Task decomposition completed. Generated {} tasks", task_graph.statistics.total_tasks);
-            
+            log::info!(
+                "Task decomposition completed. Generated {} tasks",
+                task_graph.statistics.total_tasks
+            );
+
             Ok(DecomposeTasksResponse {
                 success: true,
                 task_graph,
@@ -19,7 +27,7 @@ pub async fn decompose_tasks(request: DecomposeTasksRequest) -> Result<Decompose
         }
         Err(e) => {
             log::error!("Task decomposition failed: {}", e);
-            
+
             Ok(DecomposeTasksResponse {
                 success: false,
                 task_graph: crate::quality::task_decomposer::TaskDependencyGraph::empty(),
@@ -32,23 +40,21 @@ pub async fn decompose_tasks(request: DecomposeTasksRequest) -> Result<Decompose
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::quality::prd_deep_analyzer::{Feature, FeatureType, PrdAnalysis, Estimates};
+    use crate::quality::prd_deep_analyzer::{Estimates, Feature, FeatureType, PrdAnalysis};
 
     #[tokio::test]
     async fn test_decompose_tasks_basic() {
         let analysis = PrdAnalysis {
-            features: vec![
-                Feature {
-                    id: "F001".to_string(),
-                    name: "用户管理".to_string(),
-                    description: "用户 CRUD 操作".to_string(),
-                    feature_type: FeatureType::Core,
-                    complexity: 3,
-                    estimated_hours: 6.0,
-                    priority: 8,
-                    dependencies: vec![],
-                }
-            ],
+            features: vec![Feature {
+                id: "F001".to_string(),
+                name: "用户管理".to_string(),
+                description: "用户 CRUD 操作".to_string(),
+                feature_type: FeatureType::Core,
+                complexity: 3,
+                estimated_hours: 6.0,
+                priority: 8,
+                dependencies: vec![],
+            }],
             dependencies: vec![],
             risks: vec![],
             estimates: Estimates {
@@ -61,11 +67,11 @@ mod tests {
                 high_risks_count: 0,
             },
         };
-        
+
         let request = DecomposeTasksRequest { analysis };
         let result = decompose_tasks(request).await;
         assert!(result.is_ok());
-        
+
         let response = result.unwrap();
         assert!(response.success);
         assert!(response.task_graph.statistics.total_tasks > 0);

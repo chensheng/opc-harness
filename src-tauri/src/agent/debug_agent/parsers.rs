@@ -1,5 +1,5 @@
 //! Debug Agent 错误解析器
-//! 
+//!
 //! 负责从不同来源（TypeScript、Rust、ESLint、Jest等）解析错误信息
 
 use super::types::{ErrorInfo, ErrorSource, ErrorType};
@@ -20,11 +20,16 @@ impl ErrorParser for TypeScriptParser {
         // TypeScript 错误格式示例：
         // src/App.tsx(15,5): error TS2304: Cannot find name 'useState'.
         let re = regex::Regex::new(
-            r"(?P<file>[^(]+)\((?P<line>\d+),(?P<col>\d+)\):\s*error\s+TS\d+:\s*(?P<message>.+)"
-        ).map_err(|e| format!("Invalid regex: {}", e))?;
+            r"(?P<file>[^(]+)\((?P<line>\d+),(?P<col>\d+)\):\s*error\s+TS\d+:\s*(?P<message>.+)",
+        )
+        .map_err(|e| format!("Invalid regex: {}", e))?;
 
         for cap in re.captures_iter(output) {
-            let file_path = cap.name("file").map_or("", |m| m.as_str()).trim().to_string();
+            let file_path = cap
+                .name("file")
+                .map_or("", |m| m.as_str())
+                .trim()
+                .to_string();
             let line_number: Option<u32> = cap.name("line").and_then(|m| m.as_str().parse().ok());
             let column: Option<u32> = cap.name("col").and_then(|m| m.as_str().parse().ok());
             let message = cap.name("message").map_or("", |m| m.as_str()).to_string();
@@ -61,27 +66,32 @@ impl ErrorParser for RustParser {
 
         while i < lines.len() {
             let line = lines[i];
-            
+
             if line.starts_with("error[") {
                 // 提取错误代码和消息
-                let _error_code = line.split(']').next().and_then(|s| s.split('[').nth(1)).unwrap_or("");
+                let _error_code = line
+                    .split(']')
+                    .next()
+                    .and_then(|s| s.split('[').nth(1))
+                    .unwrap_or("");
                 let message = line.split(": ").skip(1).collect::<Vec<_>>().join(": ");
 
                 // 查找下一行的文件位置
-                let (file_path, line_num, col) = if i + 1 < lines.len() && lines[i + 1].trim().starts_with("-->") {
-                    let location_line = lines[i + 1];
-                    let parts: Vec<&str> = location_line.split(':').collect();
-                    if parts.len() >= 3 {
-                        let file = parts[0].replace("-->", "").trim().to_string();
-                        let line = parts.get(1).and_then(|s| s.trim().parse().ok());
-                        let col = parts.get(2).and_then(|s| s.trim().parse().ok());
-                        (file, line, col)
+                let (file_path, line_num, col) =
+                    if i + 1 < lines.len() && lines[i + 1].trim().starts_with("-->") {
+                        let location_line = lines[i + 1];
+                        let parts: Vec<&str> = location_line.split(':').collect();
+                        if parts.len() >= 3 {
+                            let file = parts[0].replace("-->", "").trim().to_string();
+                            let line = parts.get(1).and_then(|s| s.trim().parse().ok());
+                            let col = parts.get(2).and_then(|s| s.trim().parse().ok());
+                            (file, line, col)
+                        } else {
+                            ("unknown".to_string(), None, None)
+                        }
                     } else {
                         ("unknown".to_string(), None, None)
-                    }
-                } else {
-                    ("unknown".to_string(), None, None)
-                };
+                    };
 
                 errors.push(ErrorInfo {
                     error_type: ErrorType::CompilationError,
@@ -126,9 +136,9 @@ impl ErrorParser for ESLintParser {
                 if parts.len() >= 4 {
                     let position = parts[0]; // "10:5"
                     let position_parts: Vec<&str> = position.split(':').collect();
-                    let line_number = position_parts.get(0).and_then(|s| s.parse().ok());
+                    let line_number = position_parts.first().and_then(|s| s.parse().ok());
                     let column = position_parts.get(1).and_then(|s| s.parse().ok());
-                    
+
                     let message_start = parts.iter().position(|&p| p == "error" || p == "warning");
                     let message = if let Some(idx) = message_start {
                         parts[idx..].join(" ")
@@ -165,16 +175,26 @@ impl ErrorParser for JestParser {
         // Jest 错误格式示例：
         // ● Test suite failed to run
         //   SyntaxError: Unexpected token 'export'
-        //   
+        //
         //   > 1 | export const foo = () => {};
         //       |                  ^
         //   at Object.<anonymous> (src/foo.test.ts:1:10)
-        
+
         if output.contains("Test suite failed") || output.contains("●") {
             // 尝试找到包含具体错误信息的行
-            let message = output.lines()
-                .find(|l| l.contains("SyntaxError") || l.contains("TypeError") || l.contains("ReferenceError"))
-                .unwrap_or_else(|| output.lines().find(|l| !l.is_empty()).unwrap_or("Test failed"))
+            let message = output
+                .lines()
+                .find(|l| {
+                    l.contains("SyntaxError")
+                        || l.contains("TypeError")
+                        || l.contains("ReferenceError")
+                })
+                .unwrap_or_else(|| {
+                    output
+                        .lines()
+                        .find(|l| !l.is_empty())
+                        .unwrap_or("Test failed")
+                })
                 .trim()
                 .to_string();
 
@@ -204,12 +224,12 @@ impl ErrorParser for CargoTestParser {
 
         // Cargo Test 错误格式示例：
         // test test_foo ... FAILED
-        // 
+        //
         // failures:
-        // 
+        //
         // ---- test_foo stdout ----
         // thread 'test_foo' panicked at 'assertion failed', src/lib.rs:10:5
-        
+
         if output.contains("FAILED") || output.contains("panicked at") {
             errors.push(ErrorInfo {
                 error_type: ErrorType::TestFailure,
@@ -217,7 +237,11 @@ impl ErrorParser for CargoTestParser {
                 file_path: "unknown".to_string(),
                 line_number: None,
                 column: None,
-                message: output.lines().find(|l| l.contains("panicked at") || l.contains("assertion")).unwrap_or("Test failed").to_string(),
+                message: output
+                    .lines()
+                    .find(|l| l.contains("panicked at") || l.contains("assertion"))
+                    .unwrap_or("Test failed")
+                    .to_string(),
                 stack_trace: Some(output.to_string()),
                 code_snippet: None,
                 raw_output: output.to_string(),
@@ -237,7 +261,7 @@ impl ErrorParser for GenericParser {
 
         // 尝试从输出中提取基本信息
         errors.push(ErrorInfo {
-            error_type: ErrorType::LogicError, // 默认类型
+            error_type: ErrorType::LogicError,     // 默认类型
             error_source: ErrorSource::RuntimeLog, // 将在调用时设置
             file_path: "unknown".to_string(),
             line_number: None,
@@ -362,7 +386,7 @@ thread 'test_foo' panicked at 'assertion failed', src/lib.rs:10:5
     #[test]
     fn test_generic_parser() {
         let generic_output = "Some runtime error occurred";
-        
+
         let parser = GenericParser;
         let errors = parser.parse_errors(generic_output).unwrap();
 

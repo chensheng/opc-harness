@@ -3,7 +3,7 @@ use tauri::command;
 #[command]
 pub fn console_log(level: String, message: String) -> Result<(), String> {
     let prefix = "[Frontend]";
-    
+
     match level.as_str() {
         "debug" => {
             log::debug!("{} {}", prefix, message);
@@ -21,6 +21,6 @@ pub fn console_log(level: String, message: String) -> Result<(), String> {
             log::info!("{} [{}] {}", prefix, level, message);
         }
     }
-    
+
     Ok(())
 }

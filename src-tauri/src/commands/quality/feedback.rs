@@ -6,17 +6,17 @@ pub async fn submit_feedback_and_regenerate(
     request: SubmitFeedbackRequest,
 ) -> Result<SubmitFeedbackResponse, String> {
     use crate::quality::feedback_processor::PRDFeedbackProcessor;
-    
+
     // 创建反馈处理器
     let processor = PRDFeedbackProcessor::new();
-    
+
     // 解析用户反馈
     let parsed_feedback = processor.parse_feedback(&request.feedback_content)?;
-    
+
     // 保存需要克隆的字段
     let sentiment = parsed_feedback.sentiment.clone();
     let priority = parsed_feedback.priority.clone();
-    
+
     // 创建反馈对象
     let feedback = crate::quality::feedback_processor::Feedback {
         id: format!("fb_{}", chrono::Utc::now().timestamp()),
@@ -27,14 +27,11 @@ pub async fn submit_feedback_and_regenerate(
         priority,
         timestamp: chrono::Utc::now().to_rfc3339(),
     };
-    
+
     // 识别受影响的章节
     let prd_structure = crate::quality::feedback_processor::PRDStructure::default();
-    let affected_sections = processor.identify_affected_sections(
-        &parsed_feedback,
-        &prd_structure,
-    );
-    
+    let affected_sections = processor.identify_affected_sections(&parsed_feedback, &prd_structure);
+
     // 构建再生成请求
     let regen_request = crate::quality::feedback_processor::RegenerateRequest {
         prd_content: request.prd_content,
@@ -46,10 +43,10 @@ pub async fn submit_feedback_and_regenerate(
         },
         iteration_count: request.iteration_count,
     };
-    
+
     // 执行再生成
     let result = processor.regenerate_with_feedback(&regen_request)?;
-    
+
     Ok(SubmitFeedbackResponse {
         new_prd_content: result.new_prd_content,
         changed_sections: result.changed_sections,
@@ -73,7 +70,7 @@ mod tests {
             section: Some("用户画像".to_string()),
             iteration_count: 0,
         };
-        
+
         let result = submit_feedback_and_regenerate(request).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -91,7 +88,7 @@ mod tests {
             section: None,
             iteration_count: 0,
         };
-        
+
         let result = submit_feedback_and_regenerate(request).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -107,7 +104,7 @@ mod tests {
             section: None,
             iteration_count: 10, // 超过最大限制
         };
-        
+
         let result = submit_feedback_and_regenerate(request).await;
         assert!(result.is_err());
     }

@@ -1,11 +1,10 @@
 /// US-061: WebSocket 服务端实现
-/// 
+///
 /// 提供实时双向通信能力，支持：
 /// - Agent 执行日志实时推送
 /// - 系统通知广播
 /// - 主题订阅机制
 /// - 心跳和自动重连
-
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -64,7 +63,7 @@ impl WebSocketManager {
     /// 创建新的 WebSocket 管理器
     pub fn new() -> Self {
         let (broadcaster, _) = broadcast::channel(100);
-        
+
         Self {
             clients: Arc::new(RwLock::new(HashMap::new())),
             broadcaster: broadcaster.clone(),
@@ -76,10 +75,10 @@ impl WebSocketManager {
     pub async fn add_client(&mut self, tx: mpsc::UnboundedSender<Message>) -> String {
         let client_id = format!("client_{}", self.next_client_id);
         self.next_client_id += 1;
-        
+
         self.clients.write().await.insert(client_id.clone(), tx);
         info!("New WebSocket client connected: {}", client_id);
-        
+
         client_id
     }
 
@@ -92,11 +91,11 @@ impl WebSocketManager {
     /// 广播消息给所有客户端
     pub async fn broadcast(&self, message: WsMessage) {
         if let Ok(json) = serde_json::to_string(&message) {
-            let ws_msg = Message::Text(json.into());
-            
+            let ws_msg = Message::Text(json);
+
             // 通过广播通道发送
             let _ = self.broadcaster.send(message);
-            
+
             // 直接发送给所有客户端
             let clients = self.clients.read().await;
             for (client_id, tx) in clients.iter() {
@@ -146,14 +145,14 @@ pub async fn start_websocket_server(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = format!("127.0.0.1:{}", port);
     let listener = TcpListener::bind(&addr).await?;
-    
+
     info!("WebSocket server started on {}", addr);
 
     while let Ok((stream, addr)) = listener.accept().await {
         info!("New connection from: {}", addr);
-        
+
         let manager = manager.clone();
-        
+
         tokio::spawn(async move {
             handle_connection(stream, manager).await;
         });
@@ -163,10 +162,7 @@ pub async fn start_websocket_server(
 }
 
 /// 处理 WebSocket 连接
-async fn handle_connection(
-    stream: tokio::net::TcpStream,
-    manager: Arc<RwLock<WebSocketManager>>,
-) {
+async fn handle_connection(stream: tokio::net::TcpStream, manager: Arc<RwLock<WebSocketManager>>) {
     use tokio_tungstenite::tungstenite::protocol::Message as WsMessage;
 
     let ws_stream = match tokio_tungstenite::accept_async(stream).await {
@@ -187,7 +183,7 @@ async fn handle_connection(
     };
 
     let client_id_clone = client_id.clone();
-    
+
     // 写入任务：接收来自管理器的消息并发送给客户端
     let write_task = tokio::spawn(async move {
         let mut write = write;
@@ -256,9 +252,9 @@ mod tests {
     async fn test_add_client() {
         let mut manager = WebSocketManager::new();
         let (tx, _) = mpsc::unbounded_channel();
-        
+
         let client_id = manager.add_client(tx).await;
-        
+
         assert_eq!(client_id, "client_0");
         assert_eq!(manager.client_count().await, 1);
     }
@@ -267,10 +263,10 @@ mod tests {
     async fn test_remove_client() {
         let mut manager = WebSocketManager::new();
         let (tx, _) = mpsc::unbounded_channel();
-        
+
         let client_id = manager.add_client(tx).await;
         assert_eq!(manager.client_count().await, 1);
-        
+
         manager.remove_client(&client_id).await;
         assert_eq!(manager.client_count().await, 0);
     }
@@ -283,7 +279,7 @@ mod tests {
             payload: serde_json::json!({"test": "data"}),
             timestamp: chrono::Utc::now().timestamp_millis(),
         };
-        
+
         // 不应该 panic
         manager.broadcast(message).await;
     }
@@ -291,9 +287,14 @@ mod tests {
     #[tokio::test]
     async fn test_send_log() {
         let manager = WebSocketManager::new();
-        
-        manager.send_log(serde_json::json!({"msg": "test"}), Some("agent".to_string())).await;
-        
+
+        manager
+            .send_log(
+                serde_json::json!({"msg": "test"}),
+                Some("agent".to_string()),
+            )
+            .await;
+
         // 不应该 panic
     }
 }

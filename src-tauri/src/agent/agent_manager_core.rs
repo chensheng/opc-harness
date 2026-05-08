@@ -1,5 +1,5 @@
 //! Agent Manager 核心逻辑
-//! 
+//!
 //! 统一管理所有 Agent 的生命周期、通信和资源调度
 
 use std::collections::HashMap;
@@ -7,20 +7,20 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::RwLock;
 
-use crate::agent::daemon::{DaemonManager, DaemonConfig, DaemonStatus};
-use crate::agent::websocket_manager::WebSocketManager;
-use crate::agent::agent_stdio::StdioChannelManager;
-use crate::agent::types::{AgentType, AgentStatus, AgentConfig};
-use crate::agent::branch_manager::{BranchManager, BranchManagerConfig};
-use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
 use crate::agent::agent_manager_persistence;
-use crate::agent::decentralized::node::DecentralizedAgentNode;
-use crate::agent::decentralized::event_bus::SharedEventBus;
-use crate::agent::decentralized::distributed_lock::SharedLockManager;
+use crate::agent::agent_manager_types::{AgentHandle, AgentManagerStats};
+use crate::agent::agent_stdio::StdioChannelManager;
 use crate::agent::agent_worker::AgentWorker;
+use crate::agent::branch_manager::{BranchManager, BranchManagerConfig};
+use crate::agent::daemon::{DaemonConfig, DaemonManager, DaemonStatus};
+use crate::agent::decentralized::distributed_lock::SharedLockManager;
+use crate::agent::decentralized::event_bus::SharedEventBus;
+use crate::agent::decentralized::node::DecentralizedAgentNode;
+use crate::agent::types::{AgentConfig, AgentStatus, AgentType};
+use crate::agent::websocket_manager::WebSocketManager;
 
 /// Agent Manager
-/// 
+///
 /// 统一管理所有 Agent 的生命周期、通信和资源调度
 pub struct AgentManager {
     /// Tauri 应用句柄
@@ -99,7 +99,8 @@ impl AgentManager {
             &self.stdio,
             &self.websocket,
             &self.stats,
-        ).await
+        )
+        .await
     }
 
     /// 创建新的 Agent
@@ -114,15 +115,24 @@ impl AgentManager {
     ) -> Result<String, String> {
         log::info!("[AgentManager::create_agent] Creating agent: type={:?}, session_id={}, project_id={}, project_path={}, name={:?}, has_agents_content={}", 
             agent_type, session_id, project_id, project_path, name, agents_md_content.is_some());
-        
+
         // 保存 agent_type 的引用，避免移动
         let agent_type_clone = agent_type.clone();
-        
+
         // 创建 Agent 句柄（传入 project_id、name 和 agents_md_content）
-        let mut handle = AgentHandle::new(agent_type, session_id.clone(), project_id.clone(), name, agents_md_content);
-        
-        log::info!("[AgentManager::create_agent] Agent handle created: agent_id={}", handle.agent_id);
-        
+        let mut handle = AgentHandle::new(
+            agent_type,
+            session_id.clone(),
+            project_id.clone(),
+            name,
+            agents_md_content,
+        );
+
+        log::info!(
+            "[AgentManager::create_agent] Agent handle created: agent_id={}",
+            handle.agent_id
+        );
+
         // 创建 Stdio 通道 - 直接传递 AgentConfig
         let agent_config = AgentConfig {
             agent_id: handle.agent_id.clone(),
@@ -139,14 +149,17 @@ impl AgentManager {
         let mut stdio_manager = self.stdio.write().await;
         let channel_result = stdio_manager.create_channel(agent_config);
         drop(stdio_manager);
-        
+
         let channel_id = match channel_result {
             Ok(id) => {
                 log::info!("[AgentManager::create_agent] Stdio channel created: {}", id);
                 id
             }
             Err(e) => {
-                log::error!("[AgentManager::create_agent] Failed to create stdio channel: {}", e);
+                log::error!(
+                    "[AgentManager::create_agent] Failed to create stdio channel: {}",
+                    e
+                );
                 return Err(format!("Failed to create stdio channel: {}", e));
             }
         };
@@ -157,14 +170,21 @@ impl AgentManager {
         // 持久化到数据库 (VC-005)
         log::info!("[AgentManager::create_agent] Persisting agent to database...");
         if let Err(e) = self.persist_agent(&handle).await {
-            log::warn!("[AgentManager::create_agent] Failed to persist agent {}: {}", handle.agent_id, e);
+            log::warn!(
+                "[AgentManager::create_agent] Failed to persist agent {}: {}",
+                handle.agent_id,
+                e
+            );
         } else {
             log::info!("[AgentManager::create_agent] Agent persisted successfully");
         }
 
         // 添加到管理器
         let agent_id = handle.agent_id.clone();
-        log::info!("[AgentManager::create_agent] Adding agent to manager: {}", agent_id);
+        log::info!(
+            "[AgentManager::create_agent] Adding agent to manager: {}",
+            agent_id
+        );
         {
             let mut agents = self.agents.write().await;
             agents.insert(agent_id.clone(), handle);
@@ -174,7 +194,10 @@ impl AgentManager {
         log::info!("[AgentManager::create_agent] Updating stats...");
         self.update_stats().await;
 
-        log::info!("[AgentManager::create_agent] Agent created successfully: {}", agent_id);
+        log::info!(
+            "[AgentManager::create_agent] Agent created successfully: {}",
+            agent_id
+        );
         Ok(agent_id)
     }
 
@@ -184,20 +207,26 @@ impl AgentManager {
     }
 
     /// 更新 Agent 状态并持久化 (VC-005)
-    async fn update_and_persist_agent(&self, agent_id: &str, status: AgentStatus) -> Result<(), String> {
+    async fn update_and_persist_agent(
+        &self,
+        agent_id: &str,
+        status: AgentStatus,
+    ) -> Result<(), String> {
         agent_manager_persistence::update_and_persist_agent(
             &self.app_handle,
             &self.agents,
             agent_id,
             status,
-        ).await
+        )
+        .await
     }
 
     /// 启动 Agent
     pub async fn start_agent(&self, agent_id: &str) -> Result<(), String> {
         let mut agents = self.agents.write().await;
-        
-        let handle = agents.get_mut(agent_id)
+
+        let handle = agents
+            .get_mut(agent_id)
             .ok_or_else(|| format!("Agent {} not found", agent_id))?;
 
         if handle.status != AgentStatus::Idle {
@@ -214,51 +243,56 @@ impl AgentManager {
         drop(agents);
 
         // 持久化状态变更 (VC-005)
-        if let Err(e) = self.update_and_persist_agent(agent_id, AgentStatus::Running).await {
+        if let Err(e) = self
+            .update_and_persist_agent(agent_id, AgentStatus::Running)
+            .await
+        {
             log::warn!("Failed to persist agent status: {}", e);
         }
 
         // 通知 Daemon 启动 Agent
         {
             let mut daemon = self.daemon.write().await;
-            
+
             // 获取 project_path（从 agent handle 中）
             let project_path = {
                 let agents_read = self.agents.read().await;
                 if let Some(handle) = agents_read.get(agent_id) {
-                    handle.project_id.clone()  // 使用 project_id 作为 project_path
+                    handle.project_id.clone() // 使用 project_id 作为 project_path
                 } else {
                     return Err(format!("Agent {} not found", agent_id));
                 }
             };
-            
+
             // 尝试启动 Agent（受并发控制）
             let started = daemon.try_start_agent(agent_id, &project_path);
-            
+
             if !started {
                 log::warn!("Agent {} queued due to concurrency limit", agent_id);
                 // 更新状态为 Idle（等待中）
-                self.update_and_persist_agent(agent_id, AgentStatus::Idle).await?;
-                
+                self.update_and_persist_agent(agent_id, AgentStatus::Idle)
+                    .await?;
+
                 return Err(format!(
                     "Agent {} is queued. Current running: {}/{}, max concurrent: {}",
-                    agent_id,
-                    daemon.running_count,
-                    daemon.max_concurrent,
-                    daemon.max_concurrent
+                    agent_id, daemon.running_count, daemon.max_concurrent, daemon.max_concurrent
                 ));
             }
-            
+
             drop(daemon);
             log::info!("Daemon started Agent {}", agent_id);
         }
 
         // 通过 WebSocket 发送状态更新
-        self.websocket.read().await.send_status(
-            &session_id,
-            "running",
-            Some(&format!("Agent {:?} started", agent_type)),
-        ).await?;
+        self.websocket
+            .read()
+            .await
+            .send_status(
+                &session_id,
+                "running",
+                Some(&format!("Agent {:?} started", agent_type)),
+            )
+            .await?;
 
         log::info!("Started Agent {}", agent_id);
         Ok(())
@@ -267,11 +301,15 @@ impl AgentManager {
     /// 停止 Agent
     pub async fn stop_agent(&self, agent_id: &str, graceful: bool) -> Result<(), String> {
         let mut agents = self.agents.write().await;
-        
-        let handle = agents.get_mut(agent_id)
+
+        let handle = agents
+            .get_mut(agent_id)
             .ok_or_else(|| format!("Agent {} not found", agent_id))?;
 
-        if matches!(handle.status, AgentStatus::Completed | AgentStatus::Failed(_)) {
+        if matches!(
+            handle.status,
+            AgentStatus::Completed | AgentStatus::Failed(_)
+        ) {
             return Err(format!(
                 "Agent {} has already completed or failed",
                 agent_id
@@ -284,7 +322,7 @@ impl AgentManager {
         } else {
             AgentStatus::Idle
         };
-        
+
         handle.update_status(new_status.clone());
         let session_id = handle.session_id.clone();
         drop(agents);
@@ -297,23 +335,27 @@ impl AgentManager {
         // 通知 Daemon 停止 Agent
         {
             let mut daemon = self.daemon.write().await;
-            
+
             // 实际调用 daemon.stop_agent 终止进程
             if let Err(e) = daemon.stop_agent(agent_id) {
                 log::error!("Failed to stop agent {}: {}", agent_id, e);
                 return Err(format!("Failed to stop agent: {}", e));
             }
-            
+
             drop(daemon);
             log::info!("Daemon stopped Agent {}", agent_id);
         }
 
         // 通过 WebSocket 发送状态更新
-        self.websocket.read().await.send_status(
-            &session_id,
-            if graceful { "paused" } else { "stopped" },
-            Some(&format!("Agent {} stopped", agent_id)),
-        ).await?;
+        self.websocket
+            .read()
+            .await
+            .send_status(
+                &session_id,
+                if graceful { "paused" } else { "stopped" },
+                Some(&format!("Agent {} stopped", agent_id)),
+            )
+            .await?;
 
         log::info!("Stopped Agent {} (graceful: {})", agent_id, graceful);
         Ok(())
@@ -322,7 +364,8 @@ impl AgentManager {
     /// 获取 Agent 状态
     pub async fn get_agent_status(&self, agent_id: &str) -> Result<AgentHandle, String> {
         let agents = self.agents.read().await;
-        agents.get(agent_id)
+        agents
+            .get(agent_id)
             .cloned()
             .ok_or_else(|| format!("Agent {} not found", agent_id))
     }
@@ -336,7 +379,8 @@ impl AgentManager {
     /// 获取指定 Session 的所有 Agent
     pub async fn get_agents_by_session(&self, session_id: &str) -> Vec<AgentHandle> {
         let agents = self.agents.read().await;
-        agents.values()
+        agents
+            .values()
             .filter(|h| h.session_id == session_id)
             .cloned()
             .collect()
@@ -345,7 +389,8 @@ impl AgentManager {
     /// 获取指定类型的 Agent
     pub async fn get_agents_by_type(&self, agent_type: &AgentType) -> Vec<AgentHandle> {
         let agents = self.agents.read().await;
-        agents.values()
+        agents
+            .values()
             .filter(|h| h.agent_type == *agent_type)
             .cloned()
             .collect()
@@ -358,7 +403,8 @@ impl AgentManager {
             &self.stdio,
             &self.websocket,
             &self.stats,
-        ).await
+        )
+        .await
     }
 
     /// 获取统计信息
@@ -383,7 +429,11 @@ impl AgentManager {
         message: &str,
         source: Option<&str>,
     ) -> Result<(), String> {
-        self.websocket.read().await.send_log(&session_id.to_string(), level, message, source).await
+        self.websocket
+            .read()
+            .await
+            .send_log(&session_id.to_string(), level, message, source)
+            .await
     }
 
     /// 发送进度更新
@@ -395,7 +445,11 @@ impl AgentManager {
         total: u32,
         description: Option<&str>,
     ) -> Result<(), String> {
-        self.websocket.read().await.send_progress(&session_id.to_string(), phase, current, total, description).await
+        self.websocket
+            .read()
+            .await
+            .send_progress(&session_id.to_string(), phase, current, total, description)
+            .await
     }
 
     // ========================================================================
@@ -403,7 +457,9 @@ impl AgentManager {
     // ========================================================================
 
     /// 获取或创建 BranchManager（异步版本）
-    pub async fn get_or_create_branch_manager(&self) -> tokio::sync::RwLockWriteGuard<'_, Option<BranchManager>> {
+    pub async fn get_or_create_branch_manager(
+        &self,
+    ) -> tokio::sync::RwLockWriteGuard<'_, Option<BranchManager>> {
         // 检查是否已存在
         {
             let bm = self.branch_manager.read().await;
@@ -412,7 +468,7 @@ impl AgentManager {
                 return self.branch_manager.write().await;
             }
         }
-        
+
         // 创建新的 BranchManager
         let mut bm = self.branch_manager.write().await;
         if bm.is_none() {
@@ -426,8 +482,9 @@ impl AgentManager {
     }
 
     /// 获取 BranchManager（只读）
-    pub async fn get_branch_manager(&self) -> tokio::sync::RwLockReadGuard<'_, Option<BranchManager>> {
+    pub async fn get_branch_manager(
+        &self,
+    ) -> tokio::sync::RwLockReadGuard<'_, Option<BranchManager>> {
         self.branch_manager.read().await
     }
-
 }

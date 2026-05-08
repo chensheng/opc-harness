@@ -1,11 +1,11 @@
 //! Agent Manager 类型定义
-//! 
+//!
 //! 包含 AgentHandle、AgentManagerStats 等核心数据结构
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::agent::types::{AgentType, AgentStatus, AgentPhase};
+use crate::agent::types::{AgentPhase, AgentStatus, AgentType};
 
 /// Agent 句柄信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +51,7 @@ impl AgentHandle {
             AgentType::Coding => AgentPhase::Coding,
             AgentType::MRCreation => AgentPhase::MRCreation,
         };
-        
+
         Self {
             agent_id: Uuid::new_v4().to_string(),
             agent_type,
@@ -87,7 +87,7 @@ impl AgentHandle {
 }
 
 /// Agent Manager 统计信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentManagerStats {
     /// Agent 总数
     pub total_agents: u32,
@@ -99,16 +99,4 @@ pub struct AgentManagerStats {
     pub completed_agents: u32,
     /// 失败的 Agent 数量
     pub failed_agents: u32,
-}
-
-impl Default for AgentManagerStats {
-    fn default() -> Self {
-        Self {
-            total_agents: 0,
-            running_agents: 0,
-            idle_agents: 0,
-            completed_agents: 0,
-            failed_agents: 0,
-        }
-    }
 }

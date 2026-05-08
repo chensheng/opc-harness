@@ -3,13 +3,20 @@ use crate::models::UserStory;
 use rusqlite::{Connection, Result};
 
 /// 批量创建或更新用户故事（Upsert）
-pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserStory]) -> Result<()> {
-    log::debug!("[DB::upsert_user_stories] Starting upsert for project_id: {}, count: {}", 
-             project_id, stories.len());
-    
+pub fn upsert_user_stories(
+    conn: &Connection,
+    project_id: &str,
+    stories: &[UserStory],
+) -> Result<()> {
+    log::debug!(
+        "[DB::upsert_user_stories] Starting upsert for project_id: {}, count: {}",
+        project_id,
+        stories.len()
+    );
+
     // 使用事务确保原子性
     let tx = conn.unchecked_transaction()?;
-    
+
     // 先删除该项目的旧故事
     let deleted = tx.execute(
         "DELETE FROM user_stories WHERE project_id = ?1",
@@ -49,7 +56,10 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
         )?;
         inserted_count += 1;
     }
-    log::debug!("[DB::upsert_user_stories] Inserted {} new stories", inserted_count);
+    log::debug!(
+        "[DB::upsert_user_stories] Inserted {} new stories",
+        inserted_count
+    );
 
     tx.commit()?;
     log::debug!("[DB::upsert_user_stories] Transaction committed successfully");
@@ -58,51 +68,58 @@ pub fn upsert_user_stories(conn: &Connection, project_id: &str, stories: &[UserS
 
 /// 获取项目的所有用户故事
 pub fn get_user_stories_by_project(conn: &Connection, project_id: &str) -> Result<Vec<UserStory>> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM user_stories WHERE project_id = ?1 ORDER BY story_number ASC"
-    )?;
-    
-    let stories = stmt.query_map([project_id], |row| {
-        UserStory::from_row(row)
-    })?;
+    let mut stmt =
+        conn.prepare("SELECT * FROM user_stories WHERE project_id = ?1 ORDER BY story_number ASC")?;
+
+    let stories = stmt.query_map([project_id], |row| UserStory::from_row(row))?;
 
     let mut result = Vec::new();
     for story_result in stories {
         result.push(story_result?);
     }
-    
+
     Ok(result)
 }
 
 /// 获取指定 Sprint 下的所有用户故事
 #[allow(dead_code)]
 pub fn get_user_stories_by_sprint(conn: &Connection, sprint_id: &str) -> Result<Vec<UserStory>> {
-    log::debug!("[DB::get_user_stories_by_sprint] Querying for sprint_id: {}", sprint_id);
-    
-    let mut stmt = conn.prepare(
-        "SELECT * FROM user_stories WHERE sprint_id = ?1 ORDER BY story_number ASC"
-    )?;
-    
-    let stories = stmt.query_map([sprint_id], |row| {
-        UserStory::from_row(row)
-    })?;
+    log::debug!(
+        "[DB::get_user_stories_by_sprint] Querying for sprint_id: {}",
+        sprint_id
+    );
+
+    let mut stmt =
+        conn.prepare("SELECT * FROM user_stories WHERE sprint_id = ?1 ORDER BY story_number ASC")?;
+
+    let stories = stmt.query_map([sprint_id], |row| UserStory::from_row(row))?;
 
     let mut result = Vec::new();
     for story_result in stories {
         result.push(story_result?);
     }
-    
-    log::debug!("[DB::get_user_stories_by_sprint] Retrieved {} stories", result.len());
+
+    log::debug!(
+        "[DB::get_user_stories_by_sprint] Retrieved {} stories",
+        result.len()
+    );
 
     Ok(result)
 }
 
 /// 更新用户故事的 Sprint 关联
 #[allow(dead_code)]
-pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<&str>) -> Result<usize> {
-    log::debug!("[DB::update_story_sprint] Updating story_id: {} to sprint_id: {:?}", 
-             story_id, sprint_id);
-    
+pub fn update_story_sprint(
+    conn: &Connection,
+    story_id: &str,
+    sprint_id: Option<&str>,
+) -> Result<usize> {
+    log::debug!(
+        "[DB::update_story_sprint] Updating story_id: {} to sprint_id: {:?}",
+        story_id,
+        sprint_id
+    );
+
     let updated = match sprint_id {
         Some(sid) => conn.execute(
             "UPDATE user_stories SET sprint_id = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
@@ -113,7 +130,7 @@ pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<
             [story_id],
         )?,
     };
-    
+
     log::debug!("[DB::update_story_sprint] Updated {} story(s)", updated);
     Ok(updated)
 }
@@ -121,25 +138,29 @@ pub fn update_story_sprint(conn: &Connection, story_id: &str, sprint_id: Option<
 /// 获取待重试的用户故事队列
 /// 查询状态为 'scheduled_retry' 且 next_retry_at <= now() 的故事
 pub fn get_pending_retries(conn: &Connection, limit: usize) -> Result<Vec<UserStory>> {
-    log::debug!("[DB::get_pending_retries] Querying pending retries with limit: {}", limit);
-    
+    log::debug!(
+        "[DB::get_pending_retries] Querying pending retries with limit: {}",
+        limit
+    );
+
     let mut stmt = conn.prepare(
         "SELECT * FROM user_stories 
          WHERE status = 'scheduled_retry' 
            AND next_retry_at <= datetime('now')
          ORDER BY next_retry_at ASC
-         LIMIT ?1"
+         LIMIT ?1",
     )?;
-    
-    let stories = stmt.query_map([limit], |row| {
-        UserStory::from_row(row)
-    })?;
+
+    let stories = stmt.query_map([limit], |row| UserStory::from_row(row))?;
 
     let mut result = Vec::new();
     for story_result in stories {
         result.push(story_result?);
     }
-    
-    log::debug!("[DB::get_pending_retries] Found {} pending retries", result.len());
+
+    log::debug!(
+        "[DB::get_pending_retries] Found {} pending retries",
+        result.len()
+    );
     Ok(result)
 }

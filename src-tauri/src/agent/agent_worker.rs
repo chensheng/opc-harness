@@ -1,26 +1,26 @@
 //! Agent Worker - 完全去中心化的智能体
-//! 
+//!
 //! 每个 Agent Worker 是一个独立的执行单元，拥有完整的 Agent Loop 逻辑：
 //! - 定时查询数据库获取活跃 Sprint 和待处理的 User Stories
 //! - 使用乐观锁竞争领取 Story
 //! - 创建 Worktree 并启动 AI CLI 执行任务
 //! - 完成后自动更新 Story 状态
 
-use std::sync::Arc;
-use std::path::Path;
-use tokio::sync::RwLock;
-use chrono::Utc;
-use crate::db;
-use crate::models::{UserStory, UserStoryRetryHistory};
+use crate::agent::ai_cli_interaction::AICLIMessage;
 use crate::agent::daemon::DaemonManager;
+use crate::agent::daemon_types::StoryContext;
+use crate::agent::retry_engine::{BackoffConfig, RetryDecision, RetryEngine};
 use crate::agent::websocket_manager::WebSocketManager;
 use crate::agent::worktree_manager::WorktreeManager;
-use crate::agent::ai_cli_interaction::AICLIMessage;
-use crate::agent::daemon_types::StoryContext;
-use crate::agent::retry_engine::{RetryEngine, BackoffConfig, RetryDecision};
+use crate::db;
+use crate::models::{UserStory, UserStoryRetryHistory};
+use chrono::Utc;
 use log;
+use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::AppHandle;
+use tokio::sync::RwLock;
 
 /// Agent Worker 配置
 #[derive(Debug, Clone)]
@@ -66,10 +66,7 @@ pub struct AgentWorker {
 
 impl AgentWorker {
     /// 创建新的 Agent Worker
-    pub fn new(
-        config: AgentWorkerConfig,
-        daemon_manager: Arc<RwLock<DaemonManager>>,
-    ) -> Self {
+    pub fn new(config: AgentWorkerConfig, daemon_manager: Arc<RwLock<DaemonManager>>) -> Self {
         log::info!(
             "[AgentWorker:{}] Created with config: {:?}",
             config.worker_id,
@@ -168,11 +165,7 @@ impl AgentWorker {
                         }
                     }
                     Err(e) => {
-                        log::error!(
-                            "[AgentWorker:{}] ❌ Cycle failed: {}",
-                            worker_id,
-                            e
-                        );
+                        log::error!("[AgentWorker:{}] ❌ Cycle failed: {}", worker_id, e);
                     }
                 }
 
@@ -187,11 +180,11 @@ impl AgentWorker {
             let mut scheduler = crate::agent::retry_engine::RetryScheduler::new(scheduler_config);
             let project_id_clone = self.config.project_id.clone();
             let ws_manager_clone = ws_manager.clone();
-            
+
             tokio::spawn(async move {
                 scheduler.run(project_id_clone, ws_manager_clone).await;
             });
-            
+
             log::info!(
                 "[AgentWorker:{}] 🔄 RetryScheduler started in background",
                 self.config.worker_id
@@ -235,7 +228,8 @@ impl AgentWorker {
 
         // ✅ 关键修复：传入 project_id 实现项目隔离
         let active_sprint = match db::get_active_sprint(&conn, project_id)
-            .map_err(|e| format!("Failed to query active sprint: {}", e))? {
+            .map_err(|e| format!("Failed to query active sprint: {}", e))?
+        {
             Some(sprint) => sprint,
             None => {
                 log::warn!(
@@ -243,7 +237,7 @@ impl AgentWorker {
                     worker_id,
                     project_id
                 );
-                
+
                 return Ok(0);
             }
         };
@@ -262,8 +256,9 @@ impl AgentWorker {
             active_sprint.name
         );
 
-        let pending_stories = db::get_pending_stories_by_sprint(&conn, &active_sprint.id, project_id)
-            .map_err(|e| format!("Failed to query pending stories: {}", e))?;
+        let pending_stories =
+            db::get_pending_stories_by_sprint(&conn, &active_sprint.id, project_id)
+                .map_err(|e| format!("Failed to query pending stories: {}", e))?;
 
         if pending_stories.is_empty() {
             log::info!(
@@ -271,7 +266,7 @@ impl AgentWorker {
                 worker_id,
                 active_sprint.name
             );
-            
+
             return Ok(0);
         }
 
@@ -334,7 +329,7 @@ impl AgentWorker {
                                 agent_id,
                                 story.story_number
                             );
-                            
+
                             // 每个 Worker 每次循环只处理一个 Story
                             break;
                         }
@@ -345,7 +340,7 @@ impl AgentWorker {
                                 story.story_number,
                                 e
                             );
-                            
+
                             // 解锁 Story，允许其他 Agent 重试
                             if let Err(unlock_err) = db::unlock_user_story(&conn, &story.id) {
                                 log::warn!(
@@ -383,6 +378,285 @@ impl AgentWorker {
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
     ) -> Result<(), String> {
+        // 检查是否启用 Native Agent
+        let use_native_agent = std::env::var("VITE_USE_NATIVE_AGENT")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
+
+        if use_native_agent {
+            log::info!("[AgentWorker:{}] 🚀 Using Native Coding Agent", agent_id);
+
+            // 发送实时日志：Native Agent 启动
+            Self::send_ws_log_to_both_for_coding(
+                websocket_manager,
+                app_handle,
+                last_log_timestamps,
+                agent_id,
+                project_id,
+                "progress",
+                "🚀 启动 Native Coding Agent...",
+                Some("AgentWorker"),
+            )
+            .await;
+
+            return Self::execute_native_agent(
+                agent_id,
+                story,
+                project_id,
+                websocket_manager,
+                worktree_manager,
+                app_handle,
+                last_log_timestamps,
+            )
+            .await;
+        }
+
+        // 降级方案：使用 CLI Agent
+        log::info!("[AgentWorker:{}] 📦 Using CLI-based Coding Agent", agent_id);
+
+        Self::execute_cli_agent(
+            agent_id,
+            story,
+            project_id,
+            websocket_manager,
+            worktree_manager,
+            app_handle,
+            last_log_timestamps,
+        )
+        .await
+    }
+
+    /// 执行 Native Coding Agent
+    async fn execute_native_agent(
+        agent_id: &str,
+        story: &UserStory,
+        project_id: &str,
+        websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
+        worktree_manager: &Option<Arc<WorktreeManager>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
+    ) -> Result<(), String> {
+        use crate::agent::native_coding_agent::{NativeAgentConfig, NativeCodingAgent};
+        use crate::ai::AIProviderType;
+
+        log::info!(
+            "[AgentWorker:{}] Starting Native Coding Agent for story {}",
+            agent_id,
+            story.story_number
+        );
+
+        // 1. 从数据库获取 Story 上下文
+        let story_context = Self::get_story_context(&story.id)?;
+
+        // 2. 创建 Worktree
+        let worktree_path = if let Some(ref wt_manager) = worktree_manager {
+            let branch_name = format!("story-{}", story.story_number);
+
+            Self::send_ws_log_to_both_for_coding(
+                websocket_manager,
+                app_handle,
+                last_log_timestamps,
+                agent_id,
+                project_id,
+                "progress",
+                &format!("🌿 创建工作树分支: {}", branch_name),
+                Some("AgentWorker"),
+            )
+            .await;
+
+            match wt_manager
+                .create_worktree(agent_id, &story.id, &branch_name)
+                .await
+            {
+                Ok(path) => {
+                    log::info!("[AgentWorker:{}] Worktree created at: {}", agent_id, path);
+
+                    Self::send_ws_log_to_both_for_coding(
+                        websocket_manager,
+                        app_handle,
+                        last_log_timestamps,
+                        agent_id,
+                        project_id,
+                        "success",
+                        &format!("✅ 工作树创建成功: {}", path),
+                        Some("AgentWorker"),
+                    )
+                    .await;
+                    path
+                }
+                Err(e) => {
+                    log::error!(
+                        "[AgentWorker:{}] Failed to create worktree: {}, falling back to project root",
+                        agent_id,
+                        e
+                    );
+
+                    Self::send_ws_log_to_both_for_coding(
+                        websocket_manager,
+                        app_handle,
+                        last_log_timestamps,
+                        agent_id,
+                        project_id,
+                        "error",
+                        &format!("❌ 工作树创建失败: {}", e),
+                        Some("AgentWorker"),
+                    )
+                    .await;
+
+                    let workspaces_root = crate::utils::paths::get_workspaces_dir();
+                    workspaces_root.to_string_lossy().to_string()
+                }
+            }
+        } else {
+            log::warn!(
+                "[AgentWorker:{}] Worktree manager not initialized, using project root",
+                agent_id
+            );
+            let workspaces_root = crate::utils::paths::get_workspaces_dir();
+            workspaces_root.to_string_lossy().to_string()
+        };
+
+        // 3. 配置 Native Agent
+        let api_key = std::env::var("VITE_AI_API_KEY").unwrap_or_else(|_| "test-key".to_string());
+        let model = std::env::var("VITE_AI_MODEL").unwrap_or_else(|_| "kimi-k2.5".to_string());
+        let provider_type_str =
+            std::env::var("VITE_AI_PROVIDER").unwrap_or_else(|_| "kimi".to_string());
+
+        let provider_type = match provider_type_str.as_str() {
+            "openai" => AIProviderType::OpenAI,
+            "anthropic" => AIProviderType::Anthropic,
+            "kimi" => AIProviderType::Kimi,
+            "glm" => AIProviderType::GLM,
+            "minimax" => AIProviderType::MiniMax,
+            _ => AIProviderType::Kimi,
+        };
+
+        let config = NativeAgentConfig {
+            agent_id: agent_id.to_string(),
+            workspace_path: std::path::PathBuf::from(&worktree_path),
+            provider_type,
+            api_key,
+            model,
+            max_turns: 10,
+            timeout_secs: 1800, // 30 分钟
+        };
+
+        let mut native_agent = NativeCodingAgent::new(config);
+
+        // 4. 发送实时日志：开始执行
+        Self::send_ws_log_to_both_for_coding(
+            websocket_manager,
+            app_handle,
+            last_log_timestamps,
+            agent_id,
+            project_id,
+            "progress",
+            &format!("🤖 Native Agent 开始执行故事: {}", story.title),
+            Some("AgentWorker"),
+        )
+        .await;
+
+        // 5. 执行用户故事
+        let title = story_context.title.unwrap_or_else(|| story.title.clone());
+        let acceptance_criteria = story_context
+            .acceptance_criteria
+            .unwrap_or_else(|| story.acceptance_criteria.clone());
+
+        match native_agent.execute_story(title, acceptance_criteria).await {
+            Ok(result) => {
+                log::info!(
+                    "[AgentWorker:{}] ✅ Native Agent completed: {}",
+                    agent_id,
+                    result.message
+                );
+
+                // 发送完成日志
+                Self::send_ws_log_to_both_for_coding(
+                    websocket_manager,
+                    app_handle,
+                    last_log_timestamps,
+                    agent_id,
+                    project_id,
+                    "success",
+                    &format!(
+                        "✅ 任务完成: {}\nToken 消耗: {} prompt + {} completion = {} total",
+                        result.message,
+                        result
+                            .token_usage
+                            .as_ref()
+                            .map(|u| u.prompt_tokens)
+                            .unwrap_or(0),
+                        result
+                            .token_usage
+                            .as_ref()
+                            .map(|u| u.completion_tokens)
+                            .unwrap_or(0),
+                        result
+                            .token_usage
+                            .as_ref()
+                            .map(|u| u.total_tokens)
+                            .unwrap_or(0)
+                    ),
+                    Some("AgentWorker"),
+                )
+                .await;
+
+                // 更新 Story 状态为 completed
+                if let Err(e) = Self::update_story_status_to_completed(&story.id).await {
+                    log::error!(
+                        "[AgentWorker:{}] Failed to update story status: {}",
+                        agent_id,
+                        e
+                    );
+                }
+
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("[AgentWorker:{}] ❌ Native Agent failed: {}", agent_id, e);
+
+                // 发送错误日志
+                Self::send_ws_log_to_both_for_coding(
+                    websocket_manager,
+                    app_handle,
+                    last_log_timestamps,
+                    agent_id,
+                    project_id,
+                    "error",
+                    &format!("❌ Native Agent 执行失败: {}", e),
+                    Some("AgentWorker"),
+                )
+                .await;
+
+                // 更新 Story 状态为 failed
+                if let Err(update_err) = Self::update_story_status_to_failed(
+                    &story.id,
+                    &format!("Native Agent error: {}", e),
+                )
+                .await
+                {
+                    log::error!(
+                        "[AgentWorker:{}] Failed to update story status: {}",
+                        agent_id,
+                        update_err
+                    );
+                }
+
+                Err(format!("Native Agent execution failed: {}", e))
+            }
+        }
+    }
+
+    /// 执行 CLI-based Coding Agent（原有逻辑）
+    async fn execute_cli_agent(
+        agent_id: &str,
+        story: &UserStory,
+        project_id: &str,
+        websocket_manager: &Option<Arc<RwLock<WebSocketManager>>>,
+        worktree_manager: &Option<Arc<WorktreeManager>>,
+        app_handle: &Option<AppHandle>,
+        last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
+    ) -> Result<(), String> {
         use crate::agent::daemon_types::AICLIConfig;
         use std::process::Stdio;
         use tokio::process::Command as TokioCommand;
@@ -404,7 +678,7 @@ impl AgentWorker {
         // 创建 Worktree
         let worktree_path = if let Some(ref wt_manager) = worktree_manager {
             let branch_name = format!("story-{}", story.story_number);
-            
+
             // 📤 发送实时日志：创建 Worktree
             Self::send_ws_log_to_both_for_coding(
                 websocket_manager,
@@ -412,22 +686,19 @@ impl AgentWorker {
                 last_log_timestamps,
                 agent_id,
                 project_id,
-                "progress", 
+                "progress",
                 &format!("🌿 创建工作树分支: {}", branch_name),
-                Some("AgentWorker")
-            ).await;
-            
+                Some("AgentWorker"),
+            )
+            .await;
+
             match wt_manager
                 .create_worktree(agent_id, &story.id, &branch_name)
                 .await
             {
                 Ok(path) => {
-                    log::info!(
-                        "[AgentWorker:{}] Worktree created at: {}",
-                        agent_id,
-                        path
-                    );
-                    
+                    log::info!("[AgentWorker:{}] Worktree created at: {}", agent_id, path);
+
                     // 📤 发送实时日志：Worktree 创建成功
                     Self::send_ws_log_to_both_for_coding(
                         websocket_manager,
@@ -435,10 +706,11 @@ impl AgentWorker {
                         last_log_timestamps,
                         agent_id,
                         project_id,
-                        "success", 
+                        "success",
                         &format!("✅ 工作树创建成功: {}", path),
-                        Some("AgentWorker")
-                    ).await;
+                        Some("AgentWorker"),
+                    )
+                    .await;
                     path
                 }
                 Err(e) => {
@@ -447,7 +719,7 @@ impl AgentWorker {
                         agent_id,
                         e
                     );
-                    
+
                     // 📤 发送实时日志：Worktree 创建失败
                     Self::send_ws_log_to_both_for_coding(
                         websocket_manager,
@@ -455,10 +727,11 @@ impl AgentWorker {
                         last_log_timestamps,
                         agent_id,
                         project_id,
-                        "error", 
+                        "error",
                         &format!("❌ 工作树创建失败: {}", e),
-                        Some("AgentWorker")
-                    ).await;
+                        Some("AgentWorker"),
+                    )
+                    .await;
 
                     // 回退到项目根目录
                     let workspaces_root = crate::utils::paths::get_workspaces_dir();
@@ -519,10 +792,11 @@ impl AgentWorker {
             last_log_timestamps,
             agent_id,
             project_id,
-            "success", 
+            "success",
             &format!("✅ AI 编码助手已启动 (PID: {:?})", child.id()),
-            Some("AgentWorker")
-        ).await;
+            Some("AgentWorker"),
+        )
+        .await;
 
         // 创建交互管理器
         use crate::agent::ai_cli_interaction::AICLIInteraction;
@@ -535,10 +809,11 @@ impl AgentWorker {
             last_log_timestamps,
             agent_id,
             project_id,
-            "progress", 
+            "progress",
             "👂 开始监听 AI 输出...",
-            Some("AgentWorker")
-        ).await;
+            Some("AgentWorker"),
+        )
+        .await;
 
         // 启动监听任务（带超时）
         let agent_id_for_listener = agent_id.to_string();
@@ -554,7 +829,7 @@ impl AgentWorker {
                     agent_id_for_listener,
                     e
                 );
-                
+
                 // 📤 发送实时日志：监听失败
                 Self::send_ws_log_to_both_for_coding(
                     &ws_manager_for_listener,
@@ -562,10 +837,11 @@ impl AgentWorker {
                     &last_log_timestamps_for_listener,
                     &agent_id_for_listener,
                     &project_id_for_listener,
-                    "error", 
+                    "error",
                     &format!("❌ AI 输出监听失败: {}", e),
-                    Some("AgentWorker")
-                ).await;
+                    Some("AgentWorker"),
+                )
+                .await;
             } else {
                 // 📤 发送实时日志：监听完成
                 Self::send_ws_log_to_both_for_coding(
@@ -574,10 +850,11 @@ impl AgentWorker {
                     &last_log_timestamps_for_listener,
                     &agent_id_for_listener,
                     &project_id_for_listener,
-                    "info", 
+                    "info",
                     "✅ AI 输出监听完成",
-                    Some("AgentWorker")
-                ).await;
+                    Some("AgentWorker"),
+                )
+                .await;
             }
         });
 
@@ -590,31 +867,33 @@ impl AgentWorker {
         let app_handle_for_messages = app_handle.clone();
         let last_log_timestamps_for_messages = last_log_timestamps.clone();
         let project_id_for_messages = project_id.to_string();
-        
+
         tokio::spawn(async move {
             while let Some(message) = message_rx.recv().await {
                 match message {
                     AICLIMessage::Stdout(line) => {
                         log::debug!("[AgentWorker:{}] AI Output: {}", agent_id_for_output, line);
-                        
+
                         // 📤 发送实时日志：AI 思考过程（过滤关键词）
-                        if line.contains("思考") || line.contains("分析") || line.contains("计划") {
+                        if line.contains("思考") || line.contains("分析") || line.contains("计划")
+                        {
                             Self::send_ws_log_to_both_for_coding(
                                 &ws_manager_for_messages,
                                 &app_handle_for_messages,
                                 &last_log_timestamps_for_messages,
                                 &agent_id_for_output,
                                 &project_id_for_messages,
-                                "log", 
+                                "log",
                                 &format!("💭 {}", line),
-                                Some("AgentWorker")
-                            ).await;
+                                Some("AgentWorker"),
+                            )
+                            .await;
                         }
                     }
 
                     AICLIMessage::Stderr(line) => {
                         log::warn!("[AgentWorker:{}] AI Error: {}", agent_id_for_output, line);
-                        
+
                         // 📤 发送实时日志：AI 错误
                         Self::send_ws_log_to_both_for_coding(
                             &ws_manager_for_messages,
@@ -624,8 +903,9 @@ impl AgentWorker {
                             &project_id_for_messages,
                             "error",
                             &format!("⚠️ {}", line),
-                            Some("AgentWorker")
-                        ).await;
+                            Some("AgentWorker"),
+                        )
+                        .await;
                     }
 
                     AICLIMessage::GeneratedCode { file_path, content } => {
@@ -638,7 +918,7 @@ impl AgentWorker {
                                 agent_id_for_output,
                                 e
                             );
-                            
+
                             // 📤 发送实时日志：代码写入失败
                             Self::send_ws_log_to_both_for_coding(
                                 &ws_manager_for_messages,
@@ -646,17 +926,18 @@ impl AgentWorker {
                                 &last_log_timestamps_for_messages,
                                 &agent_id_for_output,
                                 &project_id_for_messages,
-                                "error", 
+                                "error",
                                 &format!("❌ 代码写入失败: {} - {}", file_path, e),
-                                Some("AgentWorker")
-                            ).await;
+                                Some("AgentWorker"),
+                            )
+                            .await;
                         } else {
                             log::info!(
                                 "[AgentWorker:{}] ✓ Wrote generated code to: {}",
                                 agent_id_for_output,
                                 file_path
                             );
-                            
+
                             // 📤 发送实时日志：代码生成成功
                             Self::send_ws_log_to_both_for_coding(
                                 &ws_manager_for_messages,
@@ -664,10 +945,11 @@ impl AgentWorker {
                                 &last_log_timestamps_for_messages,
                                 &agent_id_for_output,
                                 &project_id_for_messages,
-                                "success", 
+                                "success",
                                 &format!("✅ 生成代码并写入文件: {}", file_path),
-                                Some("AgentWorker")
-                            ).await;
+                                Some("AgentWorker"),
+                            )
+                            .await;
                         }
                     }
 
@@ -687,9 +969,14 @@ impl AgentWorker {
                             &agent_id_for_output,
                             &project_id_for_messages,
                             if success { "success" } else { "error" },
-                            &format!("{} 任务完成: {}", if success { "✅" } else { "❌" }, summary),
-                            Some("AgentWorker")
-                        ).await;
+                            &format!(
+                                "{} 任务完成: {}",
+                                if success { "✅" } else { "❌" },
+                                summary
+                            ),
+                            Some("AgentWorker"),
+                        )
+                        .await;
 
                         let story_id_for_update = story_id_for_commit.clone();
                         let worktree_path_for_git_clone = worktree_path_for_git.clone();
@@ -710,11 +997,12 @@ impl AgentWorker {
                                     &last_log_timestamps_for_git,
                                     &agent_id_for_spawn,
                                     &project_id_for_git,
-                                    "progress", 
+                                    "progress",
                                     "📦 开始提交代码到 Git...",
-                                    Some("AgentWorker")
-                                ).await;
-                                
+                                    Some("AgentWorker"),
+                                )
+                                .await;
+
                                 // Git commit & push
                                 match Self::commit_and_push_changes(
                                     &worktree_path_for_git_clone,
@@ -736,24 +1024,24 @@ impl AgentWorker {
                                             &last_log_timestamps_for_git,
                                             &agent_id_for_spawn,
                                             &project_id_for_git,
-                                            "success", 
+                                            "success",
                                             &format!("✅ Git 提交成功: {}", commit_msg),
-                                            Some("AgentWorker")
-                                        ).await;
+                                            Some("AgentWorker"),
+                                        )
+                                        .await;
 
                                         // Git 成功后更新 Story 为 completed
-                                        if let Err(e) =
-                                            Self::update_story_status_to_completed(
-                                                &story_id_for_update,
-                                            )
-                                            .await
+                                        if let Err(e) = Self::update_story_status_to_completed(
+                                            &story_id_for_update,
+                                        )
+                                        .await
                                         {
                                             log::error!(
                                                 "[AgentWorker:{}] Failed to update story status to completed: {}",
                                                 agent_id_for_spawn,
                                                 e
                                             );
-                                            
+
                                             // 📤 发送实时日志：更新故事状态失败
                                             Self::send_ws_log_to_both_for_coding(
                                                 &ws_manager_for_git,
@@ -761,16 +1049,17 @@ impl AgentWorker {
                                                 &last_log_timestamps_for_git,
                                                 &agent_id_for_spawn,
                                                 &project_id_for_git,
-                                                "error", 
+                                                "error",
                                                 &format!("❌ 更新故事状态失败: {}", e),
-                                                Some("AgentWorker")
-                                            ).await;
+                                                Some("AgentWorker"),
+                                            )
+                                            .await;
                                         } else {
                                             log::info!(
                                                 "[AgentWorker:{}] Successfully updated story status to completed",
                                                 agent_id_for_spawn
                                             );
-                                            
+
                                             // 📤 发送实时日志：用户故事已完成
                                             Self::send_ws_log_to_both_for_coding(
                                                 &ws_manager_for_git,
@@ -778,10 +1067,11 @@ impl AgentWorker {
                                                 &last_log_timestamps_for_git,
                                                 &agent_id_for_spawn,
                                                 &project_id_for_git,
-                                                "success", 
+                                                "success",
                                                 "🎉 用户故事已完成！",
-                                                Some("AgentWorker")
-                                            ).await;
+                                                Some("AgentWorker"),
+                                            )
+                                            .await;
                                         }
                                     }
                                     Err(e) => {
@@ -790,7 +1080,7 @@ impl AgentWorker {
                                             agent_id_for_spawn,
                                             e
                                         );
-                                        
+
                                         // 📤 发送实时日志：Git 操作失败
                                         Self::send_ws_log_to_both_for_coding(
                                             &ws_manager_for_git,
@@ -798,10 +1088,11 @@ impl AgentWorker {
                                             &last_log_timestamps_for_git,
                                             &agent_id_for_spawn,
                                             &project_id_for_git,
-                                            "error", 
+                                            "error",
                                             &format!("❌ Git 操作失败: {}", e),
-                                            Some("AgentWorker")
-                                        ).await;
+                                            Some("AgentWorker"),
+                                        )
+                                        .await;
                                     }
                                 }
                             } else {
@@ -838,7 +1129,9 @@ impl AgentWorker {
         let conn = db::get_connection()
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
-        match db::get_user_story_by_id(&conn, story_id).map_err(|e| format!("Failed to query user story: {}", e))? {
+        match db::get_user_story_by_id(&conn, story_id)
+            .map_err(|e| format!("Failed to query user story: {}", e))?
+        {
             Some(user_story) => {
                 let title = if user_story.title.is_empty() {
                     None
@@ -846,12 +1139,11 @@ impl AgentWorker {
                     Some(user_story.title.clone())
                 };
 
-                let acceptance_criteria =
-                    if user_story.acceptance_criteria.is_empty() {
-                        None
-                    } else {
-                        Some(user_story.acceptance_criteria.clone())
-                    };
+                let acceptance_criteria = if user_story.acceptance_criteria.is_empty() {
+                    None
+                } else {
+                    Some(user_story.acceptance_criteria.clone())
+                };
 
                 log::info!(
                     "[AgentWorker] Retrieved story context for {}: title={:?}, criteria_len={}",
@@ -917,7 +1209,7 @@ impl AgentWorker {
 
         // 1. 检查是否有变更
         let status_output = TokioCommand::new("git")
-            .args(&["status", "--porcelain"])
+            .args(["status", "--porcelain"])
             .current_dir(worktree_path)
             .output()
             .await
@@ -934,7 +1226,7 @@ impl AgentWorker {
 
         // 2. 添加所有变更
         let add_output = TokioCommand::new("git")
-            .args(&["add", "."])
+            .args(["add", "."])
             .current_dir(worktree_path)
             .output()
             .await
@@ -950,7 +1242,7 @@ impl AgentWorker {
         // 3. 提交变更
         let commit_message = format!("Auto-generated code for story {}", story_id);
         let commit_output = TokioCommand::new("git")
-            .args(&["commit", "-m", &commit_message])
+            .args(["commit", "-m", &commit_message])
             .current_dir(worktree_path)
             .output()
             .await
@@ -969,17 +1261,14 @@ impl AgentWorker {
 
         // 先尝试推送
         let push_output = TokioCommand::new("git")
-            .args(&["push", "-u", "origin", &branch_name])
+            .args(["push", "-u", "origin", &branch_name])
             .current_dir(worktree_path)
             .output()
             .await
             .map_err(|e| format!("git push failed: {}", e))?;
 
         if push_output.status.success() {
-            log::info!(
-                "[GitOps] Successfully pushed to branch: {}",
-                branch_name
-            );
+            log::info!("[GitOps] Successfully pushed to branch: {}", branch_name);
             return Ok(commit_message);
         }
 
@@ -990,7 +1279,7 @@ impl AgentWorker {
         );
 
         let create_branch_output = TokioCommand::new("git")
-            .args(&["checkout", "-b", &branch_name])
+            .args(["checkout", "-b", &branch_name])
             .current_dir(worktree_path)
             .output()
             .await;
@@ -1008,7 +1297,7 @@ impl AgentWorker {
 
         // 重试推送
         let retry_push_output = TokioCommand::new("git")
-            .args(&["push", "-u", "origin", &branch_name])
+            .args(["push", "-u", "origin", &branch_name])
             .current_dir(worktree_path)
             .output()
             .await
@@ -1057,10 +1346,7 @@ impl AgentWorker {
     }
 
     /// 更新 Story 状态为 failed（集成重试引擎）
-    async fn update_story_status_to_failed(
-        story_id: &str,
-        reason: &str,
-    ) -> Result<(), String> {
+    async fn update_story_status_to_failed(story_id: &str, reason: &str) -> Result<(), String> {
         log::info!(
             "[StoryStatus] Updating story {} status to failed: {}",
             story_id,
@@ -1121,15 +1407,17 @@ impl AgentWorker {
                 }
 
                 // 3.2 更新 Story 状态为 scheduled_retry
-                let updated = conn.execute(
-                    "UPDATE user_stories 
+                let updated = conn
+                    .execute(
+                        "UPDATE user_stories 
                      SET status = 'scheduled_retry',
                          next_retry_at = ?1,
                          retry_count = retry_count + 1,
                          updated_at = ?2
                      WHERE id = ?3",
-                    rusqlite::params![next_retry_at, now, story_id],
-                ).map_err(|e| format!("Database error: {}", e))?;
+                        rusqlite::params![next_retry_at, now, story_id],
+                    )
+                    .map_err(|e| format!("Database error: {}", e))?;
 
                 if updated > 0 {
                     log::info!(
@@ -1142,7 +1430,9 @@ impl AgentWorker {
 
                 Ok(())
             }
-            RetryDecision::Abort { reason: abort_reason } => {
+            RetryDecision::Abort {
+                reason: abort_reason,
+            } => {
                 log::info!(
                     "[StoryStatus] Decision: ABORT retry for story {}: {}",
                     story_id,
@@ -1238,29 +1528,29 @@ impl AgentWorker {
         source: Option<&str>,
     ) {
         let source_tag = source.unwrap_or("AgentWorker");
-        
+
         // 1. 始终输出到控制台日志（符合用户详细日志偏好）
         match level {
             "error" => {
                 log::error!("[{}] [{}] ❌ {}", source_tag, session_id, message);
-            },
+            }
             "warning" => {
                 log::warn!("[{}] [{}] ⚠️ {}", source_tag, session_id, message);
-            },
+            }
             "success" => {
                 log::info!("[{}] [{}] ✅ {}", source_tag, session_id, message);
-            },
+            }
             "progress" => {
                 log::info!("[{}] [{}] 📊 {}", source_tag, session_id, message);
-            },
+            }
             "info" => {
                 log::info!("[{}] [{}] ℹ️ {}", source_tag, session_id, message);
-            },
+            }
             _ => {
                 log::debug!("[{}] [{}] {}", source_tag, session_id, message);
             }
         }
-        
+
         // 2. 节流检查：仅对 debug 级别日志进行节流，关键业务日志不节流
         // 策略：
         // - debug: 严格节流（200ms），防止高频调试信息刷屏
@@ -1269,11 +1559,15 @@ impl AgentWorker {
             let throttle_interval = 200; // debug 日志节流间隔
             let now = chrono::Utc::now().timestamp_millis() as u64;
             let mut timestamps = last_log_timestamps.write().await;
-            
+
             if let Some(&last_ts) = timestamps.get(session_id) {
                 if now - last_ts < throttle_interval {
-                    log::debug!("[{}] [{}] ⏱️ Debug日志节流：距离上次发送不足 {}ms", 
-                        source_tag, session_id, throttle_interval);
+                    log::debug!(
+                        "[{}] [{}] ⏱️ Debug日志节流：距离上次发送不足 {}ms",
+                        source_tag,
+                        session_id,
+                        throttle_interval
+                    );
                     true // 需要节流
                 } else {
                     timestamps.insert(session_id.to_string(), now);
@@ -1287,11 +1581,11 @@ impl AgentWorker {
             // 关键业务日志不节流，直接允许发送
             false
         };
-        
+
         if should_throttle {
             return;
         }
-        
+
         // 3. 优先使用 AppHandle 直接发送（更高效）
         if let Some(handle) = app_handle {
             use tauri::Emitter;
@@ -1302,36 +1596,61 @@ impl AgentWorker {
                 message,
                 source,
             );
-            
+
             match handle.emit(&event_name, &ws_message) {
                 Ok(_) => {
                     log::debug!("[{}] [{}] ✅ Sent via AppHandle", source_tag, session_id);
-                },
+                }
                 Err(e) => {
-                    log::warn!("[{}] [{}] ❌ AppHandle emit failed: {}", source_tag, session_id, e);
+                    log::warn!(
+                        "[{}] [{}] ❌ AppHandle emit failed: {}",
+                        source_tag,
+                        session_id,
+                        e
+                    );
                     // 回退到 WebSocket Manager
                 }
             }
             return;
         }
-        
+
         // 4. 回退方案：使用 WebSocket Manager
         if let Some(ws_manager) = websocket_manager {
             if let Ok(manager) = ws_manager.try_read() {
                 let session_id_string = session_id.to_string();
-                match manager.send_log(&session_id_string, level, message, source).await {
+                match manager
+                    .send_log(&session_id_string, level, message, source)
+                    .await
+                {
                     Ok(_) => {
-                        log::debug!("[{}] [{}] ✅ Sent via WebSocket Manager", source_tag, session_id);
-                    },
+                        log::debug!(
+                            "[{}] [{}] ✅ Sent via WebSocket Manager",
+                            source_tag,
+                            session_id
+                        );
+                    }
                     Err(e) => {
-                        log::warn!("[{}] [{}] ❌ WebSocket send failed: {}", source_tag, session_id, e);
+                        log::warn!(
+                            "[{}] [{}] ❌ WebSocket send failed: {}",
+                            source_tag,
+                            session_id,
+                            e
+                        );
                     }
                 }
             } else {
-                log::warn!("[{}] [{}] ⚠️ Cannot acquire WebSocket Manager lock", source_tag, session_id);
+                log::warn!(
+                    "[{}] [{}] ⚠️ Cannot acquire WebSocket Manager lock",
+                    source_tag,
+                    session_id
+                );
             }
         } else {
-            log::debug!("[{}] [{}] ℹ️ WebSocket Manager unavailable", source_tag, session_id);
+            log::debug!(
+                "[{}] [{}] ℹ️ WebSocket Manager unavailable",
+                source_tag,
+                session_id
+            );
         }
     }
 
@@ -1341,7 +1660,7 @@ impl AgentWorker {
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         worker_id: &str,
-        _project_id: &str,  // 保留参数以保持接口兼容，但不再使用
+        _project_id: &str, // 保留参数以保持接口兼容，但不再使用
         level: &str,
         message: &str,
         source: Option<&str>,
@@ -1356,7 +1675,8 @@ impl AgentWorker {
             level,
             message,
             source,
-        ).await;
+        )
+        .await;
     }
 
     /// 发送日志到 WebSocket（用于 start_coding_agent，仅发送到智能体粒度）
@@ -1365,7 +1685,7 @@ impl AgentWorker {
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
         agent_id: &str,
-        _project_id: &str,  // 保留参数以保持接口兼容，但不再使用
+        _project_id: &str, // 保留参数以保持接口兼容，但不再使用
         level: &str,
         message: &str,
         source: Option<&str>,
@@ -1380,6 +1700,7 @@ impl AgentWorker {
             level,
             message,
             source,
-        ).await;
+        )
+        .await;
     }
 }

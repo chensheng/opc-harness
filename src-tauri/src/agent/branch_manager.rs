@@ -1,5 +1,5 @@
 //! Branch Manager 实现
-//! 
+//!
 //! 负责 Git 分支的创建、管理和命名规范
 
 use serde::{Deserialize, Serialize};
@@ -101,7 +101,13 @@ impl BranchManager {
         let clean_desc = description
             .to_lowercase()
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '-'
+                }
+            })
             .collect::<String>()
             .split('-')
             .filter(|s| !s.is_empty())
@@ -110,20 +116,20 @@ impl BranchManager {
 
         // 构建分支名称
         let mut parts = Vec::new();
-        
+
         // 添加类型前缀
         parts.push(branch_type.to_string());
-        
+
         // 添加 Issue ID（如果有）
         if let Some(id) = issue_id {
             parts.push(id.to_string());
         }
-        
+
         // 添加自定义前缀（如果有）
         if let Some(prefix) = &self.config.name_prefix {
             parts.push(prefix.clone());
         }
-        
+
         // 添加描述
         parts.push(clean_desc);
 
@@ -181,21 +187,26 @@ impl BranchManager {
         _base_branch: Option<&str>,
     ) -> Result<BranchOperationResult, String> {
         let branch_name = self.generate_branch_name(BranchType::Feature, description, issue_id);
-        
+
         // 验证分支名称
         self.validate_branch_name(&branch_name)?;
 
         // 执行 Git 命令创建分支
-        match self.execute_git_command(&["checkout", "-b", &branch_name]).await {
+        match self
+            .execute_git_command(&["checkout", "-b", &branch_name])
+            .await
+        {
             Ok(_) => {
                 self.current_branch = Some(branch_name.clone());
                 self.created_branches.push(branch_name.clone());
-                
+
                 Ok(BranchOperationResult {
                     success: true,
                     branch_name: Some(branch_name),
                     error: None,
-                    message: Some("Feature branch created and checked out successfully".to_string()),
+                    message: Some(
+                        "Feature branch created and checked out successfully".to_string(),
+                    ),
                 })
             }
             Err(e) => Err(format!("Failed to create feature branch: {}", e)),
@@ -203,11 +214,14 @@ impl BranchManager {
     }
 
     /// 切换到指定分支
-    pub async fn checkout_branch(&mut self, branch_name: &str) -> Result<BranchOperationResult, String> {
+    pub async fn checkout_branch(
+        &mut self,
+        branch_name: &str,
+    ) -> Result<BranchOperationResult, String> {
         match self.execute_git_command(&["checkout", branch_name]).await {
             Ok(_) => {
                 self.current_branch = Some(branch_name.to_string());
-                
+
                 Ok(BranchOperationResult {
                     success: true,
                     branch_name: Some(branch_name.to_string()),
@@ -215,7 +229,10 @@ impl BranchManager {
                     message: Some(format!("Switched to branch '{}'", branch_name)),
                 })
             }
-            Err(e) => Err(format!("Failed to checkout branch '{}': {}", branch_name, e)),
+            Err(e) => Err(format!(
+                "Failed to checkout branch '{}': {}",
+                branch_name, e
+            )),
         }
     }
 
@@ -227,10 +244,17 @@ impl BranchManager {
 
     /// 获取当前分支信息
     pub async fn get_current_branch(&self) -> Result<Option<String>, String> {
-        match self.execute_git_command(&["rev-parse", "--abbrev-ref", "HEAD"]).await {
+        match self
+            .execute_git_command(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .await
+        {
             Ok(output) => {
                 let branch = output.trim().to_string();
-                Ok(if branch.is_empty() { None } else { Some(branch) })
+                Ok(if branch.is_empty() {
+                    None
+                } else {
+                    Some(branch)
+                })
             }
             Err(_) => Ok(None),
         }
@@ -238,8 +262,10 @@ impl BranchManager {
 
     /// 获取所有本地分支列表
     pub async fn get_local_branches(&self) -> Result<Vec<BranchInfo>, String> {
-        let output = self.execute_git_command(&["branch", "--format=%(refname:short)%09%H%09%s"]).await?;
-        
+        let output = self
+            .execute_git_command(&["branch", "--format=%(refname:short)%09%H%09%s"])
+            .await?;
+
         let branches: Vec<BranchInfo> = output
             .lines()
             .filter_map(|line| {
@@ -247,7 +273,7 @@ impl BranchManager {
                 if parts.len() >= 3 {
                     let name = parts[0].trim_start_matches('*').trim().to_string();
                     let is_current = parts[0].starts_with('*');
-                    
+
                     Some(BranchInfo {
                         name,
                         branch_type: self.detect_branch_type(parts[0]),
@@ -266,7 +292,11 @@ impl BranchManager {
     }
 
     /// 删除指定分支
-    pub async fn delete_branch(&mut self, branch_name: &str, force: bool) -> Result<BranchOperationResult, String> {
+    pub async fn delete_branch(
+        &mut self,
+        branch_name: &str,
+        force: bool,
+    ) -> Result<BranchOperationResult, String> {
         let args = if force {
             vec!["branch", "-D", branch_name]
         } else {
@@ -276,7 +306,7 @@ impl BranchManager {
         match self.execute_git_command(&args).await {
             Ok(_) => {
                 self.created_branches.retain(|name| name != branch_name);
-                
+
                 Ok(BranchOperationResult {
                     success: true,
                     branch_name: Some(branch_name.to_string()),
@@ -297,7 +327,10 @@ impl BranchManager {
         // 验证新名称
         self.validate_branch_name(new_name)?;
 
-        match self.execute_git_command(&["branch", "-m", old_name, new_name]).await {
+        match self
+            .execute_git_command(&["branch", "-m", old_name, new_name])
+            .await
+        {
             Ok(_) => {
                 // 更新记录
                 if let Some(current) = &self.current_branch {
@@ -305,16 +338,19 @@ impl BranchManager {
                         self.current_branch = Some(new_name.to_string());
                     }
                 }
-                
+
                 if let Some(pos) = self.created_branches.iter().position(|n| n == old_name) {
                     self.created_branches[pos] = new_name.to_string();
                 }
-                
+
                 Ok(BranchOperationResult {
                     success: true,
                     branch_name: Some(new_name.to_string()),
                     error: None,
-                    message: Some(format!("Branch renamed from '{}' to '{}'", old_name, new_name)),
+                    message: Some(format!(
+                        "Branch renamed from '{}' to '{}'",
+                        old_name, new_name
+                    )),
                 })
             }
             Err(e) => Err(format!("Failed to rename branch: {}", e)),
@@ -324,7 +360,7 @@ impl BranchManager {
     /// 检测分支类型
     fn detect_branch_type(&self, branch_name: &str) -> BranchType {
         let first_part = branch_name.split('/').next().unwrap_or("").to_lowercase();
-        
+
         match first_part.as_str() {
             "feature" => BranchType::Feature,
             "fix" => BranchType::Fix,
@@ -336,11 +372,11 @@ impl BranchManager {
 
     /// 执行 Git 命令的辅助方法
     async fn execute_git_command(&self, args: &[&str]) -> Result<String, String> {
-        use tokio::process::Command;
         use std::path::PathBuf;
+        use tokio::process::Command;
 
         let git_path = PathBuf::from(&self.config.project_path);
-        
+
         let output = Command::new("git")
             .current_dir(&git_path)
             .args(args)
@@ -357,16 +393,16 @@ impl BranchManager {
 
     /// 检查 Git 仓库是否存在
     pub async fn is_git_repo(&self) -> bool {
-        self.execute_git_command(&["rev-parse", "--git-dir"]).await.is_ok()
+        self.execute_git_command(&["rev-parse", "--git-dir"])
+            .await
+            .is_ok()
     }
 
     /// 获取最近的提交历史
     pub async fn get_recent_commits(&self, count: usize) -> Result<Vec<(String, String)>, String> {
-        let output = self.execute_git_command(&[
-            "log",
-            &format!("-{}", count),
-            "--format=%H\t%s",
-        ]).await?;
+        let output = self
+            .execute_git_command(&["log", &format!("-{}", count), "--format=%H\t%s"])
+            .await?;
 
         let commits: Vec<(String, String)> = output
             .lines()
@@ -448,7 +484,7 @@ mod tests {
             "Add Payment Gateway",
             Some("PAY-456"),
         );
-        
+
         // 格式应该是：feature/PAY-456/issue-/add-payment-gateway
         assert!(name.starts_with("feature/PAY-456/"));
         assert!(name.contains("issue-"));
@@ -485,10 +521,16 @@ mod tests {
         // 测试无效的分支名称
         assert!(manager.validate_branch_name("").is_err());
         assert!(manager.validate_branch_name(&"a".repeat(256)).is_err());
-        assert!(manager.validate_branch_name("feature/name with space").is_err());
+        assert!(manager
+            .validate_branch_name("feature/name with space")
+            .is_err());
         assert!(manager.validate_branch_name("feature/name~tilde").is_err());
-        assert!(manager.validate_branch_name("/feature/no-leading-slash").is_err());
-        assert!(manager.validate_branch_name("feature/no-trailing-slash/").is_err());
+        assert!(manager
+            .validate_branch_name("/feature/no-leading-slash")
+            .is_err());
+        assert!(manager
+            .validate_branch_name("feature/no-trailing-slash/")
+            .is_err());
         assert!(manager.validate_branch_name("invalid/type/name").is_err());
     }
 
@@ -503,10 +545,18 @@ mod tests {
         let manager = BranchManager::new(config);
 
         // 使用反射或私有方法测试比较困难，这里通过 generate_branch_name 间接测试
-        assert!(manager.generate_branch_name(BranchType::Feature, "test", None).starts_with("feature/"));
-        assert!(manager.generate_branch_name(BranchType::Fix, "test", None).starts_with("fix/"));
-        assert!(manager.generate_branch_name(BranchType::Release, "test", None).starts_with("release/"));
-        assert!(manager.generate_branch_name(BranchType::Hotfix, "test", None).starts_with("hotfix/"));
+        assert!(manager
+            .generate_branch_name(BranchType::Feature, "test", None)
+            .starts_with("feature/"));
+        assert!(manager
+            .generate_branch_name(BranchType::Fix, "test", None)
+            .starts_with("fix/"));
+        assert!(manager
+            .generate_branch_name(BranchType::Release, "test", None)
+            .starts_with("release/"));
+        assert!(manager
+            .generate_branch_name(BranchType::Hotfix, "test", None)
+            .starts_with("hotfix/"));
     }
 
     #[test]

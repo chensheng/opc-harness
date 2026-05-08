@@ -1,6 +1,6 @@
+use crate::quality::prd_checker::PRDDocument as QualityPRDDocument;
 use crate::quality::prd_consistency_checker::PRDDocument as ConsistencyPRDDocument;
 use crate::quality::prd_feasibility_assessor::PRDDocument as FeasibilityPRDDocument;
-use crate::quality::prd_checker::PRDDocument as QualityPRDDocument;
 
 /// 将 Markdown 内容解析为一致性检查用的 PRDDocument
 pub fn parse_markdown_to_consistency_prd(markdown: &str) -> ConsistencyPRDDocument {
@@ -16,26 +16,29 @@ pub fn parse_markdown_to_consistency_prd(markdown: &str) -> ConsistencyPRDDocume
 
     while i < lines.len() {
         let line = lines[i].trim();
-        
+
         // 解析标题 (# 开头)
         if line.starts_with('#') && !line.starts_with("##") {
             title = Some(line.trim_start_matches('#').trim().to_string());
         }
-        
+
         // 解析章节
         if line.starts_with("## ") {
             let section_name = line.trim_start_matches("## ").trim().to_lowercase();
             i += 1;
-            
+
             let mut content = String::new();
-            while i < lines.len() && !lines[i].trim().starts_with("## ") && !lines[i].trim().starts_with('#') {
+            while i < lines.len()
+                && !lines[i].trim().starts_with("## ")
+                && !lines[i].trim().starts_with('#')
+            {
                 if !content.is_empty() {
                     content.push('\n');
                 }
                 content.push_str(lines[i]);
                 i += 1;
             }
-            
+
             // 根据章节名提取内容
             match section_name.as_str() {
                 s if s.contains("概述") || s.contains("overview") => {
@@ -57,7 +60,7 @@ pub fn parse_markdown_to_consistency_prd(markdown: &str) -> ConsistencyPRDDocume
             }
             continue;
         }
-        
+
         i += 1;
     }
 
@@ -91,7 +94,16 @@ pub fn parse_markdown_to_quality_prd(content: &str) -> QualityPRDDocument {
         if trimmed.starts_with('#') {
             // 保存之前的章节内容
             if !current_section.is_empty() {
-                save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
+                save_section(
+                    &current_section,
+                    &current_content,
+                    &mut title,
+                    &mut overview,
+                    &mut target_users,
+                    &mut core_features,
+                    &mut tech_stack,
+                    &mut estimated_effort,
+                );
             }
 
             // 开始新章节
@@ -105,7 +117,16 @@ pub fn parse_markdown_to_quality_prd(content: &str) -> QualityPRDDocument {
 
     // 保存最后一个章节
     if !current_section.is_empty() {
-        save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
+        save_section(
+            &current_section,
+            &current_content,
+            &mut title,
+            &mut overview,
+            &mut target_users,
+            &mut core_features,
+            &mut tech_stack,
+            &mut estimated_effort,
+        );
     }
 
     QualityPRDDocument {
@@ -138,7 +159,16 @@ pub fn parse_markdown_to_feasibility_prd(content: &str) -> FeasibilityPRDDocumen
         if trimmed.starts_with('#') {
             // 保存之前的章节内容
             if !current_section.is_empty() {
-                save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
+                save_section(
+                    &current_section,
+                    &current_content,
+                    &mut title,
+                    &mut overview,
+                    &mut target_users,
+                    &mut core_features,
+                    &mut tech_stack,
+                    &mut estimated_effort,
+                );
             }
 
             // 开始新章节
@@ -152,7 +182,16 @@ pub fn parse_markdown_to_feasibility_prd(content: &str) -> FeasibilityPRDDocumen
 
     // 保存最后一个章节
     if !current_section.is_empty() {
-        save_section(&current_section, &current_content, &mut title, &mut overview, &mut target_users, &mut core_features, &mut tech_stack, &mut estimated_effort);
+        save_section(
+            &current_section,
+            &current_content,
+            &mut title,
+            &mut overview,
+            &mut target_users,
+            &mut core_features,
+            &mut tech_stack,
+            &mut estimated_effort,
+        );
     }
 
     FeasibilityPRDDocument {
@@ -209,7 +248,12 @@ pub fn parse_list_items(text: &str) -> Vec<String> {
         let trimmed = line.trim();
         if trimmed.starts_with('-') || trimmed.starts_with('*') || trimmed.starts_with('•') {
             // 使用 chars() 方法安全地跳过第一个字符
-            let item = trimmed.chars().skip(1).collect::<String>().trim().to_string();
+            let item = trimmed
+                .chars()
+                .skip(1)
+                .collect::<String>()
+                .trim()
+                .to_string();
             if !item.is_empty() {
                 items.push(item);
             }

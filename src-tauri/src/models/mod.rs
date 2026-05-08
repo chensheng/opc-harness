@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 // 可观测性相关模型
+pub mod agent_alert;
 pub mod agent_log;
 pub mod agent_trace;
-pub mod agent_alert;
 
+pub use agent_alert::{alert_level, alert_type, AgentAlert};
 pub use agent_log::AgentLog;
 pub use agent_trace::AgentTrace;
-pub use agent_alert::{AgentAlert, alert_level, alert_type};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -140,12 +140,18 @@ use crate::db::Entity;
 use rusqlite::Row;
 
 impl Entity for Project {
-    fn table_name() -> &'static str { "projects" }
-    
-    fn primary_key() -> &'static str { "id" }
-    
-    fn get_primary_key(&self) -> &str { &self.id }
-    
+    fn table_name() -> &'static str {
+        "projects"
+    }
+
+    fn primary_key() -> &'static str {
+        "id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(Project {
             id: row.get(0)?,
@@ -164,12 +170,18 @@ impl Entity for Project {
 }
 
 impl Entity for Milestone {
-    fn table_name() -> &'static str { "milestones" }
-    
-    fn primary_key() -> &'static str { "id" }
-    
-    fn get_primary_key(&self) -> &str { &self.id }
-    
+    fn table_name() -> &'static str {
+        "milestones"
+    }
+
+    fn primary_key() -> &'static str {
+        "id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(Milestone {
             id: row.get(0)?,
@@ -187,12 +199,18 @@ impl Entity for Milestone {
 }
 
 impl Entity for Issue {
-    fn table_name() -> &'static str { "issues" }
-    
-    fn primary_key() -> &'static str { "id" }
-    
-    fn get_primary_key(&self) -> &str { &self.id }
-    
+    fn table_name() -> &'static str {
+        "issues"
+    }
+
+    fn primary_key() -> &'static str {
+        "id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(Issue {
             id: row.get(0)?,
@@ -213,12 +231,18 @@ impl Entity for Issue {
 }
 
 impl Entity for AgentSession {
-    fn table_name() -> &'static str { "agent_sessions" }
-    
-    fn primary_key() -> &'static str { "agent_id" }
-    
-    fn get_primary_key(&self) -> &str { &self.agent_id }
-    
+    fn table_name() -> &'static str {
+        "agent_sessions"
+    }
+
+    fn primary_key() -> &'static str {
+        "agent_id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.agent_id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(AgentSession {
             session_id: row.get(0)?,
@@ -357,12 +381,18 @@ fn default_max_retries() -> i32 {
 }
 
 impl Entity for UserStory {
-    fn table_name() -> &'static str { "user_stories" }
-    
-    fn primary_key() -> &'static str { "id" }
-    
-    fn get_primary_key(&self) -> &str { &self.id }
-    
+    fn table_name() -> &'static str {
+        "user_stories"
+    }
+
+    fn primary_key() -> &'static str {
+        "id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(UserStory {
             id: row.get("id")?,
@@ -432,12 +462,18 @@ pub struct UserStoryRetryHistory {
 }
 
 impl Entity for UserStoryRetryHistory {
-    fn table_name() -> &'static str { "user_story_retry_history" }
-    
-    fn primary_key() -> &'static str { "id" }
-    
-    fn get_primary_key(&self) -> &str { &self.id }
-    
+    fn table_name() -> &'static str {
+        "user_story_retry_history"
+    }
+
+    fn primary_key() -> &'static str {
+        "id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(UserStoryRetryHistory {
             id: row.get("id")?,
@@ -486,12 +522,18 @@ pub struct Sprint {
 }
 
 impl Entity for Sprint {
-    fn table_name() -> &'static str { "sprints" }
-    
-    fn primary_key() -> &'static str { "id" }
-    
-    fn get_primary_key(&self) -> &str { &self.id }
-    
+    fn table_name() -> &'static str {
+        "sprints"
+    }
+
+    fn primary_key() -> &'static str {
+        "id"
+    }
+
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
+
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(Sprint {
             id: row.get(0)?,

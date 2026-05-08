@@ -52,10 +52,7 @@ impl AIProvider {
             }
         })?;
 
-        info!(
-            "GLM chat response received, tokens used: {:?}",
-            json.usage
-        );
+        info!("GLM chat response received, tokens used: {:?}", json.usage);
 
         let content = json.choices[0].message.content.clone();
 

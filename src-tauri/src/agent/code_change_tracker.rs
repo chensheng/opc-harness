@@ -1,10 +1,10 @@
 //! Code Change Tracker Agent 实现
-//! 
+//!
 //! 负责检测工作区的文件变更，生成结构化的变更摘要和影响分析
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// 变更类型
@@ -101,20 +101,20 @@ impl CodeChangeTracker {
         if !workspace_root.exists() {
             return Err(format!("Workspace does not exist: {:?}", workspace_root));
         }
-        
+
         Ok(Self { workspace_root })
     }
 
     /// 检测工作区的所有变更
     pub async fn detect_changes(&self) -> Result<Vec<FileChange>, String> {
         log::info!("Detecting workspace changes...");
-        
+
         // 获取 git status 输出
         let status_output = self.run_git_status()?;
-        
+
         // 解析变更文件列表
         let changed_files = self.parse_git_status(&status_output)?;
-        
+
         // 为每个文件获取详细的 diff 信息
         let mut changes = Vec::new();
         for (file_path, change_type) in changed_files {
@@ -128,7 +128,7 @@ impl CodeChangeTracker {
                         diff,
                         impacted_files: vec![],
                     };
-                    
+
                     // 分析依赖文件
                     // TODO: 实现 analyze_imports 方法
                     // file_change.impacted_files = self.analyze_imports(&file_change).await?;
@@ -139,7 +139,7 @@ impl CodeChangeTracker {
                 }
             }
         }
-        
+
         log::info!("Detected {} file changes", changes.len());
         Ok(changes)
     }
@@ -147,32 +147,38 @@ impl CodeChangeTracker {
     /// 获取单个文件的 diff
     pub async fn get_file_diff(&self, file_path: &str) -> Result<(u32, u32, String), String> {
         let full_path = self.workspace_root.join(file_path);
-        
+
         if !full_path.exists() {
             // 文件已删除
             return Ok((0, 0, format!("File deleted: {}", file_path)));
         }
-        
+
         // 运行 git diff
         let output = Command::new("git")
             .args(["diff", "HEAD", "--", file_path])
             .current_dir(&self.workspace_root)
             .output()
             .map_err(|e| format!("Failed to run git diff: {}", e))?;
-        
+
         let diff = String::from_utf8_lossy(&output.stdout).to_string();
-        
+
         // 计算新增和删除行数
-        let additions = diff.lines().filter(|line| line.starts_with('+') && !line.starts_with("+++")).count() as u32;
-        let deletions = diff.lines().filter(|line| line.starts_with('-') && !line.starts_with("---")).count() as u32;
-        
+        let additions = diff
+            .lines()
+            .filter(|line| line.starts_with('+') && !line.starts_with("+++"))
+            .count() as u32;
+        let deletions = diff
+            .lines()
+            .filter(|line| line.starts_with('-') && !line.starts_with("---"))
+            .count() as u32;
+
         Ok((additions, deletions, diff))
     }
 
     /// 分析变更影响（识别依赖文件）
     pub async fn analyze_impact(&self, changes: &[FileChange]) -> Result<Vec<String>, String> {
         let mut impacted = Vec::new();
-        
+
         for change in changes {
             // 添加直接依赖
             for file in &change.impacted_files {
@@ -181,7 +187,7 @@ impl CodeChangeTracker {
                 }
             }
         }
-        
+
         Ok(impacted)
     }
 
@@ -191,7 +197,7 @@ impl CodeChangeTracker {
         let statistics = self.calculate_statistics(&changes);
         let impacted_files = self.analyze_impact(&changes).await?;
         let generated_at = chrono::Utc::now().to_rfc3339();
-        
+
         Ok(ChangeSummary {
             statistics,
             changes,
@@ -206,13 +212,13 @@ impl CodeChangeTracker {
         let total_additions: u32 = changes.iter().map(|c| c.additions).sum();
         let total_deletions: u32 = changes.iter().map(|c| c.deletions).sum();
         let net_change = total_additions as i32 - total_deletions as i32;
-        
+
         let mut files_by_type: HashMap<String, u32> = HashMap::new();
         for change in changes {
             let type_key = change.change_type.to_string();
             *files_by_type.entry(type_key).or_insert(0) += 1;
         }
-        
+
         ChangeStatistics {
             total_files_changed,
             total_additions,
@@ -229,44 +235,44 @@ impl CodeChangeTracker {
             .current_dir(&self.workspace_root)
             .output()
             .map_err(|e| format!("Failed to run git status: {}", e))?;
-        
+
         if !output.status.success() {
             return Err("Not a git repository or git command failed".to_string());
         }
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     /// 解析 git status 输出
     fn parse_git_status(&self, status: &str) -> Result<Vec<(String, ChangeType)>, String> {
         let mut changes = Vec::new();
-        
+
         for line in status.lines() {
             if line.trim().is_empty() {
                 continue;
             }
-            
+
             // git status --porcelain 格式：XY filename
             let chars: Vec<char> = line.chars().collect();
             if chars.len() < 4 {
                 continue;
             }
-            
+
             let x = chars[0];
             let y = chars[1];
             let file_path = line[3..].to_string();
-            
+
             // 根据状态字符判断变更类型
             let change_type = match (x, y) {
                 ('A', _) | (_, 'A') => ChangeType::Added,
                 ('D', _) | (_, 'D') => ChangeType::Deleted,
                 ('M', _) | (_, 'M') | ('R', _) | (_, 'R') => ChangeType::Modified,
-                ('?', _) => ChangeType::Added,  // Untracked files
+                ('?', _) => ChangeType::Added, // Untracked files
                 _ => ChangeType::Modified,
             };
             changes.push((file_path, change_type));
         }
-        
+
         Ok(changes)
     }
 }

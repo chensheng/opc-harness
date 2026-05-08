@@ -61,6 +61,9 @@ dashmap = "5.5"
 # Random number generation for decentralized decision making
 rand = "0.8"
 
+# Diff/merge utilities for incremental code editing
+diffy = "0.4"
+
 # Windows registry access for PATH inheritance
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

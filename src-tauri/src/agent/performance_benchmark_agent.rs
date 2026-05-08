@@ -1,13 +1,13 @@
 //! Performance Benchmark Agent 实现
-//! 
+//!
 //! 负责自动运行性能基准测试并生成分析报告。
 //! 支持 Rust 和 TypeScript 两种语言的基准测试。
 //! 提供性能对比、回归检测、瓶颈分析等功能。
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use tokio::process::Command;
-use regex::Regex;
 
 /// 基准测试配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,10 +159,12 @@ impl BenchmarkReport {
             return 0.0;
         }
 
-        let sum: f64 = self.results.iter()
+        let sum: f64 = self
+            .results
+            .iter()
             .filter_map(|r| r.regression_percentage)
             .sum();
-        
+
         sum / self.results.len() as f64
     }
 }
@@ -192,8 +194,9 @@ impl PerformanceBenchmarkAgent {
         // 统计结果
         let total = results.len() as u32;
         let regressed = results.iter().filter(|r| r.is_regression).count() as u32;
-        let improved = results.iter()
-            .filter(|r| r.regression_percentage.map_or(false, |p| p < -5.0))
+        let improved = results
+            .iter()
+            .filter(|r| r.regression_percentage.is_some_and(|p| p < -5.0))
             .count() as u32;
         let stable = total - regressed - improved;
 
@@ -237,10 +240,13 @@ impl PerformanceBenchmarkAgent {
         }
 
         // 执行命令
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .map_err(|e| format!("启动 cargo bench 失败：{}", e))?;
 
-        let output = child.wait_with_output().await
+        let output = child
+            .wait_with_output()
+            .await
             .map_err(|e| format!("等待 cargo bench 完成失败：{}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -272,10 +278,13 @@ impl PerformanceBenchmarkAgent {
             .stderr(Stdio::piped());
 
         // 执行命令
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .map_err(|e| format!("启动 npm run bench 失败：{}", e))?;
 
-        let output = child.wait_with_output().await
+        let output = child
+            .wait_with_output()
+            .await
             .map_err(|e| format!("等待 npm run bench 完成失败：{}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -295,35 +304,63 @@ impl PerformanceBenchmarkAgent {
     }
 
     /// 解析 Criterion 输出
-    fn parse_criterion_output(&self, stdout: &str, stderr: &str) -> Result<Vec<BenchmarkResult>, String> {
+    fn parse_criterion_output(
+        &self,
+        stdout: &str,
+        stderr: &str,
+    ) -> Result<Vec<BenchmarkResult>, String> {
         let mut results = Vec::new();
 
         // Criterion 输出格式示例：
         // bench_fibonacci          time:   [12.345 ms 12.456 ms 12.567 ms]
         //                         change: [+5.1234% +6.2345% +7.3456%] (p = 0.00 < 0.05)
-        
-        let re_bench = Regex::new(r"^(\w+)\s+time:\s+\[(\d+\.\d+) ms (\d+\.\d+) ms (\d+\.\d+) ms\]").unwrap();
-        let re_change = Regex::new(r"change:\s+\[([+-]?\d+\.\d+)% ([+-]?\d+\.\d+)% ([+-]?\d+\.\d+)%\]").unwrap();
+
+        let re_bench =
+            Regex::new(r"^(\w+)\s+time:\s+\[(\d+\.\d+) ms (\d+\.\d+) ms (\d+\.\d+) ms\]").unwrap();
+        let re_change =
+            Regex::new(r"change:\s+\[([+-]?\d+\.\d+)% ([+-]?\d+\.\d+)% ([+-]?\d+\.\d+)%\]")
+                .unwrap();
 
         for line in stdout.lines() {
             if let Some(caps) = re_bench.captures(line) {
-                let name = caps.get(1).map(|m| m.as_str()).unwrap_or("unknown").to_string();
-                let min = caps.get(2).and_then(|m| m.as_str().parse::<f64>().ok()).unwrap_or(0.0);
-                let median = caps.get(3).and_then(|m| m.as_str().parse::<f64>().ok()).unwrap_or(0.0);
-                let max = caps.get(4).and_then(|m| m.as_str().parse::<f64>().ok()).unwrap_or(0.0);
-                
+                let name = caps
+                    .get(1)
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let min = caps
+                    .get(2)
+                    .and_then(|m| m.as_str().parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                let median = caps
+                    .get(3)
+                    .and_then(|m| m.as_str().parse::<f64>().ok())
+                    .unwrap_or(0.0);
+                let max = caps
+                    .get(4)
+                    .and_then(|m| m.as_str().parse::<f64>().ok())
+                    .unwrap_or(0.0);
+
                 // 尝试读取下一行的变化信息
-                let regression_pct = stdout.lines()
+                let regression_pct = stdout
+                    .lines()
                     .skip_while(|l| !l.contains(&name))
                     .nth(1)
                     .and_then(|line| re_change.captures(line))
                     .and_then(|caps| caps.get(2))
                     .and_then(|m| m.as_str().parse::<f64>().ok());
 
-                let metrics = BenchmarkMetrics::new(median, median, (max - min) / 2.0, min, max, None, None);
-                let is_regression = regression_pct.map_or(false, |p| p > 5.0);
+                let metrics =
+                    BenchmarkMetrics::new(median, median, (max - min) / 2.0, min, max, None, None);
+                let is_regression = regression_pct.is_some_and(|p| p > 5.0);
 
-                results.push(BenchmarkResult::new(name, metrics, None, regression_pct, is_regression));
+                results.push(BenchmarkResult::new(
+                    name,
+                    metrics,
+                    None,
+                    regression_pct,
+                    is_regression,
+                ));
             }
         }
 
@@ -336,27 +373,37 @@ impl PerformanceBenchmarkAgent {
     }
 
     /// 解析 benchmark.js 输出
-    fn parse_benchmark_js_output(&self, stdout: &str, stderr: &str) -> Result<Vec<BenchmarkResult>, String> {
+    fn parse_benchmark_js_output(
+        &self,
+        stdout: &str,
+        stderr: &str,
+    ) -> Result<Vec<BenchmarkResult>, String> {
         let mut results = Vec::new();
 
         // benchmark.js 输出格式示例：
         // fibonacci x 1,234 ops/sec ±5.67% (98 runs sampled)
-        
+
         let re_bench = Regex::new(r"(.+) x ([\d,]+) ops/sec ±([\d.]+)%").unwrap();
 
         for line in stdout.lines() {
             if let Some(caps) = re_bench.captures(line) {
-                let name = caps.get(1).map(|m| m.as_str()).unwrap_or("unknown").to_string();
-                let ops = caps.get(2)
+                let name = caps
+                    .get(1)
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let ops = caps
+                    .get(2)
                     .map(|m| m.as_str().replace(",", ""))
                     .and_then(|s| s.parse::<f64>().ok())
                     .unwrap_or(0.0);
-                
+
                 // 将 ops/sec 转换为每次操作的耗时（ms）
                 let time_ms = if ops > 0.0 { 1000.0 / ops } else { 0.0 };
-                
-                let metrics = BenchmarkMetrics::new(time_ms, time_ms, 0.0, time_ms, time_ms, None, Some(ops));
-                
+
+                let metrics =
+                    BenchmarkMetrics::new(time_ms, time_ms, 0.0, time_ms, time_ms, None, Some(ops));
+
                 results.push(BenchmarkResult::new(name, metrics, None, None, false));
             }
         }
@@ -370,18 +417,23 @@ impl PerformanceBenchmarkAgent {
     }
 
     /// 加载基线数据并对比
-    async fn load_and_compare_baseline(&self, results: Vec<BenchmarkResult>) -> Result<Vec<BenchmarkResult>, String> {
+    async fn load_and_compare_baseline(
+        &self,
+        results: Vec<BenchmarkResult>,
+    ) -> Result<Vec<BenchmarkResult>, String> {
         // 简化实现：返回原始结果
         // 实际应该从文件或其他存储中加载历史基线数据
-        
+
         let mut final_results = Vec::new();
-        
+
         for mut result in results {
             // 模拟加载基线（实际应该从 JSON 文件读取）
             if let Some(baseline) = self.load_baseline_for_test(&result.name).await {
                 result.baseline_metrics = Some(baseline.clone());
-                result.regression_percentage = Some(self.compare_metrics(&result.metrics, &baseline));
-                result.is_regression = self.detect_regression(result.regression_percentage.unwrap());
+                result.regression_percentage =
+                    Some(self.compare_metrics(&result.metrics, &baseline));
+                result.is_regression =
+                    self.detect_regression(result.regression_percentage.unwrap());
             }
             final_results.push(result);
         }
@@ -401,7 +453,7 @@ impl PerformanceBenchmarkAgent {
         if baseline.mean_time_ms == 0.0 {
             return 0.0;
         }
-        
+
         ((current.mean_time_ms - baseline.mean_time_ms) / baseline.mean_time_ms) * 100.0
     }
 
@@ -417,18 +469,22 @@ impl PerformanceBenchmarkAgent {
 
         // 找出最慢的基准测试
         if let Some(slowest) = results.iter().max_by(|a, b| {
-            a.metrics.mean_time_ms.partial_cmp(&b.metrics.mean_time_ms).unwrap_or(std::cmp::Ordering::Equal)
+            a.metrics
+                .mean_time_ms
+                .partial_cmp(&b.metrics.mean_time_ms)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
             if slowest.metrics.mean_time_ms > 100.0 {
-                bottlenecks.push(format!("最慢操作：{} ({:.2} ms)", slowest.name, slowest.metrics.mean_time_ms));
+                bottlenecks.push(format!(
+                    "最慢操作：{} ({:.2} ms)",
+                    slowest.name, slowest.metrics.mean_time_ms
+                ));
             }
         }
 
         // 找出性能退化的测试
-        let regressed: Vec<_> = results.iter()
-            .filter(|r| r.is_regression)
-            .collect();
-        
+        let regressed: Vec<_> = results.iter().filter(|r| r.is_regression).collect();
+
         if !regressed.is_empty() {
             bottlenecks.push(format!("{} 个测试出现性能退化", regressed.len()));
         }
@@ -437,7 +493,11 @@ impl PerformanceBenchmarkAgent {
     }
 
     /// 生成优化建议
-    fn generate_optimization_suggestions(&self, results: &[BenchmarkResult], bottlenecks: &[String]) -> Vec<String> {
+    fn generate_optimization_suggestions(
+        &self,
+        results: &[BenchmarkResult],
+        bottlenecks: &[String],
+    ) -> Vec<String> {
         let mut suggestions = Vec::new();
 
         // 基于瓶颈生成建议
@@ -451,7 +511,10 @@ impl PerformanceBenchmarkAgent {
         }
 
         // 通用建议
-        if results.iter().any(|r| r.metrics.std_deviation_ms > r.metrics.mean_time_ms * 0.2) {
+        if results
+            .iter()
+            .any(|r| r.metrics.std_deviation_ms > r.metrics.mean_time_ms * 0.2)
+        {
             suggestions.push("性能波动较大，建议检查系统负载和资源竞争".to_string());
         }
 
@@ -510,13 +573,13 @@ mod tests {
     #[test]
     fn test_benchmark_metrics_creation() {
         let metrics = BenchmarkMetrics::new(
-            12.5,  // mean
-            12.3,  // median
-            0.5,   // std_dev
-            11.8,  // min
-            13.2,  // max
-            None,  // memory
-            None,  // throughput
+            12.5, // mean
+            12.3, // median
+            0.5,  // std_dev
+            11.8, // min
+            13.2, // max
+            None, // memory
+            None, // throughput
         );
 
         assert_eq!(metrics.mean_time_ms, 12.5);
@@ -527,13 +590,7 @@ mod tests {
     #[test]
     fn test_benchmark_result_creation() {
         let metrics = BenchmarkMetrics::new(12.5, 12.3, 0.5, 11.8, 13.2, None, None);
-        let result = BenchmarkResult::new(
-            "fibonacci".to_string(),
-            metrics,
-            None,
-            Some(6.5),
-            true,
-        );
+        let result = BenchmarkResult::new("fibonacci".to_string(), metrics, None, Some(6.5), true);
 
         assert_eq!(result.name, "fibonacci");
         assert!(result.is_regression);
@@ -543,8 +600,20 @@ mod tests {
     #[test]
     fn test_benchmark_report_creation() {
         let results = vec![
-            BenchmarkResult::new("test1".to_string(), BenchmarkMetrics::new(10.0, 10.0, 0.5, 9.5, 10.5, None, None), None, Some(-2.0), false),
-            BenchmarkResult::new("test2".to_string(), BenchmarkMetrics::new(15.0, 15.0, 1.0, 14.0, 16.0, None, None), None, Some(8.0), true),
+            BenchmarkResult::new(
+                "test1".to_string(),
+                BenchmarkMetrics::new(10.0, 10.0, 0.5, 9.5, 10.5, None, None),
+                None,
+                Some(-2.0),
+                false,
+            ),
+            BenchmarkResult::new(
+                "test2".to_string(),
+                BenchmarkMetrics::new(15.0, 15.0, 1.0, 14.0, 16.0, None, None),
+                None,
+                Some(8.0),
+                true,
+            ),
         ];
 
         let report = BenchmarkReport::new(2, 1, 1, 0, results.clone(), vec![], vec![]);
@@ -557,8 +626,20 @@ mod tests {
     #[test]
     fn test_overall_change_calculation() {
         let results = vec![
-            BenchmarkResult::new("test1".to_string(), BenchmarkMetrics::new(10.0, 10.0, 0.0, 10.0, 10.0, None, None), None, Some(-5.0), false),
-            BenchmarkResult::new("test2".to_string(), BenchmarkMetrics::new(15.0, 15.0, 0.0, 15.0, 15.0, None, None), None, Some(10.0), true),
+            BenchmarkResult::new(
+                "test1".to_string(),
+                BenchmarkMetrics::new(10.0, 10.0, 0.0, 10.0, 10.0, None, None),
+                None,
+                Some(-5.0),
+                false,
+            ),
+            BenchmarkResult::new(
+                "test2".to_string(),
+                BenchmarkMetrics::new(15.0, 15.0, 0.0, 15.0, 15.0, None, None),
+                None,
+                Some(10.0),
+                true,
+            ),
         ];
 
         let report = BenchmarkReport::new(2, 1, 0, 1, results, vec![], vec![]);
@@ -570,7 +651,7 @@ mod tests {
     #[test]
     fn test_compare_metrics() {
         let agent = PerformanceBenchmarkAgent::new(BenchmarkConfig::default());
-        
+
         let current = BenchmarkMetrics::new(11.0, 11.0, 0.5, 10.5, 11.5, None, None);
         let baseline = BenchmarkMetrics::new(10.0, 10.0, 0.5, 9.5, 10.5, None, None);
 
@@ -582,7 +663,7 @@ mod tests {
     #[test]
     fn test_detect_regression_true() {
         let agent = PerformanceBenchmarkAgent::new(BenchmarkConfig::default());
-        
+
         assert!(agent.detect_regression(6.0));
         assert!(agent.detect_regression(10.0));
         assert!(!agent.detect_regression(5.0));
@@ -592,7 +673,7 @@ mod tests {
     #[test]
     fn test_detect_regression_false() {
         let agent = PerformanceBenchmarkAgent::new(BenchmarkConfig::default());
-        
+
         assert!(!agent.detect_regression(3.0));
         assert!(!agent.detect_regression(-5.0));
         assert!(!agent.detect_regression(0.0));
@@ -601,14 +682,26 @@ mod tests {
     #[test]
     fn test_identify_bottlenecks_slow() {
         let agent = PerformanceBenchmarkAgent::new(BenchmarkConfig::default());
-        
+
         let results = vec![
-            BenchmarkResult::new("slow_op".to_string(), BenchmarkMetrics::new(150.0, 150.0, 5.0, 145.0, 155.0, None, None), None, None, false),
-            BenchmarkResult::new("fast_op".to_string(), BenchmarkMetrics::new(10.0, 10.0, 1.0, 9.0, 11.0, None, None), None, None, false),
+            BenchmarkResult::new(
+                "slow_op".to_string(),
+                BenchmarkMetrics::new(150.0, 150.0, 5.0, 145.0, 155.0, None, None),
+                None,
+                None,
+                false,
+            ),
+            BenchmarkResult::new(
+                "fast_op".to_string(),
+                BenchmarkMetrics::new(10.0, 10.0, 1.0, 9.0, 11.0, None, None),
+                None,
+                None,
+                false,
+            ),
         ];
 
         let bottlenecks = agent.identify_bottlenecks(&results);
-        
+
         assert!(!bottlenecks.is_empty());
         assert!(bottlenecks.iter().any(|b| b.contains("最慢操作")));
     }
@@ -616,7 +709,7 @@ mod tests {
     #[test]
     fn test_generate_optimization_suggestions() {
         let agent = PerformanceBenchmarkAgent::new(BenchmarkConfig::default());
-        
+
         let bottlenecks = vec!["最慢操作：slow_op (150.00 ms)".to_string()];
         let suggestions = agent.generate_optimization_suggestions(&[], &bottlenecks);
 

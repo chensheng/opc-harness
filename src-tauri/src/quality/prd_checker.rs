@@ -1,8 +1,7 @@
 /// PRD 质量检查器
-/// 
+///
 /// 用于检查 PRD（产品需求文档）的完整性、深度和一致性
 /// 提供评分和改进建议
-
 use serde::{Deserialize, Serialize};
 
 /// 问题严重程度
@@ -164,13 +163,16 @@ impl PRDQualityChecker {
         // 检查产品标题
         if let Some(ref title) = prd.title {
             let score = self.score_title(title);
-            sections.insert("title".to_string(), SectionCheck {
-                name: "产品标题".to_string(),
-                required: true,
-                present: true,
-                score,
-                issues: Vec::new(),
-            });
+            sections.insert(
+                "title".to_string(),
+                SectionCheck {
+                    name: "产品标题".to_string(),
+                    required: true,
+                    present: true,
+                    score,
+                    issues: Vec::new(),
+                },
+            );
         } else {
             missing_sections.push("产品标题".to_string());
         }
@@ -178,13 +180,16 @@ impl PRDQualityChecker {
         // 检查产品概述
         if let Some(ref overview) = prd.overview {
             let score = self.score_overview(overview);
-            sections.insert("overview".to_string(), SectionCheck {
-                name: "产品概述".to_string(),
-                required: true,
-                present: true,
-                score,
-                issues: Vec::new(),
-            });
+            sections.insert(
+                "overview".to_string(),
+                SectionCheck {
+                    name: "产品概述".to_string(),
+                    required: true,
+                    present: true,
+                    score,
+                    issues: Vec::new(),
+                },
+            );
         } else {
             missing_sections.push("产品概述".to_string());
         }
@@ -192,13 +197,16 @@ impl PRDQualityChecker {
         // 检查目标用户
         if let Some(ref users) = prd.target_users {
             let score = self.score_target_users(users);
-            sections.insert("target_users".to_string(), SectionCheck {
-                name: "目标用户".to_string(),
-                required: true,
-                present: true,
-                score,
-                issues: Vec::new(),
-            });
+            sections.insert(
+                "target_users".to_string(),
+                SectionCheck {
+                    name: "目标用户".to_string(),
+                    required: true,
+                    present: true,
+                    score,
+                    issues: Vec::new(),
+                },
+            );
         } else {
             missing_sections.push("目标用户".to_string());
         }
@@ -206,13 +214,16 @@ impl PRDQualityChecker {
         // 检查核心功能
         if let Some(ref features) = prd.core_features {
             let score = self.score_core_features(features);
-            sections.insert("core_features".to_string(), SectionCheck {
-                name: "核心功能".to_string(),
-                required: true,
-                present: true,
-                score,
-                issues: Vec::new(),
-            });
+            sections.insert(
+                "core_features".to_string(),
+                SectionCheck {
+                    name: "核心功能".to_string(),
+                    required: true,
+                    present: true,
+                    score,
+                    issues: Vec::new(),
+                },
+            );
         } else {
             missing_sections.push("核心功能".to_string());
         }
@@ -220,13 +231,16 @@ impl PRDQualityChecker {
         // 检查技术栈
         if let Some(ref techs) = prd.tech_stack {
             let score = self.score_tech_stack(techs);
-            sections.insert("tech_stack".to_string(), SectionCheck {
-                name: "技术栈".to_string(),
-                required: true,
-                present: true,
-                score,
-                issues: Vec::new(),
-            });
+            sections.insert(
+                "tech_stack".to_string(),
+                SectionCheck {
+                    name: "技术栈".to_string(),
+                    required: true,
+                    present: true,
+                    score,
+                    issues: Vec::new(),
+                },
+            );
         } else {
             missing_sections.push("技术栈".to_string());
         }
@@ -234,13 +248,16 @@ impl PRDQualityChecker {
         // 检查预估工作量
         if let Some(ref effort) = prd.estimated_effort {
             let score = self.score_estimated_effort(effort);
-            sections.insert("estimated_effort".to_string(), SectionCheck {
-                name: "预估工作量".to_string(),
-                required: false,
-                present: true,
-                score,
-                issues: Vec::new(),
-            });
+            sections.insert(
+                "estimated_effort".to_string(),
+                SectionCheck {
+                    name: "预估工作量".to_string(),
+                    required: false,
+                    present: true,
+                    score,
+                    issues: Vec::new(),
+                },
+            );
         } else {
             missing_sections.push("预估工作量".to_string());
         }
@@ -352,7 +369,11 @@ impl PRDQualityChecker {
     }
 
     /// 生成改进建议
-    fn generate_suggestions(&self, completeness: &CompletenessReport, issues: &[QualityIssue]) -> Vec<String> {
+    fn generate_suggestions(
+        &self,
+        completeness: &CompletenessReport,
+        issues: &[QualityIssue],
+    ) -> Vec<String> {
         let mut suggestions = Vec::new();
 
         // 针对缺失章节的建议
@@ -374,7 +395,11 @@ impl PRDQualityChecker {
     }
 
     /// 计算总体评分
-    fn calculate_overall_score(&self, completeness: &CompletenessReport, issues: &[QualityIssue]) -> u8 {
+    fn calculate_overall_score(
+        &self,
+        completeness: &CompletenessReport,
+        issues: &[QualityIssue],
+    ) -> u8 {
         // 基础分来自完整性评分
         let base_score = completeness.completeness_score as f32;
 

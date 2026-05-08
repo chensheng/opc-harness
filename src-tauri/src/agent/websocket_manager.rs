@@ -58,9 +58,7 @@ pub enum WsMessageType {
         details: Option<serde_json::Value>,
     },
     /// 心跳
-    Heartbeat {
-        timestamp: u64,
-    },
+    Heartbeat { timestamp: u64 },
 }
 
 /// WebSocket 消息结构
@@ -209,7 +207,7 @@ impl WebSocketConnection {
 }
 
 /// WebSocket 管理器
-/// 
+///
 /// 负责管理所有 WebSocket 连接，提供消息发送和广播功能
 pub struct WebSocketManager {
     /// Tauri 应用句柄
@@ -264,12 +262,16 @@ impl WebSocketManager {
     }
 
     /// 断开 WebSocket 连接
-    pub async fn unregister_connection(&self, session_id: &SessionId, connection_id: &ConnectionId) {
+    pub async fn unregister_connection(
+        &self,
+        session_id: &SessionId,
+        connection_id: &ConnectionId,
+    ) {
         let mut connections = self.connections.write().await;
-        
+
         if let Some(session_connections) = connections.get_mut(session_id) {
             session_connections.retain(|c| c.id != *connection_id);
-            
+
             // 如果该 Session 没有连接了，删除整个条目
             if session_connections.is_empty() {
                 connections.remove(session_id);
@@ -286,10 +288,7 @@ impl WebSocketManager {
     /// 获取指定 Session 的所有连接
     pub async fn get_connections(&self, session_id: &SessionId) -> Vec<WebSocketConnection> {
         let connections = self.connections.read().await;
-        connections
-            .get(session_id)
-            .cloned()
-            .unwrap_or_default()
+        connections.get(session_id).cloned().unwrap_or_default()
     }
 
     /// 获取所有活跃 Session IDs
@@ -299,9 +298,13 @@ impl WebSocketManager {
     }
 
     /// 发送消息到指定 Session (广播给该 Session 的所有连接)
-    pub async fn send_to_session(&self, session_id: &SessionId, message: WsMessage) -> Result<(), String> {
+    pub async fn send_to_session(
+        &self,
+        session_id: &SessionId,
+        message: WsMessage,
+    ) -> Result<(), String> {
         let event_name = format!("ws:{}", session_id);
-        
+
         // 使用 Tauri emit API 发送事件
         self.app_handle
             .emit(&event_name, &message)
@@ -325,7 +328,7 @@ impl WebSocketManager {
     /// 广播消息到所有 Session
     pub async fn broadcast(&self, message: WsMessage) -> Result<(), String> {
         let session_ids = self.get_all_session_ids().await;
-        
+
         for session_id in &session_ids {
             let _ = self.send_to_session(session_id, message.clone()).await;
         }
@@ -354,7 +357,8 @@ impl WebSocketManager {
         total: u32,
         description: Option<&str>,
     ) -> Result<(), String> {
-        let ws_message = WsMessage::progress(session_id.clone(), phase, current, total, description);
+        let ws_message =
+            WsMessage::progress(session_id.clone(), phase, current, total, description);
         self.send_to_session(session_id, ws_message).await
     }
 
@@ -378,13 +382,8 @@ impl WebSocketManager {
         data: Option<serde_json::Value>,
         error: Option<String>,
     ) -> Result<(), String> {
-        let ws_message = WsMessage::agent_response(
-            session_id.clone(),
-            request_id,
-            success,
-            data,
-            error,
-        );
+        let ws_message =
+            WsMessage::agent_response(session_id.clone(), request_id, success, data, error);
         self.send_to_session(session_id, ws_message).await
     }
 
@@ -415,33 +414,24 @@ impl WebSocketManager {
     /// 获取连接数
     pub async fn get_connection_count(&self, session_id: &SessionId) -> usize {
         let connections = self.connections.read().await;
-        connections
-            .get(session_id)
-            .map(|v| v.len())
-            .unwrap_or(0)
+        connections.get(session_id).map(|v| v.len()).unwrap_or(0)
     }
 
     /// 清理断开的连接 (超时检测)
     pub async fn cleanup_stale_connections(&self, timeout_ms: u64) {
         let now = chrono::Utc::now().timestamp_millis() as u64;
         let mut connections = self.connections.write().await;
-        
+
         let mut removed_sessions = Vec::new();
-        
+
         for (session_id, session_connections) in connections.iter_mut() {
-            session_connections.retain(|conn| {
-                if now - conn.last_active > timeout_ms {
-                    false
-                } else {
-                    true
-                }
-            });
-            
+            session_connections.retain(|conn| now - conn.last_active <= timeout_ms);
+
             if session_connections.is_empty() {
                 removed_sessions.push(session_id.clone());
             }
         }
-        
+
         // 移除空的 Session
         for session_id in &removed_sessions {
             connections.remove(session_id);
@@ -468,9 +458,13 @@ mod tests {
 
         assert!(!msg.id.is_empty());
         assert_eq!(msg.session_id, "test-session");
-        
+
         match msg.message_type {
-            WsMessageType::Log { level, message, source } => {
+            WsMessageType::Log {
+                level,
+                message,
+                source,
+            } => {
                 assert_eq!(level, "info");
                 assert_eq!(message, "Test message");
                 assert_eq!(source, Some("test-source".to_string()));
@@ -490,7 +484,12 @@ mod tests {
         );
 
         match msg.message_type {
-            WsMessageType::Progress { phase, current, total, description } => {
+            WsMessageType::Progress {
+                phase,
+                current,
+                total,
+                description,
+            } => {
                 assert_eq!(phase, "coding");
                 assert_eq!(current, 5);
                 assert_eq!(total, 10);
@@ -520,7 +519,7 @@ mod tests {
     #[test]
     fn test_websocket_connection_creation() {
         let conn = WebSocketConnection::new("test-session".to_string());
-        
+
         assert!(!conn.id.is_empty());
         assert_eq!(conn.session_id, "test-session");
         assert!(conn.connected_at > 0);
@@ -530,12 +529,7 @@ mod tests {
 
     #[test]
     fn test_ws_message_serialization() {
-        let msg = WsMessage::log(
-            "test".to_string(),
-            "debug",
-            "Serialized message",
-            None,
-        );
+        let msg = WsMessage::log("test".to_string(), "debug", "Serialized message", None);
 
         let json = serde_json::to_string(&msg).expect("Failed to serialize");
         assert!(json.contains("\"type\":\"Log\""));
@@ -551,7 +545,7 @@ mod tests {
 // ============================================================================
 //
 // 使用说明:
-// 
+//
 // Rust 端发送事件:
 // ```rust
 // let app_handle = tauri::State::<Arc<RwLock<WebSocketManager>>>::inner();
@@ -562,12 +556,12 @@ mod tests {
 // TypeScript 端监听事件:
 // ```typescript
 // import { listen } from '@tauri-apps/api/event';
-// 
+//
 // // 监听特定 session 的消息
 // const unlisten = await listen(`ws:${sessionId}`, (event) => {
 //   console.log('Received:', event.payload);
 // });
-// 
+//
 // // 清理监听器
 // unlisten();
 // ```

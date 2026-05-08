@@ -1,43 +1,44 @@
-use crate::commands::ai::types::{PRDResponse, UserPersonaResponse, CompetitorResponse, CompetitorAnalysisResponse};
+use crate::commands::ai::types::{
+    CompetitorAnalysisResponse, CompetitorResponse, PRDResponse, UserPersonaResponse,
+};
 use uuid::Uuid;
 
 /// 从 Markdown 内容解析 PRD 结构
-/// 
+///
 /// 这个函数使用简单的规则提取 PRD 的各个部分
 /// 在生产环境中，可以使用更复杂的 NLP 技术或让 AI 直接返回 JSON
 pub fn parse_prd_from_markdown(content: &str) -> Result<PRDResponse, String> {
     // 提取标题（第一个 # 标题）
-    let title = extract_first_heading(content)
-        .unwrap_or_else(|| "Generated Product".to_string());
-    
+    let title = extract_first_heading(content).unwrap_or_else(|| "Generated Product".to_string());
+
     // 提取产品概述（## 1. 产品概述 下的内容）
     let overview = extract_section(content, "产品概述")
         .unwrap_or_else(|| "AI-generated product overview.".to_string());
-    
+
     // 提取目标用户
     let target_users = extract_list_items(content, "目标用户")
         .unwrap_or_else(|| vec!["Target users to be defined".to_string()]);
-    
+
     // 提取核心功能
     let core_features = extract_list_items(content, "核心功能")
         .unwrap_or_else(|| vec!["Core features to be defined".to_string()]);
-    
+
     // 提取技术栈
     let tech_stack = extract_list_items(content, "技术栈")
         .unwrap_or_else(|| vec!["Technology stack to be defined".to_string()]);
-    
+
     // 估算开发工作量
     let estimated_effort = extract_section(content, "时间估算")
         .or_else(|| extract_section(content, "开发计划"))
         .unwrap_or_else(|| "To be estimated".to_string());
-    
+
     // 提取商业模式
-    let business_model = extract_section(content, "收入模式")
-        .or_else(|| extract_section(content, "商业模式"));
-    
+    let business_model =
+        extract_section(content, "收入模式").or_else(|| extract_section(content, "商业模式"));
+
     // 提取定价策略
     let pricing = extract_section(content, "定价策略");
-    
+
     Ok(PRDResponse {
         title,
         overview,
@@ -65,27 +66,27 @@ pub fn extract_section(content: &str, section_name: &str) -> Option<String> {
     let lines: Vec<&str> = content.lines().collect();
     let mut in_section = false;
     let mut section_content = Vec::new();
-    
+
     for line in lines {
         let trimmed = line.trim();
-        
+
         // 检查是否进入目标章节
         if trimmed.starts_with("## ") && trimmed.contains(section_name) {
             in_section = true;
             continue;
         }
-        
+
         // 检查是否进入下一个章节（退出当前章节）
         if in_section && trimmed.starts_with("## ") {
             break;
         }
-        
+
         // 收集章节内容
         if in_section && !trimmed.is_empty() && !trimmed.starts_with("### ") {
             section_content.push(trimmed);
         }
     }
-    
+
     if section_content.is_empty() {
         None
     } else {
@@ -98,16 +99,16 @@ pub fn extract_list_items(content: &str, list_context: &str) -> Option<Vec<Strin
     let lines: Vec<&str> = content.lines().collect();
     let mut items = Vec::new();
     let mut in_target_list = false;
-    
+
     for line in lines {
         let trimmed = line.trim();
-        
+
         // 查找包含目标上下文的列表
         if trimmed.contains(list_context) {
             in_target_list = true;
             continue;
         }
-        
+
         // 收集列表项
         if in_target_list {
             if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("+ ") {
@@ -117,16 +118,20 @@ pub fn extract_list_items(content: &str, list_context: &str) -> Option<Vec<Strin
                 if !item.is_empty() {
                     items.push(item);
                 }
-            } else if trimmed.starts_with("## ") || (trimmed.starts_with("### ") && !items.is_empty()) {
+            } else if trimmed.starts_with("## ")
+                || (trimmed.starts_with("### ") && !items.is_empty())
+            {
                 // 到达下一个章节或子章节，停止收集
                 break;
             } else if !trimmed.is_empty() && !items.is_empty() {
                 // 可能是列表项的延续
-                items.last_mut().map(|last| last.push_str(&format!(" {}", trimmed)));
+                if let Some(last) = items.last_mut() {
+                    last.push_str(&format!(" {}", trimmed))
+                }
             }
         }
     }
-    
+
     if items.is_empty() {
         None
     } else {
@@ -135,29 +140,34 @@ pub fn extract_list_items(content: &str, list_context: &str) -> Option<Vec<Strin
 }
 
 /// 从 Markdown 文本中解析用户画像
-pub fn parse_user_personas_from_markdown(markdown: &str) -> Result<Vec<UserPersonaResponse>, String> {
+pub fn parse_user_personas_from_markdown(
+    markdown: &str,
+) -> Result<Vec<UserPersonaResponse>, String> {
     // 简化的解析逻辑，实际应该使用更复杂的 Markdown 解析器
     let mut personas = Vec::new();
-    
+
     // 按行分割并提取信息
     let lines: Vec<&str> = markdown.lines().collect();
     let mut current_persona: Option<UserPersonaResponse> = None;
     let mut id_counter = 1;
-    
+
     for line in lines {
         let trimmed = line.trim();
-        
+
         // 检测新的画像开始（通常以 # 或数字开头）
-        if trimmed.starts_with('#') || (trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) && trimmed.contains('.')) {
+        if trimmed.starts_with('#')
+            || (trimmed.chars().next().is_some_and(|c| c.is_ascii_digit()) && trimmed.contains('.'))
+        {
             // 保存之前的画像
             if let Some(persona) = current_persona.take() {
                 personas.push(persona);
             }
-            
+
             // 创建新画像
             current_persona = Some(UserPersonaResponse {
                 id: id_counter.to_string(),
-                name: extract_name_from_line(trimmed).unwrap_or_else(|| format!("用户{}", id_counter)),
+                name: extract_name_from_line(trimmed)
+                    .unwrap_or_else(|| format!("用户{}", id_counter)),
                 age: "".to_string(),
                 occupation: "".to_string(),
                 background: "".to_string(),
@@ -190,12 +200,12 @@ pub fn parse_user_personas_from_markdown(markdown: &str) -> Result<Vec<UserPerso
             }
         }
     }
-    
+
     // 添加最后一个画像
     if let Some(persona) = current_persona {
         personas.push(persona);
     }
-    
+
     // 如果没有解析出任何画像，尝试创建一个默认的
     if personas.is_empty() {
         personas.push(UserPersonaResponse {
@@ -210,7 +220,7 @@ pub fn parse_user_personas_from_markdown(markdown: &str) -> Result<Vec<UserPerso
             quote: Some("我需要一个更好的解决方案".to_string()),
         });
     }
-    
+
     Ok(personas)
 }
 
@@ -219,7 +229,9 @@ pub fn extract_name_from_line(line: &str) -> Option<String> {
     // 尝试提取中文名字（通常 2-3 个字符）
     if let Some(start) = line.find(|c: char| c.is_ascii_alphabetic() || c.is_whitespace()) {
         let name_part = &line[..start];
-        let name = name_part.trim().trim_start_matches(|c: char| !c.is_alphabetic() && !c.is_whitespace());
+        let name = name_part
+            .trim()
+            .trim_start_matches(|c: char| !c.is_alphabetic() && !c.is_whitespace());
         if !name.is_empty() && name.len() <= 10 {
             return Some(name.to_string());
         }
@@ -239,36 +251,35 @@ pub fn extract_value_after_colon(line: &str) -> String {
 /// 从 Markdown 解析单个用户画像
 pub fn parse_user_persona_from_markdown(content: &str) -> Result<UserPersonaResponse, String> {
     // 提取姓名（第一个 ## 标题或第一行）
-    let name = extract_first_heading(content)
-        .unwrap_or_else(|| "典型用户".to_string());
-    
+    let name = extract_first_heading(content).unwrap_or_else(|| "典型用户".to_string());
+
     // 生成唯一 ID
     let id = Uuid::new_v4().to_string();
-    
+
     // 提取基本信息（年龄、职业等）
     let age = extract_section(content, "年龄").unwrap_or_else(|| "25-35 岁".to_string());
     let occupation = extract_section(content, "职业").unwrap_or_else(|| "专业人士".to_string());
-    let background = extract_section(content, "背景").unwrap_or_else(|| "具有相关专业背景".to_string());
-    
+    let background =
+        extract_section(content, "背景").unwrap_or_else(|| "具有相关专业背景".to_string());
+
     // 提取目标
     let goals = extract_list_items(content, "目标")
         .or_else(|| extract_list_items(content, "Goals"))
         .unwrap_or_else(|| vec!["提高工作效率".to_string()]);
-    
+
     // 提取痛点
     let pain_points = extract_list_items(content, "痛点")
         .or_else(|| extract_list_items(content, "Pain Points"))
         .unwrap_or_else(|| vec!["时间不够用".to_string()]);
-    
+
     // 提取行为特征
     let behaviors = extract_list_items(content, "行为")
         .or_else(|| extract_list_items(content, "Behaviors"))
         .unwrap_or_else(|| vec!["经常使用数字化工具".to_string()]);
-    
+
     // 提取引言
-    let quote = extract_section(content, "引言")
-        .or_else(|| extract_section(content, "Quote"));
-    
+    let quote = extract_section(content, "引言").or_else(|| extract_section(content, "Quote"));
+
     Ok(UserPersonaResponse {
         id,
         name,
@@ -283,12 +294,14 @@ pub fn parse_user_persona_from_markdown(content: &str) -> Result<UserPersonaResp
 }
 
 /// 从 Markdown 解析竞品分析
-pub fn parse_competitor_analysis_from_markdown(content: &str) -> Result<CompetitorAnalysisResponse, String> {
+pub fn parse_competitor_analysis_from_markdown(
+    content: &str,
+) -> Result<CompetitorAnalysisResponse, String> {
     // 这个函数解析 Markdown 格式的竞品分析
     // 简化实现，实际应该更复杂
-    
+
     let mut competitors = Vec::new();
-    
+
     // 查找所有提到的竞争对手
     // 这里使用简单的规则：包含"竞争"、"对手"、"竞品"的行
     for line in content.lines() {
@@ -297,7 +310,10 @@ pub fn parse_competitor_analysis_from_markdown(content: &str) -> Result<Competit
             // 尝试提取竞争对手名称
             let parts: Vec<&str> = trimmed.split_whitespace().collect();
             if parts.len() > 1 {
-                let name = parts[1].trim_start_matches('-').trim_start_matches('*').to_string();
+                let name = parts[1]
+                    .trim_start_matches('-')
+                    .trim_start_matches('*')
+                    .to_string();
                 competitors.push(CompetitorResponse {
                     name,
                     strengths: vec!["优势待分析".to_string()],
@@ -307,7 +323,7 @@ pub fn parse_competitor_analysis_from_markdown(content: &str) -> Result<Competit
             }
         }
     }
-    
+
     // 如果没找到，使用默认值
     if competitors.is_empty() {
         competitors = vec![
@@ -325,17 +341,17 @@ pub fn parse_competitor_analysis_from_markdown(content: &str) -> Result<Competit
             },
         ];
     }
-    
+
     // 提取差异化策略
     let differentiation = extract_section(content, "差异化")
         .or_else(|| extract_section(content, "Differentiation"))
         .unwrap_or_else(|| "通过创新和更好的用户体验脱颖而出".to_string());
-    
+
     // 提取机会点
     let opportunities = extract_list_items(content, "机会")
         .or_else(|| extract_list_items(content, "Opportunities"))
         .unwrap_or_else(|| vec!["市场空白点待开发".to_string()]);
-    
+
     Ok(CompetitorAnalysisResponse {
         competitors,
         differentiation,
@@ -351,7 +367,7 @@ mod tests {
     fn test_extract_first_heading_with_h1() {
         let content = "# 产品需求文档 - Test Product\n\nSome content...";
         let result = extract_first_heading(content);
-        
+
         assert_eq!(result, Some("产品需求文档 - Test Product".to_string()));
     }
 
@@ -359,7 +375,7 @@ mod tests {
     fn test_extract_first_heading_without_h1() {
         let content = "Some content without heading";
         let result = extract_first_heading(content);
-        
+
         assert_eq!(result, None);
     }
 
@@ -370,7 +386,7 @@ Some text
 ## Second Heading
 More text"#;
         let result = extract_first_heading(content);
-        
+
         assert_eq!(result, Some("First Heading".to_string()));
     }
 
@@ -382,9 +398,9 @@ More text"#;
 
 ## 2. 目标用户
 这是目标用户章节。"#;
-        
+
         let result = extract_section(content, "产品概述");
-        
+
         assert!(result.is_some());
         assert!(result.unwrap().contains("这是产品概述的内容"));
     }
@@ -396,9 +412,9 @@ More text"#;
 
 ## 2. 目标用户
 这是目标用户章节。"#;
-        
+
         let result = extract_section(content, "不存在的章节");
-        
+
         assert!(result.is_none());
     }
 
@@ -410,9 +426,9 @@ More text"#;
 
 ## 2. 其他章节
 这是第二节的内容。"#;
-        
+
         let result = extract_section(content, "产品概述");
-        
+
         assert!(result.is_some());
         let section = result.unwrap();
         assert!(section.contains("这是第一节的内容"));
@@ -428,9 +444,9 @@ More text"#;
 
 ## 其他内容
 一些其他内容。"#;
-        
+
         let result = extract_list_items(content, "目标用户");
-        
+
         assert!(result.is_some());
         let items = result.unwrap();
         assert_eq!(items.len(), 3);
@@ -446,9 +462,9 @@ More text"#;
 
 ## 其他内容
 一些其他内容。"#;
-        
+
         let result = extract_list_items(content, "目标用户");
-        
+
         assert!(result.is_none());
     }
 
@@ -461,9 +477,9 @@ More text"#;
 
 ## 其他
 内容。"#;
-        
+
         let result = extract_list_items(content, "核心功能");
-        
+
         assert!(result.is_some());
         let items = result.unwrap();
         assert!(items.len() >= 2);
@@ -500,12 +516,12 @@ More text"#;
 
 ## 7. 定价策略
 基础版免费，专业版$9/月。"#;
-        
+
         let result = parse_prd_from_markdown(content);
-        
+
         assert!(result.is_ok());
         let prd = result.unwrap();
-        
+
         assert_eq!(prd.title, "产品需求文档 - Test Product");
         assert!(prd.overview.contains("测试产品"));
         assert_eq!(prd.target_users.len(), 2);
@@ -519,12 +535,12 @@ More text"#;
     #[test]
     fn test_parse_prd_from_markdown_minimal() {
         let content = "# Minimal Product\n\nSome minimal content.";
-        
+
         let result = parse_prd_from_markdown(content);
-        
+
         assert!(result.is_ok());
         let prd = result.unwrap();
-        
+
         assert_eq!(prd.title, "Minimal Product");
         // 其他字段应该使用默认值
         assert_eq!(prd.target_users[0], "Target users to be defined");
@@ -536,9 +552,9 @@ More text"#;
 * 用户 A
 * 用户 B
 * 用户 C"#;
-        
+
         let result = extract_list_items(content, "目标用户");
-        
+
         assert!(result.is_some());
         let items = result.unwrap();
         assert_eq!(items.len(), 3);
@@ -550,9 +566,9 @@ More text"#;
 + 用户 A
 + 用户 B
 + 用户 C"#;
-        
+
         let result = extract_list_items(content, "目标用户");
-        
+
         assert!(result.is_some());
         let items = result.unwrap();
         assert_eq!(items.len(), 3);
@@ -581,23 +597,23 @@ More text"#;
 - 每天使用工具 3-4 小时
 - 愿意为优质工具付费
 - 活跃于技术社区"#;
-        
+
         let result = parse_user_persona_from_markdown(content);
-        
+
         assert!(result.is_ok());
         let persona = result.unwrap();
-        
+
         // 验证基本字段存在且非空
         assert!(persona.name.contains("张三"));
         assert!(!persona.age.is_empty());
         assert!(!persona.occupation.is_empty());
         assert!(!persona.background.is_empty());
-        
+
         // 验证列表字段
         assert_eq!(persona.goals.len(), 3);
         assert_eq!(persona.pain_points.len(), 3);
         assert_eq!(persona.behaviors.len(), 3);
-        
+
         // 验证具体内容
         assert!(persona.goals[0].contains("工作效率"));
         assert!(persona.pain_points[0].contains("时间管理"));
@@ -623,18 +639,20 @@ More text"#;
 - 中小企业市场未被满足
 - 移动端体验待优化
 - AI 集成是趋势"#;
-        
+
         let result = parse_competitor_analysis_from_markdown(content);
-        
+
         assert!(result.is_ok());
         let analysis = result.unwrap();
-        
+
         // 解析器会提取所有以"- "开头的行作为竞争对手
         // 所以会包括差异化机会和市场机会中的项目
         assert!(!analysis.competitors.is_empty());
-        assert!(analysis.differentiation.contains("差异化") || !analysis.differentiation.is_empty());
+        assert!(
+            analysis.differentiation.contains("差异化") || !analysis.differentiation.is_empty()
+        );
         assert!(!analysis.opportunities.is_empty());
-        
+
         // 验证至少能正确解析前 3 个竞争对手
         assert!(analysis.competitors.len() >= 3);
     }

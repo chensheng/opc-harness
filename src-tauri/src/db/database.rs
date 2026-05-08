@@ -1,5 +1,5 @@
-use rusqlite::{Connection, Result};
 use crate::utils::paths;
+use rusqlite::{Connection, Result};
 
 /// 获取数据库连接
 pub fn get_connection() -> Result<Connection> {
@@ -16,11 +16,13 @@ pub fn ensure_all_project_workspaces(_app_handle: &tauri::AppHandle) -> Result<(
 /// 迁移：为 projects 表添加 tags 字段（如果不存在）
 fn migrate_add_project_tags_field(conn: &Connection) -> Result<()> {
     // 检查表是否存在
-    let table_exists = conn.query_row(
-        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='projects'",
-        [],
-        |row| row.get::<_, i32>(0)
-    ).unwrap_or(0);
+    let table_exists = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='projects'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .unwrap_or(0);
 
     if table_exists == 0 {
         // 表不存在，无需迁移
@@ -29,17 +31,16 @@ fn migrate_add_project_tags_field(conn: &Connection) -> Result<()> {
 
     // 表存在，检查列结构
     let mut stmt = conn.prepare("PRAGMA table_info(projects)")?;
-    let columns: Vec<String> = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(1)?) // name column
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let columns: Vec<String> = stmt
+        .query_map([], |row| {
+            row.get::<_, String>(1) // name column
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
 
     // 检查是否包含 tags 列
     if !columns.contains(&"tags".to_string()) {
         log::debug!("Adding 'tags' column to projects table...");
-        conn.execute(
-            "ALTER TABLE projects ADD COLUMN tags TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE projects ADD COLUMN tags TEXT", [])?;
         log::info!("✅ projects table updated with 'tags' column");
     } else {
         log::debug!("projects table already has 'tags' column");
@@ -51,13 +52,12 @@ fn migrate_add_project_tags_field(conn: &Connection) -> Result<()> {
 /// 初始化数据库连接和表结构
 pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
     // 确保应用目录结构存在
-    paths::ensure_app_directories()
-        .map_err(|e| {
-            rusqlite::Error::SqliteFailure(
-                rusqlite::ffi::Error::new(1),
-                Some(format!("Failed to create app directories: {}", e)),
-            )
-        })?;
+    paths::ensure_app_directories().map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(1),
+            Some(format!("Failed to create app directories: {}", e)),
+        )
+    })?;
 
     // 尝试从旧位置迁移数据
     match paths::migrate_legacy_data(app_handle) {
@@ -67,7 +67,7 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
     }
 
     let db_path = paths::get_database_path();
-    
+
     log::info!("Initializing database at: {:?}", db_path);
 
     let conn = Connection::open(&db_path)?;
@@ -279,11 +279,13 @@ pub async fn init_database(app_handle: &tauri::AppHandle) -> Result<()> {
 /// 检查并重建 agent_sessions 表（如果结构不匹配）
 fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
     // 检查表是否存在
-    let table_exists = conn.query_row(
-        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_sessions'",
-        [],
-        |row| row.get::<_, i32>(0)
-    ).unwrap_or(0);
+    let table_exists = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_sessions'",
+            [],
+            |row| row.get::<_, i32>(0),
+        )
+        .unwrap_or(0);
 
     if table_exists == 0 {
         // 表不存在，创建新表
@@ -312,34 +314,48 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
 
     // 表存在，检查列结构
     let mut stmt = conn.prepare("PRAGMA table_info(agent_sessions)")?;
-    let columns: Vec<String> = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(1)?) // name column
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let columns: Vec<String> = stmt
+        .query_map([], |row| {
+            row.get::<_, String>(1) // name column
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
 
     // 期望的列列表
     let expected_columns = vec![
-        "session_id", "agent_id", "agent_type", "project_id", "name",
-        "status", "phase", "created_at", "updated_at", "stdio_channel_id",
-        "registered_to_daemon", "metadata", "agents_md_content"
+        "session_id",
+        "agent_id",
+        "agent_type",
+        "project_id",
+        "name",
+        "status",
+        "phase",
+        "created_at",
+        "updated_at",
+        "stdio_channel_id",
+        "registered_to_daemon",
+        "metadata",
+        "agents_md_content",
     ];
 
     // 检查是否包含所有必需的列
-    let has_all_columns = expected_columns.iter().all(|col| columns.contains(&col.to_string()));
-    
+    let has_all_columns = expected_columns
+        .iter()
+        .all(|col| columns.contains(&col.to_string()));
+
     // 检查是否有旧版本的列（project_path）
     let has_old_column = columns.iter().any(|col| col == "project_path");
 
     // 初始化可观测性相关表
-    init_observability_tables(&conn)?;
+    init_observability_tables(conn)?;
 
     // 初始化重试引擎相关表
-    init_retry_engine_tables(&conn)?;
+    init_retry_engine_tables(conn)?;
 
     if !has_all_columns || has_old_column {
         // 表结构不匹配，删除并重建
         log::warn!("agent_sessions table structure mismatch, rebuilding...");
         conn.execute("DROP TABLE IF EXISTS agent_sessions", [])?;
-        
+
         // 重新创建表
         conn.execute(
             "CREATE TABLE agent_sessions (
@@ -368,16 +384,18 @@ fn check_and_rebuild_agent_sessions_table(conn: &Connection) -> Result<()> {
 /// 迁移：为 user_stories 表添加 Agent Loop 相关字段
 fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
     use rusqlite::OptionalExtension;
-    
+
     log::info!("Checking user_stories table for Agent Loop fields...");
-    
+
     // 检查 assigned_agent 字段是否存在
-    let has_assigned_agent: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='assigned_agent'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_assigned_agent: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='assigned_agent'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_assigned_agent.is_none() {
         log::info!("Adding assigned_agent column to user_stories table");
         conn.execute(
@@ -385,89 +403,86 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
-    
+
     // 检查 locked_at 字段
-    let has_locked_at: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='locked_at'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_locked_at: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='locked_at'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_locked_at.is_none() {
         log::info!("Adding locked_at column to user_stories table");
-        conn.execute(
-            "ALTER TABLE user_stories ADD COLUMN locked_at TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE user_stories ADD COLUMN locked_at TEXT", [])?;
     }
-    
+
     // 检查 started_at 字段
-    let has_started_at: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='started_at'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_started_at: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='started_at'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_started_at.is_none() {
         log::info!("Adding started_at column to user_stories table");
-        conn.execute(
-            "ALTER TABLE user_stories ADD COLUMN started_at TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE user_stories ADD COLUMN started_at TEXT", [])?;
     }
-    
+
     // 检查 completed_at 字段
-    let has_completed_at: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='completed_at'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_completed_at: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='completed_at'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_completed_at.is_none() {
         log::info!("Adding completed_at column to user_stories table");
-        conn.execute(
-            "ALTER TABLE user_stories ADD COLUMN completed_at TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE user_stories ADD COLUMN completed_at TEXT", [])?;
     }
-    
+
     // 检查 failed_at 字段
-    let has_failed_at: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='failed_at'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_failed_at: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='failed_at'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_failed_at.is_none() {
         log::info!("Adding failed_at column to user_stories table");
-        conn.execute(
-            "ALTER TABLE user_stories ADD COLUMN failed_at TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE user_stories ADD COLUMN failed_at TEXT", [])?;
     }
-    
+
     // 检查 error_message 字段
-    let has_error_message: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='error_message'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_error_message: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='error_message'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_error_message.is_none() {
         log::info!("Adding error_message column to user_stories table");
-        conn.execute(
-            "ALTER TABLE user_stories ADD COLUMN error_message TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE user_stories ADD COLUMN error_message TEXT", [])?;
     }
-    
+
     // 检查 retry_count 字段
-    let has_retry_count: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='retry_count'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_retry_count: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='retry_count'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_retry_count.is_none() {
         log::info!("Adding retry_count column to user_stories table");
         conn.execute(
@@ -475,29 +490,30 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
-    
+
     // 检查 next_retry_at 字段（重试引擎新增）
-    let has_next_retry_at: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='next_retry_at'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_next_retry_at: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='next_retry_at'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_next_retry_at.is_none() {
         log::info!("Adding next_retry_at column to user_stories table");
-        conn.execute(
-            "ALTER TABLE user_stories ADD COLUMN next_retry_at TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE user_stories ADD COLUMN next_retry_at TEXT", [])?;
     }
-    
+
     // 检查 max_retries 字段（重试引擎新增）
-    let has_max_retries: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='max_retries'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_max_retries: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='max_retries'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_max_retries.is_none() {
         log::info!("Adding max_retries column to user_stories table");
         conn.execute(
@@ -505,14 +521,16 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
-    
+
     // 检查 failure_reason 字段（失败原因追踪新增）
-    let has_failure_reason: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='failure_reason'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_failure_reason: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='failure_reason'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_failure_reason.is_none() {
         log::info!("Adding failure_reason column to user_stories table");
         conn.execute(
@@ -520,14 +538,16 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
-    
+
     // 检查 last_error_timestamp 字段（失败原因追踪新增）
-    let has_last_error_timestamp: Option<String> = conn.query_row(
-        "SELECT name FROM pragma_table_info('user_stories') WHERE name='last_error_timestamp'",
-        [],
-        |row| row.get(0)
-    ).optional()?;
-    
+    let has_last_error_timestamp: Option<String> = conn
+        .query_row(
+            "SELECT name FROM pragma_table_info('user_stories') WHERE name='last_error_timestamp'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+
     if has_last_error_timestamp.is_none() {
         log::info!("Adding last_error_timestamp column to user_stories table");
         conn.execute(
@@ -535,7 +555,7 @@ fn migrate_add_agent_loop_fields(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
-    
+
     log::info!("Agent Loop fields migration completed");
     Ok(())
 }

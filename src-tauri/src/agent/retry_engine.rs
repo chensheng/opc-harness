@@ -38,9 +38,9 @@ pub struct BackoffConfig {
 impl Default for BackoffConfig {
     fn default() -> Self {
         Self {
-            base_delay_seconds: 60,   // 1 分钟
-            max_delay_seconds: 3600,  // 1 小时
-            jitter_ratio: 0.1,        // ±10%
+            base_delay_seconds: 60,  // 1 分钟
+            max_delay_seconds: 3600, // 1 小时
+            jitter_ratio: 0.1,       // ±10%
         }
     }
 }
@@ -51,6 +51,12 @@ pub struct ErrorClassifier {
     temporary_patterns: Vec<Regex>,
     /// 永久错误模式（正则表达式）
     permanent_patterns: Vec<Regex>,
+}
+
+impl Default for ErrorClassifier {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ErrorClassifier {
@@ -147,14 +153,14 @@ impl BackoffCalculator {
     fn calculate_jitter(&self, delay: u64) -> u64 {
         let mut rng = rand::thread_rng();
         let jitter_range = (delay as f64 * self.config.jitter_ratio) as u64;
-        
+
         if jitter_range == 0 {
             return 0;
         }
 
         // 生成 -jitter_range 到 +jitter_range 之间的随机值
         let jitter = rng.gen_range(0..jitter_range * 2) as i64 - jitter_range as i64;
-        
+
         // 确保不为负数
         jitter.max(0) as u64
     }
@@ -185,11 +191,7 @@ impl RetryEngine {
     }
 
     /// 决定是否应该重试
-    pub fn should_retry(
-        &self,
-        current_retry_count: u32,
-        error_message: &str,
-    ) -> RetryDecision {
+    pub fn should_retry(&self, current_retry_count: u32, error_message: &str) -> RetryDecision {
         // 1. 检查是否超过最大重试次数
         if current_retry_count >= self.max_retries {
             log::warn!(
@@ -209,7 +211,9 @@ impl RetryEngine {
         match error_type {
             ErrorType::Temporary => {
                 // 临时错误：计算下次重试时间
-                let next_retry_at = self.backoff_calculator.calculate_next_retry_at(current_retry_count);
+                let next_retry_at = self
+                    .backoff_calculator
+                    .calculate_next_retry_at(current_retry_count);
                 log::info!(
                     "[RetryEngine] Decided to RETRY (temporary error). Next retry at: {}",
                     next_retry_at
@@ -247,8 +251,8 @@ pub struct SchedulerConfig {
 impl Default for SchedulerConfig {
     fn default() -> Self {
         Self {
-            check_interval_seconds: 30,  // 每 30 秒检查一次
-            max_concurrent_retries: 3,   // 最多同时重试 3 个
+            check_interval_seconds: 30, // 每 30 秒检查一次
+            max_concurrent_retries: 3,  // 最多同时重试 3 个
         }
     }
 }
@@ -271,7 +275,7 @@ pub struct RetryScheduler {
     config: SchedulerConfig,
     active_retries: HashMap<String, String>, // story_id -> agent_id
     last_scan_at: Option<String>,
-    is_running: bool,  // 运行状态标志
+    is_running: bool, // 运行状态标志
 }
 
 impl RetryScheduler {
@@ -370,7 +374,10 @@ impl RetryScheduler {
         let histories = crate::db::get_user_story_retry_history(&conn, story_id)
             .map_err(|e| format!("Failed to query retry history: {}", e))?;
 
-        if let Some(latest_history) = histories.iter().find(|h| h.result.as_deref() == Some("pending")) {
+        if let Some(latest_history) = histories
+            .iter()
+            .find(|h| h.result.as_deref() == Some("pending"))
+        {
             // 2. 更新重试历史记录
             crate::db::update_retry_history_result(&conn, &latest_history.id, result, &now)
                 .map_err(|e| format!("Failed to update retry history: {}", e))?;
@@ -391,16 +398,26 @@ impl RetryScheduler {
                 let message = if success {
                     format!("✅ Story {} 重试成功", story_number)
                 } else {
-                    format!("❌ Story {} 重试失败: {}", story_number, error_message.unwrap_or("未知错误"))
+                    format!(
+                        "❌ Story {} 重试失败: {}",
+                        story_number,
+                        error_message.unwrap_or("未知错误")
+                    )
                 };
-                
-                if let Err(e) = ws_manager.send_log(
-                    &story_id.to_string(),
-                    if success { "success" } else { "error" },
-                    &message,
-                    Some("RetryScheduler"),
-                ).await {
-                    log::warn!("[RetryScheduler] Failed to send WebSocket notification: {}", e);
+
+                if let Err(e) = ws_manager
+                    .send_log(
+                        &story_id.to_string(),
+                        if success { "success" } else { "error" },
+                        &message,
+                        Some("RetryScheduler"),
+                    )
+                    .await
+                {
+                    log::warn!(
+                        "[RetryScheduler] Failed to send WebSocket notification: {}",
+                        e
+                    );
                 }
             }
 
@@ -431,8 +448,9 @@ impl RetryScheduler {
         self.is_running = true;
         log::info!("[RetryScheduler] Started for project: {}", project_id);
 
-        let mut interval = tokio::time::interval(StdDuration::from_secs(self.config.check_interval_seconds));
-        
+        let mut interval =
+            tokio::time::interval(StdDuration::from_secs(self.config.check_interval_seconds));
+
         loop {
             tokio::select! {
                 _ = interval.tick() => {
@@ -443,7 +461,7 @@ impl RetryScheduler {
                 }
                 _ = tokio::signal::ctrl_c() => {
                     log::info!("[RetryScheduler] Received shutdown signal, waiting for active retries...");
-                    
+
                     // 等待所有活跃的重试任务完成
                     while !self.active_retries.is_empty() {
                         log::info!(
@@ -452,7 +470,7 @@ impl RetryScheduler {
                         );
                         tokio::time::sleep(StdDuration::from_secs(5)).await;
                     }
-                    
+
                     log::info!("[RetryScheduler] All active retries completed, shutting down");
                     self.is_running = false;
                     break;
@@ -477,10 +495,9 @@ impl RetryScheduler {
         let conn = crate::db::get_connection()
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
-        let pending_stories = crate::db::get_pending_retries(
-            &conn,
-            self.config.max_concurrent_retries,
-        ).map_err(|e| format!("Failed to query pending retries: {}", e))?;
+        let pending_stories =
+            crate::db::get_pending_retries(&conn, self.config.max_concurrent_retries)
+                .map_err(|e| format!("Failed to query pending retries: {}", e))?;
 
         if pending_stories.is_empty() {
             log::debug!("[RetryScheduler] No pending retries found");
@@ -554,7 +571,7 @@ impl RetryScheduler {
         let retry_history = crate::models::UserStoryRetryHistory {
             id: format!("retry_{}_{}", story.id, now.replace(':', "-")),
             user_story_id: story.id.clone(),
-            retry_number: (story.retry_count + 1) as i32,
+            retry_number: (story.retry_count + 1),
             triggered_at: now.clone(),
             error_message: None,
             error_type: None,
@@ -572,16 +589,26 @@ impl RetryScheduler {
         {
             let ws_manager = websocket_manager.read().await;
             let session_id = story.id.clone();
-            if let Err(e) = ws_manager.send_log(
-                &session_id,
-                "info",
-                &format!("🔄 开始重试 Story {}（第 {} 次）", story.story_number, story.retry_count + 1),
-                Some("RetryScheduler"),
-            ).await {
-                log::warn!("[RetryScheduler] Failed to send WebSocket notification: {}", e);
+            if let Err(e) = ws_manager
+                .send_log(
+                    &session_id,
+                    "info",
+                    &format!(
+                        "🔄 开始重试 Story {}（第 {} 次）",
+                        story.story_number,
+                        story.retry_count + 1
+                    ),
+                    Some("RetryScheduler"),
+                )
+                .await
+            {
+                log::warn!(
+                    "[RetryScheduler] Failed to send WebSocket notification: {}",
+                    e
+                );
             }
         }
-        
+
         // 4. 注册到 active_retries
         let agent_id = format!("retry-agent-{}", story.id);
         if !self.register_retry(story.id.clone(), agent_id.clone()) {
@@ -592,7 +619,7 @@ impl RetryScheduler {
         }
 
         // 5. TODO: 调用 execute_user_story 启动 Agent
-        // 
+        //
         // 完整的实现需要：
         // 1. 获取 daemon_manager 和 worktree_manager 引用
         // 2. 调用 start_coding_agent() 方法
@@ -603,7 +630,7 @@ impl RetryScheduler {
         // - 将 Story 状态设置为 in_progress
         // - 下一个 Agent Loop 周期会自动拾取并执行
         // - 或者通过 WebSocket 通知前端手动触发
-        
+
         log::info!(
             "[RetryScheduler] Registered story {} for retry execution (agent_id: {})",
             story.story_number,
@@ -621,7 +648,7 @@ mod tests {
     #[test]
     fn test_error_classifier_temporary() {
         let classifier = ErrorClassifier::new();
-        
+
         assert_eq!(
             classifier.classify_error("Connection timeout occurred"),
             ErrorType::Temporary
@@ -639,7 +666,7 @@ mod tests {
     #[test]
     fn test_error_classifier_permanent() {
         let classifier = ErrorClassifier::new();
-        
+
         assert_eq!(
             classifier.classify_error("Syntax error in line 42"),
             ErrorType::Permanent
@@ -682,7 +709,7 @@ mod tests {
 
         // 超过最大重试次数
         let decision = engine.should_retry(3, "Some error");
-        
+
         match decision {
             RetryDecision::Abort { reason } => {
                 assert!(reason.contains("Exceeded maximum retry count"));
@@ -697,7 +724,7 @@ mod tests {
 
         // 临时错误应该重试
         let decision = engine.should_retry(0, "Connection timeout");
-        
+
         match decision {
             RetryDecision::Retry { next_retry_at } => {
                 assert!(!next_retry_at.is_empty());
@@ -712,7 +739,7 @@ mod tests {
 
         // 永久错误应该终止
         let decision = engine.should_retry(0, "Syntax error in code");
-        
+
         match decision {
             RetryDecision::Abort { reason } => {
                 assert!(reason.contains("Permanent error"));
@@ -838,7 +865,7 @@ mod tests {
 
         // 初始状态（未启动）
         let status = scheduler.get_status();
-        assert!(!status.is_running);  // 初始为 false
+        assert!(!status.is_running); // 初始为 false
         assert_eq!(status.active_retry_count, 0);
         assert!(status.last_scan_at.is_none());
 
@@ -878,11 +905,26 @@ mod tests {
         let classifier = ErrorClassifier::new();
 
         // 测试临时错误
-        assert_eq!(classifier.classify_error("Connection timeout"), ErrorType::Temporary);
-        assert_eq!(classifier.classify_error("Network error occurred"), ErrorType::Temporary);
-        assert_eq!(classifier.classify_error("Rate limit exceeded"), ErrorType::Temporary);
-        assert_eq!(classifier.classify_error("429 Too Many Requests"), ErrorType::Temporary);
-        assert_eq!(classifier.classify_error("503 Service Unavailable"), ErrorType::Temporary);
+        assert_eq!(
+            classifier.classify_error("Connection timeout"),
+            ErrorType::Temporary
+        );
+        assert_eq!(
+            classifier.classify_error("Network error occurred"),
+            ErrorType::Temporary
+        );
+        assert_eq!(
+            classifier.classify_error("Rate limit exceeded"),
+            ErrorType::Temporary
+        );
+        assert_eq!(
+            classifier.classify_error("429 Too Many Requests"),
+            ErrorType::Temporary
+        );
+        assert_eq!(
+            classifier.classify_error("503 Service Unavailable"),
+            ErrorType::Temporary
+        );
     }
 
     #[test]
@@ -890,11 +932,26 @@ mod tests {
         let classifier = ErrorClassifier::new();
 
         // 测试永久错误
-        assert_eq!(classifier.classify_error("Syntax error in line 10"), ErrorType::Permanent);
-        assert_eq!(classifier.classify_error("Compilation failed"), ErrorType::Permanent);
-        assert_eq!(classifier.classify_error("Type error: expected String"), ErrorType::Permanent);
-        assert_eq!(classifier.classify_error("Module not found: foo"), ErrorType::Permanent);
-        assert_eq!(classifier.classify_error("Permission denied"), ErrorType::Permanent);
+        assert_eq!(
+            classifier.classify_error("Syntax error in line 10"),
+            ErrorType::Permanent
+        );
+        assert_eq!(
+            classifier.classify_error("Compilation failed"),
+            ErrorType::Permanent
+        );
+        assert_eq!(
+            classifier.classify_error("Type error: expected String"),
+            ErrorType::Permanent
+        );
+        assert_eq!(
+            classifier.classify_error("Module not found: foo"),
+            ErrorType::Permanent
+        );
+        assert_eq!(
+            classifier.classify_error("Permission denied"),
+            ErrorType::Permanent
+        );
     }
 
     #[test]
@@ -912,10 +969,10 @@ mod tests {
         let delay_2 = calculator.calculate_delay(2);
         let delay_3 = calculator.calculate_delay(3);
 
-        assert_eq!(delay_0, 60);   // 60s
-        assert_eq!(delay_1, 120);  // 120s
-        assert_eq!(delay_2, 240);  // 240s
-        assert_eq!(delay_3, 480);  // 480s
+        assert_eq!(delay_0, 60); // 60s
+        assert_eq!(delay_1, 120); // 120s
+        assert_eq!(delay_2, 240); // 240s
+        assert_eq!(delay_3, 480); // 480s
     }
 
     #[test]

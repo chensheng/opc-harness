@@ -7,7 +7,10 @@ use super::provider_core::AIProvider;
 
 impl AIProvider {
     /// Anthropic 非流式聊天
-    pub(super) async fn chat_anthropic(&self, request: ChatRequest) -> Result<ChatResponse, AIError> {
+    pub(super) async fn chat_anthropic(
+        &self,
+        request: ChatRequest,
+    ) -> Result<ChatResponse, AIError> {
         let url = format!("{}/messages", self.get_base_url());
 
         let body = serde_json::json!({

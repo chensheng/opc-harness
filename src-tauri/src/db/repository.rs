@@ -6,13 +6,13 @@ use std::marker::PhantomData;
 pub trait Entity: Sized + Clone {
     /// 获取表名
     fn table_name() -> &'static str;
-    
+
     /// 获取主键字段名
     fn primary_key() -> &'static str;
-    
+
     /// 获取主键值
     fn get_primary_key(&self) -> &str;
-    
+
     /// 从行中解析实体
     fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self>;
 }
@@ -32,18 +32,16 @@ impl<T: Entity> Repository<T> {
             T::table_name(),
             T::primary_key()
         );
-        
+
         let mut stmt = conn.prepare(&sql)?;
-        let mut rows = stmt.query_map([id], |row| {
-            T::from_row(row)
-        })?;
-        
+        let mut rows = stmt.query_map([id], |row| T::from_row(row))?;
+
         if let Some(row) = rows.next() {
             return Ok(Some(row?));
         }
         Ok(None)
     }
-    
+
     /// 删除实体
     #[allow(dead_code)]
     pub fn delete(conn: &Connection, id: &str) -> Result<()> {
@@ -52,7 +50,7 @@ impl<T: Entity> Repository<T> {
             T::table_name(),
             T::primary_key()
         );
-        
+
         conn.execute(&sql, [id])?;
         Ok(())
     }

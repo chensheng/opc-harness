@@ -1,4 +1,7 @@
-use crate::commands::ai::types::{GeneratePRDRequest, MarketingStrategyResponse, MarketingChannelResponse, MarketingTimelineItem, MarketingCopyResponse};
+use crate::commands::ai::types::{
+    GeneratePRDRequest, MarketingChannelResponse, MarketingCopyResponse, MarketingStrategyResponse,
+    MarketingTimelineItem,
+};
 
 /// 生成营销策略
 #[tauri::command]

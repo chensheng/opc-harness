@@ -4,9 +4,9 @@
 
 #![allow(non_camel_case_types)]
 
-use std::fmt;
-use std::error::Error as StdError;
 use std::collections::HashMap;
+use std::error::Error as StdError;
+use std::fmt;
 
 // ==================== 错误码（用于前端国际化）====================
 
@@ -16,13 +16,13 @@ pub enum ErrorCode {
     // 通用错误
     SUCCESS = 0,
     UNKNOWN_ERROR = 9999,
-    
+
     // 数据库错误 (1xxx)
     DATABASE_ERROR = 1000,
     DATABASE_CONNECTION_FAILED = 1001,
     DATABASE_QUERY_FAILED = 1002,
     DATABASE_CONSTRAINT_VIOLATION = 1003,
-    
+
     // AI 服务错误 (2xxx)
     AI_SERVICE_ERROR = 2000,
     AI_API_KEY_INVALID = 2001,
@@ -30,39 +30,39 @@ pub enum ErrorCode {
     AI_MODEL_NOT_FOUND = 2003,
     AI_TIMEOUT = 2004,
     AI_INVALID_RESPONSE = 2005,
-    
+
     // 网络错误 (3xxx)
     NETWORK_ERROR = 3000,
     NETWORK_TIMEOUT = 3001,
     NETWORK_UNREACHABLE = 3002,
     NETWORK_DNS_FAILED = 3003,
     NETWORK_SSL_ERROR = 3004,
-    
+
     // 文件系统错误 (4xxx)
     FILE_SYSTEM_ERROR = 4000,
     FILE_NOT_FOUND = 4001,
     FILE_PERMISSION_DENIED = 4002,
     FILE_ALREADY_EXISTS = 4003,
     FILE_INVALID_PATH = 4004,
-    
+
     // 验证错误 (5xxx)
     VALIDATION_ERROR = 5000,
     VALIDATION_FAILED = 5001,
     VALIDATION_EMPTY_FIELD = 5002,
     VALIDATION_INVALID_FORMAT = 5003,
-    
+
     // 业务逻辑错误 (6xxx)
     BUSINESS_ERROR = 6000,
     RESOURCE_NOT_FOUND = 6001,
     OPERATION_FAILED = 6002,
     INVALID_STATE = 6003,
     DUPLICATE_RESOURCE = 6004,
-    
+
     // 配置错误 (7xxx)
     CONFIG_ERROR = 7000,
     CONFIG_NOT_FOUND = 7001,
     CONFIG_INVALID_VALUE = 7002,
-    
+
     // 密钥管理错误 (8xxx)
     KEYCHAIN_ERROR = 8000,
     KEYCHAIN_ACCESS_DENIED = 8001,
@@ -130,7 +130,7 @@ impl AppError {
             },
         }
     }
-    
+
     /// 创建带原始错误的错误
     pub fn with_source(
         code: ErrorCode,
@@ -146,23 +146,23 @@ impl AppError {
             },
         }
     }
-    
+
     /// 添加上下文信息
     pub fn with_context(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.context.context.insert(key.into(), value.into());
         self
     }
-    
+
     /// 获取错误码
     pub fn code(&self) -> ErrorCode {
         self.context.code
     }
-    
+
     /// 获取错误消息
     pub fn message(&self) -> &str {
         &self.context.message
     }
-    
+
     /// 获取上下文
     pub fn context(&self) -> &HashMap<String, String> {
         &self.context.context
@@ -198,7 +198,7 @@ impl From<rusqlite::Error> for AppError {
             rusqlite::Error::QueryReturnedNoRows => ErrorCode::RESOURCE_NOT_FOUND,
             _ => ErrorCode::DATABASE_ERROR,
         };
-        
+
         AppError::with_source(code, err.to_string(), err)
     }
 }
@@ -207,7 +207,7 @@ impl From<rusqlite::Error> for AppError {
 impl From<std::io::Error> for AppError {
     fn from(err: std::io::Error) -> Self {
         use std::io::ErrorKind;
-        
+
         let code = match err.kind() {
             ErrorKind::NotFound => ErrorCode::FILE_NOT_FOUND,
             ErrorKind::PermissionDenied => ErrorCode::FILE_PERMISSION_DENIED,
@@ -216,7 +216,7 @@ impl From<std::io::Error> for AppError {
             ErrorKind::TimedOut => ErrorCode::NETWORK_TIMEOUT,
             _ => ErrorCode::FILE_SYSTEM_ERROR,
         };
-        
+
         AppError::with_source(code, err.to_string(), err)
     }
 }
@@ -288,8 +288,9 @@ impl From<AIError> for AppError {
         } else {
             ErrorCode::AI_SERVICE_ERROR
         };
-        
-        AppError::new(code, err.to_string()).with_context("provider", err.provider.unwrap_or_default())
+
+        AppError::new(code, err.to_string())
+            .with_context("provider", err.provider.unwrap_or_default())
     }
 }
 
@@ -303,7 +304,7 @@ pub struct NetworkError {
 
 impl fmt::Display for NetworkError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let method = self.method.as_ref().map(|s| s.as_str()).unwrap_or("");
+        let method = self.method.as_deref().unwrap_or("");
         write!(f, "{} [{} {}]", self.message, method, self.url)
     }
 }
@@ -336,8 +337,7 @@ impl StdError for FileSystemError {}
 
 impl From<FileSystemError> for AppError {
     fn from(err: FileSystemError) -> Self {
-        AppError::new(ErrorCode::FILE_SYSTEM_ERROR, err.to_string())
-            .with_context("path", err.path)
+        AppError::new(ErrorCode::FILE_SYSTEM_ERROR, err.to_string()).with_context("path", err.path)
     }
 }
 
@@ -393,23 +393,30 @@ pub fn validation_error(field: impl Into<String>, message: impl Into<String>) ->
     ValidationError {
         field: field.into(),
         message: message.into(),
-    }.into()
+    }
+    .into()
 }
 
 /// 创建资源未找到错误的快捷函数
 #[allow(dead_code)]
 pub fn not_found(resource_type: &str, id: &str) -> AppError {
-    AppError::new(ErrorCode::RESOURCE_NOT_FOUND, format!("{} not found: {}", resource_type, id))
-        .with_context("resource_type", resource_type)
-        .with_context("id", id)
+    AppError::new(
+        ErrorCode::RESOURCE_NOT_FOUND,
+        format!("{} not found: {}", resource_type, id),
+    )
+    .with_context("resource_type", resource_type)
+    .with_context("id", id)
 }
 
 /// 创建操作失败错误的快捷函数
 #[allow(dead_code)]
 pub fn operation_failed(operation: &str, reason: &str) -> AppError {
-    AppError::new(ErrorCode::OPERATION_FAILED, format!("{} failed: {}", operation, reason))
-        .with_context("operation", operation)
-        .with_context("reason", reason)
+    AppError::new(
+        ErrorCode::OPERATION_FAILED,
+        format!("{} failed: {}", operation, reason),
+    )
+    .with_context("operation", operation)
+    .with_context("reason", reason)
 }
 
 #[cfg(test)]
@@ -437,8 +444,11 @@ mod tests {
         let error = AppError::new(ErrorCode::DATABASE_ERROR, "查询失败")
             .with_context("sql", "SELECT * FROM users")
             .with_context("user_id", "123");
-        
-        assert_eq!(error.context().get("sql"), Some(&"SELECT * FROM users".to_string()));
+
+        assert_eq!(
+            error.context().get("sql"),
+            Some(&"SELECT * FROM users".to_string())
+        );
         assert_eq!(error.context().get("user_id"), Some(&"123".to_string()));
     }
 

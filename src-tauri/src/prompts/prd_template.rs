@@ -1,11 +1,11 @@
 //! PRD 生成提示词模板
-//! 
+//!
 //! VD-017: 创建 PRD 生成提示词模板
 
 #![allow(dead_code)]
 
 /// PRD 生成提示词模板
-/// 
+///
 /// 该模板用于指导 AI 生成结构化、专业的产品需求文档
 const PRD_GENERATION_TEMPLATE: &str = r#"你是一位经验丰富的产品经理，擅长将简单的产品想法转化为完整、专业的产品需求文档（PRD）。
 
@@ -175,16 +175,16 @@ const PRD_GENERATION_TEMPLATE: &str = r#"你是一位经验丰富的产品经理
 - **特别提醒**：确保所有 Markdown 表格都有正确的空行分隔，这是保证渲染质量的关键！"#;
 
 /// 生成 PRD 提示词
-/// 
+///
 /// # Arguments
 /// * `idea` - 用户的产品想法
 /// * `product_name` - 产品名称（可选，如果为空则使用"未命名产品"）
-/// 
+///
 /// # Returns
 /// 返回完整的提示词字符串
 pub fn generate_prd_prompt(idea: &str, product_name: Option<&str>) -> String {
     let name = product_name.unwrap_or("未命名产品");
-    
+
     PRD_GENERATION_TEMPLATE
         .replace("{idea}", idea)
         .replace("{product_name}", name)
@@ -198,7 +198,7 @@ mod tests {
     fn test_generate_prd_prompt() {
         let idea = "我想做一个帮助独立开发者管理项目进度的工具";
         let prompt = generate_prd_prompt(idea, Some("DevProgress"));
-        
+
         assert!(prompt.contains("DevProgress"));
         assert!(prompt.contains(idea));
         assert!(prompt.contains("产品需求文档"));
@@ -208,7 +208,7 @@ mod tests {
     fn test_generate_prd_prompt_default_name() {
         let idea = "一个在线购物网站";
         let prompt = generate_prd_prompt(idea, None);
-        
+
         assert!(prompt.contains("未命名产品"));
         assert!(prompt.contains(idea));
     }

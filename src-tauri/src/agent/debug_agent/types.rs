@@ -1,5 +1,5 @@
 //! Debug Agent 类型定义
-//! 
+//!
 //! 包含所有错误类型、配置和结果相关的结构体和枚举
 
 use serde::{Deserialize, Serialize};
@@ -291,29 +291,27 @@ mod tests {
 
     #[test]
     fn test_debug_result_success() {
-        let diagnoses = vec![
-            Diagnosis {
-                error: ErrorInfo {
-                    error_type: ErrorType::SyntaxError,
-                    error_source: ErrorSource::TypeScript,
-                    file_path: "test.ts".to_string(),
-                    line_number: None,
-                    column: None,
-                    message: "test".to_string(),
-                    stack_trace: None,
-                    code_snippet: None,
-                    raw_output: "test".to_string(),
-                },
-                cause: "cause".to_string(),
-                suggestion: "fix".to_string(),
-                confidence: 0.9,
-                alternative_fixes: vec![],
-                documentation_links: vec![],
-            }
-        ];
+        let diagnoses = vec![Diagnosis {
+            error: ErrorInfo {
+                error_type: ErrorType::SyntaxError,
+                error_source: ErrorSource::TypeScript,
+                file_path: "test.ts".to_string(),
+                line_number: None,
+                column: None,
+                message: "test".to_string(),
+                stack_trace: None,
+                code_snippet: None,
+                raw_output: "test".to_string(),
+            },
+            cause: "cause".to_string(),
+            suggestion: "fix".to_string(),
+            confidence: 0.9,
+            alternative_fixes: vec![],
+            documentation_links: vec![],
+        }];
 
         let result = DebugResult::success(diagnoses);
-        
+
         assert!(result.success);
         assert_eq!(result.error_count, 1);
         assert_eq!(result.diagnosed_count, 1);
@@ -324,7 +322,7 @@ mod tests {
     #[test]
     fn test_debug_result_failure() {
         let result = DebugResult::failure("Test error".to_string());
-        
+
         assert!(!result.success);
         assert_eq!(result.error_count, 0);
         assert_eq!(result.diagnosed_count, 0);

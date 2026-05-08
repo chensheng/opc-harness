@@ -1,8 +1,7 @@
 /// PRD 可行性评估器
-/// 
+///
 /// 用于评估 PRD（产品需求文档）的技术可行性、资源可行性和时间可行性
 /// 识别项目风险并提供缓解建议
-
 use serde::{Deserialize, Serialize};
 
 /// 风险等级
@@ -28,26 +27,26 @@ pub enum RiskType {
         required_techs: Vec<String>,
         team_skill_level: f64,
     },
-    
+
     /// 资源短缺
     ResourceShortage {
         required_people: f64,
         available_team_size: usize,
     },
-    
+
     /// 时间低估
     TimelineUnderestimate {
         estimated_weeks: f64,
         reasonable_min_weeks: f64,
     },
-    
+
     /// 技术依赖风险
     TechnologyDependencyRisk {
         technology: String,
         maturity_level: String,
         community_support: String,
     },
-    
+
     /// 集成复杂度风险
     IntegrationComplexityRisk {
         systems_count: usize,
@@ -201,26 +200,22 @@ impl PRDFeasibilityAssessor {
     pub fn assess_feasibility(&self, prd: &PRDDocument) -> PRDFeasibilityReport {
         // 1. 技术可行性分析
         let technical = self.assess_technical_feasibility(prd);
-        
+
         // 2. 资源需求评估
         let resource = self.assess_resource_requirements(prd);
-        
+
         // 3. 时间合理性检查
         let timeline = self.assess_timeline_reasonableness(prd);
-        
+
         // 4. 风险识别
         let risks = self.identify_risks(&technical, &resource, &timeline, prd);
-        
+
         // 5. 生成改进建议
         let recommendations = self.generate_recommendations(&risks);
-        
+
         // 6. 计算总体可行性得分和等级
-        let (overall_score, feasibility_level) = self.calculate_overall_feasibility(
-            &technical,
-            &resource,
-            &timeline,
-            &risks,
-        );
+        let (overall_score, feasibility_level) =
+            self.calculate_overall_feasibility(&technical, &resource, &timeline, &risks);
 
         PRDFeasibilityReport {
             overall_score,
@@ -235,18 +230,18 @@ impl PRDFeasibilityAssessor {
 
     /// 技术可行性分析
     fn assess_technical_feasibility(&self, prd: &PRDDocument) -> TechnicalAssessment {
-        let tech_stack = prd.tech_stack.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
-        let features = prd.core_features.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
+        let tech_stack = prd.tech_stack.as_deref().unwrap_or(&[]);
+        let features = prd.core_features.as_deref().unwrap_or(&[]);
 
         // 计算技术栈复杂度
         let complexity = self.calculate_tech_complexity(tech_stack);
-        
+
         // 计算团队技能匹配度
         let skill_match = self.calculate_skill_match(tech_stack);
-        
+
         // 识别技术难点
         let technical_challenges = self.identify_technical_challenges(tech_stack, features);
-        
+
         // 计算技术可行性得分
         let feasibility_score = ((1.0 - complexity * 0.5) * 50.0 + skill_match * 50.0) as u8;
 
@@ -260,20 +255,20 @@ impl PRDFeasibilityAssessor {
 
     /// 资源需求评估
     fn assess_resource_requirements(&self, prd: &PRDDocument) -> ResourceAssessment {
-        let features = prd.core_features.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
+        let features = prd.core_features.as_deref().unwrap_or(&[]);
 
         // 计算所需人力（基于功能数量）
         let avg_feature_complexity = 2.0; // 每个功能平均 2 人天
         let total_person_days = features.len() as f64 * avg_feature_complexity;
         let required_people_months = total_person_days / 22.0; // 转换为月
-        
+
         // 计算资源充足度
         let resource_adequacy = if required_people_months > 0.0 {
             (self.team_size as f64 / required_people_months).min(1.0)
         } else {
             1.0
         };
-        
+
         // 识别关键技能需求
         let critical_skills = self.identify_critical_skills(features);
 
@@ -287,17 +282,17 @@ impl PRDFeasibilityAssessor {
 
     /// 时间合理性检查
     fn assess_timeline_reasonableness(&self, prd: &PRDDocument) -> TimelineAssessment {
-        let features = prd.core_features.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
+        let features = prd.core_features.as_deref().unwrap_or(&[]);
         let effort = prd.estimated_effort.as_deref().unwrap_or("");
 
         // 解析预估时间
         let estimated_weeks = self.parse_effort_to_weeks(effort);
-        
+
         // 计算合理时间范围
         let feature_complexity = features.len() as f64 * 0.5; // 每个功能 0.5 周基础时间
         let reasonable_min_weeks = feature_complexity * 0.8;
         let reasonable_max_weeks = feature_complexity * 1.5;
-        
+
         // 计算时间合理性得分
         let reasonableness_score = if estimated_weeks > 0.0 {
             if estimated_weeks >= reasonable_min_weeks && estimated_weeks <= reasonable_max_weeks {
@@ -373,7 +368,9 @@ impl PRDFeasibilityAssessor {
         }
 
         // 时间低估风险
-        if timeline.estimated_weeks > 0.0 && timeline.estimated_weeks < timeline.reasonable_min_weeks {
+        if timeline.estimated_weeks > 0.0
+            && timeline.estimated_weeks < timeline.reasonable_min_weeks
+        {
             risks.push(Risk {
                 risk_type: RiskType::TimelineUnderestimate {
                     estimated_weeks: timeline.estimated_weeks,
@@ -446,15 +443,19 @@ impl PRDFeasibilityAssessor {
         let resource_score = resource.resource_adequacy * 100.0;
         let timeline_score = timeline.reasonableness_score as f64;
 
-        let base_score = (technical_score * 0.4 + resource_score * 0.3 + timeline_score * 0.3) as u8;
+        let base_score =
+            (technical_score * 0.4 + resource_score * 0.3 + timeline_score * 0.3) as u8;
 
         // 根据风险数量和严重程度扣分
-        let risk_penalty: u8 = risks.iter().map(|r| match r.level {
-            RiskLevel::Critical => 15,
-            RiskLevel::High => 10,
-            RiskLevel::Medium => 5,
-            RiskLevel::Low => 2,
-        }).sum();
+        let risk_penalty: u8 = risks
+            .iter()
+            .map(|r| match r.level {
+                RiskLevel::Critical => 15,
+                RiskLevel::High => 10,
+                RiskLevel::Medium => 5,
+                RiskLevel::Low => 2,
+            })
+            .sum();
 
         let overall_score = base_score.saturating_sub(risk_penalty);
 
@@ -478,11 +479,18 @@ impl PRDFeasibilityAssessor {
 
         // 简化实现：基于技术数量的启发式
         let base_complexity = (tech_stack.len() as f64 * 0.1).min(1.0);
-        
+
         // 检查是否有高复杂度技术
-        let high_complexity_techs = ["Kubernetes", "Microservices", "Machine Learning", "Blockchain"];
+        let high_complexity_techs = [
+            "Kubernetes",
+            "Microservices",
+            "Machine Learning",
+            "Blockchain",
+        ];
         let has_complex_tech = tech_stack.iter().any(|t| {
-            high_complexity_techs.iter().any(|h| t.to_lowercase().contains(&h.to_lowercase()))
+            high_complexity_techs
+                .iter()
+                .any(|h| t.to_lowercase().contains(&h.to_lowercase()))
         });
 
         if has_complex_tech {
@@ -498,18 +506,25 @@ impl PRDFeasibilityAssessor {
             return 1.0;
         }
 
-        let matched_count = tech_stack.iter().filter(|tech| {
-            self.team_skills.iter().any(|skill| {
-                tech.to_lowercase().contains(&skill.to_lowercase()) ||
-                skill.to_lowercase().contains(&tech.to_lowercase())
+        let matched_count = tech_stack
+            .iter()
+            .filter(|tech| {
+                self.team_skills.iter().any(|skill| {
+                    tech.to_lowercase().contains(&skill.to_lowercase())
+                        || skill.to_lowercase().contains(&tech.to_lowercase())
+                })
             })
-        }).count();
+            .count();
 
         matched_count as f64 / tech_stack.len() as f64
     }
 
     /// 识别技术难点
-    fn identify_technical_challenges(&self, tech_stack: &[String], features: &[String]) -> Vec<String> {
+    fn identify_technical_challenges(
+        &self,
+        tech_stack: &[String],
+        features: &[String],
+    ) -> Vec<String> {
         let mut challenges = Vec::new();
 
         // 基于技术栈识别挑战
@@ -530,7 +545,8 @@ impl PRDFeasibilityAssessor {
             if feature.to_lowercase().contains("实时") {
                 challenges.push("实时功能需要低延迟和高可用性架构".to_string());
             }
-            if feature.to_lowercase().contains("数据") || feature.to_lowercase().contains("可视化") {
+            if feature.to_lowercase().contains("数据") || feature.to_lowercase().contains("可视化")
+            {
                 challenges.push("数据处理和可视化需要良好的 UI/UX 设计".to_string());
             }
         }
@@ -543,20 +559,20 @@ impl PRDFeasibilityAssessor {
         let mut skills = Vec::new();
 
         for feature in features {
-            if feature.to_lowercase().contains("前端") || feature.to_lowercase().contains("界面") {
-                if !skills.contains(&"Frontend Development".to_string()) {
-                    skills.push("Frontend Development".to_string());
-                }
+            if (feature.to_lowercase().contains("前端") || feature.to_lowercase().contains("界面"))
+                && !skills.contains(&"Frontend Development".to_string())
+            {
+                skills.push("Frontend Development".to_string());
             }
-            if feature.to_lowercase().contains("后端") || feature.to_lowercase().contains("api") {
-                if !skills.contains(&"Backend Development".to_string()) {
-                    skills.push("Backend Development".to_string());
-                }
+            if (feature.to_lowercase().contains("后端") || feature.to_lowercase().contains("api"))
+                && !skills.contains(&"Backend Development".to_string())
+            {
+                skills.push("Backend Development".to_string());
             }
-            if feature.to_lowercase().contains("数据库") {
-                if !skills.contains(&"Database Design".to_string()) {
-                    skills.push("Database Design".to_string());
-                }
+            if feature.to_lowercase().contains("数据库")
+                && !skills.contains(&"Database Design".to_string())
+            {
+                skills.push("Database Design".to_string());
             }
         }
 
@@ -570,7 +586,7 @@ impl PRDFeasibilityAssessor {
         }
 
         let effort_lower = effort.to_lowercase();
-        
+
         // 尝试提取数字
         let re = regex::Regex::new(r"(\d+(?:\.\d+)?)").unwrap();
         if let Some(caps) = re.captures(effort) {
@@ -587,7 +603,7 @@ impl PRDFeasibilityAssessor {
                 }
             }
         }
-        
+
         0.0
     }
 }
@@ -616,7 +632,7 @@ mod tests {
         };
 
         let report = assessor.assess_feasibility(&prd);
-        
+
         // 高可行性 PRD 应该有较高的分数
         assert!(report.overall_score >= 70);
         assert_eq!(report.feasibility_level, FeasibilityLevel::High);
@@ -651,7 +667,7 @@ mod tests {
         };
 
         let report = assessor.assess_feasibility(&prd);
-        
+
         // 低可行性 PRD 应该有较低的分数
         assert!(report.overall_score < 50);
         assert_eq!(report.feasibility_level, FeasibilityLevel::Low);
@@ -671,12 +687,16 @@ mod tests {
                 "功能 3".to_string(),
                 "功能 4".to_string(),
             ]),
-            tech_stack: Some(vec!["React".to_string(), "Python".to_string(), "PostgreSQL".to_string()]),
+            tech_stack: Some(vec![
+                "React".to_string(),
+                "Python".to_string(),
+                "PostgreSQL".to_string(),
+            ]),
             estimated_effort: Some("4 周".to_string()),
         };
 
         let report = assessor.assess_feasibility(&prd);
-        
+
         // 不假设具体分数范围，只检查报告结构完整
         assert!(report.overall_score <= 100);
         assert!(!report.risks.is_empty() || report.recommendations.len() > 0);
@@ -695,7 +715,7 @@ mod tests {
         };
 
         let report = assessor.assess_feasibility(&prd);
-        
+
         // 空 PRD 应该跳过大部分检查
         assert_eq!(report.technical.complexity, 0.0);
         assert_eq!(report.technical.team_skill_match, 1.0);
@@ -705,18 +725,15 @@ mod tests {
     #[test]
     fn test_tech_complexity_calculation() {
         let assessor = PRDFeasibilityAssessor::new();
-        
+
         // 简单技术栈
         let simple_techs = vec!["HTML".to_string(), "CSS".to_string()];
         let simple_complexity = assessor.calculate_tech_complexity(&simple_techs);
         // 不强制要求 < 0.5，只要有值即可
         assert!(simple_complexity >= 0.0 && simple_complexity <= 1.0);
-        
+
         // 复杂技术栈
-        let complex_techs = vec![
-            "Kubernetes".to_string(),
-            "Microservices".to_string(),
-        ];
+        let complex_techs = vec!["Kubernetes".to_string(), "Microservices".to_string()];
         let complex_complexity = assessor.calculate_tech_complexity(&complex_techs);
         // 复杂度应该比简单技术高
         assert!(complex_complexity > simple_complexity);
@@ -725,12 +742,12 @@ mod tests {
     #[test]
     fn test_skill_match_calculation() {
         let assessor = PRDFeasibilityAssessor::new();
-        
+
         // 完全匹配
         let matched_techs = vec!["React".to_string(), "Node.js".to_string()];
         let match_score = assessor.calculate_skill_match(&matched_techs);
         assert!(match_score > 0.8);
-        
+
         // 部分匹配
         let partial_techs = vec!["React".to_string(), "UnknownTech".to_string()];
         let partial_match = assessor.calculate_skill_match(&partial_techs);
@@ -740,7 +757,7 @@ mod tests {
     #[test]
     fn test_effort_parsing() {
         let assessor = PRDFeasibilityAssessor::new();
-        
+
         assert_eq!(assessor.parse_effort_to_weeks("2 周"), 2.0);
         assert_eq!(assessor.parse_effort_to_weeks("1 个月"), 4.0);
         assert_eq!(assessor.parse_effort_to_weeks("10 天"), 2.0);
@@ -760,7 +777,7 @@ mod tests {
         };
 
         let report = assessor.assess_feasibility(&prd);
-        
+
         // 应该识别出至少一个风险
         assert!(!report.risks.is_empty());
     }

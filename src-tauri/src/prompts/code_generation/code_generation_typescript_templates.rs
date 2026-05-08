@@ -1,5 +1,5 @@
 //! TypeScript/React 代码生成提示词模板
-//! 
+//!
 //! VC-019: React 组件、Hooks、类型定义、测试、样式生成模板
 
 /// React 组件生成提示词模板

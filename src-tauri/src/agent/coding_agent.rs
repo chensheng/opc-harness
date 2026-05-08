@@ -1,9 +1,9 @@
 //! Coding Agent 实现
-//! 
+//!
 //! 负责代码生成、质量检查和自动修复
 
-use serde::{Deserialize, Serialize};
 use crate::agent::types::AgentStatus;
+use serde::{Deserialize, Serialize};
 
 /// Coding Agent 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,11 +54,7 @@ pub struct CodingTask {
 
 impl CodingTask {
     /// 创建新任务
-    pub fn new(
-        task_type: CodingTaskType,
-        file_path: String,
-        prompt: String,
-    ) -> Self {
+    pub fn new(task_type: CodingTaskType, file_path: String, prompt: String) -> Self {
         Self {
             task_id: uuid::Uuid::new_v4().to_string(),
             task_type,
@@ -152,7 +148,7 @@ impl CodingAgent {
     /// 添加任务到队列
     pub fn add_task(&mut self, task: CodingTask) {
         self.task_queue.push(task);
-        
+
         // 如果当前没有任务且处于空闲状态，更新状态
         if self.current_task.is_none() && self.status == AgentStatus::Idle {
             self.status = AgentStatus::Running;
@@ -177,7 +173,7 @@ impl CodingAgent {
             let mut completed_task = task;
             completed_task.completed = true;
             self.completed_tasks.push(completed_task);
-            
+
             // 如果还有任务，保持 Running 状态，否则设为 Idle
             if self.task_queue.is_empty() {
                 self.status = AgentStatus::Idle;
@@ -186,9 +182,13 @@ impl CodingAgent {
     }
 
     /// 生成代码（调用 AI 服务）
-    pub async fn generate_code(&self, prompt: &str, context: Option<&str>) -> Result<CodingResult, String> {
-        use crate::ai::{Message, ChatRequest};
-        
+    pub async fn generate_code(
+        &self,
+        prompt: &str,
+        context: Option<&str>,
+    ) -> Result<CodingResult, String> {
+        use crate::ai::{ChatRequest, Message};
+
         // 构建提示词
         let system_prompt = r#"You are an expert programmer. Generate clean, well-structured, production-ready code.
 Follow best practices and coding standards. Include appropriate comments and documentation."#;
@@ -223,7 +223,12 @@ Follow best practices and coding standards. Include appropriate comments and doc
                     "anthropic" => "https://api.anthropic.com/v1/messages".to_string(),
                     "kimi" => "https://api.moonshot.cn/v1/chat/completions".to_string(),
                     "glm" => "https://open.bigmodel.cn/api/paas/v4/chat/completions".to_string(),
-                    _ => return Err(format!("Unknown provider: {}", self.config.ai_config.provider)),
+                    _ => {
+                        return Err(format!(
+                            "Unknown provider: {}",
+                            self.config.ai_config.provider
+                        ))
+                    }
                 }
             }
         };
@@ -237,29 +242,34 @@ Follow best practices and coding standards. Include appropriate comments and doc
             project_id: None,
         };
 
-        match client.post(&api_url)
-            .header("Authorization", format!("Bearer {}", self.config.ai_config.api_key))
+        match client
+            .post(&api_url)
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.config.ai_config.api_key),
+            )
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
-            .await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        // TODO: 解析真实的 AI 响应
-                        // 这里简化处理，实际应该根据 provider 解析不同的响应格式
-                        Ok(CodingResult {
-                            success: true,
-                            code: Some("// Generated code will be here".to_string()),
-                            error: None,
-                            tokens_used: Some(100),
-                            quality_check: None,
-                        })
-                    } else {
-                        Err(format!("AI API request failed: {}", response.status()))
-                    }
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    // TODO: 解析真实的 AI 响应
+                    // 这里简化处理，实际应该根据 provider 解析不同的响应格式
+                    Ok(CodingResult {
+                        success: true,
+                        code: Some("// Generated code will be here".to_string()),
+                        error: None,
+                        tokens_used: Some(100),
+                        quality_check: None,
+                    })
+                } else {
+                    Err(format!("AI API request failed: {}", response.status()))
                 }
-                Err(e) => Err(format!("Failed to call AI API: {}", e)),
             }
+            Err(e) => Err(format!("Failed to call AI API: {}", e)),
+        }
     }
 
     /// 读取文件内容
@@ -268,13 +278,12 @@ Follow best practices and coding standards. Include appropriate comments and doc
         use std::path::PathBuf;
 
         let full_path = PathBuf::from(&self.config.project_path).join(file_path);
-        
+
         if !full_path.exists() {
             return Err(format!("File not found: {}", full_path.display()));
         }
 
-        fs::read_to_string(&full_path)
-            .map_err(|e| format!("Failed to read file: {}", e))
+        fs::read_to_string(&full_path).map_err(|e| format!("Failed to read file: {}", e))
     }
 
     /// 写入文件内容
@@ -283,22 +292,20 @@ Follow best practices and coding standards. Include appropriate comments and doc
         use std::path::PathBuf;
 
         let full_path = PathBuf::from(&self.config.project_path).join(file_path);
-        
+
         // 确保目录存在
         if let Some(parent) = full_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
 
-        fs::write(&full_path, content)
-            .map_err(|e| format!("Failed to write file: {}", e))
+        fs::write(&full_path, content).map_err(|e| format!("Failed to write file: {}", e))
     }
 
     /// 执行代码质量检查
     pub async fn run_quality_check(&self, _file_path: &str) -> Result<QualityCheckResult, String> {
         // TODO: 集成真实的 ESLint 和 TypeScript 检查
         // 这里实现基础框架
-        
+
         let result = QualityCheckResult {
             passed: true,
             eslint_errors: 0,
@@ -335,7 +342,10 @@ Follow best practices and coding standards. Include appropriate comments and doc
                             }
                             Err(e) => {
                                 if attempt == max_retries {
-                                    return Err(format!("Auto-fix failed after {} attempts: {}", max_retries, e));
+                                    return Err(format!(
+                                        "Auto-fix failed after {} attempts: {}",
+                                        max_retries, e
+                                    ));
                                 }
                             }
                         }
@@ -363,7 +373,11 @@ mod tests {
         let config = CodingAgentConfig {
             agent_id: "coding-agent-001".to_string(),
             project_path: "/tmp/test-project".to_string(),
-            ai_config: AIConfig::with_key("openai".to_string(), "gpt-4".to_string(), "test-key".to_string()),
+            ai_config: AIConfig::with_key(
+                "openai".to_string(),
+                "gpt-4".to_string(),
+                "test-key".to_string(),
+            ),
             temperature: 0.7,
             max_tokens: 4096,
         };
@@ -382,7 +396,11 @@ mod tests {
         let config = CodingAgentConfig {
             agent_id: "coding-agent-002".to_string(),
             project_path: "/tmp/test".to_string(),
-            ai_config: AIConfig::with_key("openai".to_string(), "gpt-4".to_string(), "test-key".to_string()),
+            ai_config: AIConfig::with_key(
+                "openai".to_string(),
+                "gpt-4".to_string(),
+                "test-key".to_string(),
+            ),
             temperature: 0.5,
             max_tokens: 2048,
         };
@@ -417,7 +435,11 @@ mod tests {
         let config = CodingAgentConfig {
             agent_id: "coding-agent-003".to_string(),
             project_path: "/tmp/test".to_string(),
-            ai_config: AIConfig::with_key("openai".to_string(), "gpt-4".to_string(), "test-key".to_string()),
+            ai_config: AIConfig::with_key(
+                "openai".to_string(),
+                "gpt-4".to_string(),
+                "test-key".to_string(),
+            ),
             temperature: 0.6,
             max_tokens: 3072,
         };

@@ -1,11 +1,11 @@
 //! 代码生成提示词 - 工具函数和模板管理
-//! 
+//!
 //! VC-019: 提供模板获取、渲染等辅助功能
 
-use super::code_generation_types::{CodeLanguage, CodeScenario, CodeGenPrompt};
-use super::code_generation_typescript_templates::*;
-use super::code_generation_rust_templates::*;
 use super::code_generation_general_templates::*;
+use super::code_generation_rust_templates::*;
+use super::code_generation_types::{CodeGenPrompt, CodeLanguage, CodeScenario};
+use super::code_generation_typescript_templates::*;
 
 /// 获取所有代码生成提示词模板
 pub fn get_all_code_gen_prompts() -> Vec<CodeGenPrompt> {
@@ -16,14 +16,25 @@ pub fn get_all_code_gen_prompts() -> Vec<CodeGenPrompt> {
             language: CodeLanguage::TypeScript,
             scenario: CodeScenario::ComponentGeneration,
             template: COMPONENT_GENERATION_PROMPT,
-            variables: vec!["component_name", "description", "props_interface", "usage_scenario"],
+            variables: vec![
+                "component_name",
+                "description",
+                "props_interface",
+                "usage_scenario",
+            ],
         },
         CodeGenPrompt {
             name: "Hook Generation",
             language: CodeLanguage::TypeScript,
             scenario: CodeScenario::HookGeneration,
             template: HOOK_GENERATION_PROMPT,
-            variables: vec!["hook_name", "description", "input_params", "return_value", "usage_example"],
+            variables: vec![
+                "hook_name",
+                "description",
+                "input_params",
+                "return_value",
+                "usage_example",
+            ],
         },
         CodeGenPrompt {
             name: "Type Definition",
@@ -44,23 +55,39 @@ pub fn get_all_code_gen_prompts() -> Vec<CodeGenPrompt> {
             language: CodeLanguage::TypeScript,
             scenario: CodeScenario::StyleGeneration,
             template: STYLE_GENERATION_PROMPT,
-            variables: vec!["component_type", "design_style", "color_theme", "responsive_requirements"],
+            variables: vec![
+                "component_type",
+                "design_style",
+                "color_theme",
+                "responsive_requirements",
+            ],
         },
-        
         // Rust 模板
         CodeGenPrompt {
             name: "Rust Module Generation",
             language: CodeLanguage::Rust,
             scenario: CodeScenario::ModuleGeneration,
             template: RUST_MODULE_GENERATION_PROMPT,
-            variables: vec!["module_name", "description", "structs", "methods", "error_types"],
+            variables: vec![
+                "module_name",
+                "description",
+                "structs",
+                "methods",
+                "error_types",
+            ],
         },
         CodeGenPrompt {
             name: "Rust Trait Implementation",
             language: CodeLanguage::Rust,
             scenario: CodeScenario::TraitImplementation,
             template: RUST_TRAIT_IMPLEMENTATION_PROMPT,
-            variables: vec!["type_name", "type_definition", "trait_name", "methods", "special_requirements"],
+            variables: vec![
+                "type_name",
+                "type_definition",
+                "trait_name",
+                "methods",
+                "special_requirements",
+            ],
         },
         CodeGenPrompt {
             name: "Rust Error Handling",
@@ -74,9 +101,14 @@ pub fn get_all_code_gen_prompts() -> Vec<CodeGenPrompt> {
             language: CodeLanguage::Rust,
             scenario: CodeScenario::ApiEndpoint,
             template: RUST_API_ENDPOINT_PROMPT,
-            variables: vec!["command_name", "description", "input_params", "return_type", "side_effects"],
+            variables: vec![
+                "command_name",
+                "description",
+                "input_params",
+                "return_type",
+                "side_effects",
+            ],
         },
-        
         // 通用模板
         CodeGenPrompt {
             name: "Refactoring",
@@ -90,7 +122,14 @@ pub fn get_all_code_gen_prompts() -> Vec<CodeGenPrompt> {
             language: CodeLanguage::TypeScript,
             scenario: CodeScenario::BugFixing,
             template: BUG_FIXING_PROMPT,
-            variables: vec!["bug_description", "reproduction_steps", "expected_behavior", "actual_behavior", "language", "related_code"],
+            variables: vec![
+                "bug_description",
+                "reproduction_steps",
+                "expected_behavior",
+                "actual_behavior",
+                "language",
+                "related_code",
+            ],
         },
         CodeGenPrompt {
             name: "Documentation",
@@ -144,7 +183,7 @@ mod tests {
             CodeLanguage::TypeScript,
             CodeScenario::ComponentGeneration,
         );
-        
+
         assert!(prompt.is_some());
         let prompt = prompt.unwrap();
         assert_eq!(prompt.name, "Component Generation");
@@ -154,11 +193,9 @@ mod tests {
 
     #[test]
     fn test_rust_module_generation_prompt() {
-        let prompt = get_prompt_by_language_and_scenario(
-            CodeLanguage::Rust,
-            CodeScenario::ModuleGeneration,
-        );
-        
+        let prompt =
+            get_prompt_by_language_and_scenario(CodeLanguage::Rust, CodeScenario::ModuleGeneration);
+
         assert!(prompt.is_some());
         let prompt = prompt.unwrap();
         assert_eq!(prompt.name, "Rust Module Generation");
@@ -169,25 +206,20 @@ mod tests {
     #[test]
     fn test_render_prompt_with_variables() {
         let template = "Hello {name}, you are {age} years old";
-        let variables = vec![
-            ("name", "Alice"),
-            ("age", "25"),
-        ];
-        
+        let variables = vec![("name", "Alice"), ("age", "25")];
+
         let rendered = render_prompt(template, &variables);
-        
+
         assert_eq!(rendered, "Hello Alice, you are 25 years old");
     }
 
     #[test]
     fn test_render_prompt_with_missing_variables() {
         let template = "Hello {name}, you are {age} years old";
-        let variables = vec![
-            ("name", "Bob"),
-        ];
-        
+        let variables = vec![("name", "Bob")];
+
         let rendered = render_prompt(template, &variables);
-        
+
         assert!(rendered.contains("Hello Bob"));
         assert!(rendered.contains("{age}")); // 未替换的变量保持原样
     }
@@ -195,11 +227,23 @@ mod tests {
     #[test]
     fn test_all_prompts_have_valid_templates() {
         let prompts = get_all_code_gen_prompts();
-        
+
         for prompt in prompts {
-            assert!(!prompt.template.is_empty(), "Template {} should not be empty", prompt.name);
-            assert!(prompt.template.len() > 100, "Template {} seems too short", prompt.name);
-            assert!(!prompt.variables.is_empty(), "Template {} should have variables", prompt.name);
+            assert!(
+                !prompt.template.is_empty(),
+                "Template {} should not be empty",
+                prompt.name
+            );
+            assert!(
+                prompt.template.len() > 100,
+                "Template {} seems too short",
+                prompt.name
+            );
+            assert!(
+                !prompt.variables.is_empty(),
+                "Template {} should have variables",
+                prompt.name
+            );
         }
     }
 
@@ -213,8 +257,14 @@ mod tests {
 
     #[test]
     fn test_scenario_display() {
-        assert_eq!(CodeScenario::ComponentGeneration.to_string(), "Component Generation");
-        assert_eq!(CodeScenario::ModuleGeneration.to_string(), "Module Generation");
+        assert_eq!(
+            CodeScenario::ComponentGeneration.to_string(),
+            "Component Generation"
+        );
+        assert_eq!(
+            CodeScenario::ModuleGeneration.to_string(),
+            "Module Generation"
+        );
         assert_eq!(CodeScenario::TestGeneration.to_string(), "Test Generation");
     }
 
@@ -235,7 +285,7 @@ mod tests {
             CodeScenario::Documentation,
             CodeScenario::CodeReview,
         ];
-        
+
         for scenario in scenarios {
             let found = get_all_code_gen_prompts()
                 .iter()
@@ -250,7 +300,7 @@ mod tests {
             .into_iter()
             .filter(|p| p.language == CodeLanguage::TypeScript)
             .collect::<Vec<_>>();
-        
+
         // TypeScript 应该有 5 个专用模板 + 4 个通用模板 = 9 个
         assert!(ts_prompts.len() >= 9);
     }
@@ -261,7 +311,7 @@ mod tests {
             .into_iter()
             .filter(|p| p.language == CodeLanguage::Rust)
             .collect::<Vec<_>>();
-        
+
         // Rust 应该有 4 个专用模板
         assert_eq!(rust_prompts.len(), 4);
     }

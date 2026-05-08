@@ -1,5 +1,5 @@
 //! 竞品分析提示词模板
-//! 
+//!
 //! VD-003: 创建竞品分析生成提示词模板
 
 /// 竞品分析基础模板
@@ -90,7 +90,7 @@ pub fn generate_competitor_analysis_prompt(product_info: &str) -> String {
 // =====================================================================
 
 /// MiniMax 优化的竞品分析模板
-/// 
+///
 /// MiniMax 在中文理解和创意写作方面表现优异，
 /// 此模板针对 MiniMax 的特性进行了优化：
 /// - 强调故事性和场景化描述
@@ -178,7 +178,7 @@ pub fn generate_competitor_analysis_prompt_minimax(product_info: &str) -> String
 // =====================================================================
 
 /// GLM 优化的竞品分析模板
-/// 
+///
 /// GLM 在逻辑分析和数据驱动方面表现优异，
 /// 此模板针对 GLM 的特性进行了优化：
 /// - 强调数据支撑和量化分析
@@ -320,7 +320,7 @@ mod tests {
     fn test_generate_competitor_analysis_prompt() {
         let product_info = "一个帮助独立开发者管理项目进度的 AI 工具";
         let prompt = generate_competitor_analysis_prompt(product_info);
-        
+
         assert!(prompt.contains("竞品识别"));
         assert!(prompt.contains("Strengths"));
         assert!(prompt.contains("市场份额"));
@@ -344,7 +344,7 @@ mod minimax_tests {
     fn test_minimax_competitor_analysis_prompt() {
         let product_info = "一个在线学习平台";
         let prompt = generate_competitor_analysis_prompt_minimax(product_info);
-        
+
         assert!(prompt.contains("竞争地图"));
         assert!(prompt.contains("竞品画像"));
         assert!(prompt.contains("破局机会"));
@@ -355,7 +355,7 @@ mod minimax_tests {
     fn test_minimax_style_features() {
         let product_info = "一个效率工具";
         let prompt = generate_competitor_analysis_prompt_minimax(product_info);
-        
+
         assert!(prompt.contains("比喻"));
         assert!(prompt.contains("故事"));
         assert!(prompt.contains("人设"));
@@ -371,7 +371,7 @@ mod glm_tests {
     fn test_glm_competitor_analysis_prompt() {
         let product_info = "一个 SaaS 产品";
         let prompt = generate_competitor_analysis_prompt_glm(product_info);
-        
+
         assert!(prompt.contains("TAM"));
         assert!(prompt.contains("SWOT"));
         assert!(prompt.contains("| 维度 |"));
@@ -382,7 +382,7 @@ mod glm_tests {
     fn test_glm_framework_completeness() {
         let product_info = "一个电商平台";
         let prompt = generate_competitor_analysis_prompt_glm(product_info);
-        
+
         assert!(prompt.contains("市场概况"));
         assert!(prompt.contains("竞争格局"));
         assert!(prompt.contains("核心竞争力"));

@@ -11,6 +11,7 @@ describe('useAppStore', () => {
         theme: 'system',
         language: 'zh',
         autoSave: true,
+        useNativeAgent: false,
       })
       result.current.setActiveTab('dashboard')
       // 确保侧边栏打开（初始状态就是 true）
@@ -27,6 +28,7 @@ describe('useAppStore', () => {
       theme: 'system',
       language: 'zh',
       autoSave: true,
+      useNativeAgent: false,
     })
     expect(result.current.isSidebarOpen).toBe(true)
     expect(result.current.activeTab).toBe('dashboard')
@@ -112,6 +114,7 @@ describe('useAppStore', () => {
       theme: 'light',
       language: 'en',
       autoSave: true,
+      useNativeAgent: false,
     })
   })
 })

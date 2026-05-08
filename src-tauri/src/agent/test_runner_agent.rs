@@ -1,13 +1,13 @@
 //! Test Runner Agent 实现
-//! 
+//!
 //! 负责自动执行测试用例，支持 Rust 和 TypeScript 两种语言。
 //! 提供测试覆盖率统计、失败分析、重试机制等功能。
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
 use tokio::process::Command;
-use regex::Regex;
 
 /// 测试状态枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -36,7 +36,12 @@ pub struct TestResult {
 }
 
 impl TestResult {
-    pub fn new(name: String, status: TestStatus, duration_ms: u64, message: Option<String>) -> Self {
+    pub fn new(
+        name: String,
+        status: TestStatus,
+        duration_ms: u64,
+        message: Option<String>,
+    ) -> Self {
         Self {
             name,
             status,
@@ -62,7 +67,13 @@ pub struct TestCoverage {
 }
 
 impl TestCoverage {
-    pub fn new(line_coverage: f64, branch_coverage: f64, file_coverage: f64, covered_files: u32, total_files: u32) -> Self {
+    pub fn new(
+        line_coverage: f64,
+        branch_coverage: f64,
+        file_coverage: f64,
+        covered_files: u32,
+        total_files: u32,
+    ) -> Self {
         Self {
             line_coverage,
             branch_coverage,
@@ -211,10 +222,13 @@ impl TestRunnerAgent {
         }
 
         // 执行命令
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .map_err(|e| format!("启动 cargo test 失败：{}", e))?;
 
-        let output = child.wait_with_output().await
+        let output = child
+            .wait_with_output()
+            .await
             .map_err(|e| format!("等待 cargo test 完成失败：{}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -224,28 +238,51 @@ impl TestRunnerAgent {
         let results = self.parse_rust_output(&stdout, &stderr);
 
         let end_time = SystemTime::now();
-        let duration_ms = end_time.duration_since(start_time)
+        let duration_ms = end_time
+            .duration_since(start_time)
             .unwrap_or(Duration::ZERO)
             .as_millis() as u64;
 
         // 统计结果
         let _total = results.len() as u32;
-        let _passed = results.iter().filter(|r| r.status == TestStatus::Passed).count() as u32;
-        let failed = results.iter().filter(|r| r.status == TestStatus::Failed).count() as u32;
-        let _skipped = results.iter().filter(|r| r.status == TestStatus::Skipped).count() as u32;
+        let _passed = results
+            .iter()
+            .filter(|r| r.status == TestStatus::Passed)
+            .count() as u32;
+        let failed = results
+            .iter()
+            .filter(|r| r.status == TestStatus::Failed)
+            .count() as u32;
+        let _skipped = results
+            .iter()
+            .filter(|r| r.status == TestStatus::Skipped)
+            .count() as u32;
 
         // 如果有失败的测试且还有重试次数，尝试重试
         let mut final_results = results;
         if failed > 0 && self.config.max_retries > 0 {
-            log::warn!("有 {} 个测试失败，将重试 {} 次", failed, self.config.max_retries);
+            log::warn!(
+                "有 {} 个测试失败，将重试 {} 次",
+                failed,
+                self.config.max_retries
+            );
             final_results = self.retry_failed_tests(&final_results).await?;
         }
 
         // 重新统计
         let total = final_results.len() as u32;
-        let passed = final_results.iter().filter(|r| r.status == TestStatus::Passed).count() as u32;
-        let failed = final_results.iter().filter(|r| r.status == TestStatus::Failed).count() as u32;
-        let skipped = final_results.iter().filter(|r| r.status == TestStatus::Skipped).count() as u32;
+        let passed = final_results
+            .iter()
+            .filter(|r| r.status == TestStatus::Passed)
+            .count() as u32;
+        let failed = final_results
+            .iter()
+            .filter(|r| r.status == TestStatus::Failed)
+            .count() as u32;
+        let skipped = final_results
+            .iter()
+            .filter(|r| r.status == TestStatus::Skipped)
+            .count() as u32;
 
         // 计算覆盖率（如果启用）
         let coverage = if self.config.enable_coverage {
@@ -289,10 +326,13 @@ impl TestRunnerAgent {
         }
 
         // 执行命令
-        let child = cmd.spawn()
+        let child = cmd
+            .spawn()
             .map_err(|e| format!("启动 npm test 失败：{}", e))?;
 
-        let output = child.wait_with_output().await
+        let output = child
+            .wait_with_output()
+            .await
             .map_err(|e| format!("等待 npm test 完成失败：{}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -302,20 +342,34 @@ impl TestRunnerAgent {
         let results = self.parse_ts_output(&stdout, &stderr);
 
         let end_time = SystemTime::now();
-        let duration_ms = end_time.duration_since(start_time)
+        let duration_ms = end_time
+            .duration_since(start_time)
             .unwrap_or(Duration::ZERO)
             .as_millis() as u64;
 
         // 统计结果
         let total = results.len() as u32;
-        let passed = results.iter().filter(|r| r.status == TestStatus::Passed).count() as u32;
-        let failed = results.iter().filter(|r| r.status == TestStatus::Failed).count() as u32;
-        let skipped = results.iter().filter(|r| r.status == TestStatus::Skipped).count() as u32;
+        let passed = results
+            .iter()
+            .filter(|r| r.status == TestStatus::Passed)
+            .count() as u32;
+        let failed = results
+            .iter()
+            .filter(|r| r.status == TestStatus::Failed)
+            .count() as u32;
+        let skipped = results
+            .iter()
+            .filter(|r| r.status == TestStatus::Skipped)
+            .count() as u32;
 
         // 如果有失败的测试且还有重试次数，尝试重试
         let mut final_results = results;
         if failed > 0 && self.config.max_retries > 0 {
-            log::warn!("有 {} 个测试失败，将重试 {} 次", failed, self.config.max_retries);
+            log::warn!(
+                "有 {} 个测试失败，将重试 {} 次",
+                failed,
+                self.config.max_retries
+            );
             final_results = self.retry_failed_tests(&final_results).await?;
         }
 
@@ -349,15 +403,19 @@ impl TestRunnerAgent {
             if line.trim().starts_with('{') {
                 // 尝试解析为 JSON（简化实现）
                 if line.contains("\"type\":\"test\"") {
-                    let name = self.extract_json_string(line, "name").unwrap_or_else(|| "unknown".to_string());
-                    let status = if line.contains("\"ok\":true") || line.contains("\"success\":true") {
+                    let name = self
+                        .extract_json_string(line, "name")
+                        .unwrap_or_else(|| "unknown".to_string());
+                    let status = if line.contains("\"ok\":true")
+                        || line.contains("\"success\":true")
+                    {
                         TestStatus::Passed
                     } else if line.contains("\"ok\":false") || line.contains("\"success\":false") {
                         TestStatus::Failed
                     } else {
                         TestStatus::Pending
                     };
-                    
+
                     results.push(TestResult::new(name, status, 0, None));
                 }
             }
@@ -369,7 +427,11 @@ impl TestRunnerAgent {
 
             for line in stdout.lines() {
                 if let Some(caps) = re_test_start.captures(line) {
-                    let name = caps.get(1).map(|m| m.as_str()).unwrap_or("unknown").to_string();
+                    let name = caps
+                        .get(1)
+                        .map(|m| m.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
                     let status = if line.contains("ok") {
                         TestStatus::Passed
                     } else if line.contains("FAILED") {
@@ -409,16 +471,34 @@ impl TestRunnerAgent {
 
         for line in stdout.lines() {
             if let Some(caps) = re_test_pass.captures(line) {
-                let name = caps.get(1).map(|m| m.as_str()).unwrap_or("unknown").to_string();
-                let duration = caps.get(2)
+                let name = caps
+                    .get(1)
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let duration = caps
+                    .get(2)
                     .and_then(|m| m.as_str().parse::<u64>().ok())
                     .unwrap_or(0);
                 results.push(TestResult::new(name, TestStatus::Passed, duration, None));
             } else if let Some(caps) = re_test_fail.captures(line) {
-                let name = caps.get(1).map(|m| m.as_str()).unwrap_or("unknown").to_string();
-                results.push(TestResult::new(name, TestStatus::Failed, 0, Some(line.to_string())));
+                let name = caps
+                    .get(1)
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                results.push(TestResult::new(
+                    name,
+                    TestStatus::Failed,
+                    0,
+                    Some(line.to_string()),
+                ));
             } else if let Some(caps) = re_test_skip.captures(line) {
-                let name = caps.get(1).map(|m| m.as_str()).unwrap_or("unknown").to_string();
+                let name = caps
+                    .get(1)
+                    .map(|m| m.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
                 results.push(TestResult::new(name, TestStatus::Skipped, 0, None));
             }
         }
@@ -429,7 +509,11 @@ impl TestRunnerAgent {
                 // 简化处理：至少返回一个结果
                 results.push(TestResult::new(
                     "suite".to_string(),
-                    if summary_line.contains("pass") { TestStatus::Passed } else { TestStatus::Failed },
+                    if summary_line.contains("pass") {
+                        TestStatus::Passed
+                    } else {
+                        TestStatus::Failed
+                    },
                     0,
                     Some(summary_line.to_string()),
                 ));
@@ -452,11 +536,11 @@ impl TestRunnerAgent {
     /// 重试失败的测试
     async fn retry_failed_tests(&self, failed: &[TestResult]) -> Result<Vec<TestResult>, String> {
         log::info!("重试 {} 个失败的测试", failed.len());
-        
+
         // 简单实现：假设重试后所有测试都通过了
         // 实际应该只运行失败的测试，这里为了简化直接返回成功状态
         let mut retried_results = Vec::new();
-        
+
         for test in failed {
             // 模拟重试：将失败改为通过（简化实现）
             retried_results.push(TestResult::new(
@@ -474,44 +558,42 @@ impl TestRunnerAgent {
     async fn calculate_rust_coverage(&self, output: &str) -> Result<TestCoverage, String> {
         // 简化实现：返回模拟数据
         // 实际应该使用 cargo-tarpaulin 或 cargo-llvm-cov
-        
+
         let re_line = Regex::new(r"line coverage:\s*(\d+\.?\d*)%").unwrap();
         let re_branch = Regex::new(r"branch coverage:\s*(\d+\.?\d*)%").unwrap();
-        
-        let line_coverage = re_line.captures(output)
-            .and_then(|caps| caps.get(1))
-            .and_then(|m| m.as_str().parse::<f64>().ok())
-            .unwrap_or(0.0);
-        
-        let branch_coverage = re_branch.captures(output)
+
+        let line_coverage = re_line
+            .captures(output)
             .and_then(|caps| caps.get(1))
             .and_then(|m| m.as_str().parse::<f64>().ok())
             .unwrap_or(0.0);
 
-        Ok(TestCoverage::new(
-            line_coverage,
-            branch_coverage,
-            0.0,
-            0,
-            0,
-        ))
+        let branch_coverage = re_branch
+            .captures(output)
+            .and_then(|caps| caps.get(1))
+            .and_then(|m| m.as_str().parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        Ok(TestCoverage::new(line_coverage, branch_coverage, 0.0, 0, 0))
     }
 
     /// 计算 TypeScript 测试覆盖率
     async fn calculate_ts_coverage(&self, output: &str) -> Result<TestCoverage, String> {
         // 简化实现：返回模拟数据
         // 实际应该解析 coverage/lcov.info 文件
-        
+
         let re_all = Regex::new(r"All files\s+\|\s+(\d+\.?\d*)\s+\|\s+(\d+\.?\d*)").unwrap();
-        
+
         if let Some(caps) = re_all.captures(output) {
-            let line_cov = caps.get(1)
+            let line_cov = caps
+                .get(1)
                 .and_then(|m| m.as_str().parse::<f64>().ok())
                 .unwrap_or(0.0);
-            let branch_cov = caps.get(2)
+            let branch_cov = caps
+                .get(2)
                 .and_then(|m| m.as_str().parse::<f64>().ok())
                 .unwrap_or(0.0);
-            
+
             return Ok(TestCoverage::new(line_cov, branch_cov, 0.0, 0, 0));
         }
 
@@ -566,12 +648,7 @@ mod tests {
 
     #[test]
     fn test_result_creation() {
-        let result = TestResult::new(
-            "test_example".to_string(),
-            TestStatus::Passed,
-            150,
-            None,
-        );
+        let result = TestResult::new("test_example".to_string(), TestStatus::Passed, 150, None);
 
         assert_eq!(result.name, "test_example");
         assert_eq!(result.status, TestStatus::Passed);
@@ -587,13 +664,7 @@ mod tests {
 
     #[test]
     fn test_coverage_creation() {
-        let coverage = TestCoverage::new(
-            85.5,
-            72.3,
-            90.0,
-            10,
-            12,
-        );
+        let coverage = TestCoverage::new(85.5, 72.3, 90.0, 10, 12);
 
         assert_eq!(coverage.line_coverage, 85.5);
         assert_eq!(coverage.branch_coverage, 72.3);
@@ -606,7 +677,12 @@ mod tests {
     fn test_suite_result_creation() {
         let results = vec![
             TestResult::new("test1".to_string(), TestStatus::Passed, 100, None::<String>),
-            TestResult::new("test2".to_string(), TestStatus::Failed, 50, Some("Error".to_string())),
+            TestResult::new(
+                "test2".to_string(),
+                TestStatus::Failed,
+                50,
+                Some("Error".to_string()),
+            ),
             TestResult::new("test3".to_string(), TestStatus::Skipped, 0, None::<String>),
         ];
 
@@ -636,13 +712,13 @@ mod tests {
     #[test]
     fn test_parse_rust_output_simple() {
         let agent = TestRunnerAgent::new(TestRunnerConfig::default());
-        
+
         let stdout = r#"test test_module::test_example ... ok
 test test_module::test_another ... FAILED
 test test_module::test_skipped ... ignored"#;
 
         let results = agent.parse_rust_output(stdout, "");
-        
+
         assert_eq!(results.len(), 3);
         assert_eq!(results[0].status, TestStatus::Passed);
         assert_eq!(results[1].status, TestStatus::Failed);
@@ -652,12 +728,12 @@ test test_module::test_skipped ... ignored"#;
     #[test]
     fn test_parse_rust_output_with_error() {
         let agent = TestRunnerAgent::new(TestRunnerConfig::default());
-        
+
         let stdout = "";
         let stderr = "error: compilation failed";
 
         let results = agent.parse_rust_output(stdout, stderr);
-        
+
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].status, TestStatus::Failed);
         assert!(results[0].message.is_some());
@@ -666,13 +742,13 @@ test test_module::test_skipped ... ignored"#;
     #[test]
     fn test_parse_ts_output_vitest() {
         let agent = TestRunnerAgent::new(TestRunnerConfig::default());
-        
+
         let stdout = r#"✓ src/example.test.ts > example test (15ms)
 ✓ src/another.test.ts > another test (23ms)
 × src/failing.test.ts > failing test"#;
 
         let results = agent.parse_ts_output(stdout, "");
-        
+
         assert_eq!(results.len(), 3);
         assert_eq!(results[0].status, TestStatus::Passed);
         assert_eq!(results[1].status, TestStatus::Passed);
@@ -692,14 +768,24 @@ test test_module::test_skipped ... ignored"#;
     fn test_retry_concept() {
         // 测试重试概念验证
         let failed_tests = vec![
-            TestResult::new("test1".to_string(), TestStatus::Failed, 0, Some("Error 1".to_string())),
-            TestResult::new("test2".to_string(), TestStatus::Failed, 0, Some("Error 2".to_string())),
+            TestResult::new(
+                "test1".to_string(),
+                TestStatus::Failed,
+                0,
+                Some("Error 1".to_string()),
+            ),
+            TestResult::new(
+                "test2".to_string(),
+                TestStatus::Failed,
+                0,
+                Some("Error 2".to_string()),
+            ),
         ];
 
         // 模拟重试逻辑
         let retry_count = 1;
         let should_retry = !failed_tests.is_empty() && retry_count > 0;
-        
+
         assert!(should_retry);
     }
 }

@@ -1,10 +1,10 @@
 //! Agent 日志数据访问层
-//! 
+//!
 //! 提供日志的 CRUD 操作和批量写入优化
 
 use crate::db::Entity;
 use crate::models::AgentLog;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use uuid::Uuid;
 
 /// 获取日志存储库
@@ -78,7 +78,7 @@ impl<'a> AgentLogsRepository<'a> {
              FROM agent_logs
              WHERE agent_id = ?1
              ORDER BY timestamp DESC
-             LIMIT ?2 OFFSET ?3"
+             LIMIT ?2 OFFSET ?3",
         )?;
 
         let logs = stmt.query_map(params![agent_id, limit, offset], |row| {
@@ -101,7 +101,7 @@ impl<'a> AgentLogsRepository<'a> {
              FROM agent_logs
              WHERE agent_id = ?1 AND timestamp BETWEEN ?2 AND ?3
              ORDER BY timestamp DESC
-             LIMIT ?4"
+             LIMIT ?4",
         )?;
 
         let logs = stmt.query_map(params![agent_id, start_time, end_time, limit], |row| {
@@ -123,7 +123,7 @@ impl<'a> AgentLogsRepository<'a> {
              FROM agent_logs
              WHERE agent_id = ?1 AND level = ?2
              ORDER BY timestamp DESC
-             LIMIT ?3"
+             LIMIT ?3",
         )?;
 
         let logs = stmt.query_map(params![agent_id, level, limit], |row| {
@@ -145,7 +145,7 @@ impl<'a> AgentLogsRepository<'a> {
              FROM agent_logs
              WHERE agent_id = ?1 AND (message LIKE ?2 OR source LIKE ?2)
              ORDER BY timestamp DESC
-             LIMIT ?3"
+             LIMIT ?3",
         )?;
 
         let pattern = format!("%{}%", keyword);
@@ -158,7 +158,10 @@ impl<'a> AgentLogsRepository<'a> {
 
     /// 清空智能体的所有日志
     pub fn clear_by_agent_id(&self, agent_id: &str) -> Result<usize, rusqlite::Error> {
-        self.conn.execute("DELETE FROM agent_logs WHERE agent_id = ?1", params![agent_id])
+        self.conn.execute(
+            "DELETE FROM agent_logs WHERE agent_id = ?1",
+            params![agent_id],
+        )
     }
 
     /// 获取日志统计
@@ -166,37 +169,37 @@ impl<'a> AgentLogsRepository<'a> {
         let total: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM agent_logs WHERE agent_id = ?1",
             params![agent_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         let info_count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM agent_logs WHERE agent_id = ?1 AND level = 'info'",
             params![agent_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         let warn_count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM agent_logs WHERE agent_id = ?1 AND level = 'warn'",
             params![agent_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         let error_count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM agent_logs WHERE agent_id = ?1 AND level = 'error'",
             params![agent_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         let debug_count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM agent_logs WHERE agent_id = ?1 AND level = 'debug'",
             params![agent_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         let success_count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM agent_logs WHERE agent_id = ?1 AND level = 'success'",
             params![agent_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )?;
 
         Ok(LogStats {
@@ -233,7 +236,7 @@ mod tests {
 
     fn setup_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
-        
+
         // 创建测试表
         conn.execute(
             "CREATE TABLE agent_logs (
@@ -247,7 +250,8 @@ mod tests {
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         conn
     }

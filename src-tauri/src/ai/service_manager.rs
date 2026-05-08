@@ -1,13 +1,13 @@
 //! AI Service Manager
-//! 
+//!
 //! 统一管理多个 AI Provider，提供统一的调用入口
 
 use log::warn;
 use std::collections::HashMap;
 
+use super::ai_types::AIProviderType;
 use super::ai_types::{AIConfig, AIError};
 use super::provider_core::AIProvider;
-use super::ai_types::AIProviderType;
 
 /// AI 服务管理器
 pub struct AIServiceManager {
@@ -72,7 +72,10 @@ impl AIServiceManager {
         if self.services.contains_key(&provider) {
             self.default_provider = provider;
         } else {
-            warn!("Trying to set non-registered provider as default: {}", provider);
+            warn!(
+                "Trying to set non-registered provider as default: {}",
+                provider
+            );
         }
     }
 
@@ -101,7 +104,12 @@ impl AIServiceManager {
         let removed = self.services.remove(provider).is_some();
         if removed && self.default_provider == provider {
             // 如果移除的是默认 provider，重新设置默认
-            self.default_provider = self.services.keys().next().cloned().unwrap_or_else(|| "openai".to_string());
+            self.default_provider = self
+                .services
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| "openai".to_string());
         }
         removed
     }

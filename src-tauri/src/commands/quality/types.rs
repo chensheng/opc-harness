@@ -12,7 +12,8 @@ pub struct CheckPRDConsistencyRequest {
 }
 
 /// PRD 一致性检查响应
-pub type CheckPRDConsistencyResponse = crate::quality::prd_consistency_checker::PRDConsistencyReport;
+pub type CheckPRDConsistencyResponse =
+    crate::quality::prd_consistency_checker::PRDConsistencyReport;
 
 /// PRD 可行性评估请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,19 +24,16 @@ pub struct AssessPRDFeasibilityRequest {
 
 /// PRD 可行性评估响应
 #[allow(dead_code)]
-pub type AssessPRDFeasibilityResponse = crate::quality::prd_feasibility_assessor::PRDFeasibilityReport;
+pub type AssessPRDFeasibilityResponse =
+    crate::quality::prd_feasibility_assessor::PRDFeasibilityReport;
 
 // ============================================================================
 // PRD 迭代管理相关类型
 // ============================================================================
 
 pub use crate::quality::prd_iteration_manager::{
-    IterationRequest, 
-    IterationResponse,
-    CreateInitialVersionRequest,
-    CreateInitialVersionResponse,
-    RollbackRequest,
-    RollbackResponse,
+    CreateInitialVersionRequest, CreateInitialVersionResponse, IterationRequest, IterationResponse,
+    RollbackRequest, RollbackResponse,
 };
 
 // ============================================================================

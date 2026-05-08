@@ -1,5 +1,5 @@
 //! Agent 核心类型定义
-//! 
+//!
 //! 包含 Agent 生命周期、状态、配置等基础类型
 
 use serde::{Deserialize, Serialize};

@@ -1,9 +1,8 @@
-/// 测试工具模块
-/// 
-/// 提供跨文件共享的测试互斥锁和清理工具
-
-use std::sync::Mutex;
 use std::path::PathBuf;
+/// 测试工具模块
+///
+/// 提供跨文件共享的测试互斥锁和清理工具
+use std::sync::Mutex;
 
 /// 全局测试互斥锁，用于保护对环境变量的并发访问
 pub static TEST_MUTEX: Mutex<()> = Mutex::new(());
@@ -31,30 +30,30 @@ impl Drop for TestCleanup {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_cleanup_guard_removes_directory() {
         let temp_dir = std::env::temp_dir().join(format!("test-cleanup-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir).unwrap();
-        
+
         {
             let _cleanup = TestCleanup::new(temp_dir.clone());
             assert!(temp_dir.exists());
         }
-        
+
         // _cleanup 已 drop，目录应该被删除
         assert!(!temp_dir.exists());
     }
-    
+
     #[test]
     fn test_cleanup_guard_removes_env_var() {
         std::env::set_var("OPC_HARNESS_HOME", "/tmp/test");
-        
+
         {
             let temp_dir = std::env::temp_dir().join(format!("test-env-{}", uuid::Uuid::new_v4()));
             let _cleanup = TestCleanup::new(temp_dir);
         }
-        
+
         // 环境变量应该被移除
         assert!(std::env::var("OPC_HARNESS_HOME").is_err());
     }

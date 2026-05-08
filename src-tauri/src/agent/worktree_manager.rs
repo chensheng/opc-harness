@@ -1,9 +1,9 @@
 //! Worktree Manager 实现
-//! 
+//!
 //! 负责为每个 Agent 创建和管理独立的 Git Worktree 环境
 
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 /// Worktree 信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,10 +72,9 @@ impl WorktreeManager {
             project_path: project_path.to_string(),
             ..Default::default()
         };
-        
-        let worktrees_root = Path::new(&config.project_path)
-            .join(&config.worktrees_dir_name);
-        
+
+        let worktrees_root = Path::new(&config.project_path).join(&config.worktrees_dir_name);
+
         Self {
             config,
             worktrees_root,
@@ -84,9 +83,8 @@ impl WorktreeManager {
 
     /// 创建带自定义配置的 Worktree 管理器
     pub fn with_config(config: WorktreeManagerConfig) -> Self {
-        let worktrees_root = Path::new(&config.project_path)
-            .join(&config.worktrees_dir_name);
-        
+        let worktrees_root = Path::new(&config.project_path).join(&config.worktrees_dir_name);
+
         Self {
             config,
             worktrees_root,
@@ -104,8 +102,11 @@ impl WorktreeManager {
             tokio::fs::create_dir_all(&self.worktrees_root)
                 .await
                 .map_err(|e| format!("Failed to create worktrees directory: {}", e))?;
-            
-            log::info!("[WorktreeManager] Created worktrees directory: {:?}", self.worktrees_root);
+
+            log::info!(
+                "[WorktreeManager] Created worktrees directory: {:?}",
+                self.worktrees_root
+            );
         }
         Ok(())
     }
@@ -115,16 +116,22 @@ impl WorktreeManager {
         // 清理 agent_id,确保路径安全
         let safe_agent_id = agent_id
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect::<String>();
-        
+
         self.worktrees_root.join(format!("agent-{}", safe_agent_id))
     }
 
     /// 检查磁盘空间是否足够
     async fn check_disk_space(&self, required_bytes: u64) -> Result<(), String> {
         let current_usage = self.get_disk_usage().await?;
-        
+
         if current_usage + required_bytes > self.config.max_disk_usage_bytes {
             return Err(format!(
                 "Insufficient disk space. Current usage: {} MB, Limit: {} MB, Required: {} MB",
@@ -133,7 +140,7 @@ impl WorktreeManager {
                 required_bytes / 1024 / 1024
             ));
         }
-        
+
         Ok(())
     }
 
@@ -142,38 +149,46 @@ impl WorktreeManager {
         if !self.worktrees_root.exists() {
             return Ok(0);
         }
-        
+
         let mut total_size: u64 = 0;
-        
+
         // 递归计算目录大小
         let mut entries = tokio::fs::read_dir(&self.worktrees_root)
             .await
             .map_err(|e| format!("Failed to read worktrees directory: {}", e))?;
-        
-        while let Some(entry) = entries.next_entry().await.map_err(|e| format!("Failed to read entry: {}", e))? {
+
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| format!("Failed to read entry: {}", e))?
+        {
             let path = entry.path();
             if path.is_dir() {
                 total_size += self.calculate_dir_size(&path).await?;
             }
         }
-        
+
         Ok(total_size)
     }
 
     /// 递归计算目录大小
     async fn calculate_dir_size(&self, dir_path: &Path) -> Result<u64, String> {
         let mut size: u64 = 0;
-        
+
         let mut entries = tokio::fs::read_dir(dir_path)
             .await
             .map_err(|e| format!("Failed to read directory {:?}: {}", dir_path, e))?;
-        
-        while let Some(entry) = entries.next_entry().await.map_err(|e| format!("Failed to read entry: {}", e))? {
+
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .map_err(|e| format!("Failed to read entry: {}", e))?
+        {
             let path = entry.path();
             let metadata = tokio::fs::metadata(&path)
                 .await
                 .map_err(|e| format!("Failed to get metadata for {:?}: {}", path, e))?;
-            
+
             if metadata.is_dir() {
                 // 使用 Box::pin 避免递归异步函数的栈溢出
                 let sub_size = Box::pin(self.calculate_dir_size(&path)).await?;
@@ -182,17 +197,17 @@ impl WorktreeManager {
                 size += metadata.len();
             }
         }
-        
+
         Ok(size)
     }
 
     /// 创建 Worktree
-    /// 
+    ///
     /// # Arguments
     /// * `agent_id` - Agent ID,用于命名 Worktree
     /// * `story_id` - 关联的用户故事 ID
     /// * `branch_name` - 要检出的分支名称
-    /// 
+    ///
     /// # Returns
     /// Worktree 的绝对路径
     pub async fn create_worktree(
@@ -203,16 +218,16 @@ impl WorktreeManager {
     ) -> Result<String, String> {
         // 1. 确保 worktrees 目录存在
         self.ensure_worktrees_dir().await?;
-        
+
         // 2. 检查磁盘空间
         self.check_disk_space(500 * 1024 * 1024).await?; // 预估需要 500MB
-        
+
         // 3. 验证 Git 仓库已初始化（应该已由项目创建/打开流程处理）
         self.validate_git_repository().await?;
-        
+
         // 4. 生成 Worktree 路径
         let worktree_path = self.generate_worktree_path(agent_id);
-        
+
         // 5. 检查 Worktree 是否已存在
         if worktree_path.exists() {
             return Err(format!(
@@ -220,28 +235,34 @@ impl WorktreeManager {
                 agent_id, worktree_path
             ));
         }
-        
+
         // 6. 执行 git worktree add 命令
         let worktree_path_str = worktree_path.to_string_lossy().to_string();
         let project_path = &self.config.project_path;
-        
+
         log::info!(
             "[WorktreeManager] Creating worktree for agent {} at {} with new branch {}",
             agent_id,
             worktree_path_str,
             branch_name
         );
-        
+
         // 构建 git worktree add 命令
         // git worktree add -b <branch_name> <path>
         // -b 参数会基于当前 HEAD 创建新分支并检出到 worktree
         let output = tokio::process::Command::new("git")
             .current_dir(project_path)
-            .args(&["worktree", "add", "-b", branch_name, worktree_path_str.as_str()])
+            .args([
+                "worktree",
+                "add",
+                "-b",
+                branch_name,
+                worktree_path_str.as_str(),
+            ])
             .output()
             .await
             .map_err(|e| format!("Failed to execute git worktree add: {}", e))?;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!(
@@ -249,30 +270,41 @@ impl WorktreeManager {
                 branch_name, worktree_path_str, stderr
             ));
         }
-        
-        log::info!("[WorktreeManager] Successfully created worktree at {}", worktree_path_str);
-        
+
+        log::info!(
+            "[WorktreeManager] Successfully created worktree at {}",
+            worktree_path_str
+        );
+
         Ok(worktree_path_str)
     }
 
     /// 验证 Git 仓库已初始化
-    /// 
+    ///
     /// 注意：Git 应该在项目创建/打开时已初始化，这里只做验证
     async fn validate_git_repository(&self) -> Result<(), String> {
         let project_path = &self.config.project_path;
         let git_dir = Path::new(project_path).join(".git");
-        
+
         // 检查 .git 目录是否存在
         if git_dir.exists() {
-            log::debug!("[WorktreeManager] ✓ Git repository verified at {}", project_path);
+            log::debug!(
+                "[WorktreeManager] ✓ Git repository verified at {}",
+                project_path
+            );
             return Ok(());
         }
-        
+
         // Git 未初始化，返回错误（正常情况下不应该到达这里）
-        log::error!("[WorktreeManager] ✗ Git repository not found at {}", project_path);
-        log::error!("[WorktreeManager]   Git should have been initialized during project creation/opening");
+        log::error!(
+            "[WorktreeManager] ✗ Git repository not found at {}",
+            project_path
+        );
+        log::error!(
+            "[WorktreeManager]   Git should have been initialized during project creation/opening"
+        );
         log::error!("[WorktreeManager]   Please initialize Git manually or recreate the project");
-        
+
         Err(format!(
             "Git repository not initialized at {}. \
              Git should be initialized automatically when creating or opening a project.",
@@ -281,43 +313,57 @@ impl WorktreeManager {
     }
 
     /// 删除 Worktree
-    /// 
+    ///
     /// # Arguments
     /// * `agent_id` - Agent ID
     pub async fn remove_worktree(&self, agent_id: &str) -> Result<(), String> {
         let worktree_path = self.generate_worktree_path(agent_id);
-        
+
         if !worktree_path.exists() {
-            log::warn!("[WorktreeManager] Worktree does not exist for agent {}: {:?}", agent_id, worktree_path);
+            log::warn!(
+                "[WorktreeManager] Worktree does not exist for agent {}: {:?}",
+                agent_id,
+                worktree_path
+            );
             return Ok(());
         }
-        
+
         let worktree_path_str = worktree_path.to_string_lossy().to_string();
         let project_path = &self.config.project_path;
-        
-        log::info!("[WorktreeManager] Removing worktree for agent {} at {}", agent_id, worktree_path_str);
-        
+
+        log::info!(
+            "[WorktreeManager] Removing worktree for agent {} at {}",
+            agent_id,
+            worktree_path_str
+        );
+
         // 执行 git worktree remove 命令
         let output = tokio::process::Command::new("git")
             .current_dir(project_path)
-            .args(&["worktree", "remove", "--force", worktree_path_str.as_str()])
+            .args(["worktree", "remove", "--force", worktree_path_str.as_str()])
             .output()
             .await
             .map_err(|e| format!("Failed to execute git worktree remove: {}", e))?;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            
+
             // 如果 git worktree remove 失败,尝试直接删除目录
-            log::warn!("[WorktreeManager] Git worktree remove failed, trying direct deletion: {}", stderr);
-            
+            log::warn!(
+                "[WorktreeManager] Git worktree remove failed, trying direct deletion: {}",
+                stderr
+            );
+
             tokio::fs::remove_dir_all(&worktree_path)
                 .await
                 .map_err(|e| format!("Failed to delete worktree directory: {}", e))?;
         }
-        
-        log::info!("[WorktreeManager] Successfully removed worktree for agent {}", agent_id);
-        
+
+        log::info!(
+            "[WorktreeManager] Successfully removed worktree for agent {}",
+            agent_id
+        );
+
         Ok(())
     }
 
@@ -326,46 +372,47 @@ impl WorktreeManager {
         if !self.worktrees_root.exists() {
             return Ok(Vec::new());
         }
-        
+
         let mut worktrees = Vec::new();
         let project_path = &self.config.project_path;
-        
+
         // 执行 git worktree list 命令
         let output = tokio::process::Command::new("git")
             .current_dir(project_path)
-            .args(&["worktree", "list", "--porcelain"])
+            .args(["worktree", "list", "--porcelain"])
             .output()
             .await
             .map_err(|e| format!("Failed to execute git worktree list: {}", e))?;
-        
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("Git worktree list failed: {}", stderr));
         }
-        
+
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         // 解析 git worktree list 输出
         let mut current_worktree: Option<WorktreeInfo> = None;
-        
+
         for line in stdout.lines() {
             if line.starts_with("worktree ") {
                 // 保存前一个 worktree
                 if let Some(wt) = current_worktree.take() {
                     worktrees.push(wt);
                 }
-                
+
                 let path = line.trim_start_matches("worktree ").to_string();
-                
+
                 // 提取 agent_id 从路径
                 let agent_id = if let Some(file_name) = Path::new(&path).file_name() {
-                    file_name.to_string_lossy()
+                    file_name
+                        .to_string_lossy()
                         .trim_start_matches("agent-")
                         .to_string()
                 } else {
                     String::new()
                 };
-                
+
                 current_worktree = Some(WorktreeInfo {
                     id: agent_id,
                     path,
@@ -384,38 +431,45 @@ impl WorktreeManager {
                 }
             }
         }
-        
+
         // 添加最后一个 worktree
         if let Some(wt) = current_worktree {
             worktrees.push(wt);
         }
-        
+
         Ok(worktrees)
     }
 
     /// 清理孤立的 Worktrees (对应的 Agent 已不存在)
-    /// 
+    ///
     /// # Returns
     /// 清理的 Worktree 数量
     pub async fn cleanup_orphaned_worktrees(&self) -> Result<usize, String> {
         let worktrees = self.list_worktrees().await?;
         let mut cleaned_count = 0;
-        
+
         for wt in worktrees {
             if wt.is_orphaned {
                 log::info!("[WorktreeManager] Cleaning up orphaned worktree: {}", wt.id);
-                
+
                 match self.remove_worktree(&wt.id).await {
                     Ok(_) => cleaned_count += 1,
-                    Err(e) => log::error!("[WorktreeManager] Failed to remove orphaned worktree {}: {}", wt.id, e),
+                    Err(e) => log::error!(
+                        "[WorktreeManager] Failed to remove orphaned worktree {}: {}",
+                        wt.id,
+                        e
+                    ),
                 }
             }
         }
-        
+
         if cleaned_count > 0 {
-            log::info!("[WorktreeManager] Cleaned up {} orphaned worktrees", cleaned_count);
+            log::info!(
+                "[WorktreeManager] Cleaned up {} orphaned worktrees",
+                cleaned_count
+            );
         }
-        
+
         Ok(cleaned_count)
     }
 
@@ -429,25 +483,28 @@ impl WorktreeManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_worktree_manager_creation() {
         let manager = WorktreeManager::new("/tmp/test-project");
-        
+
         assert_eq!(manager.config.project_path, "/tmp/test-project");
         assert_eq!(manager.config.worktrees_dir_name, ".worktrees");
-        assert_eq!(manager.worktrees_root, PathBuf::from("/tmp/test-project/.worktrees"));
+        assert_eq!(
+            manager.worktrees_root,
+            PathBuf::from("/tmp/test-project/.worktrees")
+        );
     }
-    
+
     #[test]
     fn test_generate_worktree_path() {
         let manager = WorktreeManager::new("/tmp/test-project");
-        
+
         let path = manager.generate_worktree_path("agent-123");
         // Use contains to handle platform-specific path separators
         assert!(path.to_string_lossy().contains(".worktrees"));
         assert!(path.to_string_lossy().contains("agent-agent-123"));
-        
+
         let path = manager.generate_worktree_path("agent@#$%");
         assert!(path.to_string_lossy().contains(".worktrees"));
         // agent@#$% -> agent____ (4 special chars replaced with _)

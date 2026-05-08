@@ -28,7 +28,8 @@ pub fn create_issue(conn: &Connection, issue: &Issue) -> Result<()> {
 
 /// 获取项目的所有 Issues
 pub fn get_issues_by_project(conn: &Connection, project_id: &str) -> Result<Vec<Issue>> {
-    let mut stmt = conn.prepare("SELECT * FROM issues WHERE project_id = ?1 ORDER BY order_index")?;
+    let mut stmt =
+        conn.prepare("SELECT * FROM issues WHERE project_id = ?1 ORDER BY order_index")?;
     let issues = stmt.query_map([project_id], |row| {
         Ok(Issue {
             id: row.get(0)?,
@@ -56,7 +57,8 @@ pub fn get_issues_by_project(conn: &Connection, project_id: &str) -> Result<Vec<
 
 /// 按里程碑获取 Issues
 pub fn get_issues_by_milestone(conn: &Connection, milestone_id: &str) -> Result<Vec<Issue>> {
-    let mut stmt = conn.prepare("SELECT * FROM issues WHERE milestone_id = ?1 ORDER BY order_index")?;
+    let mut stmt =
+        conn.prepare("SELECT * FROM issues WHERE milestone_id = ?1 ORDER BY order_index")?;
     let issues = stmt.query_map([milestone_id], |row| {
         Ok(Issue {
             id: row.get(0)?,

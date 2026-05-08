@@ -2,10 +2,8 @@
 //!
 //! 提供日志收集、持久化、追踪记录、告警检测和性能监控服务
 
-use crate::db::{
-    get_connection,
-};
-use crate::models::{AgentAlert, AgentLog, AgentTrace, alert_level, alert_type};
+use crate::db::get_connection;
+use crate::models::{alert_level, alert_type, AgentAlert, AgentLog, AgentTrace};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -50,9 +48,7 @@ pub struct TraceCache {
 
 impl TraceCache {
     pub fn new() -> Self {
-        Self {
-            traces: Vec::new(),
-        }
+        Self { traces: Vec::new() }
     }
 
     pub fn add(&mut self, trace: AgentTrace) {
@@ -389,22 +385,28 @@ impl ObservabilityService {
         let now = Utc::now();
         let duration = now.signed_duration_since(last_update_time);
 
-        let (level, alert_type, message) = if duration.num_minutes() >= config.no_response_critical_minutes
-        {
-            (
-                alert_level::CRITICAL,
-                alert_type::NO_RESPONSE,
-                format!("Agent has not responded for {} minutes", duration.num_minutes()),
-            )
-        } else if duration.num_minutes() >= config.no_response_warning_minutes {
-            (
-                alert_level::WARNING,
-                alert_type::NO_RESPONSE,
-                format!("Agent has not responded for {} minutes", duration.num_minutes()),
-            )
-        } else {
-            return None;
-        };
+        let (level, alert_type, message) =
+            if duration.num_minutes() >= config.no_response_critical_minutes {
+                (
+                    alert_level::CRITICAL,
+                    alert_type::NO_RESPONSE,
+                    format!(
+                        "Agent has not responded for {} minutes",
+                        duration.num_minutes()
+                    ),
+                )
+            } else if duration.num_minutes() >= config.no_response_warning_minutes {
+                (
+                    alert_level::WARNING,
+                    alert_type::NO_RESPONSE,
+                    format!(
+                        "Agent has not responded for {} minutes",
+                        duration.num_minutes()
+                    ),
+                )
+            } else {
+                return None;
+            };
 
         Some(AgentAlert::new(
             format!("alert-{}", Uuid::new_v4()),
@@ -416,7 +418,12 @@ impl ObservabilityService {
     }
 
     /// 检测错误率告警
-    pub fn check_error_rate_alert(&self, agent_id: &str, error_count: i64, duration_minutes: i64) -> Option<AgentAlert> {
+    pub fn check_error_rate_alert(
+        &self,
+        agent_id: &str,
+        error_count: i64,
+        duration_minutes: i64,
+    ) -> Option<AgentAlert> {
         let config = self.get_alert_config();
         if !config.enabled {
             return None;

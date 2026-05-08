@@ -1,5 +1,5 @@
 //! Sprint用户故事分配提示词模板
-//! 
+//!
 //! 用于AI分析并推荐最适合分配到指定Sprint的用户故事
 
 /// Sprint分配系统提示词模板（用于AGENTS.md）
@@ -42,7 +42,8 @@ pub fn generate_sprint_assignment_system_prompt() -> String {
 - 置信度反映你对推荐的确定程度
 - 优先推荐高优先级、高价值、低依赖的故事
 - 严格遵循用户提出的任何特殊要求或约束
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Sprint分配用户提示词模板（包含Sprint信息、用户故事和用户建议）
@@ -59,9 +60,9 @@ pub fn generate_sprint_assignment_user_prompt(
     user_suggestions: Option<&str>,
 ) -> String {
     let goal_text = sprint_goal.unwrap_or("未设置");
-    
+
     let mut prompt = format!(
-r#"# Sprint信息
+        r#"# Sprint信息
 
 - **名称**：{sprint_name}
 - **目标**：{goal_text}
@@ -79,7 +80,7 @@ r#"# Sprint信息
     if let Some(suggestions) = user_suggestions {
         if !suggestions.trim().is_empty() {
             prompt.push_str(&format!(
-r#"
+                r#"
 # 用户的分配建议和特殊要求
 
 {suggestions}
@@ -91,13 +92,13 @@ r#"
     }
 
     prompt.push_str(
-r#"
+        r#"
 # 任务要求
 
 请分析以上Sprint信息和未分配的用户故事，推荐最适合分配到该Sprint的故事。
 
 请将推荐结果以Markdown表格格式保存到 SPRINT.md 文件中。
-"#
+"#,
     );
 
     prompt
@@ -130,7 +131,7 @@ mod tests {
             "US-001: 用户登录",
             Some("优先处理认证相关功能"),
         );
-        
+
         assert!(prompt.contains("Sprint 1"));
         assert!(prompt.contains("实现核心功能"));
         assert!(prompt.contains("US-001"));

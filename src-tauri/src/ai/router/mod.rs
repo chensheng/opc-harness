@@ -1,5 +1,5 @@
 //! AI 智能路由模块
-//! 
+//!
 //! AI-005: 实现 AI 智能路由系统，根据任务类型、成本、性能等因素自动选择最佳 AI Provider
 
 #![allow(dead_code)]
@@ -61,9 +61,9 @@ pub struct ProviderInfo {
     pub provider_type: AIProviderType,
     pub name: String,
     pub models: Vec<String>,
-    pub cost_level: u8, // 1-5, 1 最便宜，5 最贵
+    pub cost_level: u8,        // 1-5, 1 最便宜，5 最贵
     pub performance_level: u8, // 1-5, 1 最快，5 最慢
-    pub quality_level: u8, // 1-5, 1 最好，5 最差
+    pub quality_level: u8,     // 1-5, 1 最好，5 最差
     pub health_status: ProviderHealthStatus,
     pub is_enabled: bool,
 }
@@ -93,16 +93,16 @@ impl AISmartRouter {
             manual_provider: None,
             health_check_interval_secs: 30,
         };
-        
+
         // 初始化所有 Provider
         router.initialize_providers();
         router
     }
-    
+
     /// 初始化 Provider 列表
     fn initialize_providers(&mut self) {
         info!("[initialize_providers] Starting to initialize AI providers...");
-        
+
         // OpenAI
         self.providers.insert(
             AIProviderType::OpenAI,
@@ -118,7 +118,7 @@ impl AISmartRouter {
             },
         );
         info!("[initialize_providers] Added OpenAI");
-        
+
         // Claude
         self.providers.insert(
             AIProviderType::Anthropic,
@@ -134,7 +134,7 @@ impl AISmartRouter {
             },
         );
         info!("[initialize_providers] Added Anthropic");
-        
+
         // Kimi
         self.providers.insert(
             AIProviderType::Kimi,
@@ -150,7 +150,7 @@ impl AISmartRouter {
             },
         );
         info!("[initialize_providers] Added Kimi");
-        
+
         // GLM
         self.providers.insert(
             AIProviderType::GLM,
@@ -166,7 +166,7 @@ impl AISmartRouter {
             },
         );
         info!("[initialize_providers] Added GLM");
-        
+
         // MiniMax
         info!("[initialize_providers] Adding MiniMax provider...");
         self.providers.insert(
@@ -183,29 +183,31 @@ impl AISmartRouter {
             },
         );
         info!("[initialize_providers] Added MiniMax successfully");
-        
+
         info!("Initialized {} AI providers", self.providers.len());
-        
+
         // 打印所有已初始化的 provider 列表
         for (provider_type, provider_info) in &self.providers {
-            info!("[initialize_providers] Provider: {:?} - Name: {}, Models: {:?}", 
-                  provider_type, provider_info.name, provider_info.models);
+            info!(
+                "[initialize_providers] Provider: {:?} - Name: {}, Models: {:?}",
+                provider_type, provider_info.name, provider_info.models
+            );
         }
     }
-    
+
     /// 设置路由策略
     pub fn set_strategy(&mut self, strategy: RoutingStrategy) {
         info!("Setting routing strategy: {:?}", strategy);
         self.strategy = strategy;
     }
-    
+
     /// 手动指定 Provider
     pub fn set_manual_provider(&mut self, provider: AIProviderType) {
         info!("Setting manual provider: {:?}", provider);
         self.manual_provider = Some(provider);
         self.strategy = RoutingStrategy::Manual;
     }
-    
+
     /// 根据任务类型进行路由
     pub fn route(&self, task_type: &TaskType) -> RoutingDecision {
         match self.strategy {
@@ -231,15 +233,15 @@ impl AISmartRouter {
                 return self.quality_based_route();
             }
         }
-        
+
         // Fallback to auto route
         self.auto_route(task_type)
     }
-    
+
     /// 自动路由 - 根据任务类型选择最佳 Provider
     fn auto_route(&self, task_type: &TaskType) -> RoutingDecision {
         info!("Auto-routing task: {:?}", task_type);
-        
+
         let selected = match task_type {
             TaskType::Chat => {
                 // 聊天任务：优先考虑性能和成本
@@ -276,30 +278,35 @@ impl AISmartRouter {
             TaskType::Summary => {
                 // 摘要任务：优先考虑理解能力
                 self.select_by_criteria(&[
-                    (AIProviderType::Anthropic, "Excellent long-context understanding"),
+                    (
+                        AIProviderType::Anthropic,
+                        "Excellent long-context understanding",
+                    ),
                     (AIProviderType::OpenAI, "Good summarization"),
                     (AIProviderType::Kimi, "Fast summarization"),
                 ])
             }
         };
-        
+
         RoutingDecision {
             selected_provider: selected.0,
             reason: selected.1.to_string(),
             alternatives: vec![],
         }
     }
-    
+
     /// 成本优先路由
     fn cost_based_route(&self) -> RoutingDecision {
         info!("Cost-based routing");
-        
-        let mut providers: Vec<_> = self.providers.iter()
+
+        let mut providers: Vec<_> = self
+            .providers
+            .iter()
             .filter(|(_, p)| p.is_enabled && p.health_status.is_healthy)
             .collect();
-        
+
         providers.sort_by_key(|(_, p)| p.cost_level);
-        
+
         if let Some((provider_type, provider)) = providers.first() {
             RoutingDecision {
                 selected_provider: **provider_type,
@@ -315,17 +322,19 @@ impl AISmartRouter {
             }
         }
     }
-    
+
     /// 性能优先路由
     fn performance_based_route(&self) -> RoutingDecision {
         info!("Performance-based routing");
-        
-        let mut providers: Vec<_> = self.providers.iter()
+
+        let mut providers: Vec<_> = self
+            .providers
+            .iter()
             .filter(|(_, p)| p.is_enabled && p.health_status.is_healthy)
             .collect();
-        
+
         providers.sort_by_key(|(_, p)| p.performance_level);
-        
+
         if let Some((provider_type, provider)) = providers.first() {
             RoutingDecision {
                 selected_provider: **provider_type,
@@ -340,17 +349,19 @@ impl AISmartRouter {
             }
         }
     }
-    
+
     /// 质量优先路由
     fn quality_based_route(&self) -> RoutingDecision {
         info!("Quality-based routing");
-        
-        let mut providers: Vec<_> = self.providers.iter()
+
+        let mut providers: Vec<_> = self
+            .providers
+            .iter()
             .filter(|(_, p)| p.is_enabled && p.health_status.is_healthy)
             .collect();
-        
+
         providers.sort_by_key(|(_, p)| p.quality_level);
-        
+
         if let Some((provider_type, provider)) = providers.first() {
             RoutingDecision {
                 selected_provider: **provider_type,
@@ -365,9 +376,12 @@ impl AISmartRouter {
             }
         }
     }
-    
+
     /// 根据条件选择 Provider
-    fn select_by_criteria<'a>(&self, criteria: &[(AIProviderType, &'a str)]) -> (AIProviderType, &'a str) {
+    fn select_by_criteria<'a>(
+        &self,
+        criteria: &[(AIProviderType, &'a str)],
+    ) -> (AIProviderType, &'a str) {
         for &(provider, reason) in criteria {
             if let Some(info) = self.providers.get(&provider) {
                 if info.is_enabled && info.health_status.is_healthy {
@@ -375,38 +389,43 @@ impl AISmartRouter {
                 }
             }
         }
-        
+
         // Fallback to first healthy provider
         for (provider_type, info) in &self.providers {
             if info.is_enabled && info.health_status.is_healthy {
                 return (*provider_type, "Fallback to available provider");
             }
         }
-        
+
         // Ultimate fallback
         (AIProviderType::OpenAI, "Ultimate fallback")
     }
-    
+
     /// 获取所有可用的 Provider
     pub fn get_available_providers(&self) -> Vec<AIProviderType> {
-        self.providers.iter()
+        self.providers
+            .iter()
             .filter(|(_, info)| info.is_enabled && info.health_status.is_healthy)
             .map(|(provider_type, _)| *provider_type)
             .collect()
     }
-    
+
     /// 更新 Provider 健康状态
     pub fn update_health_status(&mut self, provider: AIProviderType, status: ProviderHealthStatus) {
         if let Some(info) = self.providers.get_mut(&provider) {
             info.health_status = status;
         }
     }
-    
+
     /// 启用/禁用 Provider
     pub fn set_provider_enabled(&mut self, provider: AIProviderType, enabled: bool) {
         if let Some(info) = self.providers.get_mut(&provider) {
             info.is_enabled = enabled;
-            info!("Provider {} is now {}", info.name, if enabled { "enabled" } else { "disabled" });
+            info!(
+                "Provider {} is now {}",
+                info.name,
+                if enabled { "enabled" } else { "disabled" }
+            );
         }
     }
 }
@@ -501,7 +520,9 @@ mod tests {
         let router = AISmartRouter::new();
         // 即使所有 provider 都不可用，也应该有 fallback
         let decision = router.route(&TaskType::Chat);
-        assert!(decision.selected_provider != AIProviderType::MiniMax || 
-                decision.reason.contains("fallback"));
+        assert!(
+            decision.selected_provider != AIProviderType::MiniMax
+                || decision.reason.contains("fallback")
+        );
     }
 }

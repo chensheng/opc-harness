@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::db::Entity;
 use rusqlite::Row;
+use serde::{Deserialize, Serialize};
 
 /// 智能体日志模型
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,11 +17,17 @@ pub struct AgentLog {
 }
 
 impl Entity for AgentLog {
-    fn table_name() -> &'static str { "agent_logs" }
+    fn table_name() -> &'static str {
+        "agent_logs"
+    }
 
-    fn primary_key() -> &'static str { "id" }
+    fn primary_key() -> &'static str {
+        "id"
+    }
 
-    fn get_primary_key(&self) -> &str { &self.id }
+    fn get_primary_key(&self) -> &str {
+        &self.id
+    }
 
     fn from_row(row: &Row) -> rusqlite::Result<Self> {
         Ok(AgentLog {

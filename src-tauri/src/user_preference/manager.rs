@@ -1,10 +1,9 @@
 #![allow(dead_code)]
 
 /// 用户偏好管理器（简化版）
-/// 
+///
 /// 用于学习和应用用户的 PRD 偏好
 /// 支持偏好收集、分析和应用
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -100,68 +99,81 @@ impl UserPreferenceManager {
     /// 从反馈中分析偏好
     pub fn analyze_from_feedback(&mut self, feedback_history: &[Feedback]) -> PreferenceModel {
         self.feedback_history = feedback_history.to_vec();
-        
+
         let mut model = PreferenceModel::default();
-        
+
         // 统计反馈关键词
         let mut keyword_counts: HashMap<String, usize> = HashMap::new();
-        
+
         for feedback in feedback_history {
             let content_lower = feedback.content.to_lowercase();
-            
+
             // 检测复杂度偏好
-            if content_lower.contains("添加") || content_lower.contains("增加") || content_lower.contains("更多") {
+            if content_lower.contains("添加")
+                || content_lower.contains("增加")
+                || content_lower.contains("更多")
+            {
                 model.preferred_feature_complexity += 0.1;
                 increment_keyword_count(&mut keyword_counts, "添加");
             }
-            
-            if content_lower.contains("简化") || content_lower.contains("减少") || content_lower.contains("精简") {
+
+            if content_lower.contains("简化")
+                || content_lower.contains("减少")
+                || content_lower.contains("精简")
+            {
                 model.preferred_feature_complexity -= 0.1;
                 increment_keyword_count(&mut keyword_counts, "简化");
             }
-            
+
             // 检测详细程度偏好
-            if content_lower.contains("详细") || content_lower.contains("具体") || content_lower.contains("展开") {
+            if content_lower.contains("详细")
+                || content_lower.contains("具体")
+                || content_lower.contains("展开")
+            {
                 model.preferred_detail_level += 0.1;
                 increment_keyword_count(&mut keyword_counts, "详细");
             }
-            
-            if content_lower.contains("简洁") || content_lower.contains("简单") || content_lower.contains("概括") {
+
+            if content_lower.contains("简洁")
+                || content_lower.contains("简单")
+                || content_lower.contains("概括")
+            {
                 model.preferred_detail_level -= 0.1;
                 increment_keyword_count(&mut keyword_counts, "简洁");
             }
-            
+
             // 检测技术栈偏好
             if content_lower.contains("react") {
                 model.preferred_tech_stack.push("React".to_string());
                 increment_keyword_count(&mut keyword_counts, "React");
             }
-            
+
             if content_lower.contains("rust") {
                 model.preferred_tech_stack.push("Rust".to_string());
                 increment_keyword_count(&mut keyword_counts, "Rust");
             }
-            
+
             if content_lower.contains("python") {
                 model.preferred_tech_stack.push("Python".to_string());
                 increment_keyword_count(&mut keyword_counts, "Python");
             }
         }
-        
+
         // 归一化到 0-1 范围
         model.preferred_feature_complexity = model.preferred_feature_complexity.clamp(0.0, 1.0);
         model.preferred_detail_level = model.preferred_detail_level.clamp(0.0, 1.0);
-        
+
         // 去重技术栈
         model.preferred_tech_stack.sort();
         model.preferred_tech_stack.dedup();
-        
+
         // 提取高频关键词
-        model.feedback_keywords = keyword_counts.into_iter()
+        model.feedback_keywords = keyword_counts
+            .into_iter()
             .filter(|(_, count)| *count >= 2)
             .map(|(keyword, _)| keyword)
             .collect();
-        
+
         self.model = model.clone();
         model
     }
@@ -169,9 +181,9 @@ impl UserPreferenceManager {
     /// 应用偏好到 PRD
     pub fn apply_preferences(&self, prd_json: &str) -> Result<String, String> {
         // 解析 PRD
-        let mut prd: serde_json::Value = serde_json::from_str(prd_json)
-            .map_err(|e| format!("解析 PRD 失败：{}", e))?;
-        
+        let mut prd: serde_json::Value =
+            serde_json::from_str(prd_json).map_err(|e| format!("解析 PRD 失败：{}", e))?;
+
         // 应用技术栈偏好
         if !self.model.preferred_tech_stack.is_empty() {
             if let Some(tech_stack) = prd.get_mut("techStack") {
@@ -180,7 +192,7 @@ impl UserPreferenceManager {
                 }
             }
         }
-        
+
         // 应用复杂度偏好（简化实现：调整功能数量）
         if let Some(features) = prd.get_mut("coreFeatures") {
             if let Some(feature_array) = features.as_array_mut() {
@@ -189,13 +201,13 @@ impl UserPreferenceManager {
                     x if x < 0.6 => 5,
                     _ => 8,
                 };
-                
+
                 while feature_array.len() < target_count {
                     feature_array.push(serde_json::Value::String("基于偏好生成的功能".to_string()));
                 }
             }
         }
-        
+
         // 序列化回 JSON
         serde_json::to_string(&prd).map_err(|e| format!("序列化 PRD 失败：{}", e))
     }
@@ -225,7 +237,7 @@ mod tests {
     #[test]
     fn test_analyze_addition_preference() {
         let mut manager = UserPreferenceManager::new();
-        
+
         let feedbacks = vec![
             Feedback {
                 content: "请添加更多功能".to_string(),
@@ -240,7 +252,7 @@ mod tests {
         ];
 
         let model = manager.analyze_from_feedback(&feedbacks);
-        
+
         assert!(model.preferred_feature_complexity > 0.0);
         assert!(model.feedback_keywords.contains(&"添加".to_string()));
     }
@@ -248,7 +260,7 @@ mod tests {
     #[test]
     fn test_analyze_simplification_preference() {
         let mut manager = UserPreferenceManager::new();
-        
+
         let feedbacks = vec![
             Feedback {
                 content: "简化功能，太复杂了".to_string(),
@@ -263,7 +275,7 @@ mod tests {
         ];
 
         let model = manager.analyze_from_feedback(&feedbacks);
-        
+
         assert!(model.preferred_feature_complexity < 0.5);
         assert!(model.feedback_keywords.contains(&"简化".to_string()));
     }
@@ -271,7 +283,7 @@ mod tests {
     #[test]
     fn test_analyze_tech_stack_preference() {
         let mut manager = UserPreferenceManager::new();
-        
+
         let feedbacks = vec![
             Feedback {
                 content: "使用 React 和 Rust 实现".to_string(),
@@ -286,7 +298,7 @@ mod tests {
         ];
 
         let model = manager.analyze_from_feedback(&feedbacks);
-        
+
         assert!(model.preferred_tech_stack.contains(&"React".to_string()));
         assert!(model.preferred_tech_stack.contains(&"Rust".to_string()));
         assert!(model.preferred_tech_stack.contains(&"Python".to_string()));
@@ -295,29 +307,33 @@ mod tests {
     #[test]
     fn test_apply_preferences() {
         let mut manager = UserPreferenceManager::new();
-        
+
         // 设置偏好
         manager.model.preferred_tech_stack = vec!["React".to_string(), "Rust".to_string()];
         manager.model.preferred_feature_complexity = 0.8;
-        
+
         let prd_json = r#"{"title": "测试", "coreFeatures": ["功能 1"], "techStack": ["Old"]}"#;
-        
+
         let result = manager.apply_preferences(prd_json).unwrap();
-        
+
         // 验证技术栈被替换
         assert!(result.contains("React"));
         assert!(result.contains("Rust"));
-        
+
         // 验证功能数量增加
         let result_value: serde_json::Value = serde_json::from_str(&result).unwrap();
-        let features = result_value.get("coreFeatures").unwrap().as_array().unwrap();
+        let features = result_value
+            .get("coreFeatures")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert!(features.len() >= 5);
     }
 
     #[test]
     fn test_save_and_load_preferences() {
         let mut manager = UserPreferenceManager::new();
-        
+
         let model = PreferenceModel {
             preferred_feature_complexity: 0.7,
             preferred_detail_level: 0.6,
@@ -326,7 +342,7 @@ mod tests {
         };
 
         manager.save_preferences(&model).unwrap();
-        
+
         let loaded = manager.load_preferences().unwrap();
         assert_eq!(loaded.preferred_feature_complexity, 0.7);
     }

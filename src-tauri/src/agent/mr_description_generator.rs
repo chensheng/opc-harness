@@ -1,9 +1,9 @@
 //! MR Description Generator 实现
-//! 
+//!
 //! 负责分析合并后的代码变更，生成结构化的 Merge Request 描述文档
 
-use serde::{Deserialize, Serialize};
 use crate::agent::code_change_tracker::ChangeStatistics;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::process::Command;
 
@@ -116,7 +116,10 @@ impl MRDescriptionGenerator {
     pub fn with_config(config: MRDescriptionConfig) -> Result<Self, String> {
         let workspace_root = PathBuf::from(&config.project_path);
         if !workspace_root.exists() {
-            return Err(format!("Project path does not exist: {}", config.project_path));
+            return Err(format!(
+                "Project path does not exist: {}",
+                config.project_path
+            ));
         }
 
         Ok(Self {
@@ -131,27 +134,32 @@ impl MRDescriptionGenerator {
         feature_branches: &[String],
         target_branch: &str,
     ) -> Result<MRDescription, String> {
-        log::info!("Generating MR description for branches: {:?}", feature_branches);
+        log::info!(
+            "Generating MR description for branches: {:?}",
+            feature_branches
+        );
 
         // 1. 获取所有分支的合并变更
-        let changes = self.get_merged_changes(feature_branches, target_branch).await?;
-        
+        let changes = self
+            .get_merged_changes(feature_branches, target_branch)
+            .await?;
+
         // 2. 计算变更统计
         let statistics = self.calculate_statistics(&changes);
-        
+
         // 3. 提取 Issue 信息
         let issues = self.extract_issues_from_branches(feature_branches).await?;
-        
+
         // 4. 收集测试结果
         let test_results = if self.config.include_test_results {
             self.collect_test_results().await.ok()
         } else {
             None
         };
-        
+
         // 5. 评估风险等级
         let risk_level = self.assess_risk(&changes, &statistics);
-        
+
         // 6. 推荐审查者
         let reviewers = if self.config.recommend_reviewers {
             self.recommend_reviewers(&changes)
@@ -160,9 +168,7 @@ impl MRDescriptionGenerator {
         };
 
         // 7. 生成变更文件列表
-        let changed_files: Vec<String> = changes.iter()
-            .map(|c| c.file_path.clone())
-            .collect();
+        let changed_files: Vec<String> = changes.iter().map(|c| c.file_path.clone()).collect();
 
         // 8. 生成 MR 标题
         let title = self.generate_title(&issues, feature_branches.len());
@@ -204,7 +210,11 @@ impl MRDescriptionGenerator {
         // 对每个功能分支执行 git diff
         for branch in feature_branches {
             let output = Command::new("git")
-                .args(["diff", "--numstat", &format!("{}...{}", target_branch, branch)])
+                .args([
+                    "diff",
+                    "--numstat",
+                    &format!("{}...{}", target_branch, branch),
+                ])
                 .current_dir(&self.workspace_root)
                 .output()
                 .await
@@ -288,14 +298,17 @@ impl MRDescriptionGenerator {
         // - feature/VC-034-description
         // - VC-034-description
         // - feat/VC-034
-        
+
         let parts: Vec<&str> = branch_name.split('/').collect();
-        
+
         for part in parts {
             // 匹配 VC-XXX 或 INFRA-XXX 等模式
             if part.contains('-') {
                 let subparts: Vec<&str> = part.split('-').collect();
-                if subparts.len() >= 2 && subparts[0].chars().all(|c| c.is_alphabetic()) && subparts[1].chars().all(|c| c.is_numeric()) {
+                if subparts.len() >= 2
+                    && subparts[0].chars().all(|c| c.is_alphabetic())
+                    && subparts[1].chars().all(|c| c.is_numeric())
+                {
                     return Some(format!("{}-{}", subparts[0], subparts[1]));
                 }
             }
@@ -308,7 +321,7 @@ impl MRDescriptionGenerator {
     async fn collect_test_results(&self) -> Result<TestSummary, String> {
         // 运行 cargo test --json 获取测试结果
         let output = Command::new("cargo")
-            .args(&["test", "--json"])
+            .args(["test", "--json"])
             .current_dir(&self.workspace_root)
             .output()
             .await
@@ -316,11 +329,11 @@ impl MRDescriptionGenerator {
 
         // 解析 JSON 输出（简化版本）
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         // 简单统计（实际应该解析 JSON）
         let total = stdout.matches("\"event\": \"ok\"").count() as u32;
         let failed = stdout.matches("\"event\": \"failed\"").count() as u32;
-        
+
         Ok(TestSummary {
             total_tests: total + failed,
             passed: total,
@@ -339,9 +352,9 @@ impl MRDescriptionGenerator {
         // 3. 检查是否有破坏性变更（删除文件 > 新增文件）
 
         let has_core_changes = changes.iter().any(|c| {
-            c.file_path.contains("src/agent/") ||
-            c.file_path.contains("src/main.rs") ||
-            c.file_path.contains("src/commands/")
+            c.file_path.contains("src/agent/")
+                || c.file_path.contains("src/main.rs")
+                || c.file_path.contains("src/commands/")
         });
 
         let large_change = stats.total_additions > 500 || stats.total_deletions > 300;
@@ -363,7 +376,7 @@ impl MRDescriptionGenerator {
         // 简化的推荐逻辑：
         // 1. 根据变更的文件类型推荐对应的负责人
         // 2. 如果变更涉及多个模块，推荐多个审查者
-        
+
         let mut reviewers = Vec::new();
 
         // 检查是否有 Agent 相关变更
@@ -372,12 +385,17 @@ impl MRDescriptionGenerator {
         }
 
         // 检查是否有前端变更
-        if changes.iter().any(|c| c.file_path.contains("src/components/") || c.file_path.contains("src/pages/")) {
+        if changes
+            .iter()
+            .any(|c| c.file_path.contains("src/components/") || c.file_path.contains("src/pages/"))
+        {
             reviewers.push("frontend-lead".to_string());
         }
 
         // 检查是否有架构变更
-        if changes.iter().any(|c| c.file_path.contains("src-tauri/src/main.rs") || c.file_path.contains("architecture")) {
+        if changes.iter().any(|c| {
+            c.file_path.contains("src-tauri/src/main.rs") || c.file_path.contains("architecture")
+        }) {
             reviewers.push("tech-lead".to_string());
         }
 
@@ -410,16 +428,28 @@ impl MRDescriptionGenerator {
         // 📋 变更概述
         md.push_str("## 📋 变更概述\n\n");
         if !mr.implemented_issues.is_empty() {
-            md.push_str(&format!("**实现的 Issues**: {}\n\n", mr.implemented_issues.join(", ")));
+            md.push_str(&format!(
+                "**实现的 Issues**: {}\n\n",
+                mr.implemented_issues.join(", ")
+            ));
         }
         md.push_str(&format!("**风险等级**: {}\n", mr.risk_assessment));
         md.push_str(&format!("**生成时间**: {}\n\n", mr.generated_at));
 
         // 📊 变更统计
         md.push_str("## 📊 变更统计\n\n");
-        md.push_str(&format!("- 总变更文件数：{}\n", mr.statistics.total_files_changed));
-        md.push_str(&format!("- 总新增行数：{}\n", mr.statistics.total_additions));
-        md.push_str(&format!("- 总删除行数：{}\n", mr.statistics.total_deletions));
+        md.push_str(&format!(
+            "- 总变更文件数：{}\n",
+            mr.statistics.total_files_changed
+        ));
+        md.push_str(&format!(
+            "- 总新增行数：{}\n",
+            mr.statistics.total_additions
+        ));
+        md.push_str(&format!(
+            "- 总删除行数：{}\n",
+            mr.statistics.total_deletions
+        ));
         md.push_str(&format!("- 净变更：{}\n\n", mr.statistics.net_change));
 
         // 🧪 测试结果
@@ -432,7 +462,7 @@ impl MRDescriptionGenerator {
                 md.push_str(&format!("- ⏭️ 跳过：{}\n", test.skipped));
             }
             md.push_str(&format!("- 代码覆盖率：{:.1}%\n\n", test.coverage));
-            
+
             if test.failed > 0 {
                 md.push_str("**⚠️ 警告**: 有测试失败，请查看测试报告。\n\n");
             }
@@ -463,7 +493,9 @@ impl MRDescriptionGenerator {
                 md.push_str("⚠️ **中风险**: 本次变更涉及功能增强或重构，建议进行详细审查。\n");
             }
             RiskLevel::High => {
-                md.push_str("🔴 **高风险**: 本次变更涉及核心逻辑修改，需要仔细审查并进行充分测试。\n");
+                md.push_str(
+                    "🔴 **高风险**: 本次变更涉及核心逻辑修改，需要仔细审查并进行充分测试。\n",
+                );
             }
             RiskLevel::Critical => {
                 md.push_str("🚨 **临界风险**: 本次变更可能包含破坏性修改，强烈建议进行全面审查和回归测试。\n");
@@ -531,9 +563,18 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let generator = MRDescriptionGenerator::new(temp_dir).unwrap();
 
-        assert_eq!(generator.extract_issue_id("feature/VC-034-description"), Some("VC-034".to_string()));
-        assert_eq!(generator.extract_issue_id("VC-035-mr-generator"), Some("VC-035".to_string()));
-        assert_eq!(generator.extract_issue_id("feat/INFRA-001-update"), Some("INFRA-001".to_string()));
+        assert_eq!(
+            generator.extract_issue_id("feature/VC-034-description"),
+            Some("VC-034".to_string())
+        );
+        assert_eq!(
+            generator.extract_issue_id("VC-035-mr-generator"),
+            Some("VC-035".to_string())
+        );
+        assert_eq!(
+            generator.extract_issue_id("feat/INFRA-001-update"),
+            Some("INFRA-001".to_string())
+        );
         assert_eq!(generator.extract_issue_id("invalid-branch"), None);
     }
 
@@ -558,14 +599,12 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let generator = MRDescriptionGenerator::new(temp_dir).unwrap();
 
-        let changes = vec![
-            FileChangeInfo {
-                file_path: "docs/readme.md".to_string(),
-                additions: 5,
-                deletions: 2,
-                change_type: FileChangeType::Modified,
-            },
-        ];
+        let changes = vec![FileChangeInfo {
+            file_path: "docs/readme.md".to_string(),
+            additions: 5,
+            deletions: 2,
+            change_type: FileChangeType::Modified,
+        }];
 
         let stats = generator.calculate_statistics(&changes);
         let risk = generator.assess_risk(&changes, &stats);
@@ -577,14 +616,12 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let generator = MRDescriptionGenerator::new(temp_dir).unwrap();
 
-        let changes = vec![
-            FileChangeInfo {
-                file_path: "src-tauri/src/agent/coding_agent.rs".to_string(),
-                additions: 600,
-                deletions: 100,
-                change_type: FileChangeType::Modified,
-            },
-        ];
+        let changes = vec![FileChangeInfo {
+            file_path: "src-tauri/src/agent/coding_agent.rs".to_string(),
+            additions: 600,
+            deletions: 100,
+            change_type: FileChangeType::Modified,
+        }];
 
         let stats = generator.calculate_statistics(&changes);
         let risk = generator.assess_risk(&changes, &stats);
@@ -597,14 +634,12 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let generator = MRDescriptionGenerator::new(temp_dir).unwrap();
 
-        let changes = vec![
-            FileChangeInfo {
-                file_path: "src-tauri/src/agent/new_agent.rs".to_string(),
-                additions: 100,
-                deletions: 0,
-                change_type: FileChangeType::Added,
-            },
-        ];
+        let changes = vec![FileChangeInfo {
+            file_path: "src-tauri/src/agent/new_agent.rs".to_string(),
+            additions: 100,
+            deletions: 0,
+            change_type: FileChangeType::Added,
+        }];
 
         let reviewers = generator.recommend_reviewers(&changes);
         assert!(reviewers.contains(&"backend-lead".to_string()));
@@ -615,9 +650,18 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let generator = MRDescriptionGenerator::new(temp_dir).unwrap();
 
-        assert_eq!(generator.generate_title(&vec!["VC-034".to_string()], 1), "Implement VC-034");
-        assert_eq!(generator.generate_title(&vec!["VC-034".to_string(), "VC-035".to_string()], 2), "Implement multiple features (VC-034, VC-035)");
-        assert_eq!(generator.generate_title(&vec![], 3), "Merge 3 feature branches");
+        assert_eq!(
+            generator.generate_title(&vec!["VC-034".to_string()], 1),
+            "Implement VC-034"
+        );
+        assert_eq!(
+            generator.generate_title(&vec!["VC-034".to_string(), "VC-035".to_string()], 2),
+            "Implement multiple features (VC-034, VC-035)"
+        );
+        assert_eq!(
+            generator.generate_title(&vec![], 3),
+            "Merge 3 feature branches"
+        );
     }
 
     #[test]
@@ -698,7 +742,7 @@ mod tests {
 
         let result = generator.generate_description(&vec![], "main").await;
         assert!(result.is_ok());
-        
+
         let mr = result.unwrap();
         assert_eq!(mr.implemented_issues.len(), 0);
         assert!(mr.title.contains("Merge 0 feature branches"));

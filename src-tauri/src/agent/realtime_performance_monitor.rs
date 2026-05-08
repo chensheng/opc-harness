@@ -1,5 +1,5 @@
 //! Real-time Performance Monitor 实现
-//! 
+//!
 //! 负责实时监控系统资源使用情况（CPU、内存、磁盘、网络）。
 //! 提供性能瓶颈预警、趋势分析、历史数据记录等功能。
 //! 支持跨平台（Windows/Linux/macOS）。
@@ -102,7 +102,13 @@ pub struct ProcessStats {
 }
 
 impl ProcessStats {
-    pub fn new(pid: u32, name: String, cpu_usage: f32, memory_usage: f32, memory_used: u64) -> Self {
+    pub fn new(
+        pid: u32,
+        name: String,
+        cpu_usage: f32,
+        memory_usage: f32,
+        memory_used: u64,
+    ) -> Self {
         Self {
             pid,
             name,
@@ -119,9 +125,9 @@ pub struct PerformanceAlert {
     /// 时间戳
     pub timestamp: u64,
     /// 告警类型
-    pub alert_type: String,  // "cpu", "memory", "disk", "network"
+    pub alert_type: String, // "cpu", "memory", "disk", "network"
     /// 严重程度
-    pub severity: String,    // "warning", "critical"
+    pub severity: String, // "warning", "critical"
     /// 告警消息
     pub message: String,
     /// 当前值
@@ -170,7 +176,7 @@ impl RealtimePerformanceMonitor {
     pub fn new(config: MonitoringConfig) -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        
+
         Self {
             config,
             is_monitoring: false,
@@ -184,7 +190,10 @@ impl RealtimePerformanceMonitor {
             return Err("监控已在运行中".to_string());
         }
 
-        log::info!("启动实时性能监控，采样间隔：{}ms", self.config.sample_interval_ms);
+        log::info!(
+            "启动实时性能监控，采样间隔：{}ms",
+            self.config.sample_interval_ms
+        );
         self.is_monitoring = true;
         Ok(())
     }
@@ -202,8 +211,11 @@ impl RealtimePerformanceMonitor {
 
     /// 获取当前系统统计信息
     pub fn get_current_stats(&self) -> Result<SystemStats, String> {
-        let mut system = self.system.lock().map_err(|e| format!("锁定系统失败：{}", e))?;
-        
+        let mut system = self
+            .system
+            .lock()
+            .map_err(|e| format!("锁定系统失败：{}", e))?;
+
         // 刷新系统信息
         system.refresh_all();
 
@@ -215,11 +227,8 @@ impl RealtimePerformanceMonitor {
 
         // CPU 使用率 (sysinfo 0.30: 使用 cpus().iter().map 计算平均)
         let cpus = system.cpus();
-        let cpu_per_core: Vec<f32> = cpus
-            .iter()
-            .map(|cpu| cpu.cpu_usage() / 100.0)
-            .collect();
-        
+        let cpu_per_core: Vec<f32> = cpus.iter().map(|cpu| cpu.cpu_usage() / 100.0).collect();
+
         let cpu_usage = if cpu_per_core.is_empty() {
             0.0
         } else {
@@ -265,8 +274,9 @@ impl RealtimePerformanceMonitor {
         };
 
         let total_memory = system.total_memory();
-        
-        let mut processes: Vec<_> = system.processes()
+
+        let mut processes: Vec<_> = system
+            .processes()
             .iter()
             .map(|(pid, process)| {
                 let cpu_usage = process.cpu_usage() / 100.0;
@@ -288,8 +298,12 @@ impl RealtimePerformanceMonitor {
             .collect();
 
         // 按 CPU 使用率排序
-        processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
-        
+        processes.sort_by(|a, b| {
+            b.cpu_usage
+                .partial_cmp(&a.cpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         // 返回 Top N
         processes.into_iter().take(n).collect()
     }
@@ -319,7 +333,11 @@ impl RealtimePerformanceMonitor {
         // 单核 CPU 过载检测
         for (i, core_cpu) in stats.cpu_per_core.iter().enumerate() {
             if *core_cpu > 0.95 {
-                bottlenecks.push(format!("核心 {} CPU 使用率饱和：{:.1}%", i, core_cpu * 100.0));
+                bottlenecks.push(format!(
+                    "核心 {} CPU 使用率饱和：{:.1}%",
+                    i,
+                    core_cpu * 100.0
+                ));
             }
         }
 
@@ -333,7 +351,11 @@ impl RealtimePerformanceMonitor {
 
         // CPU 告警
         if stats.cpu_usage > self.config.cpu_warning_threshold {
-            let severity = if stats.cpu_usage > 0.95 { "critical" } else { "warning" };
+            let severity = if stats.cpu_usage > 0.95 {
+                "critical"
+            } else {
+                "warning"
+            };
             alerts.push(PerformanceAlert::new(
                 timestamp,
                 "cpu".to_string(),
@@ -346,7 +368,11 @@ impl RealtimePerformanceMonitor {
 
         // 内存告警
         if stats.memory_usage > self.config.memory_warning_threshold {
-            let severity = if stats.memory_usage > 0.95 { "critical" } else { "warning" };
+            let severity = if stats.memory_usage > 0.95 {
+                "critical"
+            } else {
+                "warning"
+            };
             alerts.push(PerformanceAlert::new(
                 timestamp,
                 "memory".to_string(),
@@ -422,13 +448,7 @@ mod tests {
 
     #[test]
     fn test_process_stats_creation() {
-        let process = ProcessStats::new(
-            1234,
-            "test_process".to_string(),
-            0.25,
-            0.15,
-            250_000_000,
-        );
+        let process = ProcessStats::new(1234, "test_process".to_string(), 0.25, 0.15, 250_000_000);
 
         assert_eq!(process.pid, 1234);
         assert_eq!(process.name, "test_process");
@@ -504,12 +524,15 @@ mod tests {
 
         let stats = SystemStats::new(
             1234567890,
-            0.85,  // 高 CPU 使用率
+            0.85, // 高 CPU 使用率
             vec![0.9, 0.95, 0.8, 0.88],
             4_000_000_000,
             16_000_000_000,
             0.25,
-            0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
         );
 
         let bottlenecks = monitor.detect_bottlenecks(&stats);
@@ -531,8 +554,11 @@ mod tests {
             vec![0.3, 0.3, 0.3, 0.3],
             14_000_000_000,
             16_000_000_000,
-            0.875,  // 高内存使用率
-            0, 0, 0, 0,
+            0.875, // 高内存使用率
+            0,
+            0,
+            0,
+            0,
         );
 
         let bottlenecks = monitor.detect_bottlenecks(&stats);
@@ -550,18 +576,21 @@ mod tests {
 
         let stats = SystemStats::new(
             1234567890,
-            0.92,  // 高 CPU 使用率
+            0.92, // 高 CPU 使用率
             vec![],
             4_000_000_000,
             16_000_000_000,
             0.25,
-            0, 0, 0, 0,
+            0,
+            0,
+            0,
+            0,
         );
 
         let alerts = monitor.generate_alerts(&stats);
         assert!(!alerts.is_empty());
         assert!(alerts.iter().any(|a| a.alert_type == "cpu"));
-        
+
         let cpu_alert = alerts.iter().find(|a| a.alert_type == "cpu").unwrap();
         assert_eq!(cpu_alert.severity, "warning");
         assert_eq!(cpu_alert.value, 0.92);
@@ -581,8 +610,11 @@ mod tests {
             vec![],
             15_000_000_000,
             16_000_000_000,
-            0.9375,  // 高内存使用率
-            0, 0, 0, 0,
+            0.9375, // 高内存使用率
+            0,
+            0,
+            0,
+            0,
         );
 
         let alerts = monitor.generate_alerts(&stats);
@@ -596,10 +628,10 @@ mod tests {
         let monitor = RealtimePerformanceMonitor::new(config);
 
         let processes = monitor.get_top_processes(5);
-        
+
         // 至少应该有一些进程
         assert!(!processes.is_empty());
-        
+
         // 验证进程按 CPU 排序
         for i in 1..processes.len() {
             assert!(processes[i - 1].cpu_usage >= processes[i].cpu_usage);
@@ -613,12 +645,15 @@ mod tests {
 
         let stats = SystemStats::new(
             1234567890,
-            0.5,   // CPU < 0.8
+            0.5, // CPU < 0.8
             vec![],
             8_000_000_000,
             16_000_000_000,
-            0.5,   // Memory < 0.9
-            0, 0, 0, 0,
+            0.5, // Memory < 0.9
+            0,
+            0,
+            0,
+            0,
         );
 
         let alerts = monitor.generate_alerts(&stats);

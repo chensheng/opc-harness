@@ -1,10 +1,10 @@
 //! Agent 告警数据访问层
-//! 
+//!
 //! 提供告警的 CRUD 操作
 
 use crate::db::Entity;
 use crate::models::AgentAlert;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use uuid::Uuid;
 
 /// 获取告警存储库
@@ -45,31 +45,33 @@ impl<'a> AgentAlertsRepository<'a> {
         limit: i64,
     ) -> Result<Vec<AgentAlert>, rusqlite::Error> {
         let sql = match status {
-            Some(_) => format!(
+            Some(_) => {
                 "SELECT id, agent_id, level, alert_type, message, status, created_at, resolved_at
                  FROM agent_alerts
                  WHERE agent_id = ?1 AND status = ?2
                  ORDER BY created_at DESC
                  LIMIT ?3"
-            ),
-            None => format!(
+                    .to_string()
+            }
+            None => {
                 "SELECT id, agent_id, level, alert_type, message, status, created_at, resolved_at
                  FROM agent_alerts
                  WHERE agent_id = ?1
                  ORDER BY created_at DESC
                  LIMIT ?2"
-            ),
+                    .to_string()
+            }
         };
 
         let mut stmt = self.conn.prepare(&sql)?;
 
         let alerts: Result<Vec<AgentAlert>, _> = match status {
-            Some(s) => stmt.query_map(params![agent_id, s, limit], |row| {
-                AgentAlert::from_row(row)
-            })?.collect(),
-            None => stmt.query_map(params![agent_id, limit], |row| {
-                AgentAlert::from_row(row)
-            })?.collect(),
+            Some(s) => stmt
+                .query_map(params![agent_id, s, limit], |row| AgentAlert::from_row(row))?
+                .collect(),
+            None => stmt
+                .query_map(params![agent_id, limit], |row| AgentAlert::from_row(row))?
+                .collect(),
         };
 
         alerts
@@ -82,12 +84,10 @@ impl<'a> AgentAlertsRepository<'a> {
              FROM agent_alerts
              WHERE status = 'active'
              ORDER BY created_at DESC
-             LIMIT ?1"
+             LIMIT ?1",
         )?;
 
-        let alerts = stmt.query_map(params![limit], |row| {
-            AgentAlert::from_row(row)
-        })?;
+        let alerts = stmt.query_map(params![limit], |row| AgentAlert::from_row(row))?;
 
         alerts.collect()
     }
@@ -103,7 +103,10 @@ impl<'a> AgentAlertsRepository<'a> {
 
     /// 清空智能体的所有告警
     pub fn clear_by_agent_id(&self, agent_id: &str) -> Result<usize, rusqlite::Error> {
-        self.conn.execute("DELETE FROM agent_alerts WHERE agent_id = ?1", params![agent_id])
+        self.conn.execute(
+            "DELETE FROM agent_alerts WHERE agent_id = ?1",
+            params![agent_id],
+        )
     }
 }
 
@@ -119,7 +122,7 @@ mod tests {
 
     fn setup_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
-        
+
         conn.execute(
             "CREATE TABLE agent_alerts (
                 id TEXT PRIMARY KEY,
@@ -132,7 +135,8 @@ mod tests {
                 resolved_at TEXT
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         conn
     }

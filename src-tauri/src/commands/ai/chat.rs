@@ -1,6 +1,6 @@
 use crate::ai::{AIProvider, AIProviderType, ChatRequest, StreamChunk, StreamComplete};
-use crate::commands::ai::types::ChatRequestPayload;
 use crate::commands::ai::error_handler::emit_stream_error_detailed;
+use crate::commands::ai::types::ChatRequestPayload;
 use tauri::Emitter;
 use uuid::Uuid;
 
@@ -8,7 +8,7 @@ use uuid::Uuid;
 #[tauri::command]
 pub async fn chat(request: ChatRequestPayload) -> Result<String, String> {
     log::info!("[stream_chat] Messages count: {}", request.messages.len());
-    
+
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -55,12 +55,19 @@ pub async fn stream_chat(
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     let session_id = Uuid::new_v4().to_string();
-    
+
     log::info!("[stream_chat] ====== 开始流式调用 ======");
-    log::info!("[stream_chat] Provider: {}, Model: {}", request.provider, request.model);
-    log::info!("[stream_chat] API Key prefix: {}", &request.api_key[..8.min(request.api_key.len())]);
+    log::info!(
+        "[stream_chat] Provider: {}, Model: {}",
+        request.provider,
+        request.model
+    );
+    log::info!(
+        "[stream_chat] API Key prefix: {}",
+        &request.api_key[..8.min(request.api_key.len())]
+    );
     log::info!("[stream_chat] Messages count: {}", request.messages.len());
-    
+
     let provider_type = match request.provider.as_str() {
         "openai" => AIProviderType::OpenAI,
         "anthropic" => AIProviderType::Anthropic,
@@ -100,7 +107,7 @@ pub async fn stream_chat(
     // 4. 创建会话感知的 chunk 处理器
     let session_id_clone = session_id.clone();
     let app_clone = app.clone();
-    
+
     let chunk_handler = move |chunk: String| -> Result<(), crate::ai::AIError> {
         let stream_chunk = StreamChunk {
             session_id: session_id_clone.clone(),

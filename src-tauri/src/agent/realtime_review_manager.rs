@@ -1,18 +1,22 @@
 //! Real-time Review Manager 实现
-//! 
+//!
 //! 负责监听文件变更，自动触发增量代码审查。
 //! 支持 Watch 模式、防抖处理、实时推送。
 
-use crate::agent::code_review_agent::{CodeReviewAgent, CodeReviewAgentConfig, ReviewResult, CodeChange};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher, EventKind};
+use crate::agent::code_review_agent::{
+    CodeChange, CodeReviewAgent, CodeReviewAgentConfig, ReviewResult,
+};
+use notify::{
+    Config, EventKind, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{self, Sender, Receiver};
-use tokio::time::Duration;
+use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::sync::Mutex;
+use tokio::time::Duration;
 
 /// 监听状态枚举
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,7 +89,7 @@ impl FileChangeEvent {
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
             .as_millis() as u64;
-        
+
         Self {
             file_path,
             change_type,
@@ -108,7 +112,12 @@ pub struct RealtimeReviewResult {
 }
 
 impl RealtimeReviewResult {
-    pub fn new(reviewed_files: Vec<String>, review_result: ReviewResult, review_time_ms: u64, triggered_by_change: bool) -> Self {
+    pub fn new(
+        reviewed_files: Vec<String>,
+        review_result: ReviewResult,
+        review_time_ms: u64,
+        triggered_by_change: bool,
+    ) -> Self {
         Self {
             reviewed_files,
             review_result,
@@ -186,17 +195,19 @@ impl RealtimeReviewManager {
                     // 为每个变更的文件发送事件
                     for path in event.paths {
                         let file_path = path.to_string_lossy().to_string();
-                        
+
                         // 检查文件是否在监听范围内
                         if Self::should_watch_file(&file_path, &config.file_patterns) {
-                            let event = FileChangeEvent::new(file_path.clone(), change_type.clone());
+                            let event =
+                                FileChangeEvent::new(file_path.clone(), change_type.clone());
                             let _ = watcher_tx.try_send(event);
                         }
                     }
                 }
             },
             Config::default(),
-        ).map_err(|e| format!("创建文件监听器失败：{}", e))?;
+        )
+        .map_err(|e| format!("创建文件监听器失败：{}", e))?;
 
         // 添加监听路径
         let project_path = PathBuf::from(&self.config.project_path);
@@ -206,7 +217,8 @@ impl RealtimeReviewManager {
             RecursiveMode::NonRecursive
         };
 
-        watcher.watch(&project_path, mode)
+        watcher
+            .watch(&project_path, mode)
             .map_err(|e| format!("监听路径失败：{}", e))?;
 
         self.watcher = Some(Arc::new(Mutex::new(watcher)));
@@ -245,13 +257,12 @@ impl RealtimeReviewManager {
     /// 事件处理器（带防抖）
     async fn event_handler(mut rx: Receiver<FileChangeEvent>, debounce_ms: u64) {
         let mut pending_events: Vec<FileChangeEvent> = Vec::new();
-        
+
         loop {
             // 等待事件
-            if let Ok(event) = tokio::time::timeout(
-                Duration::from_millis(debounce_ms),
-                rx.recv()
-            ).await {
+            if let Ok(event) =
+                tokio::time::timeout(Duration::from_millis(debounce_ms), rx.recv()).await
+            {
                 match event {
                     Some(file_event) => {
                         pending_events.push(file_event);
@@ -262,7 +273,7 @@ impl RealtimeReviewManager {
                 // 超时，处理累积的事件
                 if !pending_events.is_empty() {
                     log::info!("处理 {} 个文件变更事件", pending_events.len());
-                    
+
                     // TODO: 这里应该触发审查，但为了简化实现，只记录日志
                     pending_events.clear();
                 }
@@ -291,7 +302,10 @@ impl RealtimeReviewManager {
     }
 
     /// 触发增量审查
-    pub async fn trigger_incremental_review(&mut self, file_paths: &[String]) -> Result<RealtimeReviewResult, String> {
+    pub async fn trigger_incremental_review(
+        &mut self,
+        file_paths: &[String],
+    ) -> Result<RealtimeReviewResult, String> {
         log::info!("触发增量审查，{} 个文件", file_paths.len());
 
         let start_time = SystemTime::now();
@@ -319,16 +333,13 @@ impl RealtimeReviewManager {
         let review_result = self.code_review_agent.run_review(&code_changes).await?;
 
         let end_time = SystemTime::now();
-        let review_time_ms = end_time.duration_since(start_time)
+        let review_time_ms = end_time
+            .duration_since(start_time)
             .unwrap_or(Duration::ZERO)
             .as_millis() as u64;
 
-        let result = RealtimeReviewResult::new(
-            file_paths.to_vec(),
-            review_result,
-            review_time_ms,
-            true,
-        );
+        let result =
+            RealtimeReviewResult::new(file_paths.to_vec(), review_result, review_time_ms, true);
 
         log::info!("增量审查完成，耗时 {}ms", review_time_ms);
         Ok(result)
@@ -354,7 +365,8 @@ impl RealtimeReviewManager {
 
     /// 获取已监听的路径列表
     pub fn get_watched_paths(&self) -> Vec<String> {
-        self.watched_paths.iter()
+        self.watched_paths
+            .iter()
             .map(|p| p.to_string_lossy().to_string())
             .collect()
     }
@@ -389,10 +401,7 @@ mod tests {
 
     #[test]
     fn test_file_change_event_creation() {
-        let event = FileChangeEvent::new(
-            "src/main.rs".to_string(),
-            "Modified".to_string(),
-        );
+        let event = FileChangeEvent::new("src/main.rs".to_string(), "Modified".to_string());
 
         assert_eq!(event.file_path, "src/main.rs");
         assert_eq!(event.change_type, "Modified");
@@ -402,29 +411,65 @@ mod tests {
     #[test]
     fn test_should_watch_file_rust() {
         let patterns = vec!["*.rs".to_string()];
-        
-        assert!(RealtimeReviewManager::should_watch_file("src/main.rs", &patterns));
-        assert!(RealtimeReviewManager::should_watch_file("src/lib.rs", &patterns));
-        assert!(!RealtimeReviewManager::should_watch_file("src/main.ts", &patterns));
-        assert!(!RealtimeReviewManager::should_watch_file("README.md", &patterns));
+
+        assert!(RealtimeReviewManager::should_watch_file(
+            "src/main.rs",
+            &patterns
+        ));
+        assert!(RealtimeReviewManager::should_watch_file(
+            "src/lib.rs",
+            &patterns
+        ));
+        assert!(!RealtimeReviewManager::should_watch_file(
+            "src/main.ts",
+            &patterns
+        ));
+        assert!(!RealtimeReviewManager::should_watch_file(
+            "README.md",
+            &patterns
+        ));
     }
 
     #[test]
     fn test_should_watch_file_typescript() {
         let patterns = vec!["*.ts".to_string(), "*.tsx".to_string()];
-        
-        assert!(RealtimeReviewManager::should_watch_file("src/app.ts", &patterns));
-        assert!(RealtimeReviewManager::should_watch_file("src/component.tsx", &patterns));
-        assert!(!RealtimeReviewManager::should_watch_file("src/main.rs", &patterns));
+
+        assert!(RealtimeReviewManager::should_watch_file(
+            "src/app.ts",
+            &patterns
+        ));
+        assert!(RealtimeReviewManager::should_watch_file(
+            "src/component.tsx",
+            &patterns
+        ));
+        assert!(!RealtimeReviewManager::should_watch_file(
+            "src/main.rs",
+            &patterns
+        ));
     }
 
     #[test]
     fn test_detect_language() {
-        assert_eq!(RealtimeReviewManager::detect_language("src/main.rs"), "rust");
-        assert_eq!(RealtimeReviewManager::detect_language("src/app.ts"), "typescript");
-        assert_eq!(RealtimeReviewManager::detect_language("src/app.tsx"), "typescript");
-        assert_eq!(RealtimeReviewManager::detect_language("src/app.js"), "javascript");
-        assert_eq!(RealtimeReviewManager::detect_language("src/app.unknown"), "unknown");
+        assert_eq!(
+            RealtimeReviewManager::detect_language("src/main.rs"),
+            "rust"
+        );
+        assert_eq!(
+            RealtimeReviewManager::detect_language("src/app.ts"),
+            "typescript"
+        );
+        assert_eq!(
+            RealtimeReviewManager::detect_language("src/app.tsx"),
+            "typescript"
+        );
+        assert_eq!(
+            RealtimeReviewManager::detect_language("src/app.js"),
+            "javascript"
+        );
+        assert_eq!(
+            RealtimeReviewManager::detect_language("src/app.unknown"),
+            "unknown"
+        );
     }
 
     #[test]
@@ -458,14 +503,10 @@ mod tests {
     #[test]
     fn test_filter_watched_files() {
         let patterns = vec!["*.rs".to_string()];
-        let files = vec![
-            "src/main.rs",
-            "src/lib.ts",
-            "src/utils.rs",
-            "README.md",
-        ];
+        let files = vec!["src/main.rs", "src/lib.ts", "src/utils.rs", "README.md"];
 
-        let watched: Vec<&str> = files.iter()
+        let watched: Vec<&str> = files
+            .iter()
             .filter(|f| RealtimeReviewManager::should_watch_file(f, &patterns))
             .cloned()
             .collect();
@@ -475,21 +516,12 @@ mod tests {
 
     #[test]
     fn test_realtime_review_result_structure() {
-        use crate::agent::code_review_agent::ReviewResult;  // 只导入使用的 ReviewResult
+        use crate::agent::code_review_agent::ReviewResult; // 只导入使用的 ReviewResult
 
-        let review_result = ReviewResult::new(
-            vec![],
-            "No issues".to_string(),
-            100.0,
-            false,
-        );
+        let review_result = ReviewResult::new(vec![], "No issues".to_string(), 100.0, false);
 
-        let realtime_result = RealtimeReviewResult::new(
-            vec!["src/main.rs".to_string()],
-            review_result,
-            150,
-            true,
-        );
+        let realtime_result =
+            RealtimeReviewResult::new(vec!["src/main.rs".to_string()], review_result, 150, true);
 
         assert_eq!(realtime_result.reviewed_files.len(), 1);
         assert_eq!(realtime_result.review_time_ms, 150);

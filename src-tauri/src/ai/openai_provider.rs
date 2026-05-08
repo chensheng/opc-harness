@@ -1,10 +1,10 @@
 //! OpenAI Provider - Standalone Implementation
-//! 
+//!
 //! 独立的 OpenAI Provider 实现，支持自定义 base_url
 
+use futures::StreamExt;
 use log::{debug, error, info, warn};
 use reqwest::Client;
-use futures::StreamExt;
 
 use super::ai_types::*;
 use super::provider_core::{OpenAIChatResponse, OpenAIStreamChunk};

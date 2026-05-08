@@ -1,10 +1,10 @@
 //! Debug Agent 核心实现
-//! 
+//!
 //! 负责协调错误收集、解析和诊断的完整流程
 
-use super::types::{DebugAgentConfig, DebugResult, DebugStatus, ErrorInfo};
-use super::parsers::get_parser_for_source;
 use super::diagnoser::Diagnoser;
+use super::parsers::get_parser_for_source;
+use super::types::{DebugAgentConfig, DebugResult, DebugStatus, ErrorInfo};
 
 /// Debug Agent 结构体
 #[derive(Debug, Clone)]
@@ -34,9 +34,9 @@ impl DebugAgent {
         // 1. 收集错误信息
         self.status = DebugStatus::CollectingErrors;
         log::info!("步骤 1/4: 收集错误信息");
-        
+
         let errors = self.collect_errors().await?;
-        
+
         if errors.is_empty() {
             log::info!("未检测到错误");
             self.status = DebugStatus::Completed;
@@ -48,14 +48,14 @@ impl DebugAgent {
         // 2. 解析错误
         self.status = DebugStatus::ParsingErrors;
         log::info!("步骤 2/4: 解析错误信息");
-        
+
         let mut diagnoses = Vec::new();
-        
+
         for error in errors {
             // 3. AI 诊断
             self.status = DebugStatus::Diagnosing;
             log::info!("步骤 3/4: 诊断错误：{}", error.message);
-            
+
             match self.diagnose_error(&error).await {
                 Ok(diagnosis) => {
                     log::info!("诊断完成，置信度：{:.2}", diagnosis.confidence);
@@ -71,13 +71,13 @@ impl DebugAgent {
         // 4. 生成修复建议
         self.status = DebugStatus::GeneratingFixes;
         log::info!("步骤 4/4: 生成修复建议");
-        
+
         // 已经完成在 diagnose_error 中
-        
+
         // 完成
         self.status = DebugStatus::Completed;
         log::info!("Debug Agent 执行完成，共诊断 {} 个错误", diagnoses.len());
-        
+
         Ok(DebugResult::success(diagnoses))
     }
 
@@ -97,8 +97,8 @@ impl DebugAgent {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::types::ErrorSource;
+    use super::*;
 
     #[test]
     fn test_debug_agent_creation() {

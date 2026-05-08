@@ -1,7 +1,7 @@
 //! Git Commit Assistant 模块
-//! 
+//!
 //! 负责分析代码变更，使用 AI 生成规范的 Git 提交信息
-//! 
+//!
 //! 模块结构：
 //! - types: 核心类型定义（CommitType, ChangeInfo, CommitMessage等）
 //! - config: 配置结构
@@ -10,19 +10,19 @@
 //! - generator: 提交信息生成逻辑
 //! - validator: 验证逻辑
 
-mod types;
-mod config;
-mod status;
 mod analyzer;
+mod config;
 mod generator;
+mod status;
+mod types;
 mod validator;
 
 // 重新导出常用类型
-pub use types::{CommitType, FileChangeType, ChangeInfo, CommitMessage};
-pub use config::GitCommitAssistantConfig;
-pub use status::CommitStatus;
 pub use analyzer::ChangeAnalyzer;
+pub use config::GitCommitAssistantConfig;
 pub use generator::MessageGenerator;
+pub use status::CommitStatus;
+pub use types::{ChangeInfo, CommitMessage, CommitType, FileChangeType};
 pub use validator::CommitValidator;
 
 /// Git Commit Assistant
@@ -61,14 +61,17 @@ impl GitCommitAssistant {
 
     /// 执行完整的提交信息生成流程
     pub async fn generate_commit_message(&mut self) -> Result<CommitMessage, String> {
-        log::info!("开始执行 Git Commit Assistant - Session: {}", self.session_id);
+        log::info!(
+            "开始执行 Git Commit Assistant - Session: {}",
+            self.session_id
+        );
 
         // 1. 分析变更
         self.status = CommitStatus::AnalyzingChanges;
         log::info!("步骤 1/3: 分析代码变更");
-        
+
         let changes = self.analyzer.analyze_changes()?;
-        
+
         if changes.is_empty() {
             log::warn!("没有检测到变更");
             self.status = CommitStatus::Failed("No changes detected".to_string());
@@ -80,20 +83,25 @@ impl GitCommitAssistant {
         // 2. 分类变更
         self.status = CommitStatus::CategorizingChanges;
         log::info!("步骤 2/3: 分类变更类型");
-        
+
         let commit_type = self.analyzer.categorize_changes(&changes);
         log::info!("识别变更类型：{:?}", commit_type);
 
         // 3. 生成提交信息
         self.status = CommitStatus::GeneratingMessage;
         log::info!("步骤 3/3: 生成提交信息");
-        
-        let message = self.generator.create_commit_message(commit_type, &changes)?;
-        
+
+        let message = self
+            .generator
+            .create_commit_message(commit_type, &changes)?;
+
         // 完成
         self.status = CommitStatus::Completed;
-        log::info!("提交信息生成完成：{}", message.formatted.lines().next().unwrap_or(""));
-        
+        log::info!(
+            "提交信息生成完成：{}",
+            message.formatted.lines().next().unwrap_or("")
+        );
+
         Ok(message)
     }
 
@@ -121,7 +129,10 @@ mod tests {
         assert_eq!(CommitType::from_str("feat").unwrap(), CommitType::Feat);
         assert_eq!(CommitType::from_str("fix").unwrap(), CommitType::Fix);
         assert_eq!(CommitType::from_str("docs").unwrap(), CommitType::Docs);
-        assert_eq!(CommitType::from_str("refactor").unwrap(), CommitType::Refactor);
+        assert_eq!(
+            CommitType::from_str("refactor").unwrap(),
+            CommitType::Refactor
+        );
         assert!(CommitType::from_str("invalid").is_err());
     }
 
@@ -214,12 +225,12 @@ mod tests {
     #[test]
     fn test_diff_stats_parsing() {
         let assistant = GitCommitAssistant::new(GitCommitAssistantConfig::default());
-        
+
         // 测试简单的 + 和 - 计数
         let (adds, dels) = assistant.analyzer.parse_diff_stats("10 +++++++---");
         assert!(adds > 0);
         assert!(dels > 0);
-        
+
         // 测试只有 +
         let (adds2, dels2) = assistant.analyzer.parse_diff_stats("5 +++++");
         assert_eq!(adds2, 5);
@@ -229,32 +240,28 @@ mod tests {
     #[test]
     fn test_change_categorization() {
         let assistant = GitCommitAssistant::new(GitCommitAssistantConfig::default());
-        
+
         // 测试测试文件识别
-        let test_changes = vec![
-            ChangeInfo {
-                file_path: "src/test.rs".to_string(),
-                additions: 10,
-                deletions: 0,
-                change_type: FileChangeType::Added,
-                diff_summary: None,
-            }
-        ];
-        
+        let test_changes = vec![ChangeInfo {
+            file_path: "src/test.rs".to_string(),
+            additions: 10,
+            deletions: 0,
+            change_type: FileChangeType::Added,
+            diff_summary: None,
+        }];
+
         let commit_type = assistant.analyzer.categorize_changes(&test_changes);
         assert_eq!(commit_type, CommitType::Test);
-        
+
         // 测试文档文件识别
-        let doc_changes = vec![
-            ChangeInfo {
-                file_path: "README.md".to_string(),
-                additions: 5,
-                deletions: 0,
-                change_type: FileChangeType::Added,
-                diff_summary: None,
-            }
-        ];
-        
+        let doc_changes = vec![ChangeInfo {
+            file_path: "README.md".to_string(),
+            additions: 5,
+            deletions: 0,
+            change_type: FileChangeType::Added,
+            diff_summary: None,
+        }];
+
         let commit_type2 = assistant.analyzer.categorize_changes(&doc_changes);
         assert_eq!(commit_type2, CommitType::Docs);
     }
@@ -262,18 +269,19 @@ mod tests {
     #[test]
     fn test_summary_generation() {
         let assistant = GitCommitAssistant::new(GitCommitAssistantConfig::default());
-        
-        let changes = vec![
-            ChangeInfo {
-                file_path: "src/feature.rs".to_string(),
-                additions: 10,
-                deletions: 0,
-                change_type: FileChangeType::Added,
-                diff_summary: None,
-            }
-        ];
-        
-        let summary = assistant.generator.generate_summary(CommitType::Feat, &changes).unwrap();
+
+        let changes = vec![ChangeInfo {
+            file_path: "src/feature.rs".to_string(),
+            additions: 10,
+            deletions: 0,
+            change_type: FileChangeType::Added,
+            diff_summary: None,
+        }];
+
+        let summary = assistant
+            .generator
+            .generate_summary(CommitType::Feat, &changes)
+            .unwrap();
         assert!(summary.starts_with("Add"));
         assert!(summary.len() <= 50);
     }
@@ -281,17 +289,15 @@ mod tests {
     #[test]
     fn test_description_generation() {
         let assistant = GitCommitAssistant::new(GitCommitAssistantConfig::default());
-        
-        let changes = vec![
-            ChangeInfo {
-                file_path: "src/main.rs".to_string(),
-                additions: 10,
-                deletions: 5,
-                change_type: FileChangeType::Modified,
-                diff_summary: None,
-            }
-        ];
-        
+
+        let changes = vec![ChangeInfo {
+            file_path: "src/main.rs".to_string(),
+            additions: 10,
+            deletions: 5,
+            change_type: FileChangeType::Modified,
+            diff_summary: None,
+        }];
+
         let description = assistant.generator.generate_description(&changes);
         assert!(description.contains("Modify"));
         assert!(description.contains("+10"));
@@ -301,15 +307,25 @@ mod tests {
     #[test]
     fn test_conventional_commit_validation() {
         let assistant = GitCommitAssistant::new(GitCommitAssistantConfig::default());
-        
+
         // 测试有效的提交信息
-        assert!(assistant.validate_conventional_commit("feat: add new feature").is_ok());
-        assert!(assistant.validate_conventional_commit("fix(api): resolve bug").is_ok());
-        assert!(assistant.validate_conventional_commit("docs(readme): update installation guide").is_ok());
-        
+        assert!(assistant
+            .validate_conventional_commit("feat: add new feature")
+            .is_ok());
+        assert!(assistant
+            .validate_conventional_commit("fix(api): resolve bug")
+            .is_ok());
+        assert!(assistant
+            .validate_conventional_commit("docs(readme): update installation guide")
+            .is_ok());
+
         // 测试无效的提交信息
-        assert!(assistant.validate_conventional_commit("invalid message").is_err());
-        assert!(assistant.validate_conventional_commit("added new stuff").is_err());
+        assert!(assistant
+            .validate_conventional_commit("invalid message")
+            .is_err());
+        assert!(assistant
+            .validate_conventional_commit("added new stuff")
+            .is_err());
     }
 
     #[test]
@@ -322,7 +338,9 @@ mod tests {
         );
 
         assert!(message.formatted.starts_with("feat: user authentication"));
-        assert!(message.formatted.contains("Implement user login and registration"));
+        assert!(message
+            .formatted
+            .contains("Implement user login and registration"));
         assert!(message.formatted.contains("src/auth.rs"));
         assert!(message.formatted.contains("tests/auth_test.rs"));
     }
