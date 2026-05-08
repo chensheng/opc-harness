@@ -378,43 +378,23 @@ impl AgentWorker {
         app_handle: &Option<AppHandle>,
         last_log_timestamps: &Arc<RwLock<std::collections::HashMap<String, u64>>>,
     ) -> Result<(), String> {
-        // 检查是否启用 Native Agent
-        let use_native_agent = std::env::var("VITE_USE_NATIVE_AGENT")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
+        // 使用 Native Coding Agent
+        log::info!("[AgentWorker:{}] 🚀 Using Native Coding Agent", agent_id);
 
-        if use_native_agent {
-            log::info!("[AgentWorker:{}] 🚀 Using Native Coding Agent", agent_id);
+        // 发送实时日志：Native Agent 启动
+        Self::send_ws_log_to_both_for_coding(
+            websocket_manager,
+            app_handle,
+            last_log_timestamps,
+            agent_id,
+            project_id,
+            "progress",
+            "🚀 启动 Native Coding Agent...",
+            Some("AgentWorker"),
+        )
+        .await;
 
-            // 发送实时日志：Native Agent 启动
-            Self::send_ws_log_to_both_for_coding(
-                websocket_manager,
-                app_handle,
-                last_log_timestamps,
-                agent_id,
-                project_id,
-                "progress",
-                "🚀 启动 Native Coding Agent...",
-                Some("AgentWorker"),
-            )
-            .await;
-
-            return Self::execute_native_agent(
-                agent_id,
-                story,
-                project_id,
-                websocket_manager,
-                worktree_manager,
-                app_handle,
-                last_log_timestamps,
-            )
-            .await;
-        }
-
-        // 降级方案：使用 CLI Agent
-        log::info!("[AgentWorker:{}] 📦 Using CLI-based Coding Agent", agent_id);
-
-        Self::execute_cli_agent(
+        Self::execute_native_agent(
             agent_id,
             story,
             project_id,

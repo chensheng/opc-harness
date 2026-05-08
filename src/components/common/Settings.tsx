@@ -1,4 +1,4 @@
-import { Moon, Sun, Monitor, Globe, Save, Cpu } from 'lucide-react'
+import { Moon, Sun, Monitor, Globe, Save } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useAppStore } from '@/stores'
 import { ToolDetector } from './ToolDetector'
@@ -112,53 +112,6 @@ export function Settings() {
             />
             <span>启用自动保存</span>
           </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Cpu className="w-5 h-5" />
-            Native Coding Agent
-          </CardTitle>
-          <CardDescription>选择编码智能体模式（需要重启应用生效）</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <label className="flex items-start gap-3 cursor-pointer p-3 border rounded-lg hover:bg-accent transition-colors">
-              <input
-                type="radio"
-                name="agentMode"
-                checked={!settings.useNativeAgent}
-                onChange={() => setSettings({ useNativeAgent: false })}
-                className="mt-1 w-4 h-4 text-primary focus:ring-primary"
-              />
-              <div className="flex-1">
-                <div className="font-medium">CLI Agent（传统模式）</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  基于 Kimi CLI 的编码智能体，稳定性高，兼容性好
-                </div>
-              </div>
-            </label>
-            <label className="flex items-start gap-3 cursor-pointer p-3 border rounded-lg hover:bg-accent transition-colors">
-              <input
-                type="radio"
-                name="agentMode"
-                checked={settings.useNativeAgent}
-                onChange={() => setSettings({ useNativeAgent: true })}
-                className="mt-1 w-4 h-4 text-primary focus:ring-primary"
-              />
-              <div className="flex-1">
-                <div className="font-medium">Native Agent（推荐）</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  纯 Rust 实现的编码智能体，性能提升 40-60%，支持详细日志和 Token 统计
-                </div>
-              </div>
-            </label>
-            <div className="text-xs text-muted-foreground bg-muted p-3 rounded">
-              💡 提示：切换模式后需要重启应用才能生效。当前配置已保存到本地存储。
-            </div>
-          </div>
         </CardContent>
       </Card>
 

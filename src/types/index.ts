@@ -228,8 +228,6 @@ export interface AppSettings {
   language: 'zh' | 'en'
   autoSave: boolean
   defaultAIProvider?: string
-  // Native Agent 配置
-  useNativeAgent: boolean // 是否启用 Native Coding Agent
 }
 
 // HITL Checkpoint Types (Vibe Coding)
