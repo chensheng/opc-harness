@@ -30,12 +30,16 @@ export interface CheckpointData {
   id: string
   agent_id: string
   story_id: string
-  checkpoint_type: 'code_generation' | 'dependency_installation' | 'test_execution' | 'commit_review'
+  checkpoint_type:
+    | 'code_generation'
+    | 'dependency_installation'
+    | 'test_execution'
+    | 'commit_review'
   status: 'pending' | 'approved' | 'rejected' | 'timed_out'
   data: {
     title: string
     description: string
-    payload: any
+    payload?: Record<string, unknown>
     timeout_secs: number
   }
   created_at: string
@@ -164,9 +168,7 @@ export function CheckpointApprovalDialog({
               <Badge variant="outline" className={typeInfo.color}>
                 {typeInfo.label}
               </Badge>
-              <Badge
-                variant={checkpoint.status === 'pending' ? 'default' : 'secondary'}
-              >
+              <Badge variant={checkpoint.status === 'pending' ? 'default' : 'secondary'}>
                 {checkpoint.status === 'pending' ? '待审批' : checkpoint.status}
               </Badge>
             </div>
@@ -298,7 +300,7 @@ export function CheckpointApprovalDialog({
           <Textarea
             placeholder="请输入您的反馈意见..."
             value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
+            onChange={e => setFeedback(e.target.value)}
             rows={3}
             disabled={isSubmitting || isTimedOut}
           />
@@ -322,10 +324,7 @@ export function CheckpointApprovalDialog({
             <XCircle className="w-4 h-4 mr-2" />
             拒绝
           </Button>
-          <Button
-            onClick={handleApprove}
-            disabled={isSubmitting || isTimedOut}
-          >
+          <Button onClick={handleApprove} disabled={isSubmitting || isTimedOut}>
             <CheckCircle className="w-4 h-4 mr-2" />
             批准
           </Button>

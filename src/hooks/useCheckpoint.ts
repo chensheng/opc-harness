@@ -6,12 +6,16 @@ export interface CheckpointData {
   id: string
   agent_id: string
   story_id: string
-  checkpoint_type: 'code_generation' | 'dependency_installation' | 'test_execution' | 'commit_review'
+  checkpoint_type:
+    | 'code_generation'
+    | 'dependency_installation'
+    | 'test_execution'
+    | 'commit_review'
   status: 'pending' | 'approved' | 'rejected' | 'timed_out'
   data: {
     title: string
     description: string
-    payload?: any
+    payload?: Record<string, unknown>
   }
   user_decision?: 'approve' | 'reject'
   user_feedback?: string
@@ -36,7 +40,7 @@ export function useCheckpoint(agentId?: string) {
     autoConnect: !!agentId,
     onMessage: message => {
       if (message.type === 'notification') {
-        handleNotification(message.payload as any)
+        handleNotification(message.payload as Record<string, unknown>)
       }
     },
   })
@@ -45,7 +49,7 @@ export function useCheckpoint(agentId?: string) {
    * 处理 WebSocket 通知
    */
   const handleNotification = useCallback(
-    (payload: any) => {
+    (payload: Record<string, unknown>) => {
       switch (payload.event) {
         case 'checkpoint_created': {
           // 收到新的 checkpoint
@@ -66,6 +70,7 @@ export function useCheckpoint(agentId?: string) {
             setCurrentCheckpoint(null)
           }
           break
+        }
 
         case 'checkpoint_timeout': {
           // checkpoint 超时
