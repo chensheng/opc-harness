@@ -1,6 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useWebSocket } from './useWebSocket'
-import type { CheckpointData } from '@/components/vibe-coding/CheckpointApprovalDialog'
+
+// Checkpoint 类型定义（内联，避免架构违规）
+export interface CheckpointData {
+  id: string
+  agent_id: string
+  story_id: string
+  checkpoint_type: 'code_generation' | 'dependency_installation' | 'test_execution' | 'commit_review'
+  status: 'pending' | 'approved' | 'rejected' | 'timed_out'
+  data: {
+    title: string
+    description: string
+    payload?: any
+  }
+  user_decision?: 'approve' | 'reject'
+  user_feedback?: string
+  created_at: string
+  resolved_at?: string
+  expires_at?: string
+}
 
 /**
  * Checkpoint Hook - 管理 HITL Checkpoint 的实时通信和 API 调用
@@ -13,7 +31,7 @@ export function useCheckpoint(agentId?: string) {
 
   // WebSocket 连接（假设后端 WebSocket 服务器地址）
   const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws'
-  const { connected, subscribe, sendMessage } = useWebSocket({
+  const { connected, subscribe } = useWebSocket({
     url: wsUrl,
     autoConnect: !!agentId,
     onMessage: message => {
@@ -26,39 +44,44 @@ export function useCheckpoint(agentId?: string) {
   /**
    * 处理 WebSocket 通知
    */
-  const handleNotification = useCallback((payload: any) => {
-    switch (payload.event) {
-      case 'checkpoint_created':
-        // 收到新的 checkpoint
-        const newCheckpoint = payload.data as CheckpointData
-        setPendingCheckpoints(prev => [...prev, newCheckpoint])
-        // 如果当前没有正在处理的 checkpoint，设置为当前
-        if (!currentCheckpoint) {
-          setCurrentCheckpoint(newCheckpoint)
+  const handleNotification = useCallback(
+    (payload: any) => {
+      switch (payload.event) {
+        case 'checkpoint_created': {
+          // 收到新的 checkpoint
+          const newCheckpoint = payload.data as CheckpointData
+          setPendingCheckpoints(prev => [...prev, newCheckpoint])
+          // 如果当前没有正在处理的 checkpoint，设置为当前
+          if (!currentCheckpoint) {
+            setCurrentCheckpoint(newCheckpoint)
+          }
+          break
         }
-        break
 
-      case 'checkpoint_resolved':
-        // checkpoint 已解决，从待处理列表中移除
-        const resolvedId = payload.checkpoint_id
-        setPendingCheckpoints(prev => prev.filter(cp => cp.id !== resolvedId))
-        if (currentCheckpoint?.id === resolvedId) {
-          setCurrentCheckpoint(null)
+        case 'checkpoint_resolved': {
+          // checkpoint 已解决，从待处理列表中移除
+          const resolvedId = payload.checkpoint_id
+          setPendingCheckpoints(prev => prev.filter(cp => cp.id !== resolvedId))
+          if (currentCheckpoint?.id === resolvedId) {
+            setCurrentCheckpoint(null)
+          }
+          break
+
+        case 'checkpoint_timeout': {
+          // checkpoint 超时
+          const timeoutId = payload.checkpoint_id
+          setPendingCheckpoints(prev =>
+            prev.map(cp => (cp.id === timeoutId ? { ...cp, status: 'timed_out' } : cp))
+          )
+          break
         }
-        break
 
-      case 'checkpoint_timeout':
-        // checkpoint 超时
-        const timeoutId = payload.checkpoint_id
-        setPendingCheckpoints(prev =>
-          prev.map(cp => (cp.id === timeoutId ? { ...cp, status: 'timed_out' } : cp))
-        )
-        break
-
-      default:
-        console.log('[Checkpoint] Unknown notification:', payload)
-    }
-  }, [currentCheckpoint])
+        default:
+          console.log('[Checkpoint] Unknown notification:', payload)
+      }
+    },
+    [currentCheckpoint]
+  )
 
   /**
    * 订阅 checkpoint 事件
