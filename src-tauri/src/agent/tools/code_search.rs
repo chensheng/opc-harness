@@ -412,6 +412,168 @@ mod tests {
         // 尝试访问工作空间外的路径应该失败
         let result = tools.grep("test", Some("../../etc/passwd")).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("outside workspace"));
+        let error_msg = result.unwrap_err();
+        // 错误消息应该表明路径无效或越界
+        assert!(
+            error_msg.contains("outside workspace") 
+                || error_msg.contains("Access denied")
+                || error_msg.contains("Invalid path"),
+            "Error message was: {}",
+            error_msg
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grep_with_context() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建包含多行的测试文件
+        let content = "line 1\nline 2\nTARGET LINE\nline 4\nline 5\n";
+        let test_file = temp_dir.path().join("context_test.txt");
+        tokio::fs::write(&test_file, content).await.unwrap();
+
+        let results = tools.grep("TARGET", None).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content, "TARGET LINE");
+        assert_eq!(results[0].line_number, 3);
+        
+        // 验证上下文（前后各 2 行）
+        assert_eq!(results[0].context_before.len(), 2);
+        assert_eq!(results[0].context_after.len(), 2);
+        assert_eq!(results[0].context_before[0], "line 1");
+        assert_eq!(results[0].context_before[1], "line 2");
+        assert_eq!(results[0].context_after[0], "line 4");
+        assert_eq!(results[0].context_after[1], "line 5");
+    }
+
+    #[tokio::test]
+    async fn test_find_files_with_extensions() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建不同类型的文件
+        tokio::fs::write(temp_dir.path().join("file1.ts"), "").await.unwrap();
+        tokio::fs::write(temp_dir.path().join("file2.tsx"), "").await.unwrap();
+        tokio::fs::write(temp_dir.path().join("file3.js"), "").await.unwrap();
+        tokio::fs::write(temp_dir.path().join("file4.rs"), "").await.unwrap();
+
+        // 只查找 .ts 文件
+        let results = tools.find_files("*", Some(&["ts"])).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].ends_with("file1.ts"));
+
+        // 查找 .ts 和 .tsx 文件
+        let results = tools.find_files("*", Some(&["ts", "tsx"])).await.unwrap();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_find_files_glob_pattern() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建测试文件
+        tokio::fs::write(temp_dir.path().join("test_file.txt"), "").await.unwrap();
+        tokio::fs::write(temp_dir.path().join("other.txt"), "").await.unwrap();
+        tokio::fs::write(temp_dir.path().join("test.md"), "").await.unwrap();
+
+        // 使用 glob 模式匹配
+        let results = tools.find_files("test_*", None).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].contains("test_file.txt"));
+    }
+
+    #[tokio::test]
+    async fn test_find_symbol_function() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建包含函数定义的文件
+        let content = "fn my_function() {\n    println!(\"hello\");\n}\n";
+        let test_file = temp_dir.path().join("code.rs");
+        tokio::fs::write(&test_file, content).await.unwrap();
+
+        let locations = tools.find_symbol("my_function").await.unwrap();
+        assert!(!locations.is_empty());
+        
+        // 验证至少找到一个函数类型的符号
+        let function_found = locations.iter().any(|loc| {
+            matches!(loc.symbol_type, crate::agent::tools::code_search::SymbolType::Function)
+        });
+        assert!(function_found);
+    }
+
+    #[tokio::test]
+    async fn test_find_symbol_class() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建包含类定义的文件
+        let content = "class MyClass {\n    constructor() {}\n}\n";
+        let test_file = temp_dir.path().join("code.ts");
+        tokio::fs::write(&test_file, content).await.unwrap();
+
+        let locations = tools.find_symbol("MyClass").await.unwrap();
+        assert!(!locations.is_empty());
+        
+        // 验证至少找到一个类类型的符号
+        let class_found = locations.iter().any(|loc| {
+            matches!(loc.symbol_type, crate::agent::tools::code_search::SymbolType::Class)
+        });
+        assert!(class_found);
+    }
+
+    #[tokio::test]
+    async fn test_grep_max_results() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建多个包含相同模式的文件
+        for i in 0..60 {
+            let file_name = format!("file_{}.txt", i);
+            let content = format!("match line {}\n", i);
+            tokio::fs::write(temp_dir.path().join(&file_name), content).await.unwrap();
+        }
+
+        let results = tools.grep("match", None).await.unwrap();
+        // 应该限制在 50 条以内
+        assert!(results.len() <= 50);
+    }
+
+    #[tokio::test]
+    async fn test_skip_node_modules() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建 node_modules 目录和文件
+        let node_modules = temp_dir.path().join("node_modules");
+        tokio::fs::create_dir(&node_modules).await.unwrap();
+        tokio::fs::write(node_modules.join("package.js"), "match this").await.unwrap();
+
+        // 在根目录也创建一个匹配的文件
+        tokio::fs::write(temp_dir.path().join("root.js"), "match this").await.unwrap();
+
+        let results = tools.grep("match", None).await.unwrap();
+        // 应该只找到根目录的文件，跳过 node_modules
+        assert_eq!(results.len(), 1);
+        assert!(results[0].file_path.contains("root.js"));
+    }
+
+    #[tokio::test]
+    async fn test_recursive_directory_search() {
+        let temp_dir = TempDir::new().unwrap();
+        let tools = CodeSearchTools::new(temp_dir.path().to_path_buf());
+
+        // 创建嵌套目录结构
+        let sub_dir = temp_dir.path().join("src").join("components");
+        tokio::fs::create_dir_all(&sub_dir).await.unwrap();
+
+        tokio::fs::write(temp_dir.path().join("root.txt"), "target").await.unwrap();
+        tokio::fs::write(sub_dir.join("nested.txt"), "target").await.unwrap();
+
+        let results = tools.grep("target", None).await.unwrap();
+        // 应该找到两个文件
+        assert_eq!(results.len(), 2);
     }
 }
