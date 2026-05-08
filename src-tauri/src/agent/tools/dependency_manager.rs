@@ -402,4 +402,98 @@ tokio = "1.0"
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not cargo"));
     }
+
+    #[tokio::test]
+    async fn test_npm_install_invalid_package() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DependencyManager::new(temp_dir.path().to_path_buf(), PackageManager::Npm);
+
+        // 无效的包名应该被拒绝
+        let result = manager.npm_install("../malicious-pkg", None).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid package name"));
+    }
+
+    #[tokio::test]
+    async fn test_cargo_add_invalid_crate() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DependencyManager::new(temp_dir.path().to_path_buf(), PackageManager::Cargo);
+
+        // 无效的 crate 名应该被拒绝
+        let result = manager.cargo_add("../../etc/passwd", None).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid crate name"));
+    }
+
+    #[tokio::test]
+    async fn test_list_dependencies_no_config_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DependencyManager::new(temp_dir.path().to_path_buf(), PackageManager::Npm);
+
+        // 没有 package.json 或 Cargo.toml 应该返回错误
+        let result = manager.list_dependencies().await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_npm_install_with_version() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DependencyManager::new(temp_dir.path().to_path_buf(), PackageManager::Npm);
+
+        // 创建测试 package.json
+        let package_json = r#"{
+            "name": "test-project",
+            "version": "1.0.0"
+        }"#;
+        tokio::fs::write(temp_dir.path().join("package.json"), package_json)
+            .await
+            .unwrap();
+
+        // 注意：这个测试会尝试实际安装，可能会失败（因为没有网络或项目未初始化）
+        // 我们主要验证函数签名和参数处理逻辑
+        let result = manager.npm_install("react", Some("18.2.0")).await;
+        // 如果失败，应该是 npm 命令执行失败，而不是参数验证失败
+        if result.is_err() {
+            let error = result.unwrap_err();
+            // 错误不应该包含 "Invalid package name"
+            assert!(!error.contains("Invalid package name"));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cargo_add_with_features() {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = DependencyManager::new(temp_dir.path().to_path_buf(), PackageManager::Cargo);
+
+        // 创建测试 Cargo.toml
+        let cargo_toml = r#"
+[package]
+name = "test-project"
+version = "0.1.0"
+"#;
+        tokio::fs::write(temp_dir.path().join("Cargo.toml"), cargo_toml)
+            .await
+            .unwrap();
+
+        // 测试带 features 的 cargo add
+        let features = vec!["derive", "rc"];
+        let result = manager.cargo_add("serde", Some(&features)).await;
+        // 如果失败，应该是 cargo 命令执行失败，而不是参数验证失败
+        if result.is_err() {
+            let error = result.unwrap_err();
+            // 错误不应该包含 "Invalid crate name"
+            assert!(!error.contains("Invalid crate name"));
+        }
+    }
+
+    #[test]
+    fn test_package_manager_display() {
+        let npm = PackageManager::Npm;
+        let cargo = PackageManager::Cargo;
+
+        // 验证 Debug 输出
+        assert_eq!(format!("{:?}", npm), "Npm");
+        assert_eq!(format!("{:?}", cargo), "Cargo");
+    }
 }

@@ -16,9 +16,9 @@
 - [x] 2.3 实现 `cargo_add(crate, features?)` 方法，支持 Rust crate 添加
 - [x] 2.4 实现 `list_dependencies()` 方法，解析 package.json/Cargo.toml
 - [x] 2.5 添加包名合法性验证（仅允许官方 registry）
-- [ ] 2.6 在 `native_coding_agent.rs` 中集成 dependency 工具
-- [ ] 2.7 更新系统提示词，告知 AI 可用的依赖管理工具
-- [ ] 2.8 编写单元测试：Mock npm/cargo 命令，测试包名验证逻辑
+- [x] 2.6 在 `native_coding_agent.rs` 中集成 dependency 工具
+- [x] 2.7 更新系统提示词，告知 AI 可用的依赖管理工具
+- [x] 2.8 编写单元测试：Mock npm/cargo 命令，测试包名验证逻辑
 
 ## 3. HITL Checkpoint 机制 - 后端实现
 

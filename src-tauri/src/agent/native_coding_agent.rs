@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use tokio::time::{timeout, Duration};
 
-use crate::agent::tools::{CodeSearchTools, FileSystemTools, GitTools, QualityTools};
+use crate::agent::tools::{CodeSearchTools, DependencyManager, FileSystemTools, GitTools, PackageManager, QualityTools};
 use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
 
 /// Native Coding Agent 配置
@@ -40,6 +40,10 @@ pub struct NativeCodingAgent {
     quality_tools: QualityTools,
     /// 代码搜索工具集
     code_search_tools: CodeSearchTools,
+    /// 依赖管理工具集（npm）
+    npm_dependency_manager: DependencyManager,
+    /// 依赖管理工具集（cargo）
+    cargo_dependency_manager: DependencyManager,
     /// 对话历史
     conversation_history: Vec<Message>,
     /// 工具调用统计
@@ -63,7 +67,9 @@ impl NativeCodingAgent {
             fs_tools: FileSystemTools::new(workspace_path.clone()),
             git_tools: GitTools::new(workspace_path.clone()),
             quality_tools: QualityTools::new(workspace_path.clone(), timeout_secs),
-            code_search_tools: CodeSearchTools::new(workspace_path),
+            code_search_tools: CodeSearchTools::new(workspace_path.clone()),
+            npm_dependency_manager: DependencyManager::new(workspace_path.clone(), PackageManager::Npm),
+            cargo_dependency_manager: DependencyManager::new(workspace_path, PackageManager::Cargo),
             conversation_history: Vec::new(),
             tool_calls_count: 0,
             total_prompt_tokens: 0,
@@ -213,6 +219,9 @@ impl NativeCodingAgent {
 11. code_search_grep - 正则表达式搜索代码（参数：pattern, path?）
 12. code_search_find_files - 查找文件（参数：pattern, extensions?）
 13. code_search_find_symbol - 查找符号定义（参数：symbol_name）
+14. npm_install - 安装 npm 包（参数：package, version?）
+15. cargo_add - 添加 Rust crate（参数：crate, features?）
+16. list_dependencies - 列出项目依赖
 
 **工作流程**：
 1. 首先使用 read_file 和 list_directory 了解项目结构
@@ -553,6 +562,81 @@ impl NativeCodingAgent {
                     }
                     if locations.len() > 10 {
                         output.push_str(&format!("... and {} more locations", locations.len() - 10));
+                    }
+                    Ok(output)
+                }
+            }
+            // Dependency Management Tools
+            "npm_install" => {
+                let package = tool_call
+                    .arguments
+                    .get("package")
+                    .ok_or_else(|| AgentError::ToolError("Missing 'package' argument".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| AgentError::ToolError("'package' must be a string".to_string()))?;
+                let version = tool_call.arguments.get("version").and_then(|v| v.as_str());
+            
+                let result = self
+                    .npm_dependency_manager
+                    .npm_install(package, version)
+                    .await
+                    .map_err(|e: String| AgentError::ToolError(e))?;
+            
+                Ok(format!(
+                    "Successfully installed {}@{}\n{}",
+                    result.package_name, result.installed_version, result.message
+                ))
+            }
+            "cargo_add" => {
+                let crate_name = tool_call
+                    .arguments
+                    .get("crate")
+                    .ok_or_else(|| AgentError::ToolError("Missing 'crate' argument".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| AgentError::ToolError("'crate' must be a string".to_string()))?;
+                let features = tool_call
+                    .arguments
+                    .get("features")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str())
+                            .collect::<Vec<&str>>()
+                    });
+            
+                let result = self
+                    .cargo_dependency_manager
+                    .cargo_add(crate_name, features.as_deref())
+                    .await
+                    .map_err(|e: String| AgentError::ToolError(e))?;
+            
+                Ok(format!(
+                    "Successfully added {} ({})\n{}",
+                    result.package_name, result.installed_version, result.message
+                ))
+            }
+            "list_dependencies" => {
+                // 根据项目类型自动选择包管理器
+                let package_json = self.config.workspace_path.join("package.json");
+                let cargo_toml = self.config.workspace_path.join("Cargo.toml");
+            
+                let deps = if package_json.exists() {
+                    self.npm_dependency_manager.list_dependencies().await.map_err(|e: String| AgentError::ToolError(e))?
+                } else if cargo_toml.exists() {
+                    self.cargo_dependency_manager.list_dependencies().await.map_err(|e: String| AgentError::ToolError(e))?
+                } else {
+                    return Err(AgentError::ToolError("No package.json or Cargo.toml found".to_string()));
+                };
+            
+                if deps.is_empty() {
+                    Ok("No dependencies found".to_string())
+                } else {
+                    let mut output = format!("Found {} dependencies:\n\n", deps.len());
+                    for (name, version) in deps.iter().take(30) {
+                        output.push_str(&format!("- {}@{}\n", name, version));
+                    }
+                    if deps.len() > 30 {
+                        output.push_str(&format!("... and {} more", deps.len() - 30));
                     }
                     Ok(output)
                 }
