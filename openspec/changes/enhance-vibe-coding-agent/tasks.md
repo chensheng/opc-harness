@@ -5,8 +5,8 @@
 - [x] 1.3 实现 `find_files(pattern, extensions?)` 方法，支持 glob 模式文件查找
 - [x] 1.4 实现 `find_symbol(symbol_name)` 方法，支持符号定位（可选：使用 tree-sitter）
 - [x] 1.5 添加路径安全验证，防止访问工作空间外的文件
-- [ ] 1.6 在 `native_coding_agent.rs` 中集成 code_search 工具到 execute_tool_call
-- [ ] 1.7 更新系统提示词，告知 AI 可用的代码搜索工具
+- [x] 1.6 在 `native_coding_agent.rs` 中集成 code_search 工具到 execute_tool_call
+- [x] 1.7 更新系统提示词，告知 AI 可用的代码搜索工具
 - [ ] 1.8 编写单元测试：测试 grep、find_files、路径安全检查
 
 ## 2. 工具集扩展 - 依赖管理

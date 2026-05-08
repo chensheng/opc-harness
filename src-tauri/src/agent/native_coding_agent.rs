@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use tokio::time::{timeout, Duration};
 
-use crate::agent::tools::{FileSystemTools, GitTools, QualityTools};
+use crate::agent::tools::{CodeSearchTools, FileSystemTools, GitTools, QualityTools};
 use crate::ai::{AIProvider, AIProviderType, ChatRequest, Message};
 
 /// Native Coding Agent 配置
@@ -38,6 +38,8 @@ pub struct NativeCodingAgent {
     git_tools: GitTools,
     /// 质量检查工具集
     quality_tools: QualityTools,
+    /// 代码搜索工具集
+    code_search_tools: CodeSearchTools,
     /// 对话历史
     conversation_history: Vec<Message>,
     /// 工具调用统计
@@ -60,7 +62,8 @@ impl NativeCodingAgent {
             ai_provider,
             fs_tools: FileSystemTools::new(workspace_path.clone()),
             git_tools: GitTools::new(workspace_path.clone()),
-            quality_tools: QualityTools::new(workspace_path, timeout_secs),
+            quality_tools: QualityTools::new(workspace_path.clone(), timeout_secs),
+            code_search_tools: CodeSearchTools::new(workspace_path),
             conversation_history: Vec::new(),
             tool_calls_count: 0,
             total_prompt_tokens: 0,
@@ -207,6 +210,9 @@ impl NativeCodingAgent {
 8. run_linter - 运行 ESLint 检查
 9. run_typescript_check - 运行 TypeScript 类型检查
 10. run_tests - 运行测试
+11. code_search_grep - 正则表达式搜索代码（参数：pattern, path?）
+12. code_search_find_files - 查找文件（参数：pattern, extensions?）
+13. code_search_find_symbol - 查找符号定义（参数：symbol_name）
 
 **工作流程**：
 1. 首先使用 read_file 和 list_directory 了解项目结构
@@ -429,6 +435,127 @@ impl NativeCodingAgent {
                     "Test result: {} failures\n{}",
                     failure_count, report
                 ))
+            }
+            // Code Search Tools
+            "code_search_grep" => {
+                let pattern = tool_call
+                    .arguments
+                    .get("pattern")
+                    .ok_or_else(|| AgentError::ToolError("Missing 'pattern' argument".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| AgentError::ToolError("'pattern' must be a string".to_string()))?;
+                let path = tool_call.arguments.get("path").and_then(|v| v.as_str());
+            
+                let matches = self
+                    .code_search_tools
+                    .grep(pattern, path)
+                    .await
+                    .map_err(|e: String| AgentError::ToolError(e))?;
+            
+                if matches.is_empty() {
+                    Ok("No matches found".to_string())
+                } else {
+                    let mut output = format!("Found {} matches:\n\n", matches.len());
+                    for m in matches.iter().take(10) {
+                        // 最多显示 10 条
+                        output.push_str(&format!(
+                            "File: {}:{}\n  {}\n",
+                            m.file_path, m.line_number, m.content
+                        ));
+                        if !m.context_before.is_empty() {
+                            for line in &m.context_before {
+                                output.push_str(&format!("  {}\n", line));
+                            }
+                        }
+                        if !m.context_after.is_empty() {
+                            for line in &m.context_after {
+                                output.push_str(&format!("  {}\n", line));
+                            }
+                        }
+                        output.push('\n');
+                    }
+                    if matches.len() > 10 {
+                        output.push_str(&format!("... and {} more matches", matches.len() - 10));
+                    }
+                    Ok(output)
+                }
+            }
+            "code_search_find_files" => {
+                let pattern = tool_call
+                    .arguments
+                    .get("pattern")
+                    .ok_or_else(|| AgentError::ToolError("Missing 'pattern' argument".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| AgentError::ToolError("'pattern' must be a string".to_string()))?;
+                let extensions = tool_call
+                    .arguments
+                    .get("extensions")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str())
+                            .collect::<Vec<&str>>()
+                    });
+            
+                let files = self
+                    .code_search_tools
+                    .find_files(pattern, extensions.as_deref())
+                    .await
+                    .map_err(|e: String| AgentError::ToolError(e))?;
+            
+                if files.is_empty() {
+                    Ok("No files found".to_string())
+                } else {
+                    let mut output = format!("Found {} files:\n\n", files.len());
+                    for file in files.iter().take(20) {
+                        // 最多显示 20 个
+                        output.push_str(&format!("- {}\n", file));
+                    }
+                    if files.len() > 20 {
+                        output.push_str(&format!("... and {} more files", files.len() - 20));
+                    }
+                    Ok(output)
+                }
+            }
+            "code_search_find_symbol" => {
+                let symbol_name = tool_call
+                    .arguments
+                    .get("symbol_name")
+                    .ok_or_else(|| {
+                        AgentError::ToolError("Missing 'symbol_name' argument".to_string())
+                    })?
+                    .as_str()
+                    .ok_or_else(|| {
+                        AgentError::ToolError("'symbol_name' must be a string".to_string())
+                    })?;
+            
+                let locations = self
+                    .code_search_tools
+                    .find_symbol(symbol_name)
+                    .await
+                    .map_err(|e: String| AgentError::ToolError(e))?;
+            
+                if locations.is_empty() {
+                    Ok(format!("Symbol '{}' not found", symbol_name))
+                } else {
+                    let mut output = format!("Found {} locations for symbol '{}':\n\n", locations.len(), symbol_name);
+                    for loc in locations.iter().take(10) {
+                        let symbol_type = match loc.symbol_type {
+                            crate::agent::tools::code_search::SymbolType::Function => "function",
+                            crate::agent::tools::code_search::SymbolType::Class => "class",
+                            crate::agent::tools::code_search::SymbolType::Variable => "variable",
+                            crate::agent::tools::code_search::SymbolType::Unknown => "unknown",
+                        };
+                        output.push_str(&format!(
+                            "- {} ({}) at {}:{}\n",
+                            symbol_name, symbol_type, loc.file_path, loc.line_number
+                        ));
+                    }
+                    if locations.len() > 10 {
+                        output.push_str(&format!("... and {} more locations", locations.len() - 10));
+                    }
+                    Ok(output)
+                }
             }
             _ => Err(AgentError::ToolError(format!(
                 "Unknown tool: {}",
